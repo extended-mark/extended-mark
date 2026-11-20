@@ -1,0 +1,37 @@
+{
+  "name": "@extended-mark/wasm",
+  "version": "0.3.0",
+  "description": "The Extended Mark compiler as WebAssembly, for a real-time target: a document's text in, the IR xtmd build writes out, in the browser",
+  "license": "MIT",
+  "homepage": "https://github.com/extended-mark/extended-mark",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/extended-mark/extended-mark.git",
+    "directory": "compiler/npm/wasm"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./xtmd.wasm": "./xtmd.wasm"
+  },
+  "files": [
+    "dist",
+    "xtmd.wasm"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "wasm": "../../wasm/build.sh",
+    "build": "tsc -p .",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "xtmd": "file:../xtmd",
+    "@types/node": "20.19.43",
+    "typescript": "5.9.3"
+  }
+}

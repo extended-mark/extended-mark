@@ -1,0 +1,11 @@
+{
+  "name": "@extended-mark/cli-darwin-x64",
+  "version": "0.3.0",
+  "description": "The xtmd binary for macOS on Intel",
+  "license": "MIT",
+  "homepage": "https://github.com/extended-mark/extended-mark",
+  "repository": { "type": "git", "url": "git+https://github.com/extended-mark/extended-mark.git", "directory": "compiler/npm/xtmd/platforms/darwin-x64" },
+  "os": ["darwin"],
+  "cpu": ["x64"],
+  "files": ["bin"]
+}

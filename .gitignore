@@ -1,0 +1,9 @@
+target/
+node_modules/
+dist/
+*.ir.json
+!checks/**/*.ir.json
+.DS_Store
+!schemas/examples/*.ir.json
+core.[0-9]*
+compiler/npm/wasm/xtmd.wasm

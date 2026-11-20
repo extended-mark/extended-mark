@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+members = [
+    "cli",
+    "syntax",
+    "ir",
+    "check",
+    "lower",
+    "eval",
+    "markdown",
+    "migrate",
+    "live",
+    "wasm",
+    "schemagen",
+    "../ide/lsp",
+    "../targets/examples/rust/runtime",
+    "../targets/examples/rust/egui",
+    "../targets/examples/rust/egui-live",
+    "../targets/examples/misc/android/xtmd",
+    "../targets/examples/misc/android/xtmd-live",
+]
+
+[workspace.package]
+version = "0.3.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/extended-mark/extended-mark"
+
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+lto = "thin"
