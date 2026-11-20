@@ -1,0 +1,11 @@
+{
+  "name": "@extended-mark/cli-win32-x64",
+  "version": "0.3.0",
+  "description": "The xtmd binary for Windows on x64",
+  "license": "MIT",
+  "homepage": "https://github.com/extended-mark/extended-mark",
+  "repository": { "type": "git", "url": "git+https://github.com/extended-mark/extended-mark.git", "directory": "compiler/npm/xtmd/platforms/win32-x64" },
+  "os": ["win32"],
+  "cpu": ["x64"],
+  "files": ["bin"]
+}

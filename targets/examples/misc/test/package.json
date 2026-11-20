@@ -1,0 +1,14 @@
+{
+  "name": "@extended-mark/test-target",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Extended Mark's test target: @extended-mark/runtime with no screen, fixed-size layout and switchable defects, for the target checks",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@extended-mark/runtime": "file:../../../published/runtime"
+  }
+}

@@ -1,0 +1,291 @@
+{
+  "name": "xtmd",
+  "displayName": "Extended Mark",
+  "description": "Extended Mark for VS Code: highlighting, errors as you type, hover, go to definition, outline, completion and formatting from xtmd's own language server, and a live preview drawn by VS Code's own widgets",
+  "version": "0.3.0",
+  "publisher": "extended-mark",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#151B26",
+    "theme": "dark"
+  },
+  "license": "MIT",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/extended-mark/extended-mark"
+  },
+  "engines": {
+    "vscode": "^1.91.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Formatters",
+    "Linters"
+  ],
+  "keywords": [
+    "extended mark",
+    "xtmd",
+    "markdown",
+    "widgets"
+  ],
+  "main": "./dist/node/extension.js",
+  "browser": "./dist/web/extension.js",
+  "activationEvents": [
+    "onLanguage:xtmd",
+    "onLanguage:xtmd-prose",
+    "onLanguage:xtmd-pack",
+    "workspaceContains:**/*.xtmd",
+    "workspaceContains:**/*.xtmdpack"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "xtmd",
+        "aliases": [
+          "Extended Mark",
+          "xtmd"
+        ],
+        "extensions": [
+          ".xtmd"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./media/xtmd-light.svg",
+          "dark": "./media/xtmd-dark.svg"
+        }
+      },
+      {
+        "id": "xtmd-prose",
+        "aliases": [
+          "Extended Mark (prose)"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./media/xtmd-light.svg",
+          "dark": "./media/xtmd-dark.svg"
+        }
+      },
+      {
+        "id": "xtmd-pack",
+        "aliases": [
+          "Extended Mark pack"
+        ],
+        "extensions": [
+          ".xtmdpack"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./media/xtmdpack-light.svg",
+          "dark": "./media/xtmdpack-dark.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "xtmd",
+        "scopeName": "source.xtmd",
+        "path": "./syntaxes/xtmd.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.frontmatter": "yaml"
+        }
+      },
+      {
+        "language": "xtmd-prose",
+        "scopeName": "text.xtmd.prose",
+        "path": "./syntaxes/xtmd-prose.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.frontmatter": "yaml"
+        }
+      },
+      {
+        "language": "xtmd-pack",
+        "scopeName": "source.xtmdpack",
+        "path": "./syntaxes/xtmdpack.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "xtmd.preview",
+        "title": "Open Preview to the Side",
+        "category": "Extended Mark",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "xtmd.previewHere",
+        "title": "Open Preview",
+        "category": "Extended Mark",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "xtmd.resetState",
+        "title": "Reset the Preview's $state",
+        "category": "Extended Mark"
+      },
+      {
+        "command": "xtmd.showIr",
+        "title": "Show the IR",
+        "category": "Extended Mark"
+      },
+      {
+        "command": "xtmd.showMarkdown",
+        "title": "Show as Markdown",
+        "category": "Extended Mark"
+      },
+      {
+        "command": "xtmd.checkFolder",
+        "title": "Check a Folder",
+        "category": "Extended Mark"
+      },
+      {
+        "command": "xtmd.migrate",
+        "title": "Migrate…",
+        "category": "Extended Mark"
+      },
+      {
+        "command": "xtmd.showLog",
+        "title": "Show the Log",
+        "category": "Extended Mark"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "xtmd.previewEditor",
+        "displayName": "Extended Mark Preview",
+        "selector": [
+          {
+            "filenamePattern": "*.xtmd"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "xtmd.preview",
+          "alt": "xtmd.previewHere",
+          "when": "(editorLangId == xtmd || editorLangId == xtmd-prose) && resourceExtname == .xtmd",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "xtmd.preview",
+          "when": "resourceExtname == .xtmd",
+          "group": "navigation"
+        },
+        {
+          "command": "xtmd.checkFolder",
+          "when": "explorerResourceIsFolder",
+          "group": "7_modification"
+        },
+        {
+          "command": "xtmd.migrate",
+          "when": "explorerResourceIsFolder || resourceExtname == .xtmd || resourceFilename =~ /\\.mkp\\.md$/",
+          "group": "7_modification"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "xtmd.preview",
+          "when": "editorLangId == xtmd || editorLangId == xtmd-prose"
+        },
+        {
+          "command": "xtmd.previewHere",
+          "when": "editorLangId == xtmd || editorLangId == xtmd-prose"
+        },
+        {
+          "command": "xtmd.resetState",
+          "when": "xtmd.previewOpen"
+        },
+        {
+          "command": "xtmd.showIr",
+          "when": "editorLangId =~ /^xtmd/"
+        },
+        {
+          "command": "xtmd.showMarkdown",
+          "when": "editorLangId == xtmd || editorLangId == xtmd-prose"
+        },
+        {
+          "command": "xtmd.checkFolder"
+        },
+        {
+          "command": "xtmd.migrate"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "xtmd.preview",
+          "when": "resourceExtname == .xtmd",
+          "group": "1_open"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "xtmd.previewHere",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorTextFocus && (editorLangId == xtmd || editorLangId == xtmd-prose)"
+      },
+      {
+        "command": "xtmd.preview",
+        "key": "ctrl+k v",
+        "mac": "cmd+k v",
+        "when": "editorTextFocus && (editorLangId == xtmd || editorLangId == xtmd-prose)"
+      }
+    ],
+    "configuration": {
+      "title": "Extended Mark",
+      "properties": {
+        "xtmd.preview.theme": {
+          "type": "string",
+          "enum": [
+            "editor",
+            "light",
+            "dark"
+          ],
+          "default": "editor",
+          "description": "The theme the preview draws the page in: the editor's, or light or dark whatever the editor's."
+        }
+      }
+    },
+    "jsonValidation": [
+      {
+        "fileMatch": "*.ir.json",
+        "url": "./dist/schemas/ir.schema.json"
+      },
+      {
+        "fileMatch": "*.rir.json",
+        "url": "./dist/schemas/rir.schema.json"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node build.mjs && node --test test/grammar.test.mjs test/language.test.mjs",
+    "vscode": "node build.mjs && node test/vscode.mjs",
+    "package": "node build.mjs && vsce package --no-dependencies --skip-license"
+  },
+  "devDependencies": {
+    "@extended-mark/dom": "file:../../targets/published/dom",
+    "@extended-mark/embed-live": "file:../../targets/published/bindings/embed-live",
+    "@extended-mark/live": "file:../../targets/published/bindings/live",
+    "@extended-mark/runtime": "file:../../targets/published/runtime",
+    "@extended-mark/wasm": "file:../../compiler/npm/wasm",
+    "@types/node": "20.19.43",
+    "@types/vscode": "1.91.0",
+    "@vscode/codicons": "0.0.46-24",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.1.0",
+    "esbuild": "0.28.2",
+    "ovsx": "1.3.0",
+    "playwright-core": "1.64.1",
+    "smol-toml": "1.9.1",
+    "typescript": "5.9.3",
+    "vscode-languageclient": "11.0.0",
+    "vscode-oniguruma": "2.0.1",
+    "vscode-textmate": "9.3.2"
+  }
+}

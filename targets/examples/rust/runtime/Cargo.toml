@@ -1,0 +1,27 @@
+[package]
+name = "xtmd-runtime"
+workspace = "../../../../compiler"
+description = "Extended Mark's native runtime: runs the IR the xtmd compiler writes, with transactions, $state, bindings, item identity, failures, layout and Markdown out. No drawing: the egui and Android targets draw its tree."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# an example target (targets/README.md): built and checked by CI, never published
+publish = false
+
+[lib]
+name = "xtmd_runtime"
+
+[[bin]]
+name = "xtmd_runtime_check"
+path = "src/bin/xtmd_runtime_check/main.rs"
+
+[dependencies]
+xtmd-ir = { path = "../../../../compiler/ir", version = "0.3.0" }
+xtmd-eval = { path = "../../../../compiler/eval", version = "0.3.0" }
+xtmd-markdown = { path = "../../../../compiler/markdown", version = "0.3.0" }
+serde_json.workspace = true
+
+[dev-dependencies]
+xtmd-check = { path = "../../../../compiler/check" }
+xtmd-lower = { path = "../../../../compiler/lower" }

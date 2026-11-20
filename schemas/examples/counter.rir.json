@@ -1,0 +1,217 @@
+{
+  "files": [
+    {
+      "declarations": [],
+      "imports": [],
+      "kind": "document",
+      "path": "schemas/examples/counter.xtmd",
+      "prose": [
+        {
+          "markdown": {
+            "holes": [
+              {
+                "get": {
+                  "name_span": [
+                    96,
+                    97
+                  ],
+                  "state": "n"
+                },
+                "span": [
+                  89,
+                  97
+                ],
+                "type": {
+                  "name": "core/number"
+                }
+              }
+            ],
+            "markdown": "# Counter\n\nThe count is ￼."
+          },
+          "span": [
+            63,
+            99
+          ]
+        },
+        {
+          "call": {
+            "args": [
+              {
+                "name": "label",
+                "name_span": [
+                  108,
+                  113
+                ],
+                "span": [
+                  108,
+                  121
+                ],
+                "target": "core/press.label",
+                "value": {
+                  "span": [
+                    116,
+                    121
+                  ],
+                  "text": "Add",
+                  "type": {
+                    "name": "core/text"
+                  }
+                }
+              },
+              {
+                "name": "click",
+                "name_span": [
+                  123,
+                  128
+                ],
+                "span": [
+                  123,
+                  164
+                ],
+                "target": "core/press.click",
+                "value": {
+                  "lambda": {
+                    "body": [
+                      {
+                        "set": {
+                          "place": {
+                            "get": {
+                              "name_span": [
+                                145,
+                                146
+                              ],
+                              "state": "n"
+                            },
+                            "span": [
+                              138,
+                              146
+                            ],
+                            "type": {
+                              "name": "core/number"
+                            }
+                          },
+                          "value": {
+                            "op": {
+                              "args": [
+                                {
+                                  "get": {
+                                    "name_span": [
+                                      156,
+                                      157
+                                    ],
+                                    "state": "n"
+                                  },
+                                  "span": [
+                                    149,
+                                    157
+                                  ],
+                                  "type": {
+                                    "name": "core/number"
+                                  }
+                                },
+                                {
+                                  "num": "1",
+                                  "span": [
+                                    160,
+                                    161
+                                  ],
+                                  "type": {
+                                    "name": "core/number"
+                                  }
+                                }
+                              ],
+                              "op": "+"
+                            },
+                            "span": [
+                              149,
+                              161
+                            ],
+                            "type": {
+                              "name": "core/number"
+                            }
+                          }
+                        },
+                        "span": [
+                          138,
+                          162
+                        ]
+                      }
+                    ],
+                    "params": []
+                  },
+                  "span": [
+                    131,
+                    164
+                  ],
+                  "type": {
+                    "name": "fn"
+                  }
+                }
+              }
+            ],
+            "name_span": [
+              102,
+              107
+            ],
+            "span": [
+              101,
+              165
+            ],
+            "widget": "core/press"
+          },
+          "span": [
+            101,
+            166
+          ]
+        }
+      ],
+      "sha256": "9adc48298447e634b4536955753875e5fd5bd4b61c8868ad95348ebb8757eb02",
+      "state": {
+        "comments": {
+          "before": [
+            "// the counter from the plan"
+          ]
+        },
+        "fields": [
+          {
+            "default": {
+              "num": "0",
+              "span": [
+                54,
+                55
+              ],
+              "type": {
+                "name": "core/number"
+              }
+            },
+            "id": "$state.n",
+            "mutable": true,
+            "name": "n",
+            "name_span": [
+              42,
+              43
+            ],
+            "span": [
+              42,
+              55
+            ],
+            "type": {
+              "name": "core/number"
+            }
+          }
+        ],
+        "span": [
+          29,
+          58
+        ]
+      }
+    }
+  ],
+  "levels": [
+    "core.draw",
+    "core.live"
+  ],
+  "xtmd": "0.3.0",
+  "packs": [],
+  "rir": 1
+}

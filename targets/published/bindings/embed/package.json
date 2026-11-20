@@ -1,0 +1,44 @@
+{
+  "name": "@extended-mark/embed",
+  "version": "0.3.0",
+  "description": "An Extended Mark page in an element, as every framework binding mounts it; and a page's Markdown as HTML for a server",
+  "license": "MIT",
+  "homepage": "https://github.com/extended-mark/extended-mark",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/extended-mark/extended-mark.git",
+    "directory": "targets/published/bindings/embed"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./html": {
+      "types": "./dist/html.d.ts",
+      "default": "./dist/html.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@extended-mark/dom": "file:../../dom",
+    "@extended-mark/runtime": "file:../../runtime"
+  },
+  "devDependencies": {
+    "xtmd": "file:../../../../compiler/npm/xtmd",
+    "@extended-mark/view": "file:../view",
+    "esbuild": "0.28.2",
+    "playwright-core": "1.64.1",
+    "typescript": "5.9.3"
+  }
+}

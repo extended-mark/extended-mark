@@ -1,0 +1,19 @@
+# The test target
+
+`@extended-mark/runtime` with no screen, for the target checks (plan tab 16). `xtmd target check test` starts
+`adapter.mjs` and drives it over JSON-RPC on standard input and output, one observation per step.
+
+- **Fixed sizes** (`sizes.mjs`): text is 8 wide per character and 20 high; a flex lines its
+  children up along its axis, and a grid, cell, sizing or spot stacks them, with their `gap` and
+  `pad`; anything else is 80 by 20; a plane given no width is 640 wide. So a check can say exactly
+  where a plane's spots land.
+- **Defects** (`defects.mjs`): `XTMD_TEST_DEFECT=<name>` switches one on. Each must be caught:
+  `xtmd target check test --defect <name> --expect-failures` passes only when some check fails.
+- **Value fns:** `can_draw_tex` draws all TeX; `moment.local` reads in UTC.
+
+```sh
+cd targets/published/runtime && npm install && npm run build
+cd ../../examples/misc/test && npm install
+cd ../../../.. && xtmd target check test          # every check
+cd targets/examples/misc/test && npm test         # every check, each defect, the protocol
+```
