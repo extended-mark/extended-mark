@@ -23,6 +23,12 @@ concurrency:
 env:
   CARGO_TERM_COLOR: never
   ZIGLANG: "0.17.1"
+  # a registry that stops answering for a while fails a download, and the run with it: cargo and
+  # npm try again more often, and wait longer, before they give up
+  CARGO_NET_RETRY: "10"
+  npm_config_fetch_retries: "5"
+  npm_config_fetch_retry_mintimeout: "20000"
+  npm_config_fetch_retry_maxtimeout: "120000"
 
 jobs:
   wasm:
@@ -132,13 +138,29 @@ jobs:
       - name: The VS Code extension's widgets, for the vscode target
         working-directory: ide/vscode
         run: npm install --no-audit --no-fund
+      - name: Gradle's downloads, kept between runs
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('targets/examples/misc/android/compose/**/*.gradle.kts', 'targets/examples/misc/android/compose/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-
       - name: The Android libraries for the JVM, and their check adapters' classpath
         run: |
           targets/examples/misc/android/xtmd/build.sh host
           targets/examples/misc/android/xtmd-live/build.sh host
           # the adapters start as `java @build/check_adapter.args …` (targets/examples/misc/android/compose/target.yaml);
-          # without the file, android's and android-live's adapters can't start
-          (cd targets/examples/misc/android/compose && ./gradlew --no-daemon :xtmd-android:checkAdapterArgs)
+          # without the file, android's and android-live's adapters can't start.
+          # Gradle fetches its plugins from Google, Maven Central and the Gradle Plugin Portal; when one
+          # stops answering (as on 20 November 2026), it is tried again a minute later, up to three times
+          cd targets/examples/misc/android/compose
+          for try in 1 2 3; do
+            ./gradlew --no-daemon :xtmd-android:checkAdapterArgs && break
+            if [ "$try" = 3 ]; then exit 1; fi
+            echo "::warning::Gradle failed (try $try of 3), most likely a download: trying again in 60 seconds"
+            sleep 60
+          done
       - name: A browser for the web targets
         run: echo "XTMD_CHROMIUM=$(command -v google-chrome || command -v chromium)" >> "$GITHUB_ENV"
       - name: Every target, every case

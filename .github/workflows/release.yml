@@ -40,6 +40,11 @@ env:
   CARGO_TERM_COLOR: never
   ZIGLANG: "0.17.1"
   CARGO_ZIGBUILD: "0.24.1"
+  # as in ci.yml: a registry that stops answering for a while is tried again, longer, before the run fails
+  CARGO_NET_RETRY: "10"
+  npm_config_fetch_retries: "5"
+  npm_config_fetch_retry_mintimeout: "20000"
+  npm_config_fetch_retry_maxtimeout: "120000"
 
 concurrency:
   group: release
