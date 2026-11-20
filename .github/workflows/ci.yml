@@ -1,0 +1,160 @@
+# The checks on every pull request, and on staging and main after a merge: Rust's tests, every npm package's
+# tests and the playground's, and every target's conformance checks (xtmd target check). Main's
+# ruleset (.github/rulesets/main.json) requires the job named "Types, tests and conformance", which
+# passes only when the three before it do; the TypeScript builds are the type checks. The release
+# runs these same checks (release.yml calls this workflow).
+name: Extended Mark
+
+on:
+  pull_request:
+  push:
+    branches: [staging, main]
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # the workflow's name too: called by the release, these checks don't cancel main's own run
+  group: ${{ github.workflow }}-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: never
+  ZIGLANG: "0.17.1"
+
+jobs:
+  wasm:
+    name: xtmd.wasm
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust, for wasm32-wasip1
+        run: rustup toolchain install stable --profile minimal --target wasm32-wasip1 && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: compiler
+          key: wasm
+      - name: zig
+        run: pip install "ziglang==$ZIGLANG"
+      - name: Build
+        run: XTMD_ZIG="python3 -m ziglang" compiler/wasm/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: checks-xtmd-wasm
+          path: compiler/npm/wasm/xtmd.wasm
+          if-no-files-found: error
+          retention-days: 3
+
+  rust:
+    name: Rust's tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: compiler
+          key: tests
+      - name: Tests
+        working-directory: compiler
+        run: cargo test --workspace --no-fail-fast
+
+  npm:
+    name: npm packages and the playground
+    needs: wasm
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: compiler
+          key: release
+      - uses: actions/download-artifact@v4
+        with:
+          name: checks-xtmd-wasm
+          path: compiler/npm/wasm
+      - name: The compiler, which the packages' tests build their pages with
+        working-directory: compiler
+        run: cargo build --release -p xtmd
+      - name: A browser for the tests that draw in one
+        # every browser test reads XTMD_CHROMIUM; the runner has Chrome
+        run: echo "XTMD_CHROMIUM=$(command -v google-chrome || command -v chromium)" >> "$GITHUB_ENV"
+      - name: Built, in order
+        run: node tools/release/build-ts.mjs
+      - name: Tested
+        run: node tools/release/build-ts.mjs --test-only
+      - name: The VS Code extension, built and tested
+        working-directory: ide/vscode
+        run: npm install --no-audit --no-fund && npm test
+
+  conformance:
+    name: Every target's conformance checks
+    needs: wasm
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: compiler
+          key: release
+      - uses: actions/download-artifact@v4
+        with:
+          name: checks-xtmd-wasm
+          path: compiler/npm/wasm
+      - name: The compiler, and the native runtime's and egui's check adapters
+        working-directory: compiler
+        run: |
+          cargo build --release -p xtmd -p xtmd-runtime -p xtmd-egui -p xtmd-egui-live --bins
+          echo "$PWD/target/release" >> "$GITHUB_PATH"
+      - name: The npm packages the web targets draw with
+        run: node tools/release/build-ts.mjs
+      - name: The VS Code extension's widgets, for the vscode target
+        working-directory: ide/vscode
+        run: npm install --no-audit --no-fund
+      - name: The Android libraries for the JVM, and their check adapters' classpath
+        run: |
+          targets/examples/misc/android/xtmd/build.sh host
+          targets/examples/misc/android/xtmd-live/build.sh host
+          # the adapters start as `java @build/check_adapter.args …` (targets/examples/misc/android/compose/target.yaml);
+          # without the file, android's and android-live's adapters can't start
+          (cd targets/examples/misc/android/compose && ./gradlew --no-daemon :xtmd-android:checkAdapterArgs)
+      - name: A browser for the web targets
+        run: echo "XTMD_CHROMIUM=$(command -v google-chrome || command -v chromium)" >> "$GITHUB_ENV"
+      - name: Every target, every case
+        run: xtmd target check
+
+  checks:
+    # the check main's ruleset requires, by this name
+    name: Types, tests and conformance
+    if: always()
+    needs: [rust, npm, conformance]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Every check passed
+        run: |
+          echo "Rust's tests: ${{ needs.rust.result }}; npm and the playground: ${{ needs.npm.result }}; conformance: ${{ needs.conformance.result }}"
+          test "${{ needs.rust.result }}" = success
+          test "${{ needs.npm.result }}" = success
+          test "${{ needs.conformance.result }}" = success

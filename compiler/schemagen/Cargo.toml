@@ -1,0 +1,12 @@
+[package]
+name = "xtmd-schemagen"
+description = "Writes the Rust and TypeScript types of schemas/: the IR and the check protocol"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# a tool of this repository's (it writes schemas/' types), never published
+publish = false
+
+[dependencies]
+serde_json.workspace = true

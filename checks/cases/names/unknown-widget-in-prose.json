@@ -1,0 +1,10 @@
+{
+  "id": "names.unknown-widget-in-prose",
+  "about": "unknown widget in prose",
+  "source": "unknown-widget-in-prose.xtmd",
+  "expect": {
+    "diagnostics": [
+      {"code": "names.unknown-widget", "line": 1, "column": 2}
+    ]
+  }
+}

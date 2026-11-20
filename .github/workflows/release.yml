@@ -1,0 +1,234 @@
+# The release of Extended Mark: every platform's xtmd binary and xtmd.wasm, built and tested on
+# Linux, then published.
+#
+# Runs on main only: on a merge into main whose VERSION has no release yet (the merge request raised
+# VERSION and added notes/<VERSION>.md, which the Release notes check holds it to), and by hand on
+# main. Run by hand on any other branch (staging), it does nothing. Nothing runs when v<VERSION> is
+# already released or tagged. Once everything is built and tested, the merge
+# commit is tagged v<VERSION> and released under that tag. Each build job runs on one Linux runner:
+#   - binaries: xtmd for Linux on x64 and arm64 (static, musl), macOS on Intel and Apple silicon,
+#     and Windows on x64, cross-built with cargo-zigbuild; each goes in its @extended-mark/cli-<os>-<cpu>;
+#   - wasm: xtmd.wasm, for @extended-mark/wasm (wasm32-wasip1, with zig's clang for decNumber's C).
+# Then test runs the checks every pull request runs (ci.yml), and publish puts out exactly these
+# (tools/release/README.md names each one):
+#   - the GitHub release v<VERSION>, its notes the note's: each platform's binary
+#     (xtmd-<VERSION>-<os>-<cpu>.tar.gz, what install.sh and install.ps1 fetch), SHA256SUMS,
+#     xtmd.wasm (xtmd-<VERSION>.wasm) and the VS Code extension (xtmd-<VERSION>.vsix);
+#   - npm: the 25 packages of compiler/npm and targets/published (xtmd, extended-mark, @extended-mark/*);
+#   - crates.io: the 10 crates of compiler/ and ide/lsp (xtmd, xtmd-live, xtmd-lsp and the compiler's);
+#   - the VS Code Marketplace and Open VSX, each by its trusted publishing (VSCE_TRUSTED_PUBLISHING,
+#     OVSX_TRUSTED_PUBLISHING = true; Open VSX with an OVSX_PAT token instead until it is set up): the extension.
+# targets/examples (Android, egui, the native runtime, the web and test targets) is built and
+# checked by the test job, and never published. npm and crates.io are published to by
+# trusted publishing once the repository variable says it is set up (NPM_TRUSTED_PUBLISHING,
+# CRATES_TRUSTED_PUBLISHING = true), and otherwise with a token: NPM_TOKEN, with which each npm
+# version is staged (npm stage publish) for a maintainer to approve on npmjs.com, and CARGO_REGISTRY_TOKEN.
+# A package's first release needs the token, since a registry sets up trusted publishing only for a
+# package it already has. With neither, its step says so and is skipped: the rest of the release
+# still happens.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: never
+  ZIGLANG: "0.17.1"
+  CARGO_ZIGBUILD: "0.24.1"
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: The version, and whether it is new
+    # main only: staging and every other branch have the tests (ci.yml) and nothing that publishes
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      new: ${{ steps.v.outputs.new }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node tools/release/check-notes.mjs
+          v="$(tr -d '[:space:]' < VERSION)"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          # a release, or the tag alone (one made by hand), means this version is out
+          if gh release view "v$v" > /dev/null 2>&1 || git ls-remote --exit-code --tags origin "refs/tags/v$v" > /dev/null 2>&1; then
+            echo "new=false" >> "$GITHUB_OUTPUT"
+            echo "v$v is already released or tagged: nothing to do (raise VERSION and add notes/<version>.md to release)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  binaries:
+    name: xtmd for ${{ matrix.platform }}
+    needs: version
+    if: needs.version.outputs.new == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-musl, platform: linux-x64, exe: xtmd }
+          - { target: aarch64-unknown-linux-musl, platform: linux-arm64, exe: xtmd }
+          - { target: x86_64-apple-darwin, platform: darwin-x64, exe: xtmd }
+          - { target: aarch64-apple-darwin, platform: darwin-arm64, exe: xtmd }
+          - { target: x86_64-pc-windows-gnu, platform: win32-x64, exe: xtmd.exe }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust, for ${{ matrix.target }}
+        run: rustup toolchain install stable --profile minimal --target ${{ matrix.target }} && rustup default stable
+      - name: zig and cargo-zigbuild
+        run: pip install "ziglang==$ZIGLANG" "cargo-zigbuild==$CARGO_ZIGBUILD"
+      - name: Build
+        working-directory: compiler
+        run: cargo zigbuild --release -p xtmd --target ${{ matrix.target }}
+      - name: In its platform package
+        run: node compiler/npm/xtmd/scripts/copy-binary.mjs --target ${{ matrix.target }}
+      - name: Runs where it was built for
+        if: matrix.platform == 'linux-x64'
+        run: compiler/npm/xtmd/platforms/linux-x64/bin/xtmd --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xtmd-${{ matrix.platform }}
+          path: compiler/npm/xtmd/platforms/${{ matrix.platform }}/bin/
+          if-no-files-found: error
+
+  wasm:
+    name: xtmd.wasm
+    needs: version
+    if: needs.version.outputs.new == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust, for wasm32-wasip1
+        run: rustup toolchain install stable --profile minimal --target wasm32-wasip1 && rustup default stable
+      - name: zig
+        run: pip install "ziglang==$ZIGLANG"
+      - name: Build
+        run: XTMD_ZIG="python3 -m ziglang" compiler/wasm/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xtmd-wasm
+          path: compiler/npm/wasm/xtmd.wasm
+          if-no-files-found: error
+
+  test:
+    name: The checks every pull request runs
+    needs: version
+    if: needs.version.outputs.new == 'true'
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish
+    needs: [version, binaries, wasm, test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: write
+      # trusted publishing: npm, crates.io, the VS Code Marketplace and Open VSX take the run's OIDC token in place of a secret
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Each binary in its platform package, xtmd.wasm in @extended-mark/wasm
+        run: |
+          for p in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win32-x64; do
+            mkdir -p "compiler/npm/xtmd/platforms/$p/bin"
+            cp artifacts/xtmd-$p/* "compiler/npm/xtmd/platforms/$p/bin/"
+            chmod +x compiler/npm/xtmd/platforms/$p/bin/xtmd* || true
+          done
+          cp artifacts/xtmd-wasm/xtmd.wasm compiler/npm/wasm/
+      - name: The GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="${{ needs.version.outputs.version }}"
+          mkdir -p release
+          for p in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win32-x64; do
+            tar -czf "release/xtmd-$v-$p.tar.gz" -C "compiler/npm/xtmd/platforms/$p/bin" .
+          done
+          cp compiler/npm/wasm/xtmd.wasm "release/xtmd-$v.wasm"
+          # the VS Code extension, to install from the release (Extensions: Install from VSIX…)
+          node tools/release/build-ts.mjs
+          (cd ide/vscode && npm install --no-audit --no-fund && npm run package -- -o "../../release/xtmd-$v.vsix")
+          (cd release && sha256sum * > SHA256SUMS)
+          node tools/release/check-notes.mjs --notes-for "$v" > /tmp/notes.md
+          title="$(head -n 1 /tmp/notes.md)"
+          tail -n +2 /tmp/notes.md > /tmp/body.md
+          # the tag v<VERSION> is made here, on the commit this run is for: the merge's
+          gh release view "v$v" > /dev/null 2>&1 || gh release create "v$v" --target "$GITHUB_SHA" --title "$title" --notes-file /tmp/body.md
+          gh release upload "v$v" release/* --clobber
+      - name: npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TRUSTED: ${{ vars.NPM_TRUSTED_PUBLISHING }}
+        run: |
+          # trusted publishing publishes; with only the token (a stage-only one, for the first
+          # release) each version is staged, and waits on npmjs.com for a maintainer's approval
+          if [ "$TRUSTED" = "true" ]; then how=""
+          elif [ -n "$NODE_AUTH_TOKEN" ]; then how="--stage"
+          else
+            echo "::notice::No trusted publishing (NPM_TRUSTED_PUBLISHING) and no NPM_TOKEN secret: the npm packages aren't published"
+            exit 0
+          fi
+          # staged publishing needs npm 11.15.0 or later (trusted publishing, 11.5.1)
+          npm install -g npm@^11.15.0
+          node tools/release/build-ts.mjs
+          node tools/release/publish-npm.mjs --version "${{ needs.version.outputs.version }}" $how
+      - name: The VS Code extension on the Marketplace and Open VSX
+        env:
+          VSCE_TRUSTED: ${{ vars.VSCE_TRUSTED_PUBLISHING }}
+          OVSX_TRUSTED: ${{ vars.OVSX_TRUSTED_PUBLISHING }}
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        working-directory: ide/vscode
+        run: |
+          v="${{ needs.version.outputs.version }}"
+          # the Marketplace's trusted publishing: the publisher's policy names this repository and
+          # release.yml, and the run's OIDC token (id-token: write) stands in for a token; Azure
+          # DevOps' global tokens, which vsce needed before, end on 1 December 2026
+          if [ "$VSCE_TRUSTED" = "true" ]; then npx vsce publish --packagePath "../../release/xtmd-$v.vsix" --oidc
+          else echo "::notice::No trusted publishing for the Marketplace (VSCE_TRUSTED_PUBLISHING): the extension isn't published to the VS Code Marketplace"; fi
+          # Open VSX's trusted publishing takes the run's OIDC token too (ovsx 1.3.0's --trusted-publishing);
+          # a token only until it is set up
+          if [ "$OVSX_TRUSTED" = "true" ]; then npx ovsx publish "../../release/xtmd-$v.vsix" --trusted-publishing
+          elif [ -n "$OVSX_PAT" ]; then npx ovsx publish "../../release/xtmd-$v.vsix" -p "$OVSX_PAT"
+          else echo "::notice::No trusted publishing for Open VSX (OVSX_TRUSTED_PUBLISHING) and no OVSX_PAT secret: the extension isn't published to Open VSX"; fi
+      - name: A crates.io token from trusted publishing
+        id: crates-auth
+        if: vars.CRATES_TRUSTED_PUBLISHING == 'true'
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-auth.outputs.token || secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          if [ -z "$CARGO_REGISTRY_TOKEN" ]; then
+            echo "::notice::No trusted publishing (CRATES_TRUSTED_PUBLISHING) and no CARGO_REGISTRY_TOKEN secret: the crates aren't published"
+            exit 0
+          fi
+          tools/release/publish-crates.sh
