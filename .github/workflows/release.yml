@@ -35,6 +35,8 @@ on:
 
 permissions:
   contents: write
+  # the checks (ci.yml) look up a tested tree's artifact
+  actions: read
 
 env:
   CARGO_TERM_COLOR: never
@@ -70,6 +72,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           node tools/release/check-notes.mjs
+          # every crate, package and copy of the version says VERSION, or nothing is released
+          node tools/release/bump.mjs --check
           v="$(tr -d '[:space:]' < VERSION)"
           echo "version=$v" >> "$GITHUB_OUTPUT"
           # a release, or the tag alone (one made by hand), means this version is out

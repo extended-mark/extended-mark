@@ -4,6 +4,12 @@
 # (.github/rulesets/main.json) requires the job named "Types, tests and conformance", which passes only
 # when the ones before it do; the TypeScript builds are the type checks. The release runs these same
 # checks (release.yml calls this workflow).
+#
+# A tree (the exact files, this workflow's own included) is tested once: a run that passes leaves a small
+# artifact named after the tree's hash (tested-<tree>, and dryrun-<tree> for the release dry run's
+# packaging), and a later run on the same tree, after a merge into staging or main, on the pull request
+# into main, or in the release, finds it and skips that work. Only a run of this repository counts, not a
+# fork's. The release dry run's registry check always runs: a registry can change while the files don't.
 name: Extended Mark
 
 on:
@@ -15,6 +21,8 @@ on:
 
 permissions:
   contents: read
+  # to find a tested tree's artifact (tested-<tree>)
+  actions: read
 
 concurrency:
   # the workflow's name too: called by the release, these checks don't cancel main's own run
@@ -32,8 +40,45 @@ env:
   npm_config_fetch_retry_maxtimeout: "120000"
 
 jobs:
+  gate:
+    name: Already tested?
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tree: ${{ steps.find.outputs.tree }}
+      tested: ${{ steps.find.outputs.tested }}
+      dryrun: ${{ steps.find.outputs.dryrun }}
+      wants-dryrun: ${{ steps.find.outputs.wants-dryrun }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO_ID: ${{ github.event.repository.id }}
+        run: |
+          tree=$(git rev-parse 'HEAD^{tree}')
+          echo "tree=$tree" >> "$GITHUB_OUTPUT"
+          # an unexpired artifact by this name, left by a run of this repository (not a fork's)
+          found() {
+            n=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=$1&per_page=20" \
+              --jq "[.artifacts[] | select(.expired == false and .workflow_run.head_repository_id == $REPO_ID)] | length" 2>/dev/null || echo 0)
+            if [ "${n:-0}" -gt 0 ]; then echo true; else echo false; fi
+          }
+          tested=$(found "tested-$tree"); dryrun=$(found "dryrun-$tree")
+          echo "tested=$tested" >> "$GITHUB_OUTPUT"
+          echo "dryrun=$dryrun" >> "$GITHUB_OUTPUT"
+          # the release dry run: on a pull request into main, and on staging after a merge
+          wants=false
+          if [ "${{ github.base_ref }}" = main ] || { [ "${{ github.event_name }}" = push ] && [ "${{ github.ref }}" = refs/heads/staging ]; }; then wants=true; fi
+          echo "wants-dryrun=$wants" >> "$GITHUB_OUTPUT"
+          said() { if [ "$1" = true ]; then echo "passed in an earlier run, so it is skipped"; else echo "runs"; fi; }
+          echo "Tree $tree. The tests: $(said "$tested"). The release dry run's packaging: $(said "$dryrun")." >> "$GITHUB_STEP_SUMMARY"
+
   wasm:
     name: xtmd.wasm
+    needs: gate
+    # what the tests and the release dry run's packaging build with, when either still has to run
+    if: needs.gate.outputs.tested != 'true' || (needs.gate.outputs.wants-dryrun == 'true' && needs.gate.outputs.dryrun != 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -57,6 +102,8 @@ jobs:
 
   rust:
     name: Rust's tests
+    needs: gate
+    if: needs.gate.outputs.tested != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -73,7 +120,8 @@ jobs:
 
   npm:
     name: npm packages and the playground
-    needs: wasm
+    needs: [gate, wasm]
+    if: needs.gate.outputs.tested != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -81,6 +129,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          # npm's downloads, kept between runs while the lock files stay the same
+          cache: npm
+          cache-dependency-path: "**/package-lock.json"
       - name: Rust
         run: rustup toolchain install stable --profile minimal && rustup default stable
       - uses: Swatinem/rust-cache@v2
@@ -107,7 +158,8 @@ jobs:
 
   conformance:
     name: Every target's conformance checks
-    needs: wasm
+    needs: [gate, wasm]
+    if: needs.gate.outputs.tested != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -115,6 +167,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: "**/package-lock.json"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -175,31 +229,23 @@ jobs:
     name: Release dry run
     # would merging into main release VERSION on every registry? A release that fails on main can't be
     # taken back, so before the merge tools/release/preflight.mjs checks each registry's names,
-    # versions and credentials, and each publish is dry-run. Nothing is published.
-    if: github.base_ref == 'main' || (github.event_name == 'push' && github.ref == 'refs/heads/staging')
-    needs: wasm
+    # versions and credentials, and each publish is dry-run. Nothing is published. The registry check
+    # always runs; the packaging, which depends only on the files, once per tree.
+    needs: [gate, wasm]
+    if: ${{ !cancelled() && needs.gate.outputs.wants-dryrun == 'true' && (needs.wasm.result == 'success' || needs.wasm.result == 'skipped') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      PACK: ${{ needs.gate.outputs.dryrun != 'true' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-      - name: Rust
-        run: rustup toolchain install stable --profile minimal && rustup default stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: compiler
-          key: release
-      - uses: actions/download-artifact@v4
-        with:
-          name: checks-xtmd-wasm
-          path: compiler/npm/wasm
-      - name: The release tools' tests
-        run: node --test tools/release/test/*.test.mjs
+          cache: npm
+          cache-dependency-path: "**/package-lock.json"
       - name: npm 11.15 or later, for staged publishing
         run: npm install -g npm@^11.15.0
       - name: Every registry can take VERSION
@@ -212,33 +258,78 @@ jobs:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
           GH_TOKEN: ${{ github.token }}
         run: node tools/release/preflight.mjs
+      - name: The packaging was dry-run on this tree already
+        if: env.PACK != 'true'
+        run: echo "tree ${{ needs.gate.outputs.tree }} - npm, crates.io and the .vsix were dry-run already (dryrun-${{ needs.gate.outputs.tree }})"
+      - name: Rust
+        if: env.PACK == 'true'
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+        if: env.PACK == 'true'
+        with:
+          workspaces: compiler
+          key: release
+      - uses: actions/download-artifact@v4
+        if: env.PACK == 'true'
+        with:
+          name: checks-xtmd-wasm
+          path: compiler/npm/wasm
+      - name: The release tools' tests
+        if: env.PACK == 'true'
+        run: node --test tools/release/test/*.test.mjs
       - name: This machine's xtmd, in its platform package
+        if: env.PACK == 'true'
         run: |
           (cd compiler && cargo build --release -p xtmd)
           (cd compiler/npm/extended-mark && npm run binary)
       - name: npm, dry run
+        if: env.PACK == 'true'
         run: |
           node tools/release/build-ts.mjs
           node tools/release/publish-npm.mjs --version "$(cat VERSION)" --stage --dry-run
       - name: crates.io, dry run
+        if: env.PACK == 'true'
         run: tools/release/publish-crates.sh --dry-run
       - name: The VS Code extension, packed
+        if: env.PACK == 'true'
         working-directory: ide/vscode
         run: npm install --no-audit --no-fund && npm run package -- -o "$RUNNER_TEMP/xtmd.vsix"
+      - name: This tree's packaging passed
+        if: env.PACK == 'true'
+        run: echo "${{ needs.gate.outputs.tree }}" > "$RUNNER_TEMP/tree.txt"
+      - uses: actions/upload-artifact@v4
+        if: env.PACK == 'true'
+        with:
+          name: dryrun-${{ needs.gate.outputs.tree }}
+          path: ${{ runner.temp }}/tree.txt
+          retention-days: 30
 
   checks:
     # the check main's ruleset requires, by this name
     name: Types, tests and conformance
     if: always()
-    needs: [rust, npm, conformance, release]
+    needs: [gate, rust, npm, conformance, release]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Every check passed
         run: |
-          echo "Rust's tests: ${{ needs.rust.result }}; npm and the playground: ${{ needs.npm.result }}; conformance: ${{ needs.conformance.result }}; release dry run: ${{ needs.release.result }}"
-          test "${{ needs.rust.result }}" = success
-          test "${{ needs.npm.result }}" = success
-          test "${{ needs.conformance.result }}" = success
+          echo "tree ${{ needs.gate.outputs.tree }} (tested before: ${{ needs.gate.outputs.tested }}); Rust's tests: ${{ needs.rust.result }}; npm and the playground: ${{ needs.npm.result }}; conformance: ${{ needs.conformance.result }}; release dry run: ${{ needs.release.result }}"
+          test "${{ needs.gate.result }}" = success
+          if [ "${{ needs.gate.outputs.tested }}" = true ]; then
+            echo "these files passed every test in an earlier run of this repository: tested-${{ needs.gate.outputs.tree }}"
+          else
+            test "${{ needs.rust.result }}" = success
+            test "${{ needs.npm.result }}" = success
+            test "${{ needs.conformance.result }}" = success
+          fi
           # the dry run is skipped on pull requests into staging, and runs before main
           test "${{ needs.release.result }}" = success || test "${{ needs.release.result }}" = skipped
+          echo "${{ needs.gate.outputs.tree }}" > "$RUNNER_TEMP/tree.txt"
+      # this tree passed: a later run on the same files (after a merge, in the release) needn't test it again
+      - uses: actions/upload-artifact@v4
+        if: needs.gate.outputs.tested != 'true'
+        with:
+          name: tested-${{ needs.gate.outputs.tree }}
+          path: ${{ runner.temp }}/tree.txt
+          retention-days: 30

@@ -21,8 +21,9 @@ use crate::{fns, XtmdPage, Registry};
 /// `$state`, or a widget's own variables: values by name, in the IR's form.
 pub type State = BTreeMap<String, Expr>;
 
-/// The release snapshots are taken in: one of another can't be read.
-pub const RELEASE: &str = "0.3.1";
+/// The release snapshots are taken in: one of another can't be read. It is this crate's version, which
+/// is the release's (tools/release/bump.mjs).
+pub const RELEASE: &str = env!("CARGO_PKG_VERSION");
 
 /// What went wrong, for the app.
 #[derive(Clone, Debug, PartialEq)]

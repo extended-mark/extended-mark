@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/playground",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "description": "The Extended Mark playground: edit a page and see it drawn, with its Markdown, its diagnostics and its $state, live, compiled in the browser",
   "license": "MIT",
