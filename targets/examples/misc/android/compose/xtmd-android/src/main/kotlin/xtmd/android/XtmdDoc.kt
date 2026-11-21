@@ -63,7 +63,7 @@ data class Restored(val restored: How, val dropped: List<String>, val why: Strin
 }
 
 /** The release snapshots are taken in. */
-const val RELEASE = "0.3.0"
+const val RELEASE = "0.3.1"
 
 /** A short, stable hash of a text: FNV-1a, as @extended-mark/view's. */
 internal fun hash(text: String): String {

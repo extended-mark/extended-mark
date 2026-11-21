@@ -13,7 +13,7 @@ Extended Mark (called MKP, Markdown Markup, up to 0.2) is a statically typed lan
 and runs the language server.
 
 ```sh
-npm i -g xtmd                 # a prebuilt binary for this machine; or run it with npx xtmd …
+npm i -g extended-mark        # the xtmd command, a prebuilt binary for this machine; or npx extended-mark …
 cargo install xtmd            # built from source
 
 # no Node or Rust: the binary from the latest release, checked against its SHA256SUMS
@@ -33,7 +33,7 @@ branch [`legacy-0.2.x`](https://github.com/extended-mark/extended-mark/tree/lega
 ## In this repository
 
 - `docs/specs`: the language, below. Every rule in it is held to a conformance case in `checks/`.
-- `compiler/`: `xtmd`, the compiler, in Rust, and its npm packages (`xtmd`, `extended-mark`, `@extended-mark/wasm`).
+- `compiler/`: `xtmd`, the compiler, in Rust, and its npm packages (`extended-mark`, with the `xtmd` command, and `@extended-mark/wasm`).
 - `targets/published`: the targets on npm, for the web, React, Vue, Svelte, Solid and Angular. Each comes in two kinds: run time, which draws an IR built ahead, and real time, which compiles in place.
 - `targets/examples`: targets that show how one is made (egui, Android's Compose, a native runtime). They are checked like the others and are never published. Any target that passes the conformance cases is an Extended Mark target.
 - `ide/`: `xtmd lsp`, the language server, and the VS Code extension.

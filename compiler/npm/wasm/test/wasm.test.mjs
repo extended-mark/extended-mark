@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import * as cli from "xtmd";
+import * as cli from "extended-mark";
 import { Compiler } from "../dist/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));

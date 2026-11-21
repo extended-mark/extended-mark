@@ -6,7 +6,7 @@
 //
 // The triples are the ones in TARGETS below; each names the platform package it goes in.
 
-import { chmodSync, copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -37,12 +37,12 @@ if (!existsSync(built)) {
 const dir = join(here, "..", "platforms", platform);
 mkdirSync(join(dir, "bin"), { recursive: true });
 if (!existsSync(join(dir, "package.json"))) {
-  writeFileSync(join(dir, "package.json"), JSON.stringify({ name: `@extended-mark/cli-${platform}`, version: "0.3.0", description: `The xtmd binary for ${os} on ${cpu}`, license: "MIT", homepage: "https://github.com/extended-mark/extended-mark", repository: { type: "git", url: "git+https://github.com/extended-mark/extended-mark.git", directory: `compiler/npm/xtmd/platforms/${platform}` }, os: [os], cpu: [cpu], files: ["bin"] }, null, 2) + "\n");
+  writeFileSync(join(dir, "package.json"), JSON.stringify({ name: `@extended-mark/cli-${platform}`, version: JSON.parse(readFileSync(join(here, "..", "package.json"), "utf8")).version, description: `The xtmd binary for ${os} on ${cpu}`, license: "MIT", homepage: "https://github.com/extended-mark/extended-mark", repository: { type: "git", url: "git+https://github.com/extended-mark/extended-mark.git", directory: `compiler/npm/extended-mark/platforms/${platform}` }, os: [os], cpu: [cpu], files: ["bin"] }, null, 2) + "\n");
 }
 copyFileSync(built, join(dir, "bin", exe));
 chmodSync(join(dir, "bin", exe), 0o755);
 console.log(`${platform}: ${join(dir, "bin", exe)}`);
-// Extended Mark 0.3.0 only: the frozen 0.2 → 0.3 step beside the binary, where `xtmd migrate` looks for it
+// Extended Mark 0.3 only: the frozen 0.2 → 0.3 step beside the binary, where `xtmd migrate` looks for it
 // (tools/migrate-0.2/frozen; later releases build without it)
 const frozen = join(here, "..", "..", "..", "..", "tools", "migrate-0.2", "frozen", "migrate-0.2.cjs");
 if (existsSync(frozen)) {

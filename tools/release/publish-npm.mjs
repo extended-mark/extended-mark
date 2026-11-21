@@ -11,8 +11,8 @@
 //
 // --stage stages each package instead (`npm stage publish`, npm 11.15.0 or later), for a release
 // with no trusted publishing yet, such as a package's first: a token can stage without 2FA, and each
-// version waits on npmjs.com until a maintainer approves it. A version already staged or published
-// is passed over, so the run can be repeated.
+// version waits on npmjs.com until a maintainer approves it. Either way, a version already staged or
+// published is passed over, so the run can be repeated.
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
@@ -68,13 +68,13 @@ for (const p of order) {
     console.log(`${p.pkg.name}: no binary in ${where}/bin, not published`);
     continue;
   }
-  if (stage) {
-    const already = onRegistry(p.pkg.name);
-    if (already) {
-      console.log(`${p.pkg.name}@${version} is already ${already}: passed over`);
-      passed++;
-      continue;
-    }
+  // a version already out (or staged) is passed over, so a release run again after a failure only
+  // finishes what's left
+  const already = onRegistry(p.pkg.name);
+  if (already) {
+    console.log(`${p.pkg.name}@${version} is already ${already}: passed over`);
+    passed++;
+    continue;
   }
   // the neighbours it names by folder are named by the release's version
   const out = JSON.parse(p.text);

@@ -5,7 +5,7 @@ import { createElement as h } from "react";
 import { renderToString } from "react-dom/server";
 import * as esbuild from "esbuild";
 import { chromium } from "playwright-core";
-import * as cli from "xtmd";
+import * as cli from "extended-mark";
 import { XtmdDoc } from "@extended-mark/react";
 import { bundle, compilePages, docSteps, launch, open } from "../../testing/browser.mjs";
 

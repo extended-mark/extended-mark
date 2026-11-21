@@ -205,7 +205,7 @@ export async function docSteps(page, { stylesheet = "page" } = {}) {
   await page.click('#app [data-part="overlay.anchor"]');
   await until(page, () => document.querySelector('#app [data-part="overlay.body"]')?.matches(":popover-open"), null, "the overlay to open");
   const snap = await page.evaluate(() => window.__test.handle().snapshot());
-  assert.equal(snap.xtmd, "0.3.0");
+  assert.equal(snap.xtmd, "0.3.1");
   assert.deepEqual(Object.values(snap.own).flatMap((o) => Object.entries(o)).sort(), [["k", { num: "2" }], ["note", { text: "call at 5" }], ["open", { bool: true }]].sort());
   await page.fill(field, "never mind");
   await page.click('#app [data-xtmd-widget="core/press"]');

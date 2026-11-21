@@ -1,8 +1,9 @@
 # The checks on every pull request, and on staging and main after a merge: Rust's tests, every npm package's
-# tests and the playground's, and every target's conformance checks (xtmd target check). Main's
-# ruleset (.github/rulesets/main.json) requires the job named "Types, tests and conformance", which
-# passes only when the three before it do; the TypeScript builds are the type checks. The release
-# runs these same checks (release.yml calls this workflow).
+# tests and the playground's, and every target's conformance checks (xtmd target check); and on a pull
+# request into main, and on staging after a merge, the release's dry run. Main's ruleset
+# (.github/rulesets/main.json) requires the job named "Types, tests and conformance", which passes only
+# when the ones before it do; the TypeScript builds are the type checks. The release runs these same
+# checks (release.yml calls this workflow).
 name: Extended Mark
 
 on:
@@ -154,11 +155,15 @@ jobs:
           # without the file, android's and android-live's adapters can't start.
           # Gradle fetches its plugins from Google, Maven Central and the Gradle Plugin Portal; when one
           # stops answering (as on 20 November 2026), it is tried again a minute later, up to three times
+          # Gradle's own reason goes in the check's annotations, so a failure says why without its log
           cd targets/examples/misc/android/compose
+          set -o pipefail
           for try in 1 2 3; do
-            ./gradlew --no-daemon :xtmd-android:checkAdapterArgs && break
-            if [ "$try" = 3 ]; then exit 1; fi
-            echo "::warning::Gradle failed (try $try of 3), most likely a download: trying again in 60 seconds"
+            ./gradlew --no-daemon :xtmd-android:checkAdapterArgs 2>&1 | tee "$RUNNER_TEMP/gradle.log" && break
+            why=$(grep -A4 -E "What went wrong|^e: " "$RUNNER_TEMP/gradle.log" | grep -v -E "^\* (What went wrong|Try)|^--$|^$" | head -6 | tr '\n' ' ' | cut -c1-500)
+            why=${why:-$(tail -n 3 "$RUNNER_TEMP/gradle.log" | tr '\n' ' ' | cut -c1-500)}
+            if [ "$try" = 3 ]; then echo "::error::Gradle failed three times: $why"; exit 1; fi
+            echo "::warning::Gradle failed (try $try of 3): $why; trying again in 60 seconds"
             sleep 60
           done
       - name: A browser for the web targets
@@ -166,17 +171,74 @@ jobs:
       - name: Every target, every case
         run: xtmd target check
 
+  release:
+    name: Release dry run
+    # would merging into main release VERSION on every registry? A release that fails on main can't be
+    # taken back, so before the merge tools/release/preflight.mjs checks each registry's names,
+    # versions and credentials, and each publish is dry-run. Nothing is published.
+    if: github.base_ref == 'main' || (github.event_name == 'push' && github.ref == 'refs/heads/staging')
+    needs: wasm
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: compiler
+          key: release
+      - uses: actions/download-artifact@v4
+        with:
+          name: checks-xtmd-wasm
+          path: compiler/npm/wasm
+      - name: The release tools' tests
+        run: node --test tools/release/test/
+      - name: npm 11.15 or later, for staged publishing
+        run: npm install -g npm@^11.15.0
+      - name: Every registry can take VERSION
+        env:
+          NPM_TRUSTED: ${{ vars.NPM_TRUSTED_PUBLISHING }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CRATES_TRUSTED: ${{ vars.CRATES_TRUSTED_PUBLISHING }}
+          VSCE_TRUSTED: ${{ vars.VSCE_TRUSTED_PUBLISHING }}
+          OVSX_TRUSTED: ${{ vars.OVSX_TRUSTED_PUBLISHING }}
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/release/preflight.mjs
+      - name: This machine's xtmd, in its platform package
+        run: |
+          (cd compiler && cargo build --release -p xtmd)
+          (cd compiler/npm/extended-mark && npm run binary)
+      - name: npm, dry run
+        run: |
+          node tools/release/build-ts.mjs
+          node tools/release/publish-npm.mjs --version "$(cat VERSION)" --stage --dry-run
+      - name: crates.io, dry run
+        run: tools/release/publish-crates.sh --dry-run
+      - name: The VS Code extension, packed
+        working-directory: ide/vscode
+        run: npm install --no-audit --no-fund && npm run package -- -o "$RUNNER_TEMP/xtmd.vsix"
+
   checks:
     # the check main's ruleset requires, by this name
     name: Types, tests and conformance
     if: always()
-    needs: [rust, npm, conformance]
+    needs: [rust, npm, conformance, release]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Every check passed
         run: |
-          echo "Rust's tests: ${{ needs.rust.result }}; npm and the playground: ${{ needs.npm.result }}; conformance: ${{ needs.conformance.result }}"
+          echo "Rust's tests: ${{ needs.rust.result }}; npm and the playground: ${{ needs.npm.result }}; conformance: ${{ needs.conformance.result }}; release dry run: ${{ needs.release.result }}"
           test "${{ needs.rust.result }}" = success
           test "${{ needs.npm.result }}" = success
           test "${{ needs.conformance.result }}" = success
+          # the dry run is skipped on pull requests into staging, and runs before main
+          test "${{ needs.release.result }}" = success || test "${{ needs.release.result }}" = skipped

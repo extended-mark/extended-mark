@@ -1,7 +1,7 @@
 //! The 0.2 → 0.3 step of `xtmd migrate`, run: the frozen JS file (tools/migrate-0.2/frozen), found
 //! and checked, run with Node on one document. What it writes is read by xtmd-migrate, which also
-//! tells a 0.2 document apart. Only Extended Mark 0.3.0 carries it: a later release sends a 0.2
-//! document to `npx xtmd@0.3.0 migrate`.
+//! tells a 0.2 document apart. Only Extended Mark 0.3 carries it: a later release sends a 0.2
+//! document to `npx extended-mark@0.3 migrate`.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -22,7 +22,7 @@ pub(crate) fn is_pack(p: &Path) -> bool {
 /// The frozen file, checked against the SHA-256 this binary was built with.
 fn frozen() -> Result<PathBuf, String> {
     if SHA256.is_empty() {
-        return Err("this xtmd doesn't carry the 0.2 → 0.3 step: run `npx xtmd@0.3.0 migrate` on it first".into());
+        return Err("this xtmd doesn't carry the 0.2 → 0.3 step: run `npx extended-mark@0.3 migrate` on it first".into());
     }
     let beside = std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.join("migrate-0.2.cjs")));
     let found = std::env::var_os("XTMD_MIGRATE_02").map(PathBuf::from).into_iter().chain(beside).chain((!IN_REPO.is_empty()).then(|| PathBuf::from(IN_REPO))).find(|p| p.is_file());

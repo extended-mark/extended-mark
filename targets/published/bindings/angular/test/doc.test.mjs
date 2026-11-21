@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import * as esbuild from "esbuild";
 import { chromium } from "playwright-core";
-import * as cli from "xtmd";
+import * as cli from "extended-mark";
 import { bundle, compilePages, docSteps, launch, open } from "../../testing/browser.mjs";
 
 const irs = await compilePages(cli);

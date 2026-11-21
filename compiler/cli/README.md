@@ -7,7 +7,7 @@ Extended Mark's command: it checks, formats and builds Extended Mark documents (
 
 ```sh
 cargo install xtmd            # this crate, built from source
-npm i -g xtmd                 # a prebuilt binary for this machine; or npx xtmd …
+npm i -g extended-mark        # the same command, a prebuilt binary for this machine; or npx extended-mark …
 
 # no Node or Rust: the binary from the latest release, checked against its SHA256SUMS
 curl -fsSL https://raw.githubusercontent.com/extended-mark/extended-mark/main/install.sh | sh     # Linux, macOS

@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as cli from "xtmd";
+import * as cli from "extended-mark";
 import { Doc, Patcher, h, toHtml } from "../dist/index.js";
 import { compilePages } from "../../testing/browser.mjs";
 

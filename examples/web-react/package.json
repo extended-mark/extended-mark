@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/example-web-react",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "The shop page in React with Vite: <XtmdPage> from @extended-mark/react, the page compiled by xtmd/vite",
   "type": "module",
@@ -15,7 +15,7 @@
     "react-dom": "19.3.1"
   },
   "devDependencies": {
-    "xtmd": "file:../../compiler/npm/xtmd",
+    "extended-mark": "file:../../compiler/npm/extended-mark",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "typescript": "5.9.3",
