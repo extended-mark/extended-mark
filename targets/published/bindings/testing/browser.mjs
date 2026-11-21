@@ -205,7 +205,8 @@ export async function docSteps(page, { stylesheet = "page" } = {}) {
   await page.click('#app [data-part="overlay.anchor"]');
   await until(page, () => document.querySelector('#app [data-part="overlay.body"]')?.matches(":popover-open"), null, "the overlay to open");
   const snap = await page.evaluate(() => window.__test.handle().snapshot());
-  assert.equal(snap.xtmd, "0.3.1");
+  // the release a snapshot is taken in is @extended-mark/embed's version
+  assert.equal(snap.xtmd, JSON.parse(readFileSync(new URL("../embed/package.json", import.meta.url), "utf8")).version);
   assert.deepEqual(Object.values(snap.own).flatMap((o) => Object.entries(o)).sort(), [["k", { num: "2" }], ["note", { text: "call at 5" }], ["open", { bool: true }]].sort());
   await page.fill(field, "never mind");
   await page.click('#app [data-xtmd-widget="core/press"]');

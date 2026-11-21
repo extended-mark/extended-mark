@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/example-web-plain",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "description": "The shop page from plain TypeScript: compiled by xtmd/vite, run by @extended-mark/runtime, drawn by @extended-mark/dom",
   "type": "module",

@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/web-target",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "description": "Extended Mark's web target: @extended-mark/runtime with @extended-mark/dom in a real Chromium, driven by xtmd target check",
   "license": "MIT",

@@ -16,6 +16,6 @@ name = "xtmd_android_live"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-xtmd-live = { path = "../../../../../compiler/live", version = "0.3.1" }
+xtmd-live = { path = "../../../../../compiler/live", version = "0.3.2" }
 serde_json.workspace = true
 uniffi = "=0.29.5"

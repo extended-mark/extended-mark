@@ -1,6 +1,7 @@
 # Release notes
 
-One file per version, `<version>.md`, written in the merge request that raises `VERSION` (and added to by
+One file per version, `<version>.md`, written in the merge request that raises `VERSION` with
+`node tools/release/bump.mjs <version>`, which starts the file (and added to by
 any that follow it while that version has no release yet). A
 release's notes on GitHub are this file. `node tools/release/check-notes.mjs` checks them all, and
 the **Release notes** check runs it on every merge request into main (`.github/workflows/notes.yml`),

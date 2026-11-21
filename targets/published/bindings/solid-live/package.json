@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/solid-live",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Extended Mark documents in Solid, compiled in the browser as they are edited: <XtmdLiveDoc source={…} />, @extended-mark/wasm's compiler and @extended-mark/solid's <XtmdDoc>",
   "license": "MIT",
   "homepage": "https://github.com/extended-mark/extended-mark",

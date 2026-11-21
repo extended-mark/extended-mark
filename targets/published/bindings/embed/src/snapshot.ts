@@ -41,5 +41,6 @@ export function hash(text: string): string {
   return (h2 % 0x100000).toString(36) + h1.toString(36);
 }
 
-/** The release snapshots are taken in: one of another can't be read. */
-export const RELEASE = "0.3.1";
+/** The release snapshots are taken in: one of another can't be read. The package's version, written by
+ * tools/release/bump.mjs and held to it by `bump.mjs --check`. */
+export const RELEASE = "0.3.2";

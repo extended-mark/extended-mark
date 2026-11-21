@@ -29,8 +29,8 @@ check = ["xtmd-egui/check"]
 app = ["xtmd-egui/app", "dep:eframe"]
 
 [dependencies]
-xtmd-egui = { path = "../egui", version = "0.3.1", default-features = false, features = ["fonts"] }
-xtmd-live = { path = "../../../../compiler/live", version = "0.3.1" }
+xtmd-egui = { path = "../egui", version = "0.3.2", default-features = false, features = ["fonts"] }
+xtmd-live = { path = "../../../../compiler/live", version = "0.3.2" }
 egui = "0.37"
 eframe = { version = "0.37", optional = true, default-features = false, features = ["accesskit", "default_fonts", "glow", "wayland", "x11"] }
 
