@@ -34,7 +34,7 @@ esac
 case "$(uname -m)" in
   x86_64 | amd64) cpu=x64 ;;
   aarch64 | arm64) cpu=arm64 ;;
-  *) die "no xtmd for $(uname -m): there are builds for x64 and arm64 ('npm i -g xtmd' also falls back to WebAssembly)" ;;
+  *) die "no xtmd for $(uname -m): there are builds for x64 and arm64 ('npm i -g extended-mark' also falls back to WebAssembly)" ;;
 esac
 # an x64 shell under Rosetta on Apple silicon gets the native build
 if [ "$os" = darwin ] && [ "$cpu" = x64 ] && [ "$(sysctl -n sysctl.proc_translated 2> /dev/null || echo 0)" = 1 ]; then
@@ -74,7 +74,7 @@ mkdir -p "$dir"
 cp "$tmp/xtmd" "$dir/xtmd.new"
 chmod 755 "$dir/xtmd.new"
 mv -f "$dir/xtmd.new" "$dir/xtmd"
-# 0.3.0's frozen 0.2 → 0.3 step, which `xtmd migrate` looks for beside the binary
+# 0.3's frozen 0.2 → 0.3 step, which `xtmd migrate` looks for beside the binary
 if [ -f "$tmp/migrate-0.2.cjs" ]; then
   cp "$tmp/migrate-0.2.cjs" "$dir/migrate-0.2.cjs"
 fi

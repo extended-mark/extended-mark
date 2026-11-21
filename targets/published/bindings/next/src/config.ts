@@ -3,7 +3,7 @@
 // Turbopack (`next dev` and `next build` by default since Next 16) and webpack (`--webpack`).
 
 import { fileURLToPath } from "node:url";
-import type { Options } from "xtmd";
+import type { Options } from "extended-mark";
 
 /** The parts of a Next.js config this touches; the rest is passed through. */
 export interface NextConfigLike {
@@ -42,4 +42,4 @@ export function withXtmd<C extends NextConfigLike>(config: C = {} as C, options:
   };
 }
 
-export type { Options } from "xtmd";
+export type { Options } from "extended-mark";

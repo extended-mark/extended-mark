@@ -1,7 +1,7 @@
 {
   "name": "extended-mark",
-  "version": "0.3.0",
-  "description": "Extended Mark's compiler under the language's own name: the xtmd command, its JS API and its Vite plugin, from the xtmd package",
+  "version": "0.3.1",
+  "description": "Extended Mark's compiler: the xtmd command (a native binary for each platform), a JS API that runs it, and a Vite plugin",
   "license": "MIT",
   "homepage": "https://github.com/extended-mark/extended-mark",
   "repository": {
@@ -13,30 +13,47 @@
   "bin": {
     "xtmd": "bin/xtmd.js"
   },
-  "main": "./index.js",
-  "types": "./index.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./index.d.ts",
-      "default": "./index.js"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./vite": {
-      "types": "./vite.d.ts",
-      "default": "./vite.js"
+      "types": "./dist/vite.d.ts",
+      "default": "./dist/vite.js"
     }
   },
   "files": [
     "bin",
-    "index.js",
-    "index.d.ts",
-    "vite.js",
-    "vite.d.ts"
+    "dist"
   ],
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "build": "tsc -p .",
+    "binary": "node scripts/copy-binary.mjs",
+    "test": "npm run build && node --test test/*.test.mjs"
   },
-  "dependencies": {
-    "xtmd": "file:../xtmd"
+  "optionalDependencies": {
+    "@extended-mark/wasm": "file:../wasm",
+    "@extended-mark/cli-linux-x64": "0.3.1",
+    "@extended-mark/cli-linux-arm64": "0.3.1",
+    "@extended-mark/cli-darwin-x64": "0.3.1",
+    "@extended-mark/cli-darwin-arm64": "0.3.1",
+    "@extended-mark/cli-win32-x64": "0.3.1"
+  },
+  "peerDependencies": {
+    "vite": ">=5"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "20.19.43",
+    "typescript": "5.9.3",
+    "vite": "6.4.6"
   },
   "engines": {
     "node": ">=20"

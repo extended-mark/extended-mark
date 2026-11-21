@@ -13,7 +13,7 @@ function xtmdLoader(this: LoaderContext): void {
   const options = this.getOptions?.() ?? {};
   for (const p of options.packs ?? []) this.addDependency?.(p);
   if (options.config) this.addDependency?.(options.config);
-  import("xtmd")
+  import("extended-mark")
     .then(({ build }) => build(this.resourcePath, options))
     .then(
       (ir) => done(null, `export default ${JSON.stringify(ir)};`),

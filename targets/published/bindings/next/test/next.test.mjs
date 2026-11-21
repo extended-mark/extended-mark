@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { withXtmd, loader } from "@extended-mark/next/config";
 import { pageHtml } from "@extended-mark/next/server";
-import * as cli from "xtmd";
+import * as cli from "extended-mark";
 
 const counter = fileURLToPath(new URL("../../testing/counter.xtmd", import.meta.url));
 const require = createRequire(import.meta.url);
@@ -31,7 +31,7 @@ test("the loader turns a .xtmd file into a module whose default is its IR", asyn
 });
 
 test("a page that doesn't compile fails the build with xtmd's message", async () => {
-  const broken = fileURLToPath(new URL("../../../../../compiler/npm/xtmd/test/vite-broken.xtmd", import.meta.url));
+  const broken = fileURLToPath(new URL("../../../../../compiler/npm/extended-mark/test/vite-broken.xtmd", import.meta.url));
   await assert.rejects(runLoader(broken), /doesn't compile/);
 });
 

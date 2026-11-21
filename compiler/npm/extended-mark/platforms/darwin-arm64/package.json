@@ -1,10 +1,10 @@
 {
   "name": "@extended-mark/cli-darwin-arm64",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "The xtmd binary for macOS on Apple silicon",
   "license": "MIT",
   "homepage": "https://github.com/extended-mark/extended-mark",
-  "repository": { "type": "git", "url": "git+https://github.com/extended-mark/extended-mark.git", "directory": "compiler/npm/xtmd/platforms/darwin-arm64" },
+  "repository": { "type": "git", "url": "git+https://github.com/extended-mark/extended-mark.git", "directory": "compiler/npm/extended-mark/platforms/darwin-arm64" },
   "os": ["darwin"],
   "cpu": ["arm64"],
   "files": ["bin"]

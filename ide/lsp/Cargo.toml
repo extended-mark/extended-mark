@@ -14,8 +14,8 @@ default = ["fs"]
 fs = ["dep:toml"]
 
 [dependencies]
-xtmd-live = { path = "../../compiler/live", version = "0.3.0" }
-xtmd-syntax = { path = "../../compiler/syntax", version = "0.3.0" }
+xtmd-live = { path = "../../compiler/live", version = "0.3.1" }
+xtmd-syntax = { path = "../../compiler/syntax", version = "0.3.1" }
 serde.workspace = true
 serde_json.workspace = true
 toml = { version = "0.8", optional = true }

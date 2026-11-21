@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/example-web-next",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "The shop page in Next.js's app router: <XtmdPage> from @extended-mark/next, the page compiled by xtmd at build time and pre-rendered as HTML on the server",
   "type": "module",
