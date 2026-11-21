@@ -62,8 +62,9 @@ data class Restored(val restored: How, val dropped: List<String>, val why: Strin
     enum class How { ALL, STATE, NONE }
 }
 
-/** The release snapshots are taken in. */
-const val RELEASE = "0.3.1"
+/** The release snapshots are taken in: the release's version, written by tools/release/bump.mjs and held
+ * to it by `bump.mjs --check`. */
+const val RELEASE = "0.3.2"
 
 /** A short, stable hash of a text: FNV-1a, as @extended-mark/view's. */
 internal fun hash(text: String): String {

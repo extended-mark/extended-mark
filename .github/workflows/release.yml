@@ -35,6 +35,8 @@ on:
 
 permissions:
   contents: write
+  # the checks (ci.yml) look up a tested tree's artifact
+  actions: read
 
 env:
   CARGO_TERM_COLOR: never
@@ -70,6 +72,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           node tools/release/check-notes.mjs
+          # every crate, package and copy of the version says VERSION, or nothing is released
+          node tools/release/bump.mjs --check
           v="$(tr -d '[:space:]' < VERSION)"
           echo "version=$v" >> "$GITHUB_OUTPUT"
           # a release, or the tag alone (one made by hand), means this version is out
@@ -145,7 +149,8 @@ jobs:
     name: Publish
     needs: [version, binaries, wasm, test]
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    # crates.io takes 5 new crates at once, then one every 10 minutes: publish-crates.sh waits
+    timeout-minutes: 120
     permissions:
       contents: write
       # trusted publishing: npm, crates.io, the VS Code Marketplace and Open VSX take the run's OIDC token in place of a secret

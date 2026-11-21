@@ -1,8 +1,8 @@
 # Releasing Extended Mark
 
 A merge into main that raises `VERSION` starts the release: `.github/workflows/release.yml` builds
-everything on Linux, tests it, tags the merge commit `v<VERSION>` and publishes it under that tag. The merge request raises `VERSION`
-and adds `notes/<VERSION>.md` (notes/README.md); the **Release notes** check holds it to that, and
+everything on Linux, tests it, tags the merge commit `v<VERSION>` and publishes it under that tag. The merge request raises the
+version everywhere with `node tools/release/bump.mjs <version>`, which also starts `notes/<VERSION>.md` (notes/README.md); the **Release notes** check holds it to that, and
 the **Types, tests and conformance** check (ci.yml) runs the tests, both required by main's ruleset
 (.github/rulesets/). A merge that leaves `VERSION` as it was releases nothing, and the workflow can
 be run by hand. Only `main` releases: run by hand on any other branch, the workflow does nothing,
@@ -26,6 +26,17 @@ What it does, in order:
    registry is tried even when one before it failed, and a version a registry has already is left
    alone, so `Re-run failed jobs` finishes what's left.
 
+## Tested once per tree
+
+The checks (ci.yml) test a set of files once. A run that passes leaves a small artifact named after the
+commit's tree hash, `tested-<tree>` (and `dryrun-<tree>` for the release dry run's packaging); a later run
+on the same tree finds it and skips that work. So the merge into `staging`, the pull request into `main`,
+the merge into `main` and the release's own test job, which test the files the pull request into `staging`
+already tested, each take about a minute. The tree includes `.github/`, so a change to the workflows is
+tested afresh, and only a run of this repository counts, never a fork's. The registry check of the release
+dry run always runs, since a registry can change while the files don't. npm's downloads are cached
+between runs (setup-node's npm cache, keyed on the lock files), as are Rust's builds and Gradle's.
+
 ## Before the merge: the release dry run
 
 A release that fails on main can't be taken back: a version a registry has is its for good. So on every
@@ -37,7 +48,9 @@ when it wouldn't. `preflight.mjs` checks what only the registries know:
   `xtmd` for `xtend`, `xml` and others) and says so only when the name is first published, so a new
   unscoped package is published by hand once. `NPM_TOKEN` signs in, may write every package and
   doesn't run out within two days; under trusted publishing no package is new.
-- crates.io: under trusted publishing no crate is new; a crate's version must be the release's.
+- crates.io: under trusted publishing no crate is new; a crate's version must be the release's. More
+  than 5 new crates is noted: crates.io takes 5 at once, then one every 10 minutes, and
+  `publish-crates.sh` waits for it (the Publish job allows two hours).
 - Open VSX: the namespace exists, and `OVSX_PAT` may publish to it.
 - each registry: whether it publishes, stages, passes over a version it has, or is skipped for want
   of a credential, in the job's summary.
@@ -111,11 +124,17 @@ permissions: read and write).
   staged and where to approve them.
 - `publish-crates.sh [--dry-run]`: copies core's Extended Mark files into the crates that embed them, then
   `cargo publish --workspace`, leaving out each crate crates.io has at its version already and every
-  crate with `publish = false`: xtmd-schemagen
+  crate with `publish = false`. When crates.io's limit on new crates answers 429, it waits until the
+  time it gives (up to 15 minutes) and goes on with the crates left. It leaves out xtmd-schemagen
   (a tool here), xtmd-wasm (xtmd.wasm ships another way) and the example targets' crates.
+- `bump.mjs <version> | --check`: sets the release's version everywhere it is written (`VERSION`, every
+  crate and its path dependencies, `Cargo.lock`'s own crates, every package.json of ours and its
+  `@extended-mark` pins, the lock files' own entries, the Android example's Gradle versions, the schemas'
+  examples, the runtime snapshots' release, and the docs that show it), and starts the version's note.
+  `--check` names each place that doesn't say `VERSION`; the Release notes check and the release run it.
 - `preflight.mjs`: the release dry run's checks of each registry (above); its tests are in `test/`
   (`node --test tools/release/test/*.test.mjs`).
 - `packages.mjs`: the npm packages and their order, for both.
 
-Every package and crate carries the release's version (0.3.1); `publish-npm.mjs` refuses one that
+Every package and crate carries the release's version (0.3.2); `publish-npm.mjs` refuses one that
 doesn't.

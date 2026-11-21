@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/solid",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Extended Mark documents in Solid, run time: <XtmdDoc src={…} /> or ir={…}, drawn by Solid itself with core's widgets, on a server and in the browser. No compiler; @extended-mark/solid-live compiles in the browser",
   "license": "MIT",
   "homepage": "https://github.com/extended-mark/extended-mark",

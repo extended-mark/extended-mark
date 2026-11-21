@@ -17,9 +17,9 @@ name = "xtmd_runtime_check"
 path = "src/bin/xtmd_runtime_check/main.rs"
 
 [dependencies]
-xtmd-ir = { path = "../../../../compiler/ir", version = "0.3.1" }
-xtmd-eval = { path = "../../../../compiler/eval", version = "0.3.1" }
-xtmd-markdown = { path = "../../../../compiler/markdown", version = "0.3.1" }
+xtmd-ir = { path = "../../../../compiler/ir", version = "0.3.2" }
+xtmd-eval = { path = "../../../../compiler/eval", version = "0.3.2" }
+xtmd-markdown = { path = "../../../../compiler/markdown", version = "0.3.2" }
 serde_json.workspace = true
 
 [dev-dependencies]

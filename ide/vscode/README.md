@@ -57,7 +57,7 @@ xtmd target check vscode    # every case, in Chromium
 npm install
 npm test              # builds dist/ (types checked first), then the grammar and language tests
 npm run vscode        # VS Code itself (downloaded into .vscode-test), driven and photographed into test/out
-npm run package       # xtmd-0.3.1.vsix
+npm run package       # xtmd-0.3.2.vsix
 ```
 
 `npm run vscode` needs a screen; on a box without one, run it under Xvfb:

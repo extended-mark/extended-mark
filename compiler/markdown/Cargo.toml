@@ -7,6 +7,6 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-xtmd-ir = { path = "../ir", version = "0.3.1" }
-xtmd-eval = { path = "../eval", version = "0.3.1" }
+xtmd-ir = { path = "../ir", version = "0.3.2" }
+xtmd-eval = { path = "../eval", version = "0.3.2" }
 serde_json.workspace = true

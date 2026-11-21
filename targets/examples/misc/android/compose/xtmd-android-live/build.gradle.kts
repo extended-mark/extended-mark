@@ -43,7 +43,7 @@ afterEvaluate {
                 from(components["release"])
                 groupId = "xtmd"
                 artifactId = "xtmd-android-live"
-                version = "0.3.1"
+                version = "0.3.2"
             }
         }
         repositories { maven { url = uri(rootProject.layout.buildDirectory.dir("repo")) } }

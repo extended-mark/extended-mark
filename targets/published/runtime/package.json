@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/runtime",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Extended Mark's runtime for the web: the evaluator that runs the compiler's IR, exact decimal128 numbers, values, the native fns and the limits",
   "license": "MIT",
   "homepage": "https://github.com/extended-mark/extended-mark",
