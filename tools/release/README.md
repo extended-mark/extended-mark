@@ -114,7 +114,7 @@ permissions: read and write).
   crate with `publish = false`: xtmd-schemagen
   (a tool here), xtmd-wasm (xtmd.wasm ships another way) and the example targets' crates.
 - `preflight.mjs`: the release dry run's checks of each registry (above); its tests are in `test/`
-  (`node --test tools/release/test/`).
+  (`node --test tools/release/test/*.test.mjs`).
 - `packages.mjs`: the npm packages and their order, for both.
 
 Every package and crate carries the release's version (0.3.1); `publish-npm.mjs` refuses one that

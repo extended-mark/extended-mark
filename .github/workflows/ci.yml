@@ -199,7 +199,7 @@ jobs:
           name: checks-xtmd-wasm
           path: compiler/npm/wasm
       - name: The release tools' tests
-        run: node --test tools/release/test/
+        run: node --test tools/release/test/*.test.mjs
       - name: npm 11.15 or later, for staged publishing
         run: npm install -g npm@^11.15.0
       - name: Every registry can take VERSION
