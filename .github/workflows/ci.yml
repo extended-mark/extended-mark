@@ -50,7 +50,7 @@ jobs:
       dryrun: ${{ steps.find.outputs.dryrun }}
       wants-dryrun: ${{ steps.find.outputs.wants-dryrun }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: find
         env:
           GH_TOKEN: ${{ github.token }}
@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Rust, for wasm32-wasip1
         run: rustup toolchain install stable --profile minimal --target wasm32-wasip1 && rustup default stable
       - uses: Swatinem/rust-cache@v2
@@ -93,7 +93,7 @@ jobs:
         run: pip install "ziglang==$ZIGLANG"
       - name: Build
         run: XTMD_ZIG="python3 -m ziglang" compiler/wasm/build.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: checks-xtmd-wasm
           path: compiler/npm/wasm/xtmd.wasm
@@ -107,7 +107,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Rust
         run: rustup toolchain install stable --profile minimal && rustup default stable
       - uses: Swatinem/rust-cache@v2
@@ -125,8 +125,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           # npm's downloads, kept between runs while the lock files stay the same
@@ -138,7 +138,7 @@ jobs:
         with:
           workspaces: compiler
           key: release
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: checks-xtmd-wasm
           path: compiler/npm/wasm
@@ -155,6 +155,8 @@ jobs:
       - name: The VS Code extension, built and tested
         working-directory: ide/vscode
         run: npm install --no-audit --no-fund && npm test
+      - name: The 0.2 migrator's tests (the frozen step xtmd migrate runs is built from it)
+        run: node --test tools/migrate-0.2/test/*.test.mjs
 
   conformance:
     name: Every target's conformance checks
@@ -163,13 +165,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: "**/package-lock.json"
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
@@ -179,7 +181,7 @@ jobs:
         with:
           workspaces: compiler
           key: release
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: checks-xtmd-wasm
           path: compiler/npm/wasm
@@ -194,7 +196,7 @@ jobs:
         working-directory: ide/vscode
         run: npm install --no-audit --no-fund
       - name: Gradle's downloads, kept between runs
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
@@ -239,8 +241,8 @@ jobs:
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       PACK: ${{ needs.gate.outputs.dryrun != 'true' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
@@ -269,7 +271,7 @@ jobs:
         with:
           workspaces: compiler
           key: release
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: env.PACK == 'true'
         with:
           name: checks-xtmd-wasm
@@ -297,7 +299,7 @@ jobs:
       - name: This tree's packaging passed
         if: env.PACK == 'true'
         run: echo "${{ needs.gate.outputs.tree }}" > "$RUNNER_TEMP/tree.txt"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: env.PACK == 'true'
         with:
           name: dryrun-${{ needs.gate.outputs.tree }}
@@ -327,7 +329,7 @@ jobs:
           test "${{ needs.release.result }}" = success || test "${{ needs.release.result }}" = skipped
           echo "${{ needs.gate.outputs.tree }}" > "$RUNNER_TEMP/tree.txt"
       # this tree passed: a later run on the same files (after a merge, in the release) needn't test it again
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: needs.gate.outputs.tested != 'true'
         with:
           name: tested-${{ needs.gate.outputs.tree }}

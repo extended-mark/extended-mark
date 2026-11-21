@@ -3,7 +3,7 @@
 
 import { D, E, S } from './tree.mjs';
 import { typeOf, resolve, lit, token } from './values.mjs';
-import { CORE_NAMES, Unsupported } from './context.mjs';
+import { CORE_NAMES, KEYWORDS, Unsupported } from './context.mjs';
 
 export class Decls {
   constructor(m, pack) {
@@ -27,6 +27,9 @@ export class Decls {
     while (this.used.has(n)) n += '_';
     this.used.add(n);
     this.names.set(key, n);
+    // a keyword, or a name core or this pack already has, can't be kept: say what it became
+    const plain = String(n02).replace(/-/g, '_').toLowerCase();
+    if (n !== plain && n !== 'x_' + plain) this.m.note('info', null, `${kind} \`${n02}\` is \`${n}\` in 0.3: ${KEYWORDS.has(String(n02).toLowerCase()) ? `\`${n02}\` is a keyword` : `\`${n02}\` is taken`}`);
     return n;
   }
 
@@ -49,11 +52,19 @@ export class Decls {
     return name;
   }
 
-  /** The record for a 0.2 record type: by its name, or for an inline one, by its fields. */
+  /**
+   * The record for a 0.2 record type: by its name and fields, or for an inline one, by its fields. Two
+   * 0.2 widgets may each declare a record of one name with other fields (gantt's `record task {name,
+   * start, end}`, checklist's `record task {text, done}`); 0.3's records are the pack's, so the second
+   * is named for its widget, `checklist_task`, and neither loses its fields.
+   */
   recordFor(n02, fields, defaults, at) {
-    const key = n02 ? `record:${n02}` : `record-of:${JSON.stringify(fields)}`;
+    const shape = JSON.stringify(fields);
+    const key = n02 ? `record:${n02}:${shape}` : `record-of:${shape}`;
     if (this.names.has(key)) return this.names.get(key);
-    const name = this.name(n02 ?? at.hint ?? 'fields', 'record');
+    const taken = n02 != null && this.names.has(`record:${n02}`);
+    const name = taken ? this.name(at.owner ? `${at.owner}_${n02}` : `${n02}_2`, 'record') : this.name(n02 ?? at.hint ?? 'fields', 'record');
+    if (taken) this.m.note('info', at.line, `two 0.2 records are named \`${n02}\` with other fields: this one${at.owner ? `, \`${at.owner}\`'s,` : ''} is \`${name}\` in 0.3`);
     this.names.set(key, name);
     this.records.set(name, null); // reserve it: a record may hold itself in a list
     this.records.set(name, D.record(name, fields.map(([f, t]) => this.field(f, t, defaults?.[f], { ...at, hint: `${name}_${f}` }))));

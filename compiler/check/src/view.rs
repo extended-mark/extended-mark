@@ -36,12 +36,26 @@ impl Checker {
         }
     }
 
+    /// Whether a value of this type can follow `@`: a view, a widget's, one of an interface widgets
+    /// fit, or a list or opt of one (page 3). Any other value is skipped, so an input `icon: glyph`
+    /// never hides the widget `icon`.
+    fn holds_view(&self, t: &Ty) -> bool {
+        match self.vars.resolve(t) {
+            Ty::View => true,
+            Ty::Def(d, _) => matches!(self.defs[d].kind, DefKind::Widget { .. }),
+            Ty::Any(d, _) => matches!(self.defs[d].kind, DefKind::Interface { widget: true, .. }),
+            Ty::List(inner) | Ty::Opt(inner) => self.holds_view(&inner),
+            // not known yet, or known to be wrong: as a view, so it is reported once, where it is used
+            Ty::Param(_) | Ty::Var(_) | Ty::Err => true,
+            _ => false,
+        }
+    }
+
     /// What follows `@` when it isn't a widget: a slot, a view held in a value, or a fn that returns one.
     fn placed_value(&mut self, cx: &mut Cx, call: &ast::ViewCall) -> Option<(ir::Expr, Ty)> {
         let name = &call.name.name;
-        let viewish = |t: &Ty| !matches!(t, Ty::Num | Ty::Text | Ty::Bool | Ty::Dur);
         if let Some(l) = cx.local(name).cloned() {
-            if call.args.is_none() && viewish(&l.ty) {
+            if call.args.is_none() && self.holds_view(&l.ty) {
                 return Some((ir::Expr::Get(ir::Get::Local(name.clone())), l.ty));
             }
             if let Ty::Fn(..) = self.vars.resolve(&l.ty) {
@@ -60,7 +74,8 @@ impl Checker {
                     let callee = ast::Expr { kind: E::Name(call.name.clone()), span: call.name.span };
                     return Some(self.expr(cx, &ast::Expr { kind: E::Call { callee: Box::new(callee), args: g }, span: call.span }, None));
                 }
-                if viewish(t) {
+                // a view held in an input takes no arguments: `@name(…)` calls the widget
+                if call.args.is_none() && self.holds_view(t) {
                     return Some((ir::Expr::Get(ir::Get::Input(name.clone())), t.clone()));
                 }
             }
@@ -71,7 +86,8 @@ impl Checker {
             }
         }
         if let Some(ValueSym::Fn(f)) = self.lookup_value(cx.file, name) {
-            if self.fns[f].ret.as_ref().map_or(false, |r| matches!(r, Ty::View | Ty::Def(..))) {
+            let ret = self.fns[f].ret.clone();
+            if ret.map_or(false, |r| self.holds_view(&r)) {
                 let g = call.args.clone().unwrap_or_else(|| ast::Group::empty(call.span));
                 let callee = ast::Expr { kind: E::Name(call.name.clone()), span: call.name.span };
                 return Some(self.expr(cx, &ast::Expr { kind: E::Call { callee: Box::new(callee), args: g }, span: call.span }, None));

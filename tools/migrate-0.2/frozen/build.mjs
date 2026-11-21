@@ -1,6 +1,7 @@
 // Builds migrate-0.2.cjs, the frozen 0.2 → 0.3 step: entry.mjs with MKP 0.2.10's compiler (the 0.2
-// tree's packages/core) and the migrator, in one file for Node 20 or later. It is built once, for
-// MKP 0.3.0, and never again:
+// tree's packages/core) and the migrator, in one file for Node 20 or later. It was built for 0.3.0,
+// and again for 0.3.3, when the migrator was fixed (two records of one name, renames said); a build
+// changes only when the migrator does:
 //
 //   node frozen/build.mjs --root02 <the 0.2.10 tree> --commit <the commit it is>
 //
@@ -52,7 +53,7 @@ const sha256 = createHash('sha256').update(bytes).digest('hex');
 writeFileSync(
   join(here, 'migrate-0.2.lock'),
   [
-    '# The frozen 0.2 → 0.3 step, built once by frozen/build.mjs for MKP 0.3.0. mkp checks the file',
+    '# The frozen 0.2 → 0.3 step, built by frozen/build.mjs (for 0.3.0; again for 0.3.3, with the migrator\'s fixes). xtmd checks the file',
     '# against sha256 before it runs it.',
     `file = "migrate-0.2.cjs"`,
     `sha256 = "${sha256}"`,

@@ -1,7 +1,7 @@
-# The frozen 0.2 → 0.3 step, built once by frozen/build.mjs for MKP 0.3.0. mkp checks the file
+# The frozen 0.2 → 0.3 step, built by frozen/build.mjs (for 0.3.0; again for 0.3.3, with the migrator's fixes). xtmd checks the file
 # against sha256 before it runs it.
 file = "migrate-0.2.cjs"
-sha256 = "e49357cfbe9dccad17176407b69343838f076b6f9d1fabb30bc64b69479b13b3"
+sha256 = "8036c0af6dc085035349e681346a7c0dc9f6d5b8bfa782aa1a007b10cd3c5201"
 mkp02 = "0.2.10"
 mkp02_commit = "e896e6b2f73ba99ffb86261ad795d1489fbeee72"
 esbuild = "0.24.2"
