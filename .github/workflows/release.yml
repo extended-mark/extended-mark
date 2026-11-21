@@ -145,7 +145,8 @@ jobs:
     name: Publish
     needs: [version, binaries, wasm, test]
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    # crates.io takes 5 new crates at once, then one every 10 minutes: publish-crates.sh waits
+    timeout-minutes: 120
     permissions:
       contents: write
       # trusted publishing: npm, crates.io, the VS Code Marketplace and Open VSX take the run's OIDC token in place of a secret

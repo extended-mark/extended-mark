@@ -37,7 +37,9 @@ when it wouldn't. `preflight.mjs` checks what only the registries know:
   `xtmd` for `xtend`, `xml` and others) and says so only when the name is first published, so a new
   unscoped package is published by hand once. `NPM_TOKEN` signs in, may write every package and
   doesn't run out within two days; under trusted publishing no package is new.
-- crates.io: under trusted publishing no crate is new; a crate's version must be the release's.
+- crates.io: under trusted publishing no crate is new; a crate's version must be the release's. More
+  than 5 new crates is noted: crates.io takes 5 at once, then one every 10 minutes, and
+  `publish-crates.sh` waits for it (the Publish job allows two hours).
 - Open VSX: the namespace exists, and `OVSX_PAT` may publish to it.
 - each registry: whether it publishes, stages, passes over a version it has, or is skipped for want
   of a credential, in the job's summary.
@@ -111,7 +113,8 @@ permissions: read and write).
   staged and where to approve them.
 - `publish-crates.sh [--dry-run]`: copies core's Extended Mark files into the crates that embed them, then
   `cargo publish --workspace`, leaving out each crate crates.io has at its version already and every
-  crate with `publish = false`: xtmd-schemagen
+  crate with `publish = false`. When crates.io's limit on new crates answers 429, it waits until the
+  time it gives (up to 15 minutes) and goes on with the crates left. It leaves out xtmd-schemagen
   (a tool here), xtmd-wasm (xtmd.wasm ships another way) and the example targets' crates.
 - `preflight.mjs`: the release dry run's checks of each registry (above); its tests are in `test/`
   (`node --test tools/release/test/*.test.mjs`).
