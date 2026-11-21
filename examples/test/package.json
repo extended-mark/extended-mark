@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/example-same-page-test",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "The same shop page from plain TypeScript, React and Next.js, built, served and driven in Chromium: they must agree after every step",
   "type": "module",

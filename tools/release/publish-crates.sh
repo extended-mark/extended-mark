@@ -7,7 +7,9 @@
 #
 #   tools/release/publish-crates.sh [--dry-run]
 #
-# Publishing needs CARGO_REGISTRY_TOKEN in the environment; --dry-run needs nothing. The ten published:
+# Publishing needs CARGO_REGISTRY_TOKEN in the environment; --dry-run needs nothing. A crate whose version
+# is on crates.io already is left out, so a release run again after a failure publishes only the rest. The
+# ten published:
 # xtmd, xtmd-live, xtmd-lsp, xtmd-syntax, xtmd-check, xtmd-ir, xtmd-lower, xtmd-eval, xtmd-markdown and
 # xtmd-migrate. The workspace's other members have `publish = false` and cargo leaves them out:
 # xtmd-schemagen (a tool here), xtmd-wasm (xtmd.wasm, in @extended-mark/wasm and on the GitHub
@@ -28,4 +30,21 @@ cp "$repo/core/entities.xtmdpack" "$rust/syntax/core/"
 mkdir -p "$repo/ide/lsp/checks"
 cp "$repo/checks/rules.json" "$repo/ide/lsp/checks/"
 cd "$rust"
-cargo publish --workspace --allow-dirty "$@"
+# the publishable members (publish isn't false) at their version, and the ones crates.io has already
+skip=""
+left=0
+for nv in $(cargo metadata --no-deps --format-version 1 | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{for(const p of JSON.parse(s).packages)if(!(Array.isArray(p.publish)&&p.publish.length===0))console.log(p.name+"@"+p.version)})'); do
+  name=${nv%@*}; version=${nv#*@}
+  if [ "$(curl -s -o /dev/null -w '%{http_code}' -A 'extended-mark release (https://github.com/extended-mark/extended-mark)' "https://crates.io/api/v1/crates/$name/$version")" = 200 ]; then
+    echo "$name $version is on crates.io already: left out"
+    skip="$skip --exclude $name"
+  else
+    left=$((left + 1))
+  fi
+done
+if [ "$left" = 0 ]; then
+  echo "every crate is on crates.io at its version already: nothing to publish"
+  exit 0
+fi
+# shellcheck disable=SC2086
+cargo publish --workspace --allow-dirty $skip "$@"

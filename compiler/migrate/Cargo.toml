@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-xtmd-syntax = { path = "../syntax", version = "0.3.0" }
-xtmd-check = { path = "../check", version = "0.3.0" }
+xtmd-syntax = { path = "../syntax", version = "0.3.1" }
+xtmd-check = { path = "../check", version = "0.3.1" }
 serde_json.workspace = true
 toml = "0.8"

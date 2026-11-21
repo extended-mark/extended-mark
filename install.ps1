@@ -58,7 +58,7 @@ try {
   if (-not (Test-Path $exe)) { Fail "$asset has no xtmd.exe in it" }
   New-Item -ItemType Directory -Force -Path $dir | Out-Null
   Copy-Item -Force $exe (Join-Path $dir "xtmd.exe")
-  # 0.3.0's frozen 0.2 -> 0.3 step, which `xtmd migrate` looks for beside the binary
+  # 0.3's frozen 0.2 -> 0.3 step, which `xtmd migrate` looks for beside the binary
   $step = Join-Path $tmp "migrate-0.2.cjs"
   if (Test-Path $step) { Copy-Item -Force $step (Join-Path $dir "migrate-0.2.cjs") }
 } finally {

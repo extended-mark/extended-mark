@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/next",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Extended Mark pages in Next.js: <XtmdPage> as a client component, .xtmd imports compiled at build time, and the page's Markdown as HTML for the server",
   "license": "MIT",
   "homepage": "https://github.com/extended-mark/extended-mark",
@@ -40,7 +40,7 @@
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {
-    "xtmd": "file:../../../../compiler/npm/xtmd",
+    "extended-mark": "file:../../../../compiler/npm/extended-mark",
     "@extended-mark/embed": "file:../embed",
     "@extended-mark/react": "file:../react"
   },

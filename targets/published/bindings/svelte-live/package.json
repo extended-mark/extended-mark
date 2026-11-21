@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/svelte-live",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Extended Mark documents in Svelte 5, compiled in the browser as they are edited: <XtmdLiveDoc source={…} />, @extended-mark/wasm's compiler and @extended-mark/svelte's <XtmdDoc>",
   "license": "MIT",
   "homepage": "https://github.com/extended-mark/extended-mark",
@@ -37,7 +37,7 @@
     "svelte": "^5.0.0"
   },
   "devDependencies": {
-    "xtmd": "file:../../../../compiler/npm/xtmd",
+    "extended-mark": "file:../../../../compiler/npm/extended-mark",
     "esbuild": "0.28.2",
     "playwright-core": "1.64.1",
     "svelte": "5.57.3",

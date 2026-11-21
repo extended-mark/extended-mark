@@ -1,10 +1,10 @@
 {
   "name": "@extended-mark/cli-linux-arm64",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "The xtmd binary for Linux on arm64",
   "license": "MIT",
   "homepage": "https://github.com/extended-mark/extended-mark",
-  "repository": { "type": "git", "url": "git+https://github.com/extended-mark/extended-mark.git", "directory": "compiler/npm/xtmd/platforms/linux-arm64" },
+  "repository": { "type": "git", "url": "git+https://github.com/extended-mark/extended-mark.git", "directory": "compiler/npm/extended-mark/platforms/linux-arm64" },
   "os": ["linux"],
   "cpu": ["arm64"],
   "files": ["bin"]

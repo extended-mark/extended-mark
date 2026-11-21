@@ -21,7 +21,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "0.3.0"
+        versionName = "0.3.1"
         // the processors xtmd-android's native runtime is built for (../xtmd/build.sh android)
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }

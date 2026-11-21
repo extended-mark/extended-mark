@@ -22,7 +22,7 @@ use crate::{fns, XtmdPage, Registry};
 pub type State = BTreeMap<String, Expr>;
 
 /// The release snapshots are taken in: one of another can't be read.
-pub const RELEASE: &str = "0.3.0";
+pub const RELEASE: &str = "0.3.1";
 
 /// What went wrong, for the app.
 #[derive(Clone, Debug, PartialEq)]

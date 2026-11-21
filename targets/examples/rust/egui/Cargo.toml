@@ -35,9 +35,9 @@ check = ["dep:egui_kittest"]
 app = ["dep:eframe"]
 
 [dependencies]
-xtmd-runtime = { path = "../runtime", version = "0.3.0" }
-xtmd-eval = { path = "../../../../compiler/eval", version = "0.3.0" }
-xtmd-ir = { path = "../../../../compiler/ir", version = "0.3.0" }
+xtmd-runtime = { path = "../runtime", version = "0.3.1" }
+xtmd-eval = { path = "../../../../compiler/eval", version = "0.3.1" }
+xtmd-ir = { path = "../../../../compiler/ir", version = "0.3.1" }
 serde.workspace = true
 serde_json.workspace = true
 egui = "0.37"

@@ -14,7 +14,7 @@
 #   - the GitHub release v<VERSION>, its notes the note's: each platform's binary
 #     (xtmd-<VERSION>-<os>-<cpu>.tar.gz, what install.sh and install.ps1 fetch), SHA256SUMS,
 #     xtmd.wasm (xtmd-<VERSION>.wasm) and the VS Code extension (xtmd-<VERSION>.vsix);
-#   - npm: the 25 packages of compiler/npm and targets/published (xtmd, extended-mark, @extended-mark/*);
+#   - npm: the 24 packages of compiler/npm and targets/published (extended-mark, @extended-mark/*);
 #   - crates.io: the 10 crates of compiler/ and ide/lsp (xtmd, xtmd-live, xtmd-lsp and the compiler's);
 #   - the VS Code Marketplace and Open VSX, each by its trusted publishing (VSCE_TRUSTED_PUBLISHING,
 #     OVSX_TRUSTED_PUBLISHING = true; Open VSX with an OVSX_PAT token instead until it is set up): the extension.
@@ -105,14 +105,14 @@ jobs:
         working-directory: compiler
         run: cargo zigbuild --release -p xtmd --target ${{ matrix.target }}
       - name: In its platform package
-        run: node compiler/npm/xtmd/scripts/copy-binary.mjs --target ${{ matrix.target }}
+        run: node compiler/npm/extended-mark/scripts/copy-binary.mjs --target ${{ matrix.target }}
       - name: Runs where it was built for
         if: matrix.platform == 'linux-x64'
-        run: compiler/npm/xtmd/platforms/linux-x64/bin/xtmd --version
+        run: compiler/npm/extended-mark/platforms/linux-x64/bin/xtmd --version
       - uses: actions/upload-artifact@v4
         with:
           name: xtmd-${{ matrix.platform }}
-          path: compiler/npm/xtmd/platforms/${{ matrix.platform }}/bin/
+          path: compiler/npm/extended-mark/platforms/${{ matrix.platform }}/bin/
           if-no-files-found: error
 
   wasm:
@@ -164,19 +164,20 @@ jobs:
       - name: Each binary in its platform package, xtmd.wasm in @extended-mark/wasm
         run: |
           for p in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win32-x64; do
-            mkdir -p "compiler/npm/xtmd/platforms/$p/bin"
-            cp artifacts/xtmd-$p/* "compiler/npm/xtmd/platforms/$p/bin/"
-            chmod +x compiler/npm/xtmd/platforms/$p/bin/xtmd* || true
+            mkdir -p "compiler/npm/extended-mark/platforms/$p/bin"
+            cp artifacts/xtmd-$p/* "compiler/npm/extended-mark/platforms/$p/bin/"
+            chmod +x compiler/npm/extended-mark/platforms/$p/bin/xtmd* || true
           done
           cp artifacts/xtmd-wasm/xtmd.wasm compiler/npm/wasm/
       - name: The GitHub release
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           v="${{ needs.version.outputs.version }}"
           mkdir -p release
           for p in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win32-x64; do
-            tar -czf "release/xtmd-$v-$p.tar.gz" -C "compiler/npm/xtmd/platforms/$p/bin" .
+            tar -czf "release/xtmd-$v-$p.tar.gz" -C "compiler/npm/extended-mark/platforms/$p/bin" .
           done
           cp compiler/npm/wasm/xtmd.wasm "release/xtmd-$v.wasm"
           # the VS Code extension, to install from the release (Extensions: Install from VSIX…)
@@ -189,7 +190,10 @@ jobs:
           # the tag v<VERSION> is made here, on the commit this run is for: the merge's
           gh release view "v$v" > /dev/null 2>&1 || gh release create "v$v" --target "$GITHUB_SHA" --title "$title" --notes-file /tmp/body.md
           gh release upload "v$v" release/* --clobber
+      # each registry below is tried even when one before it failed, and a version a registry has
+      # already is left alone, so a release run again after a failure only finishes what's left
       - name: npm
+        if: ${{ !cancelled() && steps.release.outcome == 'success' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           TRUSTED: ${{ vars.NPM_TRUSTED_PUBLISHING }}
@@ -207,6 +211,7 @@ jobs:
           node tools/release/build-ts.mjs
           node tools/release/publish-npm.mjs --version "${{ needs.version.outputs.version }}" $how
       - name: The VS Code extension on the Marketplace and Open VSX
+        if: ${{ !cancelled() && steps.release.outcome == 'success' }}
         env:
           VSCE_TRUSTED: ${{ vars.VSCE_TRUSTED_PUBLISHING }}
           OVSX_TRUSTED: ${{ vars.OVSX_TRUSTED_PUBLISHING }}
@@ -217,18 +222,19 @@ jobs:
           # the Marketplace's trusted publishing: the publisher's policy names this repository and
           # release.yml, and the run's OIDC token (id-token: write) stands in for a token; Azure
           # DevOps' global tokens, which vsce needed before, end on 1 December 2026
-          if [ "$VSCE_TRUSTED" = "true" ]; then npx vsce publish --packagePath "../../release/xtmd-$v.vsix" --oidc
+          if [ "$VSCE_TRUSTED" = "true" ]; then npx vsce publish --packagePath "../../release/xtmd-$v.vsix" --oidc --skip-duplicate
           else echo "::notice::No trusted publishing for the Marketplace (VSCE_TRUSTED_PUBLISHING): the extension isn't published to the VS Code Marketplace"; fi
           # Open VSX's trusted publishing takes the run's OIDC token too (ovsx 1.3.0's --trusted-publishing);
           # a token only until it is set up
-          if [ "$OVSX_TRUSTED" = "true" ]; then npx ovsx publish "../../release/xtmd-$v.vsix" --trusted-publishing
-          elif [ -n "$OVSX_PAT" ]; then npx ovsx publish "../../release/xtmd-$v.vsix" -p "$OVSX_PAT"
+          if [ "$OVSX_TRUSTED" = "true" ]; then npx ovsx publish "../../release/xtmd-$v.vsix" --trusted-publishing --skip-duplicate
+          elif [ -n "$OVSX_PAT" ]; then npx ovsx publish "../../release/xtmd-$v.vsix" -p "$OVSX_PAT" --skip-duplicate
           else echo "::notice::No trusted publishing for Open VSX (OVSX_TRUSTED_PUBLISHING) and no OVSX_PAT secret: the extension isn't published to Open VSX"; fi
       - name: A crates.io token from trusted publishing
         id: crates-auth
-        if: vars.CRATES_TRUSTED_PUBLISHING == 'true'
+        if: ${{ !cancelled() && steps.release.outcome == 'success' && vars.CRATES_TRUSTED_PUBLISHING == 'true' }}
         uses: rust-lang/crates-io-auth-action@v1
       - name: crates.io
+        if: ${{ !cancelled() && steps.release.outcome == 'success' }}
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates-auth.outputs.token || secrets.CARGO_REGISTRY_TOKEN }}
         run: |

@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import xtmd from "xtmd/vite";
+import xtmd from "extended-mark/vite";
 
 export default defineConfig({
   // `import shop from "../../pages/shop.xtmd"` gives the page's IR, compiled by xtmd at build time

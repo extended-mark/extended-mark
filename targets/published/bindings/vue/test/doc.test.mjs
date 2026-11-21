@@ -5,7 +5,7 @@ import { createSSRApp, h } from "vue";
 import { renderToString } from "vue/server-renderer";
 import * as esbuild from "esbuild";
 import { chromium } from "playwright-core";
-import * as cli from "xtmd";
+import * as cli from "extended-mark";
 import { XtmdDoc } from "@extended-mark/vue";
 import { bundle, compilePages, docSteps, launch, open } from "../../testing/browser.mjs";
 
