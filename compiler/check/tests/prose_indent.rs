@@ -32,7 +32,7 @@ widget tally(names: list<text>) {
 @@@
 # Indented
 
-@frame(title = "Build") {
+@column(gap = space.S) {
 It passed in **4 minutes**.
 
 ```sh
