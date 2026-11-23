@@ -12,6 +12,7 @@ import { Compiler } from "../dist/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const casesDir = join(here, "../../../../checks/cases");
+const pagesDir = join(here, "../../../../engines/published/runtime/test/cases");
 
 function walk(dir, keep, out = []) {
   for (const name of readdirSync(dir).sort()) {
@@ -24,7 +25,7 @@ function walk(dir, keep, out = []) {
 
 /** Every case with a source: where it is, its packs' folders and files, and those files' text. */
 // the compiler's, and the pages the TypeScript runtime runs, which all compile
-const cases = [casesDir, join(repo, "engines/published/runtime/test/cases")].flatMap((d) => walk(d, (p) => p.endsWith(".json"))).flatMap((f) => {
+const cases = [casesDir, pagesDir].flatMap((d) => walk(d, (p) => p.endsWith(".json"))).flatMap((f) => {
   const c = JSON.parse(readFileSync(f, "utf8"));
   if (!c.id || !c.source) return [];
   const dir = dirname(f);
