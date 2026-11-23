@@ -211,7 +211,7 @@
     "core.draw",
     "core.live"
   ],
-  "xtmd": "0.3.2",
+  "xtmd": "0.4.0",
   "packs": [],
   "rir": 1
 }

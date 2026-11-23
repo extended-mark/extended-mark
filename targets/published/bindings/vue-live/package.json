@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/vue-live",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Extended Mark documents in Vue, compiled in the browser as they are edited: <XtmdLiveDoc source={…} />, @extended-mark/wasm's compiler and @extended-mark/vue's <XtmdDoc>",
   "license": "MIT",
   "homepage": "https://github.com/extended-mark/extended-mark",

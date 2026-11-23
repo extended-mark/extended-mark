@@ -136,5 +136,5 @@ permissions: read and write).
   (`node --test tools/release/test/*.test.mjs`).
 - `packages.mjs`: the npm packages and their order, for both.
 
-Every package and crate carries the release's version (0.3.2); `publish-npm.mjs` refuses one that
+Every package and crate carries the release's version (0.4.0); `publish-npm.mjs` refuses one that
 doesn't.

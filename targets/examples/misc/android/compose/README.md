@@ -134,7 +134,7 @@ Rust with the Android targets. Gradle comes from the wrapper (8.14.4); AGP 8.13.
 targets/examples/misc/android/xtmd/build.sh            # 1. libxtmd_android.so for the host, arm64-v8a, armeabi-v7a and x86_64, and the bindings
 cd targets/examples/misc/android/compose
 ./gradlew :xtmd-android:assembleRelease  # 2. the AAR: xtmd-android/build/outputs/aar/xtmd-android-release.aar
-./gradlew :xtmd-android:publish          #    or published, as xtmd:xtmd-android:0.3.2, to build/repo
+./gradlew :xtmd-android:publish          #    or published, as xtmd:xtmd-android:0.4.0, to build/repo
 ./gradlew :sample:assembleDebug         # 3. the APK: sample/build/outputs/apk/debug/sample-debug.apk
 ./gradlew :xtmd-android:testDebugUnitTest   # the unit tests (Robolectric)
 ```

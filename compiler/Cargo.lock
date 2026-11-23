@@ -4391,7 +4391,7 @@ checksum = "e450f9b2ed1dff33c94c12589a87338689467b9c4f5d8a5710bd09a847d2c8a7"
 
 [[package]]
 name = "xtmd"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "jsonschema",
  "serde",
@@ -4409,7 +4409,7 @@ dependencies = [
 
 [[package]]
 name = "xtmd-android"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -4423,7 +4423,7 @@ dependencies = [
 
 [[package]]
 name = "xtmd-android-live"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "serde_json",
  "uniffi",
@@ -4432,7 +4432,7 @@ dependencies = [
 
 [[package]]
 name = "xtmd-check"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "jsonschema",
  "serde_json",
@@ -4444,7 +4444,7 @@ dependencies = [
 
 [[package]]
 name = "xtmd-egui"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "chrono",
  "eframe",
@@ -4461,7 +4461,7 @@ dependencies = [
 
 [[package]]
 name = "xtmd-egui-live"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "eframe",
  "egui",
@@ -4472,7 +4472,7 @@ dependencies = [
 
 [[package]]
 name = "xtmd-eval"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "dec",
  "serde_json",
@@ -4481,7 +4481,7 @@ dependencies = [
 
 [[package]]
 name = "xtmd-ir"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "jsonschema",
  "serde",
@@ -4491,7 +4491,7 @@ dependencies = [
 
 [[package]]
 name = "xtmd-live"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -4503,7 +4503,7 @@ dependencies = [
 
 [[package]]
 name = "xtmd-lower"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "serde_json",
  "xtmd-ir",
@@ -4511,7 +4511,7 @@ dependencies = [
 
 [[package]]
 name = "xtmd-lsp"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -4522,7 +4522,7 @@ dependencies = [
 
 [[package]]
 name = "xtmd-markdown"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "serde_json",
  "xtmd-eval",
@@ -4531,17 +4531,18 @@ dependencies = [
 
 [[package]]
 name = "xtmd-migrate"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "serde_json",
  "toml 0.8.23",
  "xtmd-check",
+ "xtmd-ir",
  "xtmd-syntax",
 ]
 
 [[package]]
 name = "xtmd-runtime"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "serde_json",
  "xtmd-check",
@@ -4553,14 +4554,14 @@ dependencies = [
 
 [[package]]
 name = "xtmd-schemagen"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
 name = "xtmd-syntax"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -4568,7 +4569,7 @@ dependencies = [
 
 [[package]]
 name = "xtmd-wasm"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "serde_json",
  "xtmd-live",

@@ -43,4 +43,4 @@ export function hash(text: string): string {
 
 /** The release snapshots are taken in: one of another can't be read. The package's version, written by
  * tools/release/bump.mjs and held to it by `bump.mjs --check`. */
-export const RELEASE = "0.3.2";
+export const RELEASE = "0.4.0";

@@ -395,6 +395,9 @@ impl Checker {
             Some(ProseFill::Plain(nodes)) => {
                 if !nodes.is_empty() || slots.is_empty() {
                     misplaced = true;
+                    if let Some(first) = slots.first() {
+                        self.slot_finds.push(crate::SlotRec { file, at: call.name.span, whole: call.span, widget: d, slot: first.name.clone(), kind: crate::SlotUse::PlainBlock });
+                    }
                     let named = slots.iter().map(|s| format!("`@slot {} {{`", s.name)).collect::<Vec<_>>().join(" and ");
                     let how = if slots.is_empty() { "it takes no block".to_string() } else { format!("fill each by its name, with {}", named) };
                     self.error(file, codes::CHILDREN_ONE_SLOT, call.name.span, format!("`{}` has {} slots: {}", wname, slots.len(), how));
@@ -415,7 +418,10 @@ impl Checker {
                 }
                 None if s.ir.name == "core/opt" => {}
                 None if misplaced => {}
-                None => self.error(file, codes::MISSING_SLOT, call.name.span, format!("`{}` needs its slot `{}`: only an `opt` slot may be left out", wname, s.name)),
+                None => {
+                    self.slot_finds.push(crate::SlotRec { file, at: call.name.span, whole: call.span, widget: d, slot: s.name.clone(), kind: crate::SlotUse::LeftOut });
+                    self.error(file, codes::MISSING_SLOT, call.name.span, format!("`{}` needs its slot `{}`: only an `opt` slot may be left out", wname, s.name))
+                }
             }
         }
         for (name, nodes, _) in filled {

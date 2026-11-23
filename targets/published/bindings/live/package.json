@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/live",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "What every real-time Extended Mark target on the web shares: a document's text compiled in the browser by @extended-mark/wasm into the IR a run-time target draws, the last page that compiled kept while a draft has errors",
   "license": "MIT",
   "homepage": "https://github.com/extended-mark/extended-mark",

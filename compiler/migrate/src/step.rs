@@ -1179,7 +1179,7 @@ fn line_start(text: &str, at: usize) -> usize {
 /// A TODO line above the code at `at`. Its line takes the comment that is right there: `//` in
 /// code and inside a call's arguments, `@//` on a line of prose. Inside a fence, a maths block or
 /// a case line of `@match`, it goes above the whole block, where a comment is read as one.
-fn place_todo(text: &str, edits: &mut Vec<Edit>, at: usize, prose_from: usize, why: &str) {
+pub(crate) fn place_todo(text: &str, edits: &mut Vec<Edit>, at: usize, prose_from: usize, why: &str) {
     fn walk(p: &ast::Prose, at: usize, text: &str) -> Option<(usize, &'static str)> {
         let inside = |s: Span| s.start as usize <= at && at <= s.end as usize;
         for n in &p.nodes {

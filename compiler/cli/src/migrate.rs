@@ -215,9 +215,9 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
     let from_release = written_release.clone().unwrap_or_else(|| FIRST.to_string());
     let release_steps = xtmd_migrate::releases::between(&from_release, RELEASE, xtmd_migrate::releases::STEPS);
     let release_label = format!("xtmd {} → {}", from_release, RELEASE);
-    let (stepped, step_refused) = step_packs(&mut sources, &release_steps);
-    let packs = packs_of(&sources);
     let base = xtmd_check::compile_core(&crate::core_sources());
+    let (stepped, step_refused) = step_packs(&base, &mut sources, &release_steps);
+    let packs = packs_of(&sources);
 
     // the plan: a pass over every file; when it meets questions no one has answered, they are asked
     // in a terminal and the files planned again with the answers, and elsewhere the run stops

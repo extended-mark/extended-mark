@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/react-live",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Extended Mark documents in React, compiled in the browser as they are edited: <XtmdLiveDoc source={…} />, @extended-mark/wasm's compiler and @extended-mark/react's <XtmdDoc>",
   "license": "MIT",
   "homepage": "https://github.com/extended-mark/extended-mark",

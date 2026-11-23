@@ -73,7 +73,7 @@ fn plan(c: &Compiler, req: &Value) -> Result<Value, String> {
     let from_release = written_release.clone().unwrap_or_else(|| FIRST.to_string());
     let release_steps = xtmd_migrate::releases::between(&from_release, RELEASE, xtmd_migrate::releases::STEPS);
     let release_label = format!("xtmd {} → {}", from_release, RELEASE);
-    let (stepped, step_refused) = step_packs(&mut sources, &release_steps);
+    let (stepped, step_refused) = step_packs(c.checker(), &mut sources, &release_steps);
     let packs = packs_of(&sources);
     let stand_in_dir = PathBuf::from(req["standIns"].as_str().unwrap_or("stand-ins"));
 

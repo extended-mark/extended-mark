@@ -12,6 +12,7 @@ use xtmd_syntax::ast::{self, DeclKind, Item};
 use xtmd_syntax::{parse, Entry, Lines};
 
 pub mod releases;
+mod slots;
 pub mod step;
 pub mod v02;
 
@@ -191,18 +192,38 @@ pub fn stamp(text: &str) -> BTreeMap<String, u32> {
 /// versions of the packs it uses.
 #[allow(clippy::too_many_arguments)]
 pub fn doc_through_releases(base: &xtmd_check::Checker, packs: &[Pack], sources: &[Source], now: &[Source], path: &Path, text: &str, from: &BTreeMap<String, u32>, uses: &BTreeMap<String, u32>, steps: &[&crate::releases::ReleaseStep], label: &str) -> Outcome {
-    match crate::releases::run(text, &path.display().to_string(), steps) {
-        Err(e) => Outcome { text: text.to_string(), moved: vec![label.to_string()], refused: vec![e], ..Outcome::default() },
-        Ok((stepped, said)) => {
-            let mut o = migrate_doc(base, packs, sources, now, path, &stepped, from, uses);
-            if !said.is_empty() {
-                o.moved.insert(0, label.to_string());
-                o.changes += said.len();
-                o.notices.extend(said);
+    let doc_path = written_as(path).display().to_string();
+    let compile = |files: &[Source]| xtmd_check::compile_on(base, &[now.to_vec()], files, "doc");
+    let m = crate::releases::run(&[Source { path: doc_path.clone(), text: text.to_string() }], steps, &compile);
+    if let Some(e) = m.refused.get(&doc_path) {
+        return Outcome { text: text.to_string(), moved: vec![label.to_string()], refused: vec![e.clone()], ..Outcome::default() };
+    }
+    let said = m.said.get(&doc_path).cloned().unwrap_or_default();
+    let mut o = migrate_doc(base, packs, sources, now, path, &m.files[0].text, from, uses);
+    if !said.is_empty() {
+        o.moved.insert(0, label.to_string());
+        o.changes += said.len();
+        o.notices.extend(said);
+    }
+    let todos = m.todos.get(&doc_path).cloned().unwrap_or_default();
+    let left = !todos.is_empty();
+    o.todos.extend(todos);
+    // a step that leaves a file that doesn't compile isn't written, unless it left a TODO there
+    if !steps.is_empty() && o.text != text && o.refused.is_empty() && o.errors.is_empty() {
+        let c = compile(&[Source { path: doc_path.clone(), text: o.text.clone() }]);
+        let lines = Lines::new(&o.text);
+        let errs: Vec<(u32, String)> = c.errors().filter(|d| d.file == doc_path).map(|d| (lines.place(d.diagnostic.span.start).line, d.diagnostic.message.clone())).collect();
+        if c.module.is_none() {
+            let why = format!("it doesn't compile afterwards ({})", if errs.is_empty() { "an error in a pack".to_string() } else { errs.iter().take(3).map(|(l, m)| format!("line {}: {}", l, m)).collect::<Vec<_>>().join("; ") });
+            let at_todos = left && !errs.is_empty() && errs.iter().all(|(l, _)| under_a_todo(&o.text, *l));
+            if ALLOW_ERRORS.load(std::sync::atomic::Ordering::Relaxed) || at_todos {
+                o.errors.push(if at_todos { format!("{}, at the TODOs", why) } else { why });
+            } else {
+                o.refused.push(format!("{}; --allow-errors writes it anyway", why));
             }
-            o
         }
     }
+    o
 }
 
 /// A document written for MKP 0.2: moved by the frozen 0.2 step, then through the packs'
@@ -248,23 +269,9 @@ fn migrate_02_doc(base: &xtmd_check::Checker, packs: &[Pack], sources: &[Source]
     o.changes = 1;
     o.notices = m.notes;
     o.todos = m.todos;
-    // written as 0.3.0, then through the steps of each release after it
-    match crate::releases::run(&m.doc, &doc_path, &crate::releases::between(FIRST, RELEASE, crate::releases::STEPS)) {
-        Ok((t, said)) => {
-            if !said.is_empty() {
-                o.moved.push(format!("xtmd {} → {}", FIRST, RELEASE));
-                o.changes += said.len();
-                o.notices.extend(said);
-            }
-            o.text = t;
-        }
-        Err(e) => {
-            o.refused.push(e);
-            return Some(o);
-        }
-    }
     // each pack it uses: its own 0.3 release where the build has one, else a stand-in made from its
     // 0.2 definitions, which is a person's to replace
+    let steps = crate::releases::between(FIRST, RELEASE, crate::releases::STEPS);
     let mut world = now.to_vec();
     let mut from: BTreeMap<String, u32> = BTreeMap::new();
     for (name, shim) in &m.packs {
@@ -273,10 +280,33 @@ fn migrate_02_doc(base: &xtmd_check::Checker, packs: &[Pack], sources: &[Source]
             continue;
         }
         let entry = stand_ins.entry(name.clone()).or_insert_with(|| (stand_in_dir.join(name).join(format!("{}.xtmdpack", name)), String::new()));
+        // a stand-in is written as 0.3.0 too, so it moves through the same steps
+        let path = entry.0.display().to_string();
+        let compile = |files: &[Source]| xtmd_check::compile_on(base, &[now.to_vec()], files, name);
+        let mut stepped = crate::releases::run(&[Source { path: path.clone(), text: shim.clone() }], &steps, &compile);
+        if let Some(e) = stepped.refused.remove(&path) {
+            o.refused.push(format!("{}: {}", path, e));
+            return Some(o);
+        }
+        let shim = &stepped.files[0].text;
         entry.1 = if entry.1.is_empty() { crate::v02::marked(shim, name) } else { crate::v02::merge(&entry.1, shim) };
         o.stand_ins.push(name.clone());
         world.push(Source { path: entry.0.display().to_string(), text: entry.1.clone() });
     }
+    // written as 0.3.0, then through the steps of each release after it
+    let compile = |files: &[Source]| xtmd_check::compile_on(base, &[world.clone()], files, "doc");
+    let mut stepped = crate::releases::run(&[Source { path: doc_path.clone(), text: m.doc.clone() }], &steps, &compile);
+    if let Some(e) = stepped.refused.remove(&doc_path) {
+        o.refused.push(e);
+        return Some(o);
+    }
+    if let Some(said) = stepped.said.remove(&doc_path) {
+        o.moved.push(format!("xtmd {} → {}", FIRST, RELEASE));
+        o.changes += said.len();
+        o.notices.extend(said);
+    }
+    o.todos.extend(stepped.todos.remove(&doc_path).unwrap_or_default());
+    o.text = stepped.files.remove(0).text;
     if !o.stand_ins.is_empty() {
         let names: Vec<String> = o.stand_ins.iter().map(|n| format!("{} ({})", n, stand_ins[n].0.display())).collect();
         o.text = o.text.replacen("// Nothing to finish by hand.\n", &format!("// TODO(xtmd migrate): checked against a stand-in for {}, until the pack's own 0.3 release replaces it.\n", names.join(", ")), 1);
@@ -713,17 +743,31 @@ pub struct Tree<'a> {
 /// them. Gives each file they change (its text before, and what they say), and each they can't move
 /// (its text, and why).
 #[allow(clippy::type_complexity)]
-pub fn step_packs(sources: &mut [Source], steps: &[&releases::ReleaseStep]) -> (BTreeMap<String, (String, Vec<String>)>, BTreeMap<String, (String, String)>) {
+pub fn step_packs(base: &xtmd_check::Checker, sources: &mut [Source], steps: &[&releases::ReleaseStep]) -> (BTreeMap<String, (String, Vec<String>)>, BTreeMap<String, (String, String)>) {
     let mut stepped: BTreeMap<String, (String, Vec<String>)> = BTreeMap::new();
     let mut step_refused: BTreeMap<String, (String, String)> = BTreeMap::new();
-    for s in sources.iter_mut() {
-        match releases::run(&s.text, &s.path, steps) {
-            Ok((text, said)) if !said.is_empty() => {
-                stepped.insert(s.path.clone(), (std::mem::replace(&mut s.text, text), said));
-            }
-            Ok(_) => {}
-            Err(e) => {
-                step_refused.insert(s.path.clone(), (s.text.clone(), e));
+    if steps.is_empty() {
+        return (stepped, step_refused);
+    }
+    // a pack's files are moved together, with the packs it uses as they are by then
+    let own: Vec<(String, Vec<String>)> = packs_of(sources).into_iter().map(|p| (p.name, p.files.iter().map(|f| f.path.clone()).collect())).collect();
+    let rest: Vec<String> = sources.iter().map(|s| s.path.clone()).filter(|p| !own.iter().any(|(_, fs)| fs.contains(p))).collect();
+    let groups = own.into_iter().map(|(n, fs)| (n, fs, true)).chain(rest.into_iter().map(|p| (String::new(), vec![p], false)));
+    for (name, paths, is_pack) in groups {
+        let files: Vec<Source> = sources.iter().filter(|s| paths.contains(&s.path)).cloned().collect();
+        let world: Vec<Source> = sources.iter().filter(|s| !paths.contains(&s.path)).cloned().collect();
+        // a surface or a migration says what a version was: only a step over its text moves it
+        let steps: Vec<&releases::ReleaseStep> = steps.iter().copied().filter(|s| is_pack || matches!(s.by, releases::By::Text(_))).collect();
+        let compile = |files: &[Source]| xtmd_check::compile_on(base, &[world.clone()], files, &name);
+        let m = releases::run(&files, &steps, &compile);
+        for f in m.files {
+            let Some(s) = sources.iter_mut().find(|s| s.path == f.path) else { continue };
+            if let Some(why) = m.refused.get(&f.path) {
+                step_refused.insert(f.path.clone(), (s.text.clone(), why.clone()));
+            } else if let Some(said) = m.said.get(&f.path) {
+                let mut said = said.clone();
+                said.extend(m.todos.get(&f.path).into_iter().flatten().map(|t| format!("TODO, {}", t)));
+                stepped.insert(f.path.clone(), (std::mem::replace(&mut s.text, f.text), said));
             }
         }
     }

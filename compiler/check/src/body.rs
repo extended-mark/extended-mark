@@ -360,7 +360,9 @@ impl Checker {
                 return (ir::Expr::Get(ir::Get::Cell(n.name.clone())), t.clone());
             }
             if let Some((_, t)) = w.slots.iter().find(|s| s.0 == n.name) {
-                return (ir::Expr::Get(ir::Get::Slot(n.name.clone())), t.clone());
+                let (t, rec) = (t.clone(), crate::SlotRec { file: cx.file, at: n.span, whole: n.span, widget: w.def, slot: n.name.clone(), kind: crate::SlotUse::Read });
+                self.slot_finds.push(rec);
+                return (ir::Expr::Get(ir::Get::Slot(n.name.clone())), t);
             }
             if let Some(f) = w.fns.get(&n.name).copied() {
                 return self.fn_value(f);

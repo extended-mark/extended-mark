@@ -136,6 +136,45 @@ pub struct Compiled {
     pub constants: HashMap<String, xtmd_eval::Value>,
     /// Where each call this compile made into a node is written, for an editor: no IR holds it.
     pub sites: Vec<CallSite>,
+    /// Each slot a call leaves or gives wrongly, and each place a widget reads a slot of its own: what
+    /// `xtmd migrate` moves a file from 0.3's slots with.
+    pub slots: Vec<SlotFind>,
+}
+
+/// A slot where a call or its widget's own code uses it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SlotFind {
+    pub file: String,
+    /// The call's name, or the slot's name where it is read.
+    pub at: Span,
+    /// The call's own text, its block in code included; a prose call's block is after it.
+    pub whole: Span,
+    /// The widget, in full (`kit/box`), and the file it is declared in.
+    pub widget: String,
+    pub declared: String,
+    pub slot: String,
+    pub ty: ir::Type,
+    pub kind: SlotUse,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SlotUse {
+    /// A call leaves it out, and it isn't `opt`.
+    LeftOut,
+    /// A prose call's plain block, for a widget with several slots: this is the first.
+    PlainBlock,
+    /// The widget's own code reads it.
+    Read,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct SlotRec {
+    pub file: usize,
+    pub at: Span,
+    pub whole: Span,
+    pub widget: DefId,
+    pub slot: String,
+    pub kind: SlotUse,
 }
 
 #[derive(Clone, Debug)]
@@ -379,6 +418,7 @@ pub struct Checker {
     pub(crate) template_now: String,
     /// Each call made into a node, in which template, and where it is written.
     pub(crate) sites: Vec<SiteRec>,
+    pub(crate) slot_finds: Vec<SlotRec>,
     /// The document's link reference definitions, by their normalized labels.
     pub prose_links: Vec<(String, String)>,
     pub prose_span: Span,
@@ -441,6 +481,7 @@ impl Checker {
             next_site: 0,
             template_now: String::new(),
             sites: Vec::new(),
+            slot_finds: Vec::new(),
             prose_links: Vec::new(),
             prose_span: Span::default(),
             from: From::default(),
@@ -1227,7 +1268,7 @@ pub(crate) fn compile_with(mut c: Checker, packs: &[Vec<Source>], main: &[Source
     }
     if c.diags[before..].iter().any(|d| d.diagnostic.is_error()) {
         let diagnostics = std::mem::take(&mut c.diags);
-        return (Compiled { module: None, diagnostics, texts, constants: HashMap::new(), sites: Vec::new() }, c);
+        return (Compiled { module: None, diagnostics, texts, constants: HashMap::new(), sites: Vec::new(), slots: Vec::new() }, c);
     }
     c.collect();
     c.scopes();
@@ -1243,7 +1284,22 @@ pub(crate) fn compile_with(mut c: Checker, packs: &[Vec<Source>], main: &[Source
     let diagnostics = std::mem::take(&mut c.diags);
     let constants = std::mem::take(&mut c.constants);
     let sites = c.sites.iter().filter(|s| s.file >= c.from.files).map(|s| CallSite { template: s.template.clone(), site: s.site.clone(), file: c.files[s.file].path.clone(), span: s.span }).collect();
-    (Compiled { module, diagnostics, texts, constants, sites }, c)
+    let slots = c
+        .slot_finds
+        .iter()
+        .filter(|r| r.file >= c.from.files)
+        .filter_map(|r| {
+            let DefKind::Widget { slots, .. } = &c.defs[r.widget].kind else { return None };
+            let ty = slots.iter().find(|s| s.name == r.slot)?.ir.clone();
+            Some(SlotFind { file: c.files[r.file].path.clone(), at: r.at, whole: r.whole, widget: c.defs[r.widget].full.clone(), declared: c.files[c.defs[r.widget].file].path.clone(), slot: r.slot.clone(), ty, kind: r.kind })
+        })
+        .fold(Vec::new(), |mut out: Vec<SlotFind>, f| {
+            if !out.contains(&f) {
+                out.push(f);
+            }
+            out
+        });
+    (Compiled { module, diagnostics, texts, constants, sites, slots }, c)
 }
 
 /// A reference in a file, as `xtmd migrate` reads it: the declaration's full name (`kit/chart`),

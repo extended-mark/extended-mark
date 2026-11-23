@@ -1,0 +1,206 @@
+//! `xtmd migrate` from 0.3 to 0.4: what the release's own steps change, on a tree with a pack.
+
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+fn tree(name: &str, files: &[(&str, &str)]) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("xtmd-migrate-040-{}-{}", std::process::id(), name));
+    let _ = std::fs::remove_dir_all(&dir);
+    for (p, text) in files {
+        let p = dir.join(p);
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        std::fs::write(p, text).unwrap();
+    }
+    dir
+}
+
+fn xtmd(dir: &Path, args: &[&str]) -> (i32, String) {
+    let o = Command::new(env!("CARGO_BIN_EXE_xtmd")).args(args).current_dir(dir).output().unwrap();
+    (o.status.code().unwrap_or(-1), format!("{}{}", String::from_utf8_lossy(&o.stdout), String::from_utf8_lossy(&o.stderr)))
+}
+
+const TOML: &str = "xtmd = \"0.3.2\"\npacks = [\"kit\"]\n";
+
+const KIT: &str = r#"package kit;
+
+pack kit@1 {
+    uses core@1;
+    provides card, two, inner_use;
+}
+
+widget card(title: text) {
+    slot body: view;
+    view {
+        @column {
+            @label(value = title);
+            @body;
+        }
+    }
+    markdown {
+        **\{title}**
+
+        \{body}
+    }
+}
+
+widget two(title: text) {
+    slot head: view;
+    slot foot: opt<view>;
+    view {
+        @head;
+    }
+    markdown {
+        \{title}
+
+        \{head}
+    }
+}
+
+widget inner_use() {
+    view {
+        @card(title = "in the pack");
+    }
+    markdown {
+        x
+    }
+}
+"#;
+
+const DOC: &str = r#"import kit;
+
+widget about(t: text) {
+    view {
+        @label(value = t);
+    }
+    markdown {
+        \{t}
+    }
+}
+
+widget box(name: text) {
+    slot abouts: list<about>;
+    slot extra: view;
+    view {
+        @label(value = "\{name} \{abouts.len()}");
+        for (a in abouts) {
+            @a;
+        }
+        @extra;
+    }
+    markdown {
+        @for (a in abouts) {
+            \{a}
+        }
+
+        \{extra}
+    }
+}
+
+widget uses_it() {
+    view {
+        @box(name = "in code");
+        @two(title = "left out in code");
+    }
+    markdown {
+        x
+    }
+}
+@@@
+@box(name = "a");
+
+@two(title = "plain") {
+    Some **words**.
+
+    - a list
+}
+
+@frame(title = "flush") {
+Flush text.
+}
+
+@two(title = "left out");
+
+@two(title = "half") {
+@slot foot {
+    Foot.
+}
+}
+
+@uses_it;
+"#;
+
+#[test]
+fn a_left_out_slot_becomes_opt_or_is_given_an_empty_block_and_a_plain_block_is_named() {
+    let dir = tree("slots", &[("xtmd.toml", TOML), ("kit/kit.xtmdpack", KIT), ("doc.xtmd", DOC)]);
+    let (code, before) = xtmd(&dir, &["check", "."]);
+    assert_eq!(code, 1, "{before}");
+    let (code, out) = xtmd(&dir, &["migrate", ".", "--yes"]);
+    assert_eq!(code, 0, "{out}");
+    let (code, after) = xtmd(&dir, &["check", "."]);
+    assert_eq!(code, 0, "{after}");
+    let doc = std::fs::read_to_string(dir.join("doc.xtmd")).unwrap();
+    for want in [
+        "slot abouts: opt<list<about>>;",
+        "slot extra: opt<view>;",
+        "\\{abouts.or([]).len()}",
+        "for (a in abouts.or([])) {",
+        "        @if (let extra_given: view = extra) {\n            \\{extra_given}\n        }\n",
+        "@two(title = \"plain\") {\n    @slot head {\n        Some **words**.\n\n        - a list\n    }\n}\n",
+        "@frame(title = \"flush\") {\n    @slot body {\n        Flush text.\n    }\n}\n",
+        "@two(title = \"left out\") {\n    @slot head {\n    }\n}\n",
+        "        @two(title = \"left out in code\") {\n            head {\n            }\n        }\n",
+    ] {
+        assert!(doc.contains(want), "{want}\nin\n{doc}");
+    }
+    let kit = std::fs::read_to_string(dir.join("kit/kit.xtmdpack")).unwrap();
+    assert!(kit.contains("slot body: opt<view>;") && kit.contains("@if (let body_given: view = body) {"), "{kit}");
+    assert_eq!(std::fs::read_to_string(dir.join("xtmd.toml")).unwrap(), TOML.replace("0.3.2", env!("CARGO_PKG_VERSION")));
+    // what was drawn is what is drawn: nothing given is still nothing
+    let (code, md) = xtmd(&dir, &["md", "doc.xtmd"]);
+    assert!(code == 0 && md.contains("Some **words**.") && md.contains("Flush text."), "{md}");
+    // and a second run changes nothing
+    let (_, again) = xtmd(&dir, &["migrate", "."]);
+    assert!(again.contains("0 to migrate"), "{again}");
+}
+
+const HARD: &str = r#"widget tab(t: text) {
+    view {
+        @label(value = t);
+    }
+    markdown {
+        \{t}
+    }
+}
+
+widget tabs() {
+    slot panels: list<tab>[1...];
+    slot head: tab;
+    view {
+        @head;
+    }
+    markdown {
+        x
+    }
+}
+@@@
+@tabs;
+"#;
+
+#[test]
+fn a_slot_that_must_hold_something_is_left_for_a_person() {
+    let dir = tree("hard", &[("hard.xtmd", HARD)]);
+    let (code, out) = xtmd(&dir, &["migrate", "hard.xtmd", "--yes"]);
+    assert_eq!(code, 1, "{out}");
+    assert!(out.contains("`tabs` needs its slot `panels`") && out.contains("`tabs` needs its slot `head`"), "{out}");
+    assert_eq!(std::fs::read_to_string(dir.join("hard.xtmd")).unwrap(), HARD, "a refused file is not written");
+    let (_, out) = xtmd(&dir, &["migrate", "hard.xtmd", "--yes", "--allow-todos"]);
+    let text = std::fs::read_to_string(dir.join("hard.xtmd")).unwrap();
+    assert!(text.contains("@// TODO(xtmd migrate): `tabs` needs its slot `panels`"), "{out}\n{text}");
+}
+
+#[test]
+fn a_tree_already_written_for_this_release_is_left_alone() {
+    let dir = tree("now", &[("xtmd.toml", &TOML.replace("0.3.2", env!("CARGO_PKG_VERSION"))), ("kit/kit.xtmdpack", &KIT.replace("slot body: view;", "slot body: opt<view>;")), ("doc.xtmd", "# Hi\n")]);
+    let (_, out) = xtmd(&dir, &["migrate", "."]);
+    assert!(out.contains("0 to migrate"), "{out}");
+}

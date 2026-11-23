@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/cli-win32-x64",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "The xtmd binary for Windows on x64",
   "license": "MIT",
   "homepage": "https://github.com/extended-mark/extended-mark",
