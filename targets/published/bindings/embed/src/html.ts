@@ -11,7 +11,7 @@ export function blocksHtml(blocks: Block[]): string {
 }
 
 /** A page's Markdown as HTML, with the values it starts with (and `$state` the app gives). */
-export function pageHtml(irFile: Ir, opts: Omit<PageOptions, "defects"> = {}): string {
+export function pageHtml(irFile: Ir, opts: PageOptions = {}): string {
   const { state, ...rest } = opts;
   const { page } = makePage(irFile, rest, state);
   return blocksHtml(pageBlocks(page));

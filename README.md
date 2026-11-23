@@ -32,10 +32,10 @@ branch [`legacy-0.2.x`](https://github.com/extended-mark/extended-mark/tree/lega
 
 ## In this repository
 
-- `docs/specs`: the language, below. Every rule in it is held to a conformance case in `checks/`.
+- `docs/specs`: the language, below. Every rule in it is held to a case in `checks/`.
 - `compiler/`: `xtmd`, the compiler, in Rust, and its npm packages (`extended-mark`, with the `xtmd` command, and `@extended-mark/wasm`).
 - `targets/published`: the targets on npm, for the web, React, Vue, Svelte, Solid and Angular. Each comes in two kinds: run time, which draws an IR built ahead, and real time, which compiles in place.
-- `targets/examples`: targets that show how one is made (egui, Android's Compose, a native runtime). They are checked like the others and are never published. Any target that passes the conformance cases is an Extended Mark target.
+- `targets/examples`: targets that show how one is made (egui, Android's Compose, a native runtime). They are never published.
 - `ide/`: `xtmd lsp`, the language server, and the VS Code extension.
 - `apps/playground`: the playground. `brand/`: the logo and icons.
 

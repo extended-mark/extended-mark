@@ -153,8 +153,6 @@ pub struct PageInit {
     /// The extern widgets the target draws, by full name or as a whole pack as `pack/` and a star; one it doesn't shows its
     /// Markdown. Left out, every one is drawn.
     pub supplies: Option<Vec<String>>,
-    /// The test targets' defects, for the checks only.
-    pub defects: Vec<String>,
 }
 
 /// A slider's ends and step: from its `range`, else its variable's contract, else 0..1, as
@@ -402,7 +400,7 @@ impl NativePage {
             ir::Decl::Type(a) => Some((a.name.clone(), a.is.clone())),
             _ => None,
         }).collect();
-        let mut opts = PageOptions { page: page_values(init.width.as_deref(), init.theme.as_deref()), defects: init.defects.clone(), ..PageOptions::default() };
+        let mut opts = PageOptions { page: page_values(init.width.as_deref(), init.theme.as_deref()), ..PageOptions::default() };
         if let Some(s) = &init.state_json {
             opts.state = exprs(s)?;
         }

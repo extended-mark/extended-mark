@@ -22,7 +22,7 @@
 //! - The plane's layout runs after every frame, from what egui measured, or from fixed sizes
 //!   ([`measure::Fixed`]) as the checks do.
 //! - Every widget is in egui's AccessKit tree with its role, name and state, and each of its
-//!   parts carries an author id ([`a11y`]), which is how the check adapters find them.
+//!   parts carries an author id ([`a11y`]), which is how the tests find them.
 
 pub mod a11y;
 pub mod doc;

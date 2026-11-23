@@ -1,6 +1,6 @@
 //! What a screen reader gets, through egui's AccessKit tree: each drawn widget's root is a node
 //! with its role and name, and its parts are nodes too. Each one carries an author id, which is
-//! how the check adapters find a widget and its parts, as the web finds `data-xtmd-site` and
+//! how the tests find a widget and its parts, as the web finds `data-xtmd-site` and
 //! `data-part`:
 //!
 //! - a widget's root: `<short name>@<path>` (`press@s0/s0`);

@@ -46,8 +46,6 @@ data class PageOptions(
     /** The extern widgets drawn, by full name, or a whole pack as `pack/` and a star: left out, the default registry's. XtmdPage
      * sets it from the registry it draws with. */
     val supplies: Collection<String>? = null,
-    /** For the checks only: the test targets' defects. */
-    val defects: List<String> = emptyList(),
     /** Value fns the app supplies, by full name (`acme/rate`): called mid-change with the fn's
      * arguments, on whichever thread the change runs. Null is a fn that can't answer. */
     val fns: Map<String, (List<Val>) -> Val?> = emptyMap(),
@@ -58,7 +56,7 @@ private fun json(m: Map<String, Val>): String = m.entries.joinToString(",", "{",
 internal fun quote(s: String): String = Val.Text(s).toIrJson().removePrefix("{\"text\":").removeSuffix("}")
 
 /** Work running off the main thread, on every page (pages loading, drags' writes, the planes' layouts). A test
- * waits until there are none: `registerIdlingResource { XtmdWork.idle }`, as the check adapters do. */
+ * waits until there are none: `registerIdlingResource { XtmdWork.idle }`, as the tests do. */
 object XtmdWork {
     internal val running = java.util.concurrent.atomic.AtomicInteger(0)
     val idle: Boolean get() = running.get() == 0
@@ -319,7 +317,6 @@ class CompiledPage(val native: NativePage, supplies: Collection<String>?, theme:
                 stateJson = options.state.takeIf { it.isNotEmpty() }?.let(::json),
                 externsJson = options.externs.takeIf { it.isNotEmpty() }?.let { m -> m.entries.joinToString(",", "{", "}") { (c, v) -> "${quote(c)}:${json(v)}" } },
                 supplies = supplies.toList(),
-                defects = options.defects,
             )
             val native = if (options.fns.isEmpty()) {
                 NativePage(ir, init, options.zone)

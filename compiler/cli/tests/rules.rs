@@ -1,5 +1,5 @@
 //! The rule table: every compile error and warning the spec names, with the pass that reports
-//! it, its codes and the target checks that prove it (checks/rules.json).
+//! it, its codes and the cases that prove it (checks/rules.json).
 //!
 //! The build fails when a rule has no check, when a check doesn't expect one of its rule's
 //! codes, when a code the compiler can report belongs to no rule, or when a case expects a code

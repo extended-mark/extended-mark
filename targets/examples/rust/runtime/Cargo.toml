@@ -12,10 +12,6 @@ publish = false
 [lib]
 name = "xtmd_runtime"
 
-[[bin]]
-name = "xtmd_runtime_check"
-path = "src/bin/xtmd_runtime_check/main.rs"
-
 [dependencies]
 xtmd-ir = { path = "../../../../compiler/ir", version = "0.4.0" }
 xtmd-eval = { path = "../../../../compiler/eval", version = "0.4.0" }

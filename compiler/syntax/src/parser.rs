@@ -473,7 +473,7 @@ impl<'a> Parser<'a> {
             Tok::Name if self.text_of(t.span) == "fixture" && self.kind_at(1)? == Tok::Name => Err(Diagnostic::error(
                 codes::NO_TESTS,
                 t.span,
-                "there are no fixtures in the language for now: core's tests are target checks",
+                "there are no fixtures in the language for now: core's tests are the compiler's own",
             )),
             Tok::Name if self.text_of(t.span) == "migration" && self.starts_migration()? => {
                 if !self.in_pack() {
@@ -1536,7 +1536,7 @@ impl<'a> Parser<'a> {
             Tok::Name if self.text_of(t.span) == "assert" && !matches!(self.kind_at(1)?, Tok::P(_)) => Err(Diagnostic::error(
                 codes::NO_TESTS,
                 t.span,
-                "there is no assert: the language has no tests for now, and core's tests are target checks",
+                "there is no assert: the language has no tests for now, and core's tests are the compiler's own",
             )),
             Tok::P(P::At) => {
                 let call = self.view_call(true)?;

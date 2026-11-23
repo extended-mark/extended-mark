@@ -24,8 +24,7 @@ mounted.page.setPage({ theme: "LIGHT" }); // the page redraws itself; the DOM fo
 - **The stylesheet** is put into the document (or the shadow root the page is in) once, on the
   first mount, so plain TypeScript needs no CSS loader. It is also `@extended-mark/dom/style.css`.
 
-The API is in [src/api.ts](src/api.ts), and is fixed: the bindings, the browser check adapter
-and the playground are written against it.
+The API is in [src/api.ts](src/api.ts), and is fixed: the bindings and the playground are written against it.
 
 ## How a page is drawn
 

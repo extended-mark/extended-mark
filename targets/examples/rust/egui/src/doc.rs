@@ -100,9 +100,6 @@ pub struct DocOptions {
     pub measure: Option<Box<dyn Measure>>,
     /// Whether the page's theme follows egui's dark mode (the default), or is the app's to set.
     pub fixed_theme: bool,
-    /// For the check adapters only: the runtime's defects to switch on.
-    #[doc(hidden)]
-    pub defects: Vec<String>,
 }
 
 /// What a frame did.
@@ -155,7 +152,6 @@ pub struct XtmdDoc {
     view: XtmdPage,
     /// The document's module: its channels are named in it.
     module: String,
-    defects: Vec<String>,
     hash: String,
     /// The `$state` the app last heard.
     shown: State,
@@ -183,7 +179,7 @@ impl XtmdDoc {
         }
         view.set_follow_theme(!opts.fixed_theme);
         let shown = view.page().observe_state();
-        let mut doc = XtmdDoc { view, module, defects: opts.defects.clone(), hash, shown, given: None, errors };
+        let mut doc = XtmdDoc { view, module, hash, shown, given: None, errors };
         if let Some(snap) = opts.snapshot.take() {
             doc.restore(&snap);
         }
@@ -210,7 +206,7 @@ impl XtmdDoc {
         let carried = self.state();
         self.hash = hash(&serde_json::to_string(&file).unwrap_or_default());
         self.module = file.ir.module.clone();
-        let mut page = start(file, &mut DocOptions { externs, defects: self.defects.clone(), ..DocOptions::default() })?;
+        let mut page = start(file, &mut DocOptions { externs, ..DocOptions::default() })?;
         let fields = page.observe_state();
         let kept: State = carried.into_iter().filter(|(k, _)| fields.contains_key(k)).collect();
         // what no longer fits isn't the app's write: it starts from its default, unsaid
@@ -360,7 +356,7 @@ fn start(file: ir::File, opts: &mut DocOptions) -> Result<Page, DocError> {
     let mut fns = fns::egui_fns();
     fns.extend(opts.fns.drain());
     let externs = opts.externs.iter().map(|(c, values)| (channel(&module, c), values.iter().map(|(k, x)| (k.clone(), x.clone())).collect())).collect();
-    Page::new(file, PageOptions { page: opts.page, externs, fns, defects: opts.defects.clone(), ..PageOptions::default() }).map_err(|f| DocError::Load(format!("the page couldn't start: {}", f.message)))
+    Page::new(file, PageOptions { page: opts.page, externs, fns, ..PageOptions::default() }).map_err(|f| DocError::Load(format!("the page couldn't start: {}", f.message)))
 }
 
 /// `$state` as the app gives it, checked as an app's write is: all together, or else each field

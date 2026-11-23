@@ -1,12 +1,10 @@
-//! Driving a page headless, as the check adapters do: an [`XtmdPage`] (or a document around one,
+//! Driving a page headless, as the tests do: an [`XtmdPage`] (or a document around one,
 //! [`crate::doc::XtmdDoc`]) in egui_kittest's harness,
 //! with real egui input (pointer, keys, text) aimed at the nodes of its AccessKit tree, and the
 //! tree read back the way a screen reader reads it.
 //!
 //! Nodes are found by their author ids ([`crate::a11y`]): a widget's root by its path, its parts
 //! by `<short name>.<part>`.
-
-pub mod adapter;
 
 use egui::accesskit::{self, Role, Toggled};
 use egui::{Event, Key, Modifiers, PointerButton, Pos2, Rect, Vec2};

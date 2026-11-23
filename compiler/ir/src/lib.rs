@@ -1,4 +1,4 @@
-//! The IR every target runs, and the target checks' protocol, as Rust types.
+//! The IR every target runs, the compiler's cases and what a runtime says of a page, as Rust types.
 //!
 //! Both modules are generated from the JSON Schemas in `schemas/`, which are the source:
 //! change a schema, then run `cargo run -p xtmd-schemagen`.

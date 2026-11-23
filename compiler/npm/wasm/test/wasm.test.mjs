@@ -1,4 +1,4 @@
-// xtmd.wasm held to the binary: every conformance case built both ways gives the same IR and the
+// xtmd.wasm held to the binary: every case built both ways gives the same IR and the
 // same diagnostics, and what a real-time target leans on (a broken document, packs given as text,
 // a compiler that goes on after a bad one) works.
 
@@ -42,7 +42,7 @@ test("xtmd.wasm loads, compiling core once", () => {
   console.log(`xtmd.wasm loaded in ${loadMs} ms`);
 });
 
-test("every conformance case gives the binary's IR, or the binary's errors", async () => {
+test("every case gives the binary's IR, or the binary's errors", async () => {
   let built = 0;
   for (const c of cases) {
     const got = compiler.build(c.source, readFileSync(c.source, "utf8"), c.files);

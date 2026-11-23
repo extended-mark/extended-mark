@@ -20,7 +20,7 @@ What it does, in order:
    `@extended-mark/cli-<os>-<cpu>` package (`compiler/npm/extended-mark/scripts/copy-binary.mjs --target <triple>`).
 2. **xtmd.wasm**, for `@extended-mark/wasm` and the real-time targets (`compiler/wasm/build.sh`).
 3. **Tests:** the same checks every pull request runs (ci.yml): the Rust workspace, every npm
-   package's and the playground's tests, and every target's conformance checks, the examples' too.
+   package's and the playground's tests.
 4. **Publishing.** The GitHub release `v<VERSION>`, titled and described by its note; then the npm
    packages (`publish-npm.mjs`), the VS Code extension and the crates (`publish-crates.sh`). Each
    registry is tried even when one before it failed, and a version a registry has already is left

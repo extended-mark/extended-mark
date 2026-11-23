@@ -18,5 +18,4 @@ editor.addEventListener("input", () => doc.update({ ...props, source: editor.val
 else, and the handle, is `XtmdDoc`'s. `diagnostics` is the latest text's. The playground's Targets page
 (apps/playground/targets.html) draws one page with this and with @extended-mark/embed side by side.
 
-`npm test` runs the shared live steps in Chromium; `xtmd target check embed-live` runs every
-conformance case with its own text compiled in the tab.
+`npm test` runs the shared live steps in Chromium.

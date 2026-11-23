@@ -117,18 +117,3 @@ impl XtmdLiveDoc {
         r
     }
 }
-
-#[cfg(feature = "check")]
-impl xtmd_egui::check::adapter::AsDoc for XtmdLiveDoc {
-    fn doc(&mut self) -> &mut XtmdDoc {
-        self.doc.as_mut().expect("a loaded case has compiled")
-    }
-
-    fn doc_ref(&self) -> &XtmdDoc {
-        self.doc.as_ref().expect("a loaded case has compiled")
-    }
-
-    fn show(&mut self, ui: &mut Ui) -> DocResponse {
-        XtmdLiveDoc::show(self, ui)
-    }
-}

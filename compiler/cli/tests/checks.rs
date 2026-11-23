@@ -1,4 +1,4 @@
-//! The compiler's side of the target checks: every case in checks/cases is compiled,
+//! The compiler's cases: every case in checks/cases is compiled,
 //! and its diagnostics have to be exactly the ones the case expects, by code, line and column.
 //!
 //! A case whose diagnostics come from a pass the compiler doesn't have yet is counted as

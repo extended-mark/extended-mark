@@ -223,9 +223,6 @@ impl Writer<'_> {
                 if name.starts_with("core/") && !self.rt.s.templates.contains_key(name) {
                     return Err(f);
                 }
-                if self.rt.defect("no-notice") {
-                    return Ok(Vec::new());
-                }
                 // a widget that fails is a notice in its place, a quote in Markdown (page 6)
                 let short = name.rsplit('/').next().unwrap_or(name);
                 let notice = Inline::Text { value: format!("{} failed: {}", short, f.message), bold: false, italic: false, strike: false, link: None };

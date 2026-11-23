@@ -24,5 +24,4 @@ import wasm from "@extended-mark/wasm/xtmd.wasm?url";            // as the bundl
 Everything else is `XtmdDoc`'s ([@extended-mark/react](../react/README.md#props)), the handle included.
 
 `npm test`: a server render with a compiler in hand, then the shared live steps in Chromium
-(`../testing/browser.mjs`, `liveSteps`). `xtmd target check react-live` runs every conformance case
-with its own text compiled in the tab.
+(`../testing/browser.mjs`, `liveSteps`).

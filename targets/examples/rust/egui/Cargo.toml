@@ -12,13 +12,6 @@ publish = false
 [lib]
 name = "xtmd_egui"
 
-# The check adapter: `xtmd target check egui` (target.yaml), driving egui headless through
-# egui_kittest.
-[[bin]]
-name = "xtmd_check_adapter"
-path = "src/bin/xtmd_check_adapter.rs"
-required-features = ["check"]
-
 # A window showing a page: `cargo run -p xtmd-egui --example page --features app -- page.ir.json`.
 [[example]]
 name = "page"
@@ -29,7 +22,7 @@ default = ["fonts", "check"]
 # egui's own fonts, which our widgets' text is drawn in (egui bundles none by default); an app
 # that installs fonts of its own turns it off.
 fonts = ["egui/default_fonts", "egui/monochrome_emoji_fonts"]
-# The headless harness and the check adapter; an app that only draws pages turns it off.
+# The headless harness the tests drive; an app that only draws pages turns it off.
 check = ["dep:egui_kittest"]
 # The example's window.
 app = ["dep:eframe"]

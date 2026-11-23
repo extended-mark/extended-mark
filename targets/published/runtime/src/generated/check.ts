@@ -1,53 +1,7 @@
 // Written by xtmd-schemagen from schemas/check.schema.json. Don't edit: change the schema, then run
 // `cargo run -p xtmd-schemagen`.
 
-import type { Expr, Level } from "./ir.js";
-
-export interface ActionEvent {
-  args?: Expr[];
-  name: string;
-  site: string;
-}
-
-export interface ActionWrite {
-  input: string;
-  site: string;
-  /** A value, in the IR's form. */
-  value: Expr;
-}
-
-export interface ActionSet {
-  "$state": { [key: string]: Expr };
-}
-
-export interface ActionExpose {
-  args?: Expr[];
-  channel: string;
-  name: string;
-}
-
-export interface ActionExtern {
-  channel: string;
-  values: { [key: string]: Expr };
-}
-
-/** What a step does to the page. */
-export type Action =
-  | { event: ActionEvent }
-  | { write: ActionWrite }
-  | { set: ActionSet }
-  | { expose: ActionExpose }
-  | { extern: ActionExtern }
-  | { page: Page };
-
-/** The result of `advertise`. */
-export interface Advertised {
-  levels: Level[];
-  name: string;
-  protocol: string;
-  /** The extern widgets and fns it draws or runs. */
-  supplies: string[];
-}
+import type { Expr } from "./ir.js";
 
 export interface BlockHeading {
   inline: Inline[];
@@ -95,12 +49,6 @@ export type Block =
   | { footnote: BlockFootnote }
   | { divider: { [key: string]: never } };
 
-/** Where a `spot` landed, in its plane's units. */
-export interface Box {
-  from: Point;
-  to: Point;
-}
-
 /** A rule that failed: a `require`'s message, or a contract's code, and where. */
 export interface Broken {
   code?: string;
@@ -125,11 +73,7 @@ export interface CaseExpect {
   markdown?: MarkdownExpected;
 }
 
-export interface CaseTarget {
-  levels: Level[];
-}
-
-/** A target check: a source, the diagnostics it gives, and what every target must show after each step. */
+/** A compiler case: a source, the diagnostics it gives, and the page's Markdown with its starting values. */
 export interface Case {
   about?: string;
   /** What the compiler gives: its diagnostics, and the page's Markdown with its starting values. */
@@ -138,11 +82,8 @@ export interface Case {
   id: string;
   /** Packs to build with, beside the case. */
   packs?: string[];
-  page?: Page;
   /** The .xtmd or .xtmdpack file, beside the case. */
   source: string;
-  steps?: Step[];
-  target?: CaseTarget;
 }
 
 export type DiagnosticSeverity = "error" | "warning";
@@ -154,35 +95,6 @@ export interface Diagnostic {
   column: number;
   line: number;
   severity?: DiagnosticSeverity;
-}
-
-export interface ExpectedShadedSamples {
-  at: Expr;
-  pixel: Expr;
-}
-
-export interface ExpectedShaded {
-  args: Expr;
-  samples?: ExpectedShadedSamples[];
-  shader: string;
-}
-
-export interface ExpectedTree {
-  props?: { [key: string]: Expr };
-  slots?: { [key: string]: string[] };
-  widget?: string;
-}
-
-/** Only what a step states is compared with the case; every target's whole observation is compared with every other's. */
-export interface Expected {
-  boxes?: { [key: string]: Box };
-  calls?: Call[];
-  markdown?: MarkdownExpected;
-  outcome?: Outcome;
-  /** Each shade drawn, by site: the fn it was given, by name ("" for a lambda), and its arguments; on the test target also the colour at the area's two corners and its middle, worked out by the shader. */
-  shaded?: { [key: string]: ExpectedShaded };
-  state?: { [key: string]: Expr };
-  tree?: { [key: string]: ExpectedTree };
 }
 
 export interface InlineText {
@@ -206,15 +118,6 @@ export type Inline =
   | { note: string }
   | { break: { [key: string]: never } };
 
-/** The params of `load`: the IR the xtmd binary wrote for the case, and the page. */
-export interface Load {
-  externs?: { [key: string]: { [key: string]: Expr } };
-  /** A path to the .ir.json file. */
-  ir: string;
-  page?: Page;
-  state?: { [key: string]: Expr };
-}
-
 export type MarkdownExpected =
   | { blocks: Block[] }
   | { has: Block[] }
@@ -225,31 +128,6 @@ export interface Mounted {
   /** Each slot's children, by site, in order. */
   slots?: { [key: string]: string[] };
   widget: string;
-}
-
-export interface ObservationShadedSamples {
-  at: Expr;
-  pixel: Expr;
-}
-
-export interface ObservationShaded {
-  args: Expr;
-  samples?: ObservationShadedSamples[];
-  shader: string;
-}
-
-/** Everything Extended Mark decides about the page, after a step. */
-export interface Observation {
-  boxes?: { [key: string]: Box };
-  calls: Call[];
-  /** The page as Markdown, which the runner reads as blocks. */
-  markdown: string;
-  outcome: Outcome;
-  /** Each shade drawn, by site: the fn it was given, by name ("" for a lambda), and its arguments; on the test target also the colour at the area's two corners and its middle, worked out by the shader. */
-  shaded?: { [key: string]: ObservationShaded };
-  state: { [key: string]: Expr };
-  /** The mounted extern widgets, by site. */
-  tree: { [key: string]: Mounted };
 }
 
 export interface Outcome {
@@ -267,37 +145,4 @@ export interface Page {
   theme?: PageTheme;
   today?: string;
   width?: PageWidth;
-}
-
-export interface Point {
-  x: Expr;
-  y: Expr;
-}
-
-export type RequestMethod = "advertise" | "load" | "event" | "write" | "set" | "expose" | "extern" | "page" | "observe" | "quit";
-
-/** A JSON-RPC 2.0 request from `xtmd target check` to a target's check adapter, one per line on its standard input. */
-export interface Request {
-  id: number;
-  jsonrpc: string;
-  method: RequestMethod;
-  params?: unknown;
-}
-
-export interface ResponseError {
-  code: number;
-  message: string;
-}
-
-/** The adapter's reply, on its standard output only; logs go to standard error. */
-export interface Response {
-  error?: ResponseError;
-  id: number;
-  jsonrpc: string;
-  result?: unknown;
-}
-
-export interface Step {
-  do: Action;
-  expect?: Expected;
 }

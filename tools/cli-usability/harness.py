@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-Extended Mark = REPO / "compiler/target/release/xtmd"
+XTMD = REPO / "compiler/target/release/xtmd"
 
 
 def consts():
@@ -190,12 +190,6 @@ TASKS = [
          files={"runs.mkp.md": C["RUNS_02"], "old/units/manifest.mkp": C["UNITS_02_MANIFEST"], "old/units/distance.mkp": C["UNITS_02_DISTANCE"], "units/units.xtmdpack": UNITS_03},
          solution="xtmd migrate runs.mkp.md --pack old/units,units --yes",
          check="grep -q 'import units;' runs.xtmd || fail 'runs.xtmd is not 0.3'; [ -z \"$(find . -name stand-ins)\" ] || fail 'a stand-in was written'; xtmd check --pack units runs.xtmd >/dev/null 2>&1 || fail 'runs.xtmd does not compile with units'"),
-    # ---- target checks
-    dict(id="49-conformance-count", area="target", goal="Run the conformance checks against just the 'test' target and tell me how many cases it ran (answer.txt).", files={},
-         solution="xtmd target check test --format json | grep '\"type\":\"target\"' | grep -o '\"cases\":[0-9]*' | cut -d: -f2 > answer.txt",
-         check="answer_is \"$(xtmd target check test --format json | grep '\"type\":\"target\"' | grep -o '\"cases\":[0-9]*' | cut -d: -f2)\""),
-    dict(id="50-catch-a-defect", area="target", goal="Prove the conformance checks would catch a broken target: use the test target's no-undo defect, and write caught or missed in answer.txt.", files={},
-         solution="xtmd target check test --defect no-undo --expect-failures && echo caught > answer.txt", check="answer_is caught"),
 ]
 
 PRELUDE = r'''#!/usr/bin/env bash
@@ -231,7 +225,7 @@ def write_task(t, root):
             shutil.rmtree(tmp, ignore_errors=True)
             (tmp / "shelf").mkdir(parents=True)
             (tmp / "shelf/shelf.xtmdpack").write_text(C["SHELF"])
-            subprocess.run([str(Extended Mark), "surface", "shelf"], cwd=tmp, check=True, capture_output=True)
+            subprocess.run([str(XTMD), "surface", "shelf"], cwd=tmp, check=True, capture_output=True)
             text = (tmp / "shelf/surfaces/shelf@1.xtmdpack").read_text()
             shutil.rmtree(tmp)
         p.write_text(text)
@@ -258,7 +252,7 @@ def write_check(t, root, d):
 
 def env():
     e = dict(os.environ)
-    e["PATH"] = f"{Extended Mark.parent}:{e['PATH']}"
+    e["PATH"] = f"{XTMD.parent}:{e['PATH']}"
     return e
 
 

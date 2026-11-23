@@ -80,27 +80,6 @@ fn an_xtmd_toml_names_the_packs() {
 }
 
 #[test]
-fn a_required_capability_a_target_leaves_out_fails_the_run() {
-    let yaml = "name: tiny\nlevels: [core.draw]\nsupplies:\n  widgets: [core/*]\n  fns: [core/moment.local]\ncannot:\n  core/math: \"no maths renderer\"\ncheck_adapter: exec false\n";
-    let dir = scratch("require", &[("checks/cases/.keep", ""), ("targets/tiny/target.yaml", yaml)]);
-    let run = |args: &[&str]| {
-        let out = Command::new(env!("CARGO_BIN_EXE_xtmd")).args(args).current_dir(&dir).output().unwrap();
-        (out.status.code().unwrap_or(-1), String::from_utf8_lossy(&out.stderr).into_owned())
-    };
-    let (code, err) = run(&["target", "check", "tiny", "--require", "tiny:core/math"]);
-    assert_eq!(code, 1);
-    assert!(err.contains("tiny can't supply core/math: no maths renderer"), "{}", err);
-    let (code, err) = run(&["target", "check", "tiny", "--require", "tiny:acme/chart"]);
-    assert_eq!(code, 1);
-    assert!(err.contains("tiny can't supply acme/chart: it isn't in the target's supplies"), "{}", err);
-    // what it supplies passes the requirement, and the run goes on to its adapter
-    let (_, err) = run(&["target", "check", "tiny", "--require", "tiny:core/press", "--require", "tiny:core/moment.local"]);
-    assert!(!err.contains("can't supply"), "{}", err);
-    let (code, err) = run(&["target", "check", "--require", "tiny"]);
-    assert_eq!(code, 2, "{}", err);
-}
-
-#[test]
 fn surface_writes_what_a_version_provides_and_then_holds_the_pack_to_it() {
     let pack = "package kit;\n\npack kit@1 {\n    provides chart, stat;\n}\n\nrecord stat {\n    label: text;\n    require \"a label\" {\n        return label != \"\";\n    }\n}\n\nrecord inner {\n    n: number;\n}\n\n//@about A chart.\nwidget chart(values: list<number>, color: color = color.ACCENT) {\n    view {\n        @label(value = \"chart\");\n    }\n    markdown {\n        A chart.\n    }\n}\n\nfn stat.first(self): inner {\n    return inner { n = 1 };\n}\n";
     let dir = scratch("surface", &[("kit/kit.xtmdpack", pack)]);
@@ -669,7 +648,7 @@ fn every_command_has_its_own_help_and_xtmd_says_its_version() {
     assert!(out.contains("usage: xtmd <command>") && out.contains("Exit codes: 0 done"), "{}", out);
     let (code, out, _) = xtmd(&["--version"]);
     assert_eq!((code, out.trim().to_string()), (0, format!("xtmd {} (Extended Mark 0.3; resolved IR: rir 1)", env!("CARGO_PKG_VERSION"))));
-    for cmd in ["fmt", "check", "parse", "build", "md", "surface", "migrate", "target check"] {
+    for cmd in ["fmt", "check", "parse", "build", "md", "surface", "migrate"] {
         let args: Vec<&str> = cmd.split(' ').chain(["--help"]).collect();
         let (code, out, err) = xtmd(&args);
         assert_eq!(code, 0, "{}: {}", cmd, err);
@@ -917,29 +896,6 @@ fn migrate_says_what_stops_it_and_how_to_go_on() {
     let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap()]);
     assert_eq!(code, 1);
     assert!(out.contains("writes only with --yes (and --allow-dirty, as") && !out.contains("There is no terminal"), "{}", out);
-}
-
-#[test]
-fn target_check_stops_at_what_it_cant_run_before_counting_anything() {
-    let yaml = "name: tiny\nlevels: [core.draw]\nsupplies:\n  widgets: [core/*]\ncheck_adapter: exec false\n";
-    let case = "{\"id\": \"hello\", \"source\": \"hello.xtmd\", \"target\": {\"levels\": [\"core.draw\"]}, \"expect\": {}}";
-    let dir = scratch("target-stops", &[("checks/cases/hello/hello.json", case), ("checks/cases/hello/hello.xtmd", "# Hello\n"), ("targets/tiny/target.yaml", yaml)]);
-    let run = |args: &[&str]| {
-        let out = Command::new(env!("CARGO_BIN_EXE_xtmd")).args(args).current_dir(&dir).output().unwrap();
-        (out.status.code().unwrap_or(-1), String::from_utf8_lossy(&out.stdout).into_owned(), String::from_utf8_lossy(&out.stderr).into_owned())
-    };
-    // a name that isn't a target, even beside one that is
-    let (code, _, err) = run(&["target", "check", "tiny", "bogus"]);
-    assert_eq!(code, 2);
-    assert!(err.contains("no target bogus: the targets are tiny"), "{}", err);
-    // cases that aren't there
-    let (code, _, err) = run(&["target", "check", "tiny", "--cases", "nowhere"]);
-    assert_eq!(code, 2);
-    assert!(err.contains("--cases nowhere: no such folder"), "{}", err);
-    // an adapter that doesn't answer: nothing was checked, so nothing is caught
-    let (code, out, err) = run(&["target", "check", "tiny", "--defect", "no-such", "--expect-failures"]);
-    assert_eq!(code, 2, "{}{}", out, err);
-    assert!(!out.contains("caught") && err.contains("the target's adapter didn't run, so nothing was checked"), "{}{}", out, err);
 }
 
 #[test]

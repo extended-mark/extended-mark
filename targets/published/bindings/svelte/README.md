@@ -48,4 +48,4 @@ it back; with another, `$state` only.
 
 `npm test`: `XtmdDoc` rendered on a server, then the shared steps in Chromium (`../testing/browser.mjs`,
 `docSteps`): controlled `$state`, refusals, the handle, props, a new IR, widgets' own variables and
-snapshots. `xtmd target check svelte` runs the conformance cases through `check/harness`.
+snapshots.

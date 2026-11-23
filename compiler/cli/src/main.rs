@@ -10,7 +10,6 @@ mod out;
 mod migrate_02;
 pub(crate) use xtmd_migrate::step as migrate_step;
 mod surface;
-mod target;
 
 use xtmd_syntax::{entry_for, format, parse, Diagnostic};
 
@@ -792,7 +791,7 @@ fn md(args: &[String]) -> ExitCode {
 }
 
 /// The commands, as `xtmd help` names them.
-const COMMANDS: &[&str] = &["fmt", "check", "parse", "build", "md", "surface", "migrate", "target check", "lsp"];
+const COMMANDS: &[&str] = &["fmt", "check", "parse", "build", "md", "surface", "migrate", "lsp"];
 
 /// Flags written before the command (`xtmd --format json check …`), moved to after it, where each
 /// command reads them.
@@ -812,10 +811,9 @@ fn command_first(args: Vec<String>) -> Vec<String> {
     if lead.is_empty() || k >= args.len() {
         return args;
     }
-    let n = if args[k] == "target" && args.get(k + 1).map(String::as_str) == Some("check") { 2 } else { 1 };
-    let mut out: Vec<String> = args[k..k + n].to_vec();
+    let mut out: Vec<String> = vec![args[k].clone()];
     out.extend(lead);
-    out.extend(args[k + n..].iter().cloned());
+    out.extend(args[k + 1..].iter().cloned());
     out
 }
 
@@ -844,16 +842,12 @@ fn run(args: &[String]) -> ExitCode {
         }
         _ => {}
     }
-    let (cmd, rest) = match args[0].as_str() {
-        "target" if args.get(1).map(String::as_str) == Some("check") => ("target check", &args[2..]),
-        "target" if args.get(1).map(String::as_str) == Some("--help") => ("target check", &args[1..]),
-        c => (c, &args[1..]),
-    };
+    let (cmd, rest) = (args[0].as_str(), &args[1..]);
     if !COMMANDS.contains(&cmd) {
         if flags::is_flag(cmd) {
             eprintln!("xtmd: {} isn't a command; a flag goes with one: xtmd <command> {} …", cmd, cmd);
         } else if cmd == "target" {
-            eprintln!("xtmd target has one command: xtmd target check [target…]");
+            eprintln!("xtmd target check left xtmd in 0.4.0: whoever writes an engine checks it");
         } else {
             eprintln!("xtmd has no command {}: the commands are {}", cmd, COMMANDS.join(", "));
         }
@@ -902,8 +896,7 @@ fn run(args: &[String]) -> ExitCode {
         "surface" => surface::surface_cmd(rest),
         "migrate" => migrate::migrate_cmd(rest),
         // the language server: the protocol over stdin and stdout, for an editor (ide/lsp)
-        "lsp" => ExitCode::from(xtmd_lsp::serve(std::io::stdin().lock(), std::io::stdout().lock()) as u8),
-        _ => target::target_check(rest),
+        _ => ExitCode::from(xtmd_lsp::serve(std::io::stdin().lock(), std::io::stdout().lock()) as u8),
     }
 }
 

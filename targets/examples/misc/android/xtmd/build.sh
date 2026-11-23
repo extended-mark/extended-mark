@@ -18,8 +18,8 @@ export PATH="$HOME/.cargo/bin:$PATH" CARGO_INCREMENTAL=0
 what=${1:-all}
 cd "$rust"
 
-# A library is put in place by a rename, never written over: a check adapter that has the old one
-# loaded (another agent's `xtmd target check`, say) keeps it, instead of crashing as its code changes
+# A library is put in place by a rename, never written over: a process that has the old one
+# loaded keeps it, instead of crashing as its code changes
 # under it.
 put() {
   mkdir -p "$2"

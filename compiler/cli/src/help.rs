@@ -12,7 +12,6 @@ usage: xtmd <command> [arguments] [flags]
   xtmd md <file>                 write a document's Markdown, as it reads when it first loads
   xtmd surface <pack>            the release step: record what this version of the pack provides
   xtmd migrate [<file|folder>…]  bring documents and packs up to the packs they are built with
-  xtmd target check [target…]    run the conformance cases on targets, through their check adapters
   xtmd lsp                       the language server, for an editor: the protocol over stdin and stdout
   xtmd help <command>, or xtmd <command> --help: that command's flags, exit codes and an example
   xtmd --version: this xtmd's release
@@ -20,7 +19,7 @@ usage: xtmd <command> [arguments] [flags]
 Every command takes:
   --format json  JSON instead of text. A command that writes a document (build, md, parse) writes
                  it as JSON, with its diagnostics as JSON lines on stderr. One that reports (check,
-                 fmt, surface, migrate, target check) prints JSON lines: one object a line, each with
+                 fmt, surface, migrate) prints JSON lines: one object a line, each with
                  its \"type\", and a \"summary\" last.
   --out <file>   what it prints goes to the file, its folder made if need be (build, md and surface
                  write their document there); a run that stops at a usage error leaves it alone.
@@ -127,22 +126,6 @@ const SURFACE: &str = "usage: xtmd surface <pack folder|file> [--pack a,b] [--ch
   e.g.  xtmd surface kit
         xtmd surface kit --check";
 
-const TARGET_CHECK: &str = "usage: xtmd target check [target…] [--cases dir] [--defect name [--expect-failures]] [--require target:name] [--out file] [--format json]
-  Runs the conformance cases through each target's check adapter, and reports every difference
-  from a case and between targets. The targets are each target.yaml under targets/: android,
-  egui, native, test and web, and react, vue, svelte, solid and angular, each also as -live
-  (react-live…), which compiles every case's text in the browser. With none named, it runs
-  every one, which takes minutes. It says where the cases come from.
-  --cases dir         the cases to run (default: checks/cases in the repository)
-  --defect name       runs the targets with one of their defects switched on, to show the cases
-                      catch it; a name the target doesn't have stops the run, listing the ones it has
-  --expect-failures   with --defect: exit 0 when the defect is caught, 1 when it is missed
-  --require t:name    fails first if target t can't supply name (as in web:core/math)
-  exit: 0 nothing differs (or the defect was caught); 1 something differs (or it was missed);
-        2 a usage error: an unknown target, a missing --cases folder, an adapter that won't start
-  e.g.  xtmd target check test
-        xtmd target check test --defect no-undo --expect-failures";
-
 /// A command's own usage, or none for a name that isn't one.
 pub(crate) fn of(cmd: &str) -> Option<&'static str> {
     Some(match cmd {
@@ -153,7 +136,6 @@ pub(crate) fn of(cmd: &str) -> Option<&'static str> {
         "md" => MD,
         "surface" => SURFACE,
         "migrate" => crate::migrate::USAGE,
-        "target check" | "target" => TARGET_CHECK,
         "lsp" => LSP,
         _ => return None,
     })

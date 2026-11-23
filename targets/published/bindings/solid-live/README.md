@@ -22,5 +22,4 @@ import { XtmdLiveDoc } from "@extended-mark/solid-live";
 Everything else is `XtmdDoc`'s ([@extended-mark/solid](../solid/README.md#props)), the handle included.
 
 `npm test`: a server render with a compiler in hand, then the shared live steps in Chromium
-(`../testing/browser.mjs`, `liveSteps`). `xtmd target check solid-live` runs every conformance case
-with its own text compiled in the tab.
+(`../testing/browser.mjs`, `liveSteps`).

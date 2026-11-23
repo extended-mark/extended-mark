@@ -1,6 +1,6 @@
 # The badge pack (for the checks)
 
-A tiny pack with externs, for the target checks (plan tab 15, "A pack with externs, for the
+A tiny pack with externs, for the engines' tests (plan tab 15, "A pack with externs, for the
 checks"): `badge/badge` is supplied by the pack on every target it supports, and `badge/seal` by
 none, so every target shows its Markdown instead and reports it as missing (page 6).
 

@@ -27,8 +27,6 @@ export interface PageOptions {
   /** Whether the target draws an extern widget, by full name. One it doesn't shows its Markdown
    * instead (page 6), and is reported in `missing()`. Left out, every one is drawn. */
   supplies?: (widget: string) => boolean;
-  /** For the test target only: defects to switch on. */
-  defects?: string[];
   /** Reuse a widget's drawn subtree when nothing it read has changed (on by default). Off
    * draws every widget anew on every change, for comparing the two. */
   memo?: boolean;
@@ -176,7 +174,6 @@ export class Page {
   /** Every failure caught, with its message and stack, for a host's log. */
   readonly errors: unknown[] = [];
   /** Defects switched on, for the test target: each must be caught by a check. */
-  private readonly defects: Set<string>;
   /** Whether the target draws an extern widget. */
   private supplies: (widget: string) => boolean;
   /** Extern widgets drawn as their Markdown because the target doesn't supply them. */
@@ -185,7 +182,6 @@ export class Page {
   private readonly targetFns: Record<string, (args: readonly V[]) => V | null>;
 
   constructor(ir: ir.File | ir.Module, opts: PageOptions = {}) {
-    this.defects = new Set(opts.defects ?? []);
     this.targetFns = opts.fns ?? {};
     this.supplies = opts.supplies ?? (() => true);
     this.memoOn = opts.memo ?? true;
@@ -363,7 +359,7 @@ export class Page {
     const snap = this.snapshot();
     try {
       this.writePlace(w.place, w.env, value);
-      const broken = !this.defect("unchecked-writes") && this.contractBroken(w.place, w.env);
+      const broken = this.contractBroken(w.place, w.env);
       if (broken) {
         this.restore(snap);
         this.outcome.refused.push({ code: "contracts.outside", site: path });
@@ -467,7 +463,7 @@ export class Page {
       this.state.set(k, v);
       this.bump(`s:${k}`);
     }
-    const rule = this.defect("unchecked-app-writes") ? undefined : this.stateRuleBroken();
+    const rule = this.stateRuleBroken();
     if (rule) {
       this.restore(snap);
       this.outcome.refused.push({ rule });
@@ -599,11 +595,6 @@ export class Page {
 
   // ---- inside
 
-  /** Whether a defect is switched on: only the test target ever does. */
-  defect(name: string): boolean {
-    return this.defects.has(name);
-  }
-
   private applyPage(page: PageValues): void {
     if (page.width) {
       this.externs.set("core/page.width", caseOf("core/width", page.width));
@@ -723,7 +714,7 @@ export class Page {
         switch (what.kind) {
           case "state": {
             const f = page.stateDecl?.fields.find((f) => f.name === what.name);
-            if (f && !page.defect("unchecked-writes") && !m.fits(value, f.type)) throw new Failure("Rule", `$state.${what.name} is outside its contract`);
+            if (f && !m.fits(value, f.type)) throw new Failure("Rule", `$state.${what.name} is outside its contract`);
             page.state.set(what.name, value);
             page.bump(`s:${what.name}`);
             return;
@@ -732,7 +723,7 @@ export class Page {
             const inst = owner === undefined ? undefined : page.instances.get(owner);
             if (!inst) throw new Failure("Ir", `no variable ${what.name} here`);
             const c = inst.template.cells.find((c) => c.name === what.name);
-            if (c && !page.defect("unchecked-writes") && !m.fits(value, c.type)) throw new Failure("Rule", `${what.name} is outside its contract`);
+            if (c && !m.fits(value, c.type)) throw new Failure("Rule", `${what.name} is outside its contract`);
             inst.cells.set(what.name, value);
             page.bump(`c:${inst.id}:${what.name}`);
             return;
@@ -753,7 +744,7 @@ export class Page {
         if (own) return own(args);
         if (!page.appFns.has(name)) return undefined;
         for (const f of page.frames) f.dirty = true;
-        if (!page.defect("lost-calls")) page.calls.push({ call: { name, args: args.map(toIr) } });
+        page.calls.push({ call: { name, args: args.map(toIr) } });
         return null;
       },
       invoke(_m: Machine, event: string, args: V[], owner: number | undefined): void {
@@ -891,7 +882,7 @@ export class Page {
       if (rule) throw new Failure("Rule", rule, rule);
     } catch (f) {
       this.errors.push(f);
-      if (!this.defect("no-undo")) this.restore(snap);
+      this.restore(snap);
       if (f instanceof Failure && f.kind === "Rule" && f.rule) this.outcome.failures.push({ rule: f.rule, site });
       else this.outcome.failures.push({ code: failureCode(f), site });
     }
@@ -917,8 +908,6 @@ export class Page {
 
   /** Draws the whole page again: once per change. */
   redraw(): void {
-    // a target that doesn't redraw after a change keeps showing the old page
-    if (this.defect("no-redraw") && this.drawn.length) return;
     // each redraw has the step limit to itself, as each event does: steps never pile up across changes
     this.machine.resetSteps();
     for (const i of this.instances.values()) i.seen = false;
@@ -969,7 +958,7 @@ export class Page {
       } else if ("for" in n) {
         const rows = this.machine.loopRows(env.bindings, env.owner, n.for);
         rows.forEach((row, k) =>
-          out.push(...this.drawNodes(n.for.body, { owner: env.owner, bindings: [...env.bindings, ...row.bindings], path: join(env.path, `${n.for.site}[${k}]`), key: join(env.key ?? env.path, `${n.for.site}[${this.defect("rows-by-position") ? k : row.key}]`) })),
+          out.push(...this.drawNodes(n.for.body, { owner: env.owner, bindings: [...env.bindings, ...row.bindings], path: join(env.path, `${n.for.site}[${k}]`), key: join(env.key ?? env.path, `${n.for.site}[${row.key}]`) })),
         );
       } else if ("if" in n) {
         const b = this.pickBranch(n.if, env);
@@ -1367,7 +1356,7 @@ export class Page {
 
   /** The same rows with their keys: a `mut for` row's is its item's identity. */
   keyedRows(n: ir.NodeFor, env: Env): { key: string; bindings: [string, Binding][] }[] {
-    return this.machine.loopRows(env.bindings, env.owner, n).map((r, k) => ({ key: this.defect("rows-by-position") ? String(k) : String(r.key), bindings: r.bindings }));
+    return this.machine.loopRows(env.bindings, env.owner, n).map((r, k) => ({ key: String(r.key), bindings: r.bindings }));
   }
 
   /** A view held in a value: a slot's content, or a call made as a value. */

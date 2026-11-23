@@ -82,7 +82,6 @@ fun XtmdLiveDoc(
     measure: Measure? = null,
     colors: (dark: Boolean) -> ColorScheme = XtmdTheme::colors,
     zone: Zone = DeviceZone,
-    defects: List<String> = emptyList(),
 ) {
     // the last text that compiled, as its IR
     var ir by remember { mutableStateOf<String?>(null) }
@@ -117,6 +116,5 @@ fun XtmdLiveDoc(
         measure = measure,
         colors = colors,
         zone = zone,
-        defects = defects,
     )
 }

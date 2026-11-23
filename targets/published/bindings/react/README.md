@@ -56,4 +56,4 @@ import wasm from "@extended-mark/wasm/xtmd.wasm?url";            // as the bundl
 
 `npm test`: `XtmdDoc` rendered on a server, then the shared steps in Chromium (`../testing/browser.mjs`,
 `docSteps`): controlled `$state`, refusals, the handle, props, a new IR, widgets' own variables and
-snapshots. `xtmd target check react` runs the conformance cases through `check/harness`.
+snapshots.

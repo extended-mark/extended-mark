@@ -6,7 +6,7 @@ The contracts between the compiler and every target, as JSON Schema (draft 2020-
 |---|---|
 | `ir.schema.json` | IR 3: the one checked, lowered IR the `xtmd` compiler writes and every target runs. Declarations, templates (widgets written in Extended Mark, lowered to nodes), bindings with what each reads, and handlers. No Markdown is left in it. |
 | `rir.schema.json` | The resolved IR, `rir 1`: what the compiler's checker understood of a build, for tools, never run by a target. Every name resolved to what it names, every value typed, nothing lowered: prose is still Markdown and a call still has its arguments by name. Every node keeps its span in its source and the comments that sit with it, so `xtmd migrate`, an editor or a linter can edit the source exactly or print it back. Its types are the IR's. `xtmd build --rir` writes it. |
-| `check.schema.json` | The target checks: a case (a source, its diagnostics, and steps), what a target observes after each step, and the JSON-RPC messages `xtmd target check` sends a target's check adapter. |
+| `check.schema.json` | A compiler case (a source, its diagnostics and its Markdown), the Markdown blocks `xtmd md --format json` writes, and what a runtime says about a page. |
 | `examples/*.rir.json` | A resolved IR beside the source it was made from (`examples/counter.xtmd`), held to the schema, its spans inside that source. |
 | `examples/*.ir.json` | Whole IR files, from the plan's counter and sprint pages, held to the schema and to the Rust types by `cargo test -p xtmd-ir`. |
 

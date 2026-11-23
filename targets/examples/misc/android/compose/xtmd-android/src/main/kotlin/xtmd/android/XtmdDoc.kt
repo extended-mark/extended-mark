@@ -182,8 +182,6 @@ fun XtmdDoc(
     colors: (dark: Boolean) -> ColorScheme = XtmdTheme::colors,
     /** Where the reader is in time, for `core/moment.local`: the device's zone. */
     zone: Zone = DeviceZone,
-    /** For the checks only: the runtime's defects to switch on. */
-    defects: List<String> = emptyList(),
 ) {
     val context = LocalContext.current
     val latestError by rememberUpdatedState(onError)
@@ -212,7 +210,6 @@ fun XtmdDoc(
             supplies = (registry + widgets.widgets).keys,
             fns = names.associateWith { n -> { args: List<Val> -> latestFns[n]?.invoke(args) } },
             zone = zone,
-            defects = defects,
         )
         // mounted here, on the main thread, as the effect runs: a page's IR holds only what it uses,
         // so it is quick, and the page is there by the next frame

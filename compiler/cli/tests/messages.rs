@@ -1,5 +1,5 @@
 //! What `xtmd check` says for the checks that closed the 0.3 gaps (doc #1936, item 4): each
-//! message names what is wrong and what to do, where a conformance case checks only the code.
+//! message names what is wrong and what to do, where a case checks only the code.
 
 use std::process::Command;
 

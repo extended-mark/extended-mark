@@ -34,8 +34,8 @@ over in the browser.
 `XtmdDoc`'s props are the frameworks' (`src` or `ir`, `state` and `onStateChange` or `defaultState`,
 `defaultSnapshot`, `onError`, `onCalls`, `externs`, `fns`, `page`, `widgets`, `measure`, and
 `onMount`); its handle is `set`, `state`, `markdown`, `expose`, `extern`, `snapshot`, `restore`,
-`running` and `mounted`. `xtmd target check embed` runs the conformance cases through it
-(`check/harness.mjs`), and `npm test` puts it through the frameworks' shared steps in Chromium.
+`running` and `mounted`.
+mjs`), and `npm test` puts it through the frameworks' shared steps in Chromium.
 
 ## Embed's props
 

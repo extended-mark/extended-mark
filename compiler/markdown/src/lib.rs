@@ -141,9 +141,6 @@ pub fn block_json(b: &Block) -> Json {
 
 /// Text with every character Markdown or Extended Mark's prose would read written with a backslash.
 fn escape(s: &str, line_start: bool) -> String {
-    if UNESCAPED.with(|u| u.get()) {
-        return s.to_string();
-    }
     let mut out = String::new();
     let chars: Vec<char> = s.chars().collect();
     let mut at_start = line_start;
@@ -298,21 +295,6 @@ fn write_block(b: &Block) -> String {
 
 fn write_blocks_inner(blocks: &[Block]) -> String {
     blocks.iter().map(write_block).collect::<Vec<_>>().join("\n")
-}
-
-thread_local! {
-    /// Set only by [`write_unescaped`].
-    static UNESCAPED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-}
-
-/// The page as Markdown text with its values written as they are, so Markdown's own characters in
-/// them change the page. Wrong on purpose: the test targets' `unescaped-markdown` defect, which a
-/// check has to catch.
-pub fn write_unescaped(blocks: &[Block]) -> String {
-    UNESCAPED.with(|u| u.set(true));
-    let out = write(blocks);
-    UNESCAPED.with(|u| u.set(false));
-    out
 }
 
 /// The page as Markdown text: its blocks, then its footnotes at the end.

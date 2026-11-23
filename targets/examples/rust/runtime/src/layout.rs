@@ -177,7 +177,7 @@ pub fn plane_writes(page: &Page, plane: &Drawn, measure: &mut dyn Measure, start
         };
         let nudge = pt_of(s.props.get("nudge")).unwrap_or(zero);
         let size = measure.spot(page, s);
-        let b = defective(page, plane, place(at, &anchor, nudge, size)?)?;
+        let b = place(at, &anchor, nudge, size)?;
         boxes.push(b);
         writes.push(LayoutWrite { path: s.path.clone(), input: "box".into(), value: Value::some(region_value(&b)) });
     }
@@ -253,22 +253,6 @@ pub fn plane_writes(page: &Page, plane: &Drawn, measure: &mut dyn Measure, start
     let drawn = Region { from: Pt { x: center.x.sub(half_size.x)?, y: center.y.sub(half_size.y)? }, to: Pt { x: center.x.add(half_size.x)?, y: center.y.add(half_size.y)? } };
     writes.push(LayoutWrite { path: plane.path.clone(), input: "drawn".into(), value: Value::some(region_value(&drawn)) });
     Ok(writes)
-}
-
-/// The test targets' defects: a box in screen pixels changes with every zoom, and one measured
-/// from the drawn area's corner changes with every pan. The checks catch both.
-fn defective(page: &Page, plane: &Drawn, b: Region) -> R<Region> {
-    let zoom = num_of(plane.props.get("zoom"), Num::int(1));
-    if page.rt().defect("boxes-in-pixels") {
-        let scale = |p: Pt| -> R<Pt> { Ok(Pt { x: p.x.mul(zoom)?, y: p.y.mul(zoom)? }) };
-        return Ok(Region { from: scale(b.from)?, to: scale(b.to)? });
-    }
-    if page.rt().defect("boxes-follow-the-view") {
-        let c = pt_of(plane.props.get("center")).unwrap_or(Pt { x: Num::zero(), y: Num::zero() });
-        let shift = |p: Pt| -> R<Pt> { Ok(Pt { x: p.x.sub(c.x)?, y: p.y.sub(c.y)? }) };
-        return Ok(Region { from: shift(b.from)?, to: shift(b.to)? });
-    }
-    Ok(b)
 }
 
 fn token_num(page: &Page, v: &Value) -> R<Option<Value>> {

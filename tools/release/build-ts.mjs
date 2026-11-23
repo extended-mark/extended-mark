@@ -17,8 +17,7 @@ import { packages, repo } from "./packages.mjs";
 const only = process.argv.includes("--test-only");
 const test = only || process.argv.includes("--test");
 const run = (cwd, args) => execFileSync("npm", args, { cwd, stdio: ["ignore", "inherit", "inherit"] });
-// every package with something to install, build or test: the web target's check adapter has only
-// its dependencies
+// every package with something to install, build or test
 const all = packages({ published: false }).filter((p) => p.pkg.scripts?.build || p.pkg.scripts?.test || Object.keys({ ...p.pkg.dependencies, ...p.pkg.devDependencies }).length);
 const byName = new Map(packages({ published: false }).map((p) => [p.pkg.name, p]));
 

@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Page } from "../dist/index.js";
 import { xtmdBinary, workdir, repo } from "./xtmd.mjs";
 
@@ -322,6 +323,7 @@ test("every case draws the same with the memo and without it", () => {
   const files = [];
   const walk = (d) => readdirSync(d).forEach((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : f.endsWith(".json") && files.push(join(d, f))));
   walk(root);
+  walk(join(dirname(fileURLToPath(import.meta.url)), "cases"));
   let ran = 0;
   let acted = 0;
   for (const f of files) {

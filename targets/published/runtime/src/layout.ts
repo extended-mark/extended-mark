@@ -138,7 +138,6 @@ export function planeWrites(page: Page, plane: Drawn, measure: Measure): LayoutW
     const anchor = s.props.get("anchor");
     const nudge = ptOf(s.props.get("nudge")) ?? zero;
     let box = place(at, anchor?.kind === "case" ? anchor.name : "CENTER", nudge, measure.spot(s));
-    box = defective(page, plane, box);
     boxes.push(box);
     writes.push({ path: s.path, input: "box", value: some(regionValue(box)) });
   }
@@ -186,22 +185,6 @@ export function planeWrites(page: Page, plane: Drawn, measure: Measure): LayoutW
   const drawn: Region = { from: { x: center.x.sub(half.x), y: center.y.sub(half.y) }, to: { x: center.x.add(half.x), y: center.y.add(half.y) } };
   writes.push({ path: plane.path, input: "drawn", value: some(regionValue(drawn)) });
   return writes;
-}
-
-/** The test target's defects: a box in screen pixels changes with every zoom, and one measured
- * from the drawn area's corner changes with every pan. The checks catch both. */
-function defective(page: Page, plane: Drawn, box: Region): Region {
-  const zoom = numOf(plane.props.get("zoom"), Num.int(1));
-  if (page.defect("boxes-in-pixels")) {
-    const scale = (p: Pt): Pt => ({ x: p.x.mul(zoom), y: p.y.mul(zoom) });
-    return { from: scale(box.from), to: scale(box.to) };
-  }
-  if (page.defect("boxes-follow-the-view")) {
-    const c = ptOf(plane.props.get("center")) ?? { x: Num.zero(), y: Num.zero() };
-    const shift = (p: Pt): Pt => ({ x: p.x.sub(c.x), y: p.y.sub(c.y) });
-    return { from: shift(box.from), to: shift(box.to) };
-  }
-  return box;
 }
 
 const started = new WeakMap<Page, Set<string>>();

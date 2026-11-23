@@ -53,8 +53,6 @@ pub struct PageOptions {
     /// Whether the target draws an extern widget. One it doesn't shows its Markdown instead
     /// (page 6), and is reported in [`Page::missing`]. Left out, every one is drawn.
     pub supplies: Option<Supplies>,
-    /// For the test targets only: defects to switch on, each of which a check must catch.
-    pub defects: Vec<String>,
     /// Reuse a widget's drawn subtree when nothing it read has changed (on by default). Off
     /// draws every widget anew on every change, for comparing the two.
     pub memo: bool,
@@ -62,7 +60,7 @@ pub struct PageOptions {
 
 impl Default for PageOptions {
     fn default() -> PageOptions {
-        PageOptions { page: PageValues::default(), state: Vec::new(), externs: Vec::new(), fns: HashMap::new(), supplies: None, defects: Vec::new(), memo: true }
+        PageOptions { page: PageValues::default(), state: Vec::new(), externs: Vec::new(), fns: HashMap::new(), supplies: None, memo: true }
     }
 }
 
@@ -269,7 +267,6 @@ pub(crate) struct Shared {
     state_decl: Option<ir::State>,
     state_rules: Rules,
     lets: HashMap<String, Expr>,
-    defects: HashSet<String>,
     target_fns: HashMap<String, ValueFn>,
     /// The nodes the page owns, so an instance holds a slot's content without a copy, and a
     /// memo knows its call again.
@@ -300,9 +297,6 @@ impl Shared {
         }
     }
 
-    pub(crate) fn defect(&self, name: &str) -> bool {
-        self.defects.contains(name)
-    }
 }
 
 fn addr<T>(x: &T) -> usize {
@@ -570,9 +564,7 @@ impl Host for PageHost {
         for f in rt.w().frames.iter_mut() {
             f.dirty = true;
         }
-        if !rt.s.defect("lost-calls") {
-            rt.w().calls.push(Call { call: CallCall { name: name.to_string(), args: args.iter().map(Value::to_ir).collect() } });
-        }
+        rt.w().calls.push(Call { call: CallCall { name: name.to_string(), args: args.iter().map(Value::to_ir).collect() } });
         Ok(Some(None))
     }
 
@@ -588,10 +580,6 @@ impl Host for PageHost {
 impl Rt {
     fn w(&self) -> RefMut<'_, World> {
         self.w.borrow_mut()
-    }
-
-    pub(crate) fn defect(&self, name: &str) -> bool {
-        self.s.defect(name)
     }
 
     // ---- the host: what lives outside a fn
@@ -671,7 +659,7 @@ impl Rt {
             Outer::State(n) => {
                 let ty = self.s.state_decl.as_ref().and_then(|s| s.fields.iter().find(|f| *f.name == **n)).map(|f| f.ty.clone());
                 if let Some(ty) = ty {
-                    if !self.defect("unchecked-writes") && !m.fits(&value, &ty)? {
+                    if !m.fits(&value, &ty)? {
                         return Err(Failure::new(FailKind::Rule, format!("$state.{} is outside its contract", n)));
                     }
                 }
@@ -689,7 +677,7 @@ impl Rt {
                     inst.template.cells.iter().find(|c| *c.name == **n).map(|c| c.ty.clone())
                 };
                 if let Some(ty) = ty {
-                    if !self.defect("unchecked-writes") && !m.fits(&value, &ty)? {
+                    if !m.fits(&value, &ty)? {
                         return Err(Failure::new(FailKind::Rule, format!("{} is outside its contract", n)));
                     }
                 }
@@ -830,13 +818,7 @@ impl Rt {
 
     /// The same rows with their keys: a list row's is its item's identity.
     pub(crate) fn keyed_rows(&self, m: &mut Machine, f: &ir::NodeFor, env: &Env) -> R<Vec<Row>> {
-        let mut rows = self.loop_rows(m, f, env)?;
-        if self.defect("rows-by-position") {
-            for (k, r) in rows.iter_mut().enumerate() {
-                r.key = k.to_string();
-            }
-        }
-        Ok(rows)
+        self.loop_rows(m, f, env)
     }
 
     /// Whether the variable a place writes now breaks its own contract.
@@ -918,7 +900,7 @@ impl Rt {
                 Node::For(f) => {
                     let rows = self.loop_rows(m, f, &env)?;
                     for (k, row) in rows.into_iter().enumerate() {
-                        let key = if self.defect("rows-by-position") { k.to_string() } else { row.key };
+                        let key = row.key;
                         let mut bindings = env.bindings.clone();
                         bindings.extend(row.bindings);
                         let inner = Env { owner: env.owner, bindings, path: join(&env.path, &format!("{}[{}]", f.site, k)), key: Some(join(env.key_or_path(), &format!("{}[{}]", f.site, key))) };
@@ -1685,7 +1667,6 @@ impl Page {
             state_decl,
             state_rules,
             lets,
-            defects: opts.defects.iter().cloned().collect(),
             target_fns: opts.fns.clone(),
             stable: nodes,
             module,
@@ -1995,10 +1976,9 @@ impl Page {
             Rule(String),
         }
         let snap = self.snapshot();
-        let unchecked = self.rt.defect("unchecked-writes");
         let r = self.with_machine(|rt, m| -> R<Option<Refused>> {
             rt.write_place(m, &to, value)?;
-            if !unchecked && rt.contract_broken(m, &to)? {
+            if rt.contract_broken(m, &to)? {
                 return Ok(Some(Refused::Contract));
             }
             Ok(rt.state_rule_broken(m)?.map(Refused::Rule))
@@ -2124,7 +2104,7 @@ impl Page {
             w.state_set(&k, v);
             w.bump(format!("s:{}", k));
         }
-        let rule = if self.rt.defect("unchecked-app-writes") { None } else { self.with_machine(|rt, m| rt.state_rule_broken(m))? };
+        let rule = self.with_machine(|rt, m| rt.state_rule_broken(m))?;
         if let Some(rule) = rule {
             self.restore(snap);
             self.rt.w().outcome.refused.push(broken_rule(&rule));
@@ -2192,7 +2172,7 @@ impl Page {
     pub fn markdown(&self) -> R<String> {
         self.reset_steps();
         let blocks = self.with_machine(|rt, m| crate::markdown::page_blocks(rt, m))?;
-        Ok(if self.rt.defect("unescaped-markdown") { xtmd_markdown::write_unescaped(&blocks) } else { xtmd_markdown::write(&blocks) })
+        Ok(xtmd_markdown::write(&blocks))
     }
 
     /// The page's Markdown as blocks, before they are written.
@@ -2400,9 +2380,7 @@ impl Page {
             Ok(())
         });
         if let Err(f) = r {
-            if !self.rt.defect("no-undo") {
-                self.restore(snap);
-            }
+            self.restore(snap);
             let broken = match (&f.kind, &f.rule) {
                 (FailKind::Rule, Some(rule)) => Broken { code: None, rule: Some(rule.clone()), site: Some(site.to_string()) },
                 _ => broken_code(&failure_code(&f), site),
@@ -2434,10 +2412,6 @@ impl Page {
 
     /// Draws the whole page again: once per change.
     pub fn redraw(&mut self) -> R<()> {
-        // a target that doesn't redraw after a change keeps showing the old page
-        if self.rt.defect("no-redraw") && !self.drawn.is_empty() {
-            return Ok(());
-        }
         let drawn = self.with_machine(|rt, m| -> R<Vec<Drawn>> {
             // each redraw has the step limit to itself, as each event does: steps never pile up
             m.reset_steps();

@@ -1,6 +1,6 @@
 //! `--format json`, the same on every command. A command that writes a document (build, md,
-//! parse) prints that document, as JSON. A command that reports (check, fmt, surface, migrate,
-//! target check) prints one JSON object per line, each with its `type`, and a `summary` last.
+//! parse) prints that document, as JSON. A command that reports (check, fmt, surface, migrate)
+//! prints one JSON object per line, each with its `type`, and a `summary` last.
 //! Diagnostics are JSON objects wherever they go, with the same fields everywhere.
 
 use xtmd_syntax::Diagnostic;

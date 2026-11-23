@@ -172,7 +172,6 @@ class Writer {
       return this.widgetInner(name, path, props, args, slots, env, key, events);
     } catch (f) {
       if (name.startsWith("core/") && !this.page.templateOf(name)) throw f;
-      if (this.page.defect("no-notice")) return [];
       // a widget that fails is a notice in its place, a quote in Markdown (page 6)
       const msg = f instanceof Error ? f.message : String(f);
       return [{ block: { quote: [{ paragraph: [{ text: { value: `${name.split("/").pop()} failed: ${msg}` } }] }] } }];
@@ -312,10 +311,8 @@ export function pageBlocks(page: Page): Block[] {
 
 // ---- the one spelling (page 1, Markdown out)
 
-let unescaped = false;
 
 function escape(s: string, lineStart: boolean): string {
-  if (unescaped) return s;
   let out = "";
   let atStart = lineStart;
   const chars = [...s];
@@ -420,12 +417,4 @@ export function writeMarkdown(blocks: Block[]): string {
   return [...rest, ...notes].map(writeBlock).join("\n");
 }
 
-setMarkdownWriter((page) => {
-  // the test target's defect: text written as it is, so Markdown's own characters in it change the page
-  unescaped = page.defect("unescaped-markdown");
-  try {
-    return writeMarkdown(pageBlocks(page));
-  } finally {
-    unescaped = false;
-  }
-});
+setMarkdownWriter((page) => writeMarkdown(pageBlocks(page)));

@@ -48,7 +48,6 @@ target's behaviour (events, keyboard, roles), which the checks hold every target
 target is checked as every target is:
 
 ```sh
-xtmd target check vscode    # every case, in Chromium
 ```
 
 ## Building and testing
