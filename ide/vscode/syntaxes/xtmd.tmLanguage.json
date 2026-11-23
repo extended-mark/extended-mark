@@ -242,7 +242,7 @@
     },
     "core-type": {
       "name": "support.type.xtmd",
-      "match": "\\b(?:int|number|text|bool|list|opt|map|date|moment|duration|range|point|region|size|space|color|radius|font|shadow|stroke|template|md|rich_text|latex)\\b"
+      "match": "\\b(?:int|number|text|bool|list|opt|map|date|moment|duration|range|point|region|size|space|color|radius|font|shadow|stroke|template|rich_text|latex)\\b"
     },
     "case": {
       "name": "constant.other.case.xtmd",

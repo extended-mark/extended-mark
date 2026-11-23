@@ -8,6 +8,7 @@
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
+use xtmd_eval::value::ContentOf;
 use xtmd_eval::Binding;
 use xtmd_runtime::{Drawn, Page, Value};
 
@@ -42,6 +43,8 @@ pub fn same_value(a: &Value, b: &Value) -> bool {
                     && x.captured.iter().zip(&y.captured).all(|((n, p), (m, q))| n == m && same_binding(p, q)))
         }
         (Value::View(x), Value::View(y)) => Rc::ptr_eq(x, y),
+        // an input's calls, drawn: the same of the widget's, which are compared on their own
+        (Value::Content(x), Value::Content(y)) => Rc::ptr_eq(x, y) || matches!((&x.of, &y.of), (ContentOf::Drawn(j), ContentOf::Drawn(k)) if j == k),
         _ => false,
     }
 }
@@ -68,6 +71,9 @@ fn same_shallow(page: &Page, d: &Drawn, p: &Drawn, was_listening: &[String]) -> 
     d.path == p.path
         && d.key == p.key
         && d.widget == p.widget
+        && d.failed == p.failed
+        && d.held.len() == p.held.len()
+        && d.held.iter().zip(&p.held).all(|(kids, was)| kids.len() == was.len() && kids.iter().zip(was).all(|(a, b)| a.key == b.key))
         && d.props.len() == p.props.len()
         && d.props.iter().all(|(k, v)| p.props.get(k).map_or(false, |w| same_value(v, w)))
         && d.events.len() == p.events.len()
@@ -93,7 +99,7 @@ impl<'a> Diff<'a> {
         fn index<'b>(nodes: &'b [Drawn], out: &mut HashMap<&'b str, &'b Drawn>) {
             for n in nodes {
                 out.insert(n.key.as_str(), n);
-                for kids in n.slots.values() {
+                for kids in n.slots.values().chain(&n.held) {
                     index(kids, out);
                 }
             }
@@ -101,7 +107,7 @@ impl<'a> Diff<'a> {
         fn count<'b>(nodes: &'b [Drawn], seen: &mut HashMap<&'b str, usize>) {
             for n in nodes {
                 *seen.entry(n.key.as_str()).or_default() += 1;
-                for kids in n.slots.values() {
+                for kids in n.slots.values().chain(&n.held) {
                     count(kids, seen);
                 }
             }
@@ -119,7 +125,7 @@ impl<'a> Diff<'a> {
     fn listening_as_was(&self, d: &Drawn) -> bool {
         self.unique.contains(d.key.as_str())
             && d.events.keys().filter(|e| self.page.listens(d, e)).eq(self.listening.get(&d.key).map_or(&[][..], |l| l.as_slice()).iter())
-            && d.slots.values().flatten().all(|k| self.listening_as_was(k))
+            && d.children().all(|k| self.listening_as_was(k))
     }
 
     /// A drawn widget as Kotlin reads it, and whether it is as it was, all of it.
@@ -131,14 +137,14 @@ impl<'a> Diff<'a> {
         }
         let mut slots = Vec::new();
         let mut kids_same = true;
-        for (name, kids) in &d.slots {
+        for (name, kids) in crate::slots_of(d) {
             let mut nodes = Vec::new();
             for k in kids {
                 let (n, same) = self.node(k);
                 kids_same &= same;
                 nodes.push(n);
             }
-            slots.push(crate::Slot { name: name.clone(), nodes });
+            slots.push(crate::Slot { name, nodes });
         }
         let same = kids_same
             && prev.map_or(false, |p| same_shallow(self.page, d, p, self.listening.get(&d.key).map_or(&[][..], |l| l.as_slice())));
@@ -153,5 +159,5 @@ impl<'a> Diff<'a> {
 
 /// A widget as it was: its path, key and widget, for the node with its key Kotlin holds.
 fn stub(d: &Drawn) -> Node {
-    Node { path: d.path.clone(), key: d.key.clone(), widget: d.widget.clone(), props: HashMap::new(), slots: Vec::new(), listens: Vec::new(), events: Vec::new(), writes: Vec::new(), same: true }
+    Node { path: d.path.clone(), key: d.key.clone(), widget: d.widget.clone(), props: HashMap::new(), slots: Vec::new(), listens: Vec::new(), events: Vec::new(), writes: Vec::new(), failed: d.failed.clone(), same: true }
 }

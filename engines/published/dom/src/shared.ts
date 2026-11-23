@@ -2,7 +2,7 @@
 // another way (@extended-mark/view and the framework engines on it), so every web engine reads a value,
 // a token, an icon and a link the same: no DOM is needed to import these.
 
-export { field, flag, inner, kase, list, num, point, region, str, exact, placesFor, toNum, type XY } from "./values.js";
+export { field, flag, inner, kase, list, nodes, num, point, region, str, exact, placesFor, toNum, type XY } from "./values.js";
 export { Tokens, tokenVar, type Theme } from "./tokens.js";
 export { GLYPHS, FILLED } from "./icons.js";
 export { safeHref, safeSrc, templateText, texOf, noteId } from "./rich.js";

@@ -1,7 +1,7 @@
 package core;
 
-//@about Markdown blocks: CommonMark, with GitHub's tables, task lists and footnotes, and each block's inline Markdown through rich_text.read. A hole is never read, so it never starts or ends a block.
-fn md.from(value: template): opt<md> {
+// Markdown blocks: CommonMark, with GitHub's tables, task lists and footnotes, and each block's inline Markdown through md_inline. A hole is never read, so it never starts or ends a block. Private to core
+fn md_read(value: template): opt<list<md_block>> {
     mut p: mb_parser = mb_parser { };
     p.nodes.add(mb_node { kind = "document", parent = -1 });
     let lines: list<text> = mb_lines(value);
@@ -19,7 +19,7 @@ fn md.from(value: template): opt<md> {
     if (!out.ok) {
         return opt.NONE;
     }
-    return md { blocks = out.blocks };
+    return out.blocks;
 }
 
 // A template's text, each hole one object replacement character, cut into lines. Private to core
@@ -94,7 +94,7 @@ record mb_parser {
 
 // What turning blocks into md's blocks gave: the blocks, the next hole, and whether every inline read worked. Private to core
 record mb_out {
-    blocks: list<block> = [];
+    blocks: list<md_block> = [];
     next: number = 0;
     ok: bool = true;
 }
@@ -1133,7 +1133,7 @@ fn mb_html_end(kind: number, s: text): bool {
 
 // The nodes under k as md's blocks, reading each inline text with its holes in order from next. Private to core
 fn mb_blocks(nodes: list<mb_node>, k: number, value: template, links: map<text>, next: number): mb_out {
-    mut blocks: list<block> = [];
+    mut blocks: list<md_block> = [];
     mut at: number = next;
     let kids: list<number> = nodes[k].or(mb_node { kind = "", parent = -1 }).children;
     for (child in kids) {
@@ -1142,71 +1142,71 @@ fn mb_blocks(nodes: list<mb_node>, k: number, value: template, links: map<text>,
                 let source: text = n.kind == "heading" && !n.setext ? n.content.trim() : mb_paragraph_text(n.content);
                 if (source != "") {
                     let r: mb_rich = mb_read(source, value, links, at);
-                    if (let words: rich_text = r.value) {
+                    if (let words: list<md_segment> = r.value) {
                         at = r.next;
                         if (n.kind == "paragraph") {
-                            blocks.add(block.PARAGRAPH(words));
+                            blocks.add(md_block.PARAGRAPH(words));
                         } else {
-                            blocks.add(block.HEADING(n.level.round().clamp(1, 6), words));
+                            blocks.add(md_block.HEADING(n.level.round().clamp(1, 6), words));
                         }
                     } else {
                         return mb_out { ok = false };
                     }
                 } else if (n.kind == "heading") {
-                    blocks.add(block.HEADING(n.level.round().clamp(1, 6), rich_text { segments = [] }));
+                    blocks.add(md_block.HEADING(n.level.round().clamp(1, 6), []));
                 }
             } else if (n.kind == "thematic") {
-                blocks.add(block.DIVIDER);
+                blocks.add(md_block.DIVIDER);
             } else if (n.kind == "code") {
-                blocks.add(block.CODE(n.content, n.info.split(" ").first().or("")));
+                blocks.add(md_block.CODE(n.content, n.info.split(" ").first().or("")));
             } else if (n.kind == "html") {
-                blocks.add(block.PARAGRAPH(rich_text.plain(mb_trim_end_char(n.content, "\n"))));
+                blocks.add(md_block.PARAGRAPH(md_plain(mb_trim_end_char(n.content, "\n"))));
             } else if (n.kind == "quote") {
                 let inner: mb_out = mb_blocks(nodes, child, value, links, at);
                 if (!inner.ok) {
                     return inner;
                 }
                 at = inner.next;
-                blocks.add(block.QUOTE(inner.blocks));
+                blocks.add(md_block.QUOTE(inner.blocks));
             } else if (n.kind == "footnote") {
                 let inner: mb_out = mb_blocks(nodes, child, value, links, at);
                 if (!inner.ok) {
                     return inner;
                 }
                 at = inner.next;
-                blocks.add(block.FOOTNOTE(n.label, inner.blocks));
+                blocks.add(md_block.FOOTNOTE(n.label, inner.blocks));
             } else if (n.kind == "list") {
-                mut items: list<list_item> = [];
+                mut items: list<md_item> = [];
                 for (item in n.children) {
                     let inner: mb_out = mb_blocks(nodes, item, value, links, at);
                     if (!inner.ok) {
                         return inner;
                     }
                     at = inner.next;
-                    items.add(list_item { done = nodes[item].or(mb_node { kind = "", parent = -1 }).done, body = inner.blocks });
+                    items.add(md_item { done = nodes[item].or(mb_node { kind = "", parent = -1 }).done, body = inner.blocks });
                 }
                 if (items.len() in 1...) {
-                    blocks.add(block.BULLETS(n.ordered, md_pos(n.start), items));
+                    blocks.add(md_block.BULLETS(n.ordered, md_pos(n.start), items));
                 }
             } else if (n.kind == "table") {
-                mut head: list<rich_text> = [];
+                mut head: list<list<md_segment>> = [];
                 for (cell in n.head) {
                     let r: mb_rich = mb_read(cell, value, links, at);
                     at = r.next;
-                    head.add(r.value.or(rich_text.plain(cell)));
+                    head.add(r.value.or(md_plain(cell)));
                 }
-                mut rows: list<list<rich_text>> = [];
+                mut rows: list<list<list<md_segment>>> = [];
                 for (row in n.rows) {
-                    mut cells: list<rich_text> = [];
+                    mut cells: list<list<md_segment>> = [];
                     for (cell in row) {
                         let r: mb_rich = mb_read(cell, value, links, at);
                         at = r.next;
-                        cells.add(r.value.or(rich_text.plain(cell)));
+                        cells.add(r.value.or(md_plain(cell)));
                     }
                     rows.add(cells);
                 }
                 if (head.len() in 1...) {
-                    blocks.add(block.TABLE(head, rows, n.align));
+                    blocks.add(md_block.TABLE(head, rows, n.align));
                 }
             }
         }
@@ -1216,8 +1216,13 @@ fn mb_blocks(nodes: list<mb_node>, k: number, value: template, links: map<text>,
 
 //@about One inline text read, and the hole after its own. Private to core
 record mb_rich {
-    value: opt<rich_text> = opt.NONE;
+    value: opt<list<md_segment>> = opt.NONE;
     next: number = 0;
+}
+
+// a text as it is. Private to core
+fn md_plain(value: text): list<md_segment> {
+    return [md_segment { part = md_part.TEXT(value) }];
 }
 
 // Inline Markdown that may hold holes, read with the holes from at on. Private to core
@@ -1234,7 +1239,7 @@ fn mb_read(source: text, value: template, links: map<text>, at: number): mb_rich
             next = next + 1;
         }
     }
-    return mb_rich { value = rich_text.read((try template { pieces = pieces, holes = holes }).or(template.of("")), links), next = next };
+    return mb_rich { value = md_inline((try template { pieces = pieces, holes = holes }).or(template.of("")), links), next = next };
 }
 
 // A paragraph's text: each line without its leading spaces, and the last without its trailing ones. Private to core

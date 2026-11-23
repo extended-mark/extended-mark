@@ -47,7 +47,7 @@ pub fn root_id(widget: &str, path: &str) -> String {
     format!("{}@{}", short(widget), path)
 }
 
-/// A widget's short name: `core/press` is `press`, `#notice` is `notice`.
+/// A widget's short name: `core/press` is `press`.
 pub fn short(widget: &str) -> &str {
     let w = widget.rsplit('/').next().unwrap_or(widget);
     w.trim_start_matches('#')

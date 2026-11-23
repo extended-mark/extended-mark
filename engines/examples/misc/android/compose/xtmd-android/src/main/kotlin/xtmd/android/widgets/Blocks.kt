@@ -62,6 +62,8 @@ import xtmd.android.color
 import xtmd.android.headingStyle
 import xtmd.android.inner
 import xtmd.android.items
+import xtmd.android.ffi.Node
+import xtmd.android.inlineNodes
 import xtmd.android.richText
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.text.InlineTextContent
@@ -75,7 +77,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
-import xtmd.android.inlineSlots
 import xtmd.android.site
 import xtmd.android.str
 import xtmd.android.templateText
@@ -92,15 +93,10 @@ internal fun textAlign(a: String?): TextAlign? = when (a) {
     else -> null
 }
 
-/** Rich text with the page's link and code colours. */
-@Composable
-internal fun rich(v: Val?) = richText(v, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.surfaceVariant)
-
-/** A rich text's Text, with each view in its sentence drawn from the widget's slot where its part
- * is, as a widget of the page. Its room in the line is the size the view measured, so a view is
- * set in place a frame after it is first drawn. A sentence with views has no fixed line height:
- * a line grows to the view it holds, as on the web, where a fixed one would let the view cover
- * the line below. */
+/** A sentence's Text, with the page's link and code colours, and each widget in it drawn where it
+ * is, as a widget of the page. Its room in the line is the size the widget measured, so it is set in
+ * place a frame after it is first drawn. A sentence with widgets has no fixed line height: a line
+ * grows to the widget it holds, as on the web, where a fixed one would let it cover the line below. */
 @Composable
 internal fun RichText(
     v: Val?,
@@ -111,22 +107,38 @@ internal fun RichText(
     textAlign: TextAlign? = null,
     fontWeight: FontWeight? = null,
     style: TextStyle = LocalTextStyle.current,
+) = Words(p.nodes(v), ctx, modifier, color, textAlign, fontWeight, style)
+
+@Composable
+internal fun Words(
+    nodes: List<Node>,
+    ctx: WidgetContext,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    textAlign: TextAlign? = null,
+    fontWeight: FontWeight? = null,
+    style: TextStyle = LocalTextStyle.current,
 ) {
-    val slots = inlineSlots(v)
+    val among = inlineNodes(nodes)
     val sizes = remember { mutableStateMapOf<String, IntSize>() }
     val density = LocalDensity.current
-    val inline = slots.associateWith { slot ->
-        val size = sizes[slot]
+    val inline = among.associate { n ->
+        val size = sizes[n.key]
         val room = with(density) { Placeholder(size?.width?.toSp() ?: 1.em, size?.height?.toSp() ?: 1.em, PlaceholderVerticalAlign.TextCenter) }
-        InlineTextContent(room) {
-            Box(Modifier.wrapContentSize(Alignment.TopStart, unbounded = true).onSizeChanged { sizes[slot] = it }) {
-                ctx.Children(p.slot(slot))
+        n.key to InlineTextContent(room) {
+            Box(Modifier.wrapContentSize(Alignment.TopStart, unbounded = true).onSizeChanged { sizes[n.key] = it }) {
+                ctx.Children(listOf(n))
             }
         }
     }
-    val lines = if (slots.isEmpty()) style else style.copy(lineHeight = TextUnit.Unspecified)
-    Text(rich(v), modifier, color = color, textAlign = textAlign, fontWeight = fontWeight, style = lines, inlineContent = inline)
+    val lines = if (among.isEmpty()) style else style.copy(lineHeight = TextUnit.Unspecified)
+    val text = richText(nodes, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.surfaceVariant)
+    Text(text, modifier, color = color, textAlign = textAlign, fontWeight = fontWeight, style = lines, inlineContent = inline)
 }
+
+/** Words of a sentence on their own, as a paragraph's are drawn: in one, its paragraph draws them. */
+@Composable
+fun XtmdWords(p: Props, ctx: WidgetContext) = Words(listOf(p.node), ctx, Modifier.site(ctx, "words"), style = MaterialTheme.typography.bodyLarge)
 
 @Composable
 fun XtmdParagraph(p: Props, ctx: WidgetContext) {

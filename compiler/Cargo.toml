@@ -28,7 +28,7 @@ repository = "https://github.com/extended-mark/extended-mark"
 
 
 [workspace.dependencies]
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive", "rc"] }
 serde_json = "1"
 
 [profile.release]

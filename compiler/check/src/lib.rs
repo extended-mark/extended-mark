@@ -13,6 +13,7 @@ mod fit;
 pub mod levels;
 mod passes;
 pub mod proof;
+mod rich;
 pub mod ty;
 mod migrations;
 pub mod pieces;
@@ -65,7 +66,7 @@ pub mod codes {
     pub const NOT_A_VIEW: &str = "views.not-a-view";
     pub const EMPTY_MARKDOWN: &str = "widget.markdown-empty";
     pub const OPT_HOLE: &str = "prose.opt-hole";
-    pub const MD_HOLE: &str = "prose.md-in-hole";
+    pub const SENTENCE: &str = "prose.sentence-wanted";
     pub const SLOT_TYPE: &str = "views.slot-takes-its-type";
     pub const SLOT_LENGTH: &str = "views.slot-length";
     pub const BUILT_MARKDOWN: &str = "widget.built-markdown-reads-a-variable";
@@ -359,7 +360,7 @@ pub struct PackRec {
     pub provides: Option<HashSet<String>>,
 }
 
-pub const BUILTINS: &[&str] = &["number", "bool", "text", "duration", "list", "opt", "range", "view"];
+pub const BUILTINS: &[&str] = &["number", "bool", "text", "duration", "list", "opt", "range", "view", "rich_text"];
 
 /// Where the files, declarations and fns a compile adds start, after the ones it was given.
 #[derive(Clone, Copy, Default)]
@@ -419,6 +420,8 @@ pub struct Checker {
     pub module: String,
     pub out: decl::Out,
     pub pending: Vec<body::Pending>,
+    /// What a sentence is wanted for, while the value given for it is checked: a heading, a cell.
+    pub sentence_for: Option<String>,
     pub next_site: usize,
     /// The template whose view is being made: `doc`, or a widget's full name.
     pub(crate) template_now: String,
@@ -478,6 +481,7 @@ impl Checker {
             module: "doc".into(),
             out: decl::Out::default(),
             pending: Vec::new(),
+            sentence_for: None,
             next_site: 0,
             template_now: String::new(),
             sites: Vec::new(),
@@ -594,6 +598,7 @@ impl Checker {
             Ty::Text => "text".into(),
             Ty::Dur => "duration".into(),
             Ty::View => "view".into(),
+            Ty::Rich => "rich_text".into(),
             Ty::List(x) => format!("list<{}>", self.show(x)),
             Ty::Opt(x) => format!("opt<{}>", self.show(x)),
             Ty::Range(x) => format!("range<{}>", self.show(x)),
@@ -629,6 +634,7 @@ impl Checker {
             Ty::Text => ir::Type::named("core/text"),
             Ty::Dur => ir::Type::named("core/duration"),
             Ty::View => ir::Type::named("core/view"),
+            Ty::Rich => ir::Type::named("core/rich_text"),
             Ty::List(x) => ir::Type::of("core/list", vec![self.ir_ty(x)]),
             Ty::Opt(x) => ir::Type::of("core/opt", vec![self.ir_ty(x)]),
             Ty::Range(x) => ir::Type::of("core/range", vec![self.ir_ty(x)]),
@@ -814,6 +820,9 @@ impl Checker {
                     }
                 }
             }
+            // core's names are hidden by the file's own and by those it imports
+            let core_types: HashMap<String, TypeSym> = scope.types.iter().filter(|(_, t)| matches!(t, TypeSym::Def(_))).map(|(n, t)| (n.clone(), *t)).collect();
+            let core_values = scope.values.clone();
             let ast = self.files[file].ast.clone();
             for node in &ast.items {
                 let Item::Import(imp) = &node.item else { continue };
@@ -845,13 +854,13 @@ impl Checker {
                 }
                 for (n, t, v) in add {
                     if let Some(t) = t {
-                        if scope.types.get(&n).map_or(false, |x| *x != t) {
+                        if scope.types.get(&n).map_or(false, |x| *x != t && core_types.get(&n) != Some(x)) {
                             self.error(file, codes::IMPORT_CLASH, imp.span, format!("`{}` is already a visible type: rename one with `as`", n));
                         }
                         scope.types.insert(n.clone(), t);
                     }
                     if let Some(v) = v {
-                        if scope.values.get(&n).map_or(false, |x| *x != v) {
+                        if scope.values.get(&n).map_or(false, |x| *x != v && core_values.get(&n) != Some(x)) {
                             self.error(file, codes::IMPORT_CLASH, imp.span, format!("`{}` is already a visible name: rename one with `as`", n));
                         }
                         scope.values.insert(n.clone(), v);
@@ -894,6 +903,7 @@ impl Checker {
                             "text" => Ty::Text,
                             "duration" => Ty::Dur,
                             "view" => Ty::View,
+                            "rich_text" => Ty::Rich,
                             "list" => Ty::list(one()),
                             "opt" => Ty::opt(one()),
                             "range" => Ty::Range(Box::new(one())),
@@ -1032,7 +1042,7 @@ impl Checker {
             // rules that need every signature: checked once they are known
             if let B::Named { name, .. } = &t.base {
                 match (self.lookup_type(file, &name.name), written) {
-                    (Some(TypeSym::Builtin(b @ ("bool" | "list" | "opt" | "view" | "range"))), ast::Contract::Range(r)) => {
+                    (Some(TypeSym::Builtin(b @ ("bool" | "list" | "opt" | "view" | "rich_text" | "range"))), ast::Contract::Range(r)) => {
                         self.error(file, codes::RANGE_UNORDERED, r.span, format!("a range is for numbers, durations, dates and other types that fit `ordered`; `{}` doesn't", b));
                     }
                     (Some(TypeSym::Def(d)), ast::Contract::Range(r)) => self.type_rules.push(declared::TypeRule::Range { file, span: r.span, def: d }),

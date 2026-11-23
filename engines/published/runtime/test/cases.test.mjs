@@ -8,7 +8,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
-import { Page, layout, pageBlocks, regionOf, toIr } from "../dist/index.js";
+import { Page, layout, pageBlocks, regionOf, toIr, childrenOf } from "../dist/index.js";
 import { measure, engineFns } from "./sizes.mjs";
 import { xtmdBinary, workdir } from "./xtmd.mjs";
 
@@ -20,7 +20,7 @@ function boxes(nodes, out = {}) {
   for (const d of nodes) {
     const r = d.widget === "core/spot" && regionOf(d.props.get("box"));
     if (r) out[d.path] = Object.fromEntries(["from", "to"].map((k) => [k, { x: toIr({ kind: "num", n: r[k].x }), y: toIr({ kind: "num", n: r[k].y }) }]));
-    for (const kids of d.slots.values()) boxes(kids, out);
+    for (const kids of childrenOf(d)) boxes(kids, out);
   }
   return out;
 }

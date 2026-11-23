@@ -141,6 +141,9 @@ impl<'m> Levels<'m> {
                 for body in e.slots.values() {
                     s = s.or(self.nodes(body));
                 }
+                for x in e.props.values() {
+                    s = s.or(self.held(x));
+                }
                 s
             }
             Node::Use(u) => {
@@ -150,6 +153,9 @@ impl<'m> Levels<'m> {
                 }
                 for body in u.slots.values() {
                     s = s.or(self.nodes(body));
+                }
+                for x in u.args.values() {
+                    s = s.or(self.held(x));
                 }
                 s
             }
@@ -168,6 +174,27 @@ impl<'m> Levels<'m> {
         }
     }
 
+    /// The calls of the rich_texts an input is given.
+    fn held(&mut self, x: &ir::Expr) -> Set {
+        match x {
+            ir::Expr::Rich(r) => self.nodes(&r.nodes),
+            ir::Expr::List(xs) => xs.iter().fold(Set(0), |s, x| s.or(self.held(x))),
+            ir::Expr::Some(x) => self.held(x),
+            ir::Expr::Record(r) => r.fields.values().fold(Set(0), |s, x| s.or(self.held(x))),
+            ir::Expr::Op(o) => o.args.iter().fold(Set(0), |s, x| s.or(self.held(x))),
+            ir::Expr::Call(c) => c.args.iter().fold(Set(0), |s, x| s.or(self.held(x))),
+            _ => Set(0),
+        }
+    }
+
+    fn write_held(&mut self, x: &mut ir::Expr) {
+        crate::passes::walk_expr(x, &mut |e| {
+            if let ir::Expr::Rich(r) = e {
+                self.write(std::sync::Arc::make_mut(&mut r.nodes).as_mut_slice());
+            }
+        });
+    }
+
     /// Writes each call's levels into it.
     fn write(&mut self, nodes: &mut [Node]) {
         for n in nodes.iter_mut() {
@@ -175,12 +202,18 @@ impl<'m> Levels<'m> {
             match n {
                 Node::Extern(e) => {
                     e.levels = s.list();
+                    for x in e.props.values_mut() {
+                        self.write_held(x);
+                    }
                     for body in e.slots.values_mut() {
                         self.write(body);
                     }
                 }
                 Node::Use(u) => {
                     u.levels = s.list();
+                    for x in u.args.values_mut() {
+                        self.write_held(x);
+                    }
                     for body in u.slots.values_mut() {
                         self.write(body);
                     }

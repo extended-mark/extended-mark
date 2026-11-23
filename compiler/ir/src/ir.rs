@@ -289,9 +289,12 @@ pub enum Expr {
     /// A token made from a plain value, through its case that carries one: `stroke.PX(2.5)`.
     #[serde(rename = "tokval")]
     Tokval(Box<ExprTokval>),
-    /// Inline Markdown, already parsed: a `core/rich_text`.
+    /// A `core/rich_text`, its Markdown already read.
     #[serde(rename = "rich")]
     Rich(Rich),
+    /// Whether a rich_text is a sentence, and not blocks.
+    #[serde(rename = "sentence")]
+    Sentence(Box<Expr>),
     /// A literal with holes: a text when `type` is `core/text`, a `core/template` otherwise.
     #[serde(rename = "template")]
     Template(Box<ExprTemplate>),
@@ -541,19 +544,6 @@ pub struct Local {
     pub value: Expr,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Marks {
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub bold: bool,
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub italic: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub link: Option<Expr>,
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub strike: bool,
-}
-
 /// One build: the document (or pack) with the parts of core and of the given packs it uses, checked and lowered, ready to run.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -693,6 +683,9 @@ pub struct NodeMatch {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NodePlace {
+    /// It goes in a sentence, so a rich_text placed here is one: blocks are a failure.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub sentence: bool,
     pub site: String,
     pub view: Expr,
 }
@@ -825,10 +818,13 @@ pub struct Require {
     pub warn: bool,
 }
 
+/// A rich_text: calls, as a value. A sentence's are drawn among words; `blocks` says they are blocks instead.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Rich {
-    pub segments: Vec<Segment>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub blocks: bool,
+    pub nodes: std::sync::Arc<Vec<Node>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -841,45 +837,6 @@ pub enum Root {
     Cell(String),
     #[serde(rename = "$state")]
     State(String),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum SegmentSegmentPart {
-    #[serde(rename = "TEXT")]
-    Text,
-    #[serde(rename = "CODE")]
-    Code,
-    #[serde(rename = "MATH")]
-    Math,
-    #[serde(rename = "IMAGE")]
-    Image,
-    #[serde(rename = "NOTE")]
-    Note,
-    #[serde(rename = "BREAK")]
-    Break,
-    #[serde(rename = "VIEW")]
-    View,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SegmentSegment {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub alt: Option<Expr>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub marks: Option<Marks>,
-    pub part: SegmentSegmentPart,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub src: Option<Expr>,
-    /// TEXT and CODE: the text; MATH: the `core/latex`; NOTE: the mark; VIEW: the view.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub value: Option<Expr>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Segment {
-    pub segment: SegmentSegment,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

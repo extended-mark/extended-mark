@@ -1,6 +1,6 @@
 package core;
 
-//@about A paragraph of inline Markdown, parsed by core.
+//@about A paragraph: a sentence on its own.
 extern widget paragraph(value: rich_text, tone: opt<color> = opt.NONE, align: align = align.START) {
     markdown #paragraph;
 }
@@ -73,3 +73,68 @@ extern widget divider() {
 
 //@about How a table column is aligned. A column the list doesn't reach starts.
 enum cell_align { START, CENTER, END }
+
+//@about Words of a sentence, as they are.
+extern widget words(value: text) {
+    markdown #text;
+}
+
+//@about Words in bold: **so**.
+extern widget bold() {
+    slot body: rich_text;
+
+    markdown #bold;
+}
+
+//@about Words in italics: *so*.
+extern widget italic() {
+    slot body: rich_text;
+
+    markdown #italic;
+}
+
+//@about Words struck through: ~~so~~.
+extern widget strike() {
+    slot body: rich_text;
+
+    markdown #strike;
+}
+
+//@about Words that lead somewhere: [so](to).
+extern widget link(to: text) {
+    slot body: rich_text;
+    tokens color.ACCENT;
+
+    markdown #link;
+}
+
+//@about Literal text in a sentence, in the mono font: `so`.
+extern widget code_span(src: text) {
+    tokens font.MONO, color.LINE;
+
+    markdown #code_span;
+}
+
+//@about Maths in a sentence: $x^2$.
+extern widget inline_math(tex: latex) {
+    tokens font.MONO;
+
+    markdown #inline_math;
+}
+
+//@about A picture in a sentence.
+extern widget inline_image(src: text, alt: text) {
+    markdown #inline_image;
+}
+
+//@about The mark of a footnote, in the sentence the note is about: [^1].
+extern widget note_mark(mark: text) {
+    tokens color.ACCENT;
+
+    markdown #note_mark;
+}
+
+//@about A line break in a sentence.
+extern widget line_break() {
+    markdown #line_break;
+}

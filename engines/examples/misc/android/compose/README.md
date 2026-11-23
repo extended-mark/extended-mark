@@ -119,7 +119,7 @@ other parts have `testTag`s as @extended-mark/dom's `data-part`s (engines/publis
 | handle, shade | `handle`, `handle.dot`; `shade`, `shade.pixels` | A handle is focusable, with its point as its state; arrows move it 8 dp, 40 with Shift |
 | flex, grid, cell, sizing | `flex`, `grid`, `cell`, `sizing` | Clickable when their click does something; a run of tabs, radios or options is a selectable group |
 | plane, spot | `plane`, `plane.view`, `plane.inner`, `plane.background`, `plane.items`; `spot` | The view is focusable and takes the keys |
-| #notice | `notice` | A polite live region |
+| a widget that failed | `notice` | A polite live region |
 
 ## Building
 

@@ -141,8 +141,8 @@ fn a_widget_that_fails_while_drawing_is_a_notice_and_is_tried_again() {
     let mut p = page("$state {\n    parts: int 0... = 0;\n}\n\nwidget share() {\n    view {\n        @label(value = \"Each: \\{100 / $state.parts}\");\n    }\n}\n@@@\n@share;\n\nAfter.\n");
     assert_eq!(p.take_outcome().failures, vec![refused_code("failure.number", "s0")]);
     let tree = p.observe_tree();
-    assert_eq!(tree["s0"].widget, "#notice");
-    assert!(matches!(&tree["s0"].props["message"], Expr::Text(t) if t.starts_with("share failed: ")));
+    assert_eq!(tree["s0"].widget, "doc/share");
+    assert!(p.find("s0").unwrap().failed.is_some());
     // the rest of the page carries on, and the notice is a quote in Markdown
     let md = p.markdown().unwrap();
     assert!(md.starts_with("> share failed: ") && md.ends_with("\n\nAfter.\n"), "{:?}", md);
@@ -245,7 +245,7 @@ fn an_extern_widget_the_target_doesnt_supply_shows_its_markdown_and_is_reported(
     assert!(!tree.contains_key("s2"));
     let mut widgets: Vec<&str> = tree.values().map(|n| n.widget.as_str()).filter(|w| *w != "core/heading").collect();
     widgets.sort();
-    assert_eq!(widgets, vec!["badge/badge", "core/paragraph", "core/quote"]);
+    assert_eq!(widgets, vec!["badge/badge", "core/paragraph", "core/quote", "core/words", "core/words"]);
     assert_eq!(p.missing(), vec!["badge/seal".to_string()]);
     // its calls show their Markdown, supplied or not
     assert_eq!(p.markdown().unwrap(), "# Votes\n\n**Votes**: 2\n\n> Checked by nobody\n");
@@ -371,10 +371,9 @@ fn a_widget_in_a_list_slot_writes_its_markdown_with_its_inputs() {
     // as the compiler writes it, with the values it has now
     assert_eq!(p.markdown().unwrap(), "a has 0\n\nb has 0\n");
     let press = p.observe_tree().into_iter().find(|(_, m)| m.props.get("label") == Some(&text("a: 0"))).unwrap().0;
-    // the stack's markdown places each child at a site of its own, so the Markdown has an
-    // instance of its own for it too: its inputs, and its own variables as they start
+    // the stack's markdown places the children it was given, so each has what it holds now
     p.event(&press, "click", vec![]).unwrap();
-    assert_eq!(p.markdown().unwrap(), "a has 0\n\nb has 0\n");
+    assert_eq!(p.markdown().unwrap(), "a has 1\n\nb has 0\n");
     p.event(&press, "click", vec![]).unwrap();
     assert_eq!(p.observe_tree()[&press].props["label"], text("a: 2"));
 }

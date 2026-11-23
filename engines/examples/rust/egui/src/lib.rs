@@ -83,11 +83,12 @@ impl<F: FnMut(&mut Ui, &Props<'_>, &mut Ctx<'_>)> Widget for F {
 /// widget may hold state of its own in `self` (what is being typed, a drag in progress).
 pub type Maker = Rc<dyn Fn() -> Box<dyn Widget>>;
 
-/// The widgets a page is drawn with, by full name: `core/press`, `acme/chart`, and `#notice`
-/// for a widget that failed.
+/// The widgets a page is drawn with, by full name: `core/press`, `acme/chart`; and what is drawn
+/// where a widget failed.
 #[derive(Clone, Default)]
 pub struct Registry {
     makers: HashMap<String, Maker>,
+    failed: Option<Maker>,
 }
 
 impl Registry {
@@ -96,7 +97,7 @@ impl Registry {
         Registry::default()
     }
 
-    /// Ours: one for every core extern widget, and the notice.
+    /// Ours: one for every core extern widget, and for one that failed.
     pub fn ours() -> Registry {
         widgets::defaults()
     }
@@ -104,6 +105,12 @@ impl Registry {
     /// Sets the widget for a name: a host's replaces ours.
     pub fn set<W: Widget + 'static>(&mut self, name: &str, make: impl Fn() -> W + 'static) -> &mut Registry {
         self.makers.insert(name.to_string(), Rc::new(move || Box::new(make()) as Box<dyn Widget>));
+        self
+    }
+
+    /// Sets what is drawn where a widget failed: its drawn node says which and why.
+    pub fn set_failed<W: Widget + 'static>(&mut self, make: impl Fn() -> W + 'static) -> &mut Registry {
+        self.failed = Some(Rc::new(move || Box::new(make()) as Box<dyn Widget>));
         self
     }
 
@@ -115,8 +122,11 @@ impl Registry {
         self.makers.keys().map(String::as_str)
     }
 
-    fn make(&self, name: &str) -> Box<dyn Widget> {
-        if let Some(m) = self.makers.get(name).or_else(|| if name.starts_with('#') { self.makers.get("#notice") } else { None }) {
+    fn make(&self, name: &str, failed: bool) -> Box<dyn Widget> {
+        if failed {
+            return self.failed.as_ref().map_or_else(|| Box::new(widgets::notice::failed) as Box<dyn Widget>, |m| m());
+        }
+        if let Some(m) = self.makers.get(name) {
             return m();
         }
         let missing = name.to_string();
@@ -172,6 +182,11 @@ impl<'a> Props<'a> {
 
     pub fn list(&self, name: &str) -> Vec<&'a Value> {
         values::list(self.get(name))
+    }
+
+    /// The widgets an input holds, a rich_text's or a view's, in order.
+    pub fn nodes(&self, name: &str) -> &'a [Drawn] {
+        self.get(name).and_then(|v| self.d.nodes(v)).unwrap_or(&[])
     }
 
     /// A slot's widgets, in order.
@@ -368,17 +383,36 @@ impl<'a> Ctx<'a> {
 
     /// A slot's widgets, kept on the page but not drawn: a closed overlay's body.
     pub fn keep(&mut self, name: &str) {
-        fn walk(f: &mut Frame, nodes: &[Drawn]) {
-            for d in nodes {
-                f.shown.insert(d.path.clone());
-                f.used.insert((d.key.clone(), d.widget.clone()));
-                for kids in d.slots.values() {
-                    walk(f, kids);
+        let at = self.at;
+        self.keep_nodes(at.slots.get(name).map_or(&[], Vec::as_slice));
+    }
+
+    /// Widgets drawn by the one that holds them, as a sentence's words are, or not at all.
+    pub fn keep_nodes(&mut self, nodes: &[Drawn]) {
+        for d in nodes {
+            self.keep_node(d);
+            let kids: Vec<Drawn> = d.children().cloned().collect();
+            self.keep_nodes(&kids);
+        }
+    }
+
+    /// The words and marks of a sentence, which its widget draws, and not the other widgets in it.
+    pub(crate) fn keep_words(&mut self, nodes: &[Drawn]) {
+        for d in nodes {
+            match d.widget.as_str() {
+                "core/words" | "core/code_span" | "core/inline_math" | "core/inline_image" | "core/note_mark" | "core/line_break" => self.keep_node(d),
+                "core/bold" | "core/italic" | "core/strike" | "core/link" => {
+                    self.keep_node(d);
+                    self.keep_words(d.slots.get("body").map_or(&[], Vec::as_slice));
                 }
+                _ => {}
             }
         }
-        let at = self.at;
-        walk(self.frame, at.slots.get(name).map_or(&[], Vec::as_slice));
+    }
+
+    fn keep_node(&mut self, d: &Drawn) {
+        self.frame.shown.insert(d.path.clone());
+        self.frame.used.insert((d.key.clone(), d.widget.clone()));
     }
 
     /// The page's tokens, for its theme.
@@ -457,11 +491,12 @@ fn draw(page: &mut Page, frame: &mut Frame, ui: &mut Ui, d: &Drawn) {
         key = format!("{}#{}", d.key, n);
         n += 1;
     }
-    let k = (key, d.widget.clone());
+    // a widget that failed is drawn by another, and is another when it draws again
+    let k = (key, if d.failed.is_some() { format!("{} failed", d.widget) } else { d.widget.clone() });
     frame.used.insert(k.clone());
     let mut w = match frame.instances.remove(&k) {
         Some(w) => w,
-        None => frame.registry.make(&d.widget),
+        None => frame.registry.make(&d.widget, d.failed.is_some()),
     };
     let acts = frame.acts.remove(&d.path).unwrap_or_default();
     let id = frame.page_id.with((&k.0, &k.1));

@@ -30,11 +30,24 @@ fn parts(piece: &str) -> Option<&'static [Part]> {
         "table" => &[Input("head", &["core/list<core/rich_text>"]), Input("rows", &["core/list<core/list<core/rich_text>>"]), Maybe("align", &["core/list<core/cell_align>"])],
         "footnote" => &[Input("mark", TEXT), Slot("body")],
         "divider" => &[],
+        "text" => &[Input("value", TEXT)],
+        "bold" | "italic" | "strike" => &[Slot("body")],
+        "link" => &[Input("to", TEXT), Slot("body")],
+        "code_span" => &[Input("src", TEXT)],
+        "inline_math" => &[Input("tex", &["core/latex"])],
+        "inline_image" => &[Input("src", TEXT), Input("alt", TEXT)],
+        "note_mark" => &[Input("mark", TEXT)],
+        "line_break" => &[],
         _ => return None,
     })
 }
 
-pub const PIECES: &[&str] = &["paragraph", "heading", "bullets", "item", "quote", "code", "math", "table", "footnote", "divider"];
+pub const PIECES: &[&str] = &["paragraph", "heading", "bullets", "item", "quote", "code", "math", "table", "footnote", "divider", "text", "bold", "italic", "strike", "link", "code_span", "inline_math", "inline_image", "note_mark", "line_break"];
+
+/// Whether a piece's input or slot holds a sentence, and no blocks.
+pub fn takes_sentence(piece: &str, part: &str) -> bool {
+    matches!((piece, part), ("paragraph" | "heading", "value") | ("table", "head" | "rows") | ("bold" | "italic" | "strike" | "link", "body"))
+}
 
 /// A type's name with its arguments', and no contracts: `core/list<core/rich_text>`.
 fn bare(t: &ir::Type) -> String {

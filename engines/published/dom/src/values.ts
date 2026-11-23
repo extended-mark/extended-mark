@@ -1,7 +1,7 @@
 // Reading the runtime's values for drawing. Every input arrives with its default filled in, so
 // these only unwrap: an opt to its value, a case to its name, a record to its fields.
 
-import { Num, toIr, type Value } from "@extended-mark/runtime";
+import { Num, toIr, type Drawn, type Value } from "@extended-mark/runtime";
 
 /** The value inside an opt (and inside that one), or the value itself; undefined for none. */
 export function inner(v: Value | undefined): Value | undefined {
@@ -101,4 +101,10 @@ export function toNum(x: number, places = 2): Num {
 export function placesFor(unitsPerPx: number): number {
   if (!(unitsPerPx > 0) || !Number.isFinite(unitsPerPx)) return 2;
   return Math.max(0, Math.ceil(-Math.log10(unitsPerPx)) + 1);
+}
+
+/** The widgets an input holds, a rich_text's or a view's, in order. */
+export function nodes(v: Value | undefined): readonly Drawn[] {
+  const x = inner(v);
+  return x?.kind === "nodes" ? x.nodes : [];
 }

@@ -238,7 +238,7 @@ Press \{@press(label = "Add one", click = fn() { $state.count = $state.count + 1
 fn a_press_in_a_sentence_is_drawn_among_its_words_and_clicked() {
     let mut h = common::mount(SENTENCE);
     let (para, press) = {
-        let n = node(&h, "press@m0/~0");
+        let n = check::all(h.root()).into_iter().find(|n| n.role() == Role::Button).unwrap();
         assert_eq!(n.role(), Role::Button);
         assert_eq!(n.label().as_deref(), Some("Add one"));
         let para = check::all(h.root()).into_iter().find(|n| n.role() == Role::Paragraph).unwrap();

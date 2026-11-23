@@ -54,13 +54,26 @@ export interface Drawn {
   /** `mut` inputs given a variable: where the widget writes. */
   writes: Map<string, { place: ir.Place; env: Env }>;
   levels: ir.Level[];
+  /** A widget that failed: why, shown in its place (page 6). `widget` is the one that did. */
+  failed?: string;
 }
+
+/** What a widget is given: expressions to work out here, or the values of a call made as one. */
+type Args = Record<string, ir.Expr> | Map<string, V>;
 
 /** A rule that failed: a `require`'s message, or a code, and where. */
 export interface Broken {
   rule?: string;
   code?: string;
   site?: string;
+}
+
+/** A drawn widget as a test reads it. */
+export interface Observed {
+  widget: string;
+  props: Record<string, ir.Expr>;
+  slots?: Record<string, string[]>;
+  failed?: string;
 }
 
 export interface Outcome {
@@ -135,7 +148,6 @@ export class Page {
   private readonly templates = new Map<string, ir.Template>();
   private readonly externWidgets = new Map<string, ir.ExternWidget>();
   private readonly handlers = new Map<string, ir.Handler>();
-  private readonly bindings = new Map<string, ir.Expr>();
   private readonly hostFns: Set<string>;
   private readonly stateDecl: ir.State | undefined;
   private readonly instances = new Map<number, Instance>();
@@ -146,8 +158,8 @@ export class Page {
   /** Extern widgets' own `mut` values, for inputs the caller gave no variable, by identity. */
   private own = new Map<string, Map<string, V>>();
   private ownSeen = new Set<string>();
-  /** Slots read as values, by the id their view holds. */
-  private held: { nodes: ir.Node[]; env: Env }[] = [];
+  /** Who has been drawn this redraw: content placed twice is two widgets. */
+  private claimed = new Set<string>();
   private state = new Map<string, V>();
   private externs = new Map<string, V>();
   private calls: Call[] = [];
@@ -192,7 +204,6 @@ export class Page {
       for (const f of t.fns) this.program.fns.set(f.name, f);
     }
     for (const h of this.module.handlers) this.handlers.set(h.id, h);
-    for (const b of this.module.bindings) this.bindings.set(b.id, b.value);
     this.hostFns = new Set(this.module.needs.host);
     let state: ir.State | undefined;
     for (const d of this.module.declarations) {
@@ -235,21 +246,22 @@ export class Page {
   }
 
   /** Every drawn extern widget by its path, as a check observes it. */
-  observeTree(): Record<string, { widget: string; props: Record<string, ir.Expr>; slots?: Record<string, string[]> }> {
-    const out: Record<string, { widget: string; props: Record<string, ir.Expr>; slots?: Record<string, string[]> }> = {};
-    const walk = (nodes: Drawn[]) => {
+  observeTree(): Record<string, Observed> {
+    const out: Record<string, Observed> = {};
+    const walk = (nodes: readonly Drawn[]) => {
       for (const n of nodes) {
         const props: Record<string, ir.Expr> = {};
         for (const [k, v] of [...n.props.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
           if (v.kind !== "fn") props[k] = toIr(v);
         }
-        const entry: { widget: string; props: Record<string, ir.Expr>; slots?: Record<string, string[]> } = { widget: n.widget, props };
+        const entry: Observed = { widget: n.widget, props };
         if (n.slots.size) {
           entry.slots = {};
           for (const [s, kids] of n.slots) entry.slots[s] = kids.map((k) => k.path);
         }
+        if (n.failed !== undefined) entry.failed = n.failed;
         out[n.path] = entry;
-        for (const kids of n.slots.values()) walk(kids);
+        for (const kids of childrenOf(n)) walk(kids);
       }
     };
     walk(this.drawn);
@@ -261,7 +273,7 @@ export class Page {
    * out by the shader itself, as the test engine does. */
   observeShaded(samples = false): Record<string, { shader: string; args: ir.Expr; samples?: { at: ir.Expr; pixel: ir.Expr }[] }> {
     const out: Record<string, { shader: string; args: ir.Expr; samples?: { at: ir.Expr; pixel: ir.Expr }[] }> = {};
-    const walk = (nodes: Drawn[]) => {
+    const walk = (nodes: readonly Drawn[]) => {
       for (const n of nodes) {
         if (n.widget === "core/shade") {
           const fn = n.props.get("shader");
@@ -287,7 +299,7 @@ export class Page {
           }
           out[n.path] = entry;
         }
-        for (const kids of n.slots.values()) walk(kids);
+        for (const kids of childrenOf(n)) walk(kids);
       }
     };
     walk(this.drawn);
@@ -552,11 +564,11 @@ export class Page {
     for (const [path, inst] of this.atPath) {
       if (inst.cells.size) out[path] = Object.fromEntries([...inst.cells].map(([k, v]) => [k, toIr(v)]));
     }
-    const walk = (nodes: Drawn[]) => {
+    const walk = (nodes: readonly Drawn[]) => {
       for (const n of nodes) {
         const own = [...(this.own.get(n.key) ?? [])].filter(([k]) => !n.writes.has(k));
         if (own.length) out[n.path] = { ...out[n.path], ...Object.fromEntries(own.map(([k, v]) => [k, toIr(v)])) };
-        for (const kids of n.slots.values()) walk(kids);
+        for (const kids of childrenOf(n)) walk(kids);
       }
     };
     walk(this.drawn);
@@ -570,10 +582,10 @@ export class Page {
     this.changes++;
     this.machine.resetSteps();
     const nodes = new Map<string, Drawn>();
-    const walk = (ns: Drawn[]) => {
+    const walk = (ns: readonly Drawn[]) => {
       for (const n of ns) {
         nodes.set(n.path, n);
-        for (const kids of n.slots.values()) walk(kids);
+        for (const kids of childrenOf(n)) walk(kids);
       }
     };
     walk(this.drawn);
@@ -722,7 +734,7 @@ export class Page {
               if (decl?.type.name === "core/opt") return none();
               throw new Failure("Ir", `the slot ${what.name} isn't filled`);
             }
-            return page.slotValue(inst, what.name, s);
+            return m.slotValue(decl?.type, s.nodes, s.env.bindings, s.env.owner, { path: s.env.path, key: s.env.key ?? s.env.path });
           }
         }
       },
@@ -771,61 +783,8 @@ export class Page {
     };
   }
 
-  /** A slot read as a value: a list slot gives its calls as views; any other, one view. */
-  private slotValue(inst: Instance, name: string, s: { nodes: ir.Node[]; env: Env }): V {
-    let type = inst.template.slots.find((x) => x.name === name)?.type;
-    // a filled `opt` slot is what it holds, as a plain value where an opt is wanted is
-    if (type?.name === "core/opt") type = type.args?.[0] as ir.Type | undefined;
-    if (type?.name === "core/list") {
-      const views = this.expandViews(s.nodes, s.env);
-      return this.machine.makeList(views);
-    }
-    this.held.push({ nodes: s.nodes, env: s.env });
-    const id = this.held.length - 1;
-    return { kind: "view", widget: "#slot", args: new Map([["id", numOf(id)]]), slots: {}, events: {}, exprs: {}, captured: [], owner: undefined } as V;
-  }
-
-  /** A slot's calls as views, through its loops and branches. */
-  private expandViews(nodes: ir.Node[], env0: Env): V[] {
-    let env = env0;
-    const out: V[] = [];
-    for (const n of nodes) {
-      if ("extern" in n || "use" in n) {
-        const x = ("extern" in n ? n.extern : n.use) as ir.NodeExtern & ir.NodeUse;
-        const args = new Map<string, V>();
-        const given = ("extern" in n ? n.extern.props : n.use.args) as Record<string, ir.Expr>;
-        for (const [k, e] of Object.entries(given)) args.set(k, this.evalIn(env, e));
-        out.push({ kind: "view", widget: x.name, args, slots: x.slots ?? {}, events: x.events ?? {}, exprs: given, captured: env.bindings, owner: env.owner } as V);
-      } else if ("for" in n) {
-        for (const row of this.machine.loopRows(env.bindings, env.owner, n.for)) out.push(...this.expandViews(n.for.body, { ...env, bindings: [...env.bindings, ...row.bindings] }));
-      } else if ("if" in n) {
-        const b = this.pickBranch(n.if, env);
-        if (b) out.push(...this.expandViews(b.nodes, b.env));
-      } else if ("match" in n) {
-        const v = this.evalIn(env, n.match.value);
-        const found = n.match.cases.map((c) => [c, this.matches(v, c.when)] as const).find(([, binds]) => binds);
-        out.push(...(found ? this.expandViews(found[0].then, { ...env, bindings: [...env.bindings, ...found[1]!] }) : this.expandViews(n.match.else ?? [], env)));
-      } else if ("declare" in n) {
-        const l = n.declare.let;
-        env = { ...env, bindings: [...env.bindings, [l.name, { value: this.evalIn(env, l.value) }]] };
-      } else if ("place" in n) {
-        const v = this.evalIn(env, n.place.view);
-        const flat = (x: V): void => {
-          if (x.kind === "opt") {
-            if (x.value) flat(x.value);
-          } else if (x.kind === "list") x.items.forEach((i) => flat(i.value));
-          else if (x.kind === "view") out.push(x);
-        };
-        flat(v);
-      }
-    }
-    return out;
-  }
-
   evalIn(env: Env, e: ir.Expr): V {
-    const x = "bind" in e ? this.bindings.get((e as { bind: string }).bind) : e;
-    if (!x) throw new Failure("Ir", "a binding the page doesn't have");
-    return this.machine.evalWith(env.bindings, env.owner, x);
+    return this.machine.evalWith(env.bindings, env.owner, e);
   }
 
   private writePlace(place: ir.Place, env: Env, value: V): void {
@@ -908,10 +867,10 @@ export class Page {
 
   /** The widget drawn at a path now, if there is one. */
   find(path: string): Drawn | undefined {
-    const walk = (nodes: Drawn[]): Drawn | undefined => {
+    const walk = (nodes: readonly Drawn[]): Drawn | undefined => {
       for (const n of nodes) {
         if (n.path === path) return n;
-        for (const kids of n.slots.values()) {
+        for (const kids of childrenOf(n)) {
           const f = walk(kids);
           if (f) return f;
         }
@@ -928,8 +887,8 @@ export class Page {
     // each redraw has the step limit to itself, as each event does: steps never pile up across changes
     this.machine.resetSteps();
     for (const i of this.instances.values()) i.seen = false;
-    this.held = [];
     this.missed.clear();
+    this.claimed.clear();
     this.atPath = new Map();
     this.ownSeen = new Set();
     this.externSeen = new Set();
@@ -995,7 +954,8 @@ export class Page {
         if (!done) out.push(...this.drawNodes(n.match.else ?? [], env));
       } else if ("place" in n) {
         const v = this.evalIn(env, n.place.view);
-        out.push(...this.drawView(v, join(env.path, n.place.site), env));
+        if (n.place.sentence) checkSentence(v);
+        out.push(...this.drawView(v, join(env.path, n.place.site), env, join(env.key ?? env.path, n.place.site)));
       } else if ("extern" in n) {
         out.push(...this.drawExtern(n.extern, env));
       } else if ("use" in n) {
@@ -1022,9 +982,8 @@ export class Page {
 
   /** An extern widget's call: reused from the last redraw when it is the same call at the same
    * place, with the same locals around it, and nothing it read has changed. */
-  private drawExtern(x: ir.NodeExtern, env: Env): Drawn[] {
-    const key = join(env.key ?? env.path, x.site);
-    const path = join(env.path, x.site);
+  private drawExtern(x: ir.NodeExtern & { given?: ReadonlyMap<string, V> }, env: Env, path: string = join(env.path, x.site), as: string = join(env.key ?? env.path, x.site)): Drawn[] {
+    const key = this.claim(as);
     const m = this.externMemo.get(key);
     if (this.memoOn && m && m.node === x && m.epoch === this.epoch && m.path === path && m.owner === env.owner && [...m.deps].every(([k, v]) => (this.versions.get(k) ?? 0) === v) && this.sameBindings(m.bindings, env.bindings)) {
       this.replay(m);
@@ -1036,7 +995,7 @@ export class Page {
     this.frames.push(frame);
     let drawn: Drawn[];
     try {
-      drawn = this.drawExternNow(x, env);
+      drawn = this.drawExternNow(x, env, path, key);
     } finally {
       this.frames.pop();
     }
@@ -1047,16 +1006,28 @@ export class Page {
     return drawn;
   }
 
+  /** Who a widget is, this redraw: the place it was written, or that and which time it is placed. */
+  private claim(key: string): string {
+    let id = key;
+    for (let n = 2; this.claimed.has(id); n++) id = `${key}~${n}`;
+    this.claimed.add(id);
+    return id;
+  }
+
   /** What a reused subtree did when it was drawn: its instances are seen again, and every widget
    * being drawn around it is told what it read. */
   private replay(m: Frame): void {
     for (const [inst, p] of m.nested) {
       inst.seen = true;
+      this.claimed.add(inst.path);
       this.atPath.set(p, inst);
     }
     for (const k of m.own) this.ownSeen.add(k);
     for (const n of m.missed) this.missed.add(n);
-    for (const k of m.ext) this.externSeen.add(k);
+    for (const k of m.ext) {
+      this.externSeen.add(k);
+      this.claimed.add(k);
+    }
     for (const f of this.frames) {
       for (const [k, v] of m.deps) if (!f.deps.has(k)) f.deps.set(k, v);
       f.nested.push(...m.nested);
@@ -1066,11 +1037,9 @@ export class Page {
     }
   }
 
-  private drawExternNow(x: ir.NodeExtern, env: Env): Drawn[] {
-    const path = join(env.path, x.site);
-    const key = join(env.key ?? env.path, x.site);
-    const props = new Map<string, V>();
-    for (const [k, e] of Object.entries(x.props)) props.set(k, this.evalIn(env, e));
+  private drawExternNow(x: ir.NodeExtern & { given?: ReadonlyMap<string, V> }, env: Env, path: string, key: string): Drawn[] {
+    const props = x.given ? new Map(x.given) : new Map<string, V>();
+    if (!x.given) for (const [k, e] of Object.entries(x.props)) props.set(k, this.evalIn(env, e));
     const writes = new Map<string, { place: ir.Place; env: Env }>();
     for (const [k, p] of Object.entries(x.writes ?? {})) {
       props.set(k, this.machine.evalWith(env.bindings, env.owner, { place: p } as ir.Expr));
@@ -1102,7 +1071,6 @@ export class Page {
     }
     const slots = new Map<string, Drawn[]>();
     for (const [s, nodes] of Object.entries(x.slots ?? {})) slots.set(s, this.drawNodes(nodes, env));
-    this.inlineViews(props, slots, path, key);
     if (w?.requires?.length) {
       const inst = this.enterExtern(w, path, props, x.slots ?? {}, env);
       try {
@@ -1111,61 +1079,61 @@ export class Page {
         this.leave(inst);
       }
     }
+    this.drawInputs(w, props, path, key);
     const events = new Map<string, { handler: string; env: Env }>();
     for (const [e, h] of Object.entries(x.events ?? {})) events.set(e, { handler: h, env });
     return [{ path, key, widget: x.name, props, slots, events, writes, levels: x.levels ?? [] }];
   }
 
-  /** A sentence's views, in the tree: each VIEW part of a rich_text in a widget's props is drawn
-   * as its slot `~n`, numbered in the props' order, and holds an `#inline` view with the number
-   * instead, so an engine draws the slot where the part is. Its widgets are the page's like any
-   * slot's, their events and writes found by path. */
-  private inlineViews(props: Map<string, V>, slots: Map<string, Drawn[]>, path: string, key: string): void {
-    let n = 0;
-    const walk = (v: V): V => {
+  /** The calls an input holds, drawn: a rich_text's and a view's, wherever in its value they are. */
+  private drawInputs(w: ir.ExternWidget | undefined, props: Map<string, V>, path: string, key: string): void {
+    const walk = (v: V, at: string, as: string): V => {
       switch (v.kind) {
+        case "content":
+        case "view":
+          return { kind: "nodes", nodes: this.drawView(v, at, { owner: undefined, bindings: [], path: at }, as) };
         case "list": {
-          const items = v.items.map((i) => {
-            const w = walk(i.value);
-            return w === i.value ? i : { id: i.id, value: w };
+          const items = v.items.map((i, k) => {
+            const x = walk(i.value, `${at}[${k}]`, `${as}[${k}]`);
+            return x === i.value ? i : { id: i.id, value: x };
           });
           return items.every((i, k) => i === v.items[k]) ? v : { ...v, items };
         }
         case "record": {
-          const fields = v.fields.map(([f, x]) => [f, walk(x)] as const);
+          const fields = v.fields.map(([f, x]) => [f, walk(x, `${at}.${f}`, `${as}.${f}`)] as const);
           return fields.every(([, x], k) => x === v.fields[k][1]) ? v : { ...v, fields };
         }
         case "case": {
-          if (v.ty === "core/part" && v.name === "VIEW") {
-            const id = n++;
-            const child = v.values.find(([f]) => f === "child")?.[1] ?? none();
-            slots.set(`~${id}`, this.drawView(child, join(path, `~${id}`), { owner: undefined, bindings: [], path, key }));
-            return caseOf(v.ty, v.name, [["child", inlineView(id)]]);
-          }
-          const values = v.values.map(([f, x]) => [f, walk(x)] as const);
+          const values = v.values.map(([f, x]) => [f, walk(x, `${at}.${f}`, `${as}.${f}`)] as const);
           return values.every(([, x], k) => x === v.values[k][1]) ? v : { ...v, values };
         }
         case "opt": {
-          const w = v.value && walk(v.value);
-          return w === v.value ? v : { kind: "opt", value: w };
+          const x = v.value && walk(v.value, at, as);
+          return x === v.value ? v : { kind: "opt", value: x };
         }
         default:
           return v;
       }
     };
+    const sentences = (v: V): void => {
+      if (v.kind === "list") v.items.forEach((i) => sentences(i.value));
+      else checkSentence(v);
+    };
     for (const [k, v] of props) {
-      const w = walk(v);
-      if (w !== v) props.set(k, w);
+      if (w?.piece && takesSentence(w.piece, k)) sentences(v);
+      const x = walk(v, join(path, k), join(key, k));
+      if (x !== v) props.set(k, x);
     }
   }
 
   /** A widget written in Extended Mark: its instance, kept by its path, and its view. */
-  private drawUse(name: string, path: string, args: Record<string, ir.Expr>, slots: Record<string, ir.Node[]>, events: Record<string, string>, env: Env, levels: ir.Level[] = [], key: string = path): Drawn[] {
+  private drawUse(name: string, path: string, args: Args, slots: Record<string, ir.Node[]>, events: Record<string, string>, env: Env, levels: ir.Level[] = [], key: string = path): Drawn[] {
     const t = this.templates.get(name);
     if (!t) {
       // an extern widget held as a view value
-      return this.drawExtern({ name, site: path.split("/").pop()!, props: args, slots, events, writes: {}, levels } as ir.NodeExtern, { ...env, path: path.split("/").slice(0, -1).join("/") });
+      return this.drawExtern({ name, site: "", props: {}, given: args as ReadonlyMap<string, V>, slots, events, writes: {}, levels }, env, path, key);
     }
+    key = this.claim(key);
     // a failure working out whether it can be reused is left to drawing it, so it fails there,
     // as it would with no reuse at all
     let reused: Drawn[] | undefined;
@@ -1182,7 +1150,7 @@ export class Page {
       const own = this.enterUse(t, path, args, slots, events, env, key);
       drawn = this.drawNodes(t.view, own);
     } catch (f) {
-      drawn = [this.failed(name, path, f)];
+      drawn = [this.failed(name, path, key, f)];
     } finally {
       this.frames.pop();
     }
@@ -1209,7 +1177,8 @@ export class Page {
     this.versions.set(key, (this.versions.get(key) ?? 0) + 1);
   }
 
-  private argValues(args: Record<string, ir.Expr>, env: Env): V[] {
+  private argValues(args: Args, env: Env): V[] {
+    if (args instanceof Map) return [...args.keys()].sort().map((k) => args.get(k)!);
     return Object.keys(args)
       .sort()
       .map((k) => {
@@ -1221,7 +1190,7 @@ export class Page {
   /** The widget's subtree from the last redraw, when it is called the same way at the same place
    * and nothing it read has changed since: its instances, own values and missing widgets are
    * seen again, and every widget around it is told what it read. */
-  private reuse(name: string, path: string, key: string, args: Record<string, ir.Expr>, slots: Record<string, ir.Node[]>, events: Record<string, string>, env: Env): Drawn[] | undefined {
+  private reuse(name: string, path: string, key: string, args: Args, slots: Record<string, ir.Node[]>, events: Record<string, string>, env: Env): Drawn[] | undefined {
     const m = this.memo.get(key);
     if (!this.memoOn || !m || m.epoch !== this.epoch || m.template !== name || m.path !== path || m.owner !== env.owner) return undefined;
     if (!sameRecord(m.slots, slots) || !sameRecord(m.events, events)) return undefined;
@@ -1245,17 +1214,17 @@ export class Page {
     });
   }
 
-  /** A widget that failed: reported once, and a notice in its place (page 6). */
-  failed(name: string, path: string, f: unknown): Drawn {
+  /** A widget that failed: reported once, and in its place (page 6). */
+  private failed(name: string, path: string, key: string, f: unknown): Drawn {
     for (const fr of this.frames) fr.dirty = true;
     const broken: Broken = f instanceof Failure && f.kind === "Rule" && f.rule ? { rule: f.rule, site: path } : { code: failureCode(f), site: path };
     if (!this.outcome.failures.some((b) => b.site === path && b.code === broken.code && b.rule === broken.rule)) this.outcome.failures.push(broken);
-    return { path, key: path, widget: "#notice", props: new Map([["message", { kind: "text", s: `${name.split("/").pop()} failed: ${message(f)}` } as V]]), slots: new Map(), events: new Map(), writes: new Map(), levels: [] };
+    return { path, key, widget: name, props: new Map(), slots: new Map(), events: new Map(), writes: new Map(), levels: [], failed: message(f) };
   }
 
   /** A widget's instance at a path, made or kept, with its inputs, slots and events from this
    * call: the env its own code runs in. Its rules have to hold. */
-  enterUse(t: ir.Template, path: string, args: Record<string, ir.Expr>, slots: Record<string, ir.Node[]>, events: Record<string, string>, env: Env, key: string = path): Env {
+  enterUse(t: ir.Template, path: string, args: Args, slots: Record<string, ir.Node[]>, events: Record<string, string>, env: Env, key: string = path): Env {
     let inst = this.byPath.get(key);
     const fresh = !inst || inst.template.name !== t.name;
     if (fresh) {
@@ -1271,7 +1240,8 @@ export class Page {
     const was = it.inputs;
     it.places.clear();
     it.inputs = new Map();
-    for (const [k, e] of Object.entries(args)) {
+    if (args instanceof Map) for (const [k, v] of args) it.inputs.set(k, v);
+    else for (const [k, e] of Object.entries(args)) {
       if ("place" in e) it.places.set(k, { place: (e as { place: ir.Place }).place, env });
       else it.inputs.set(k, this.evalIn(env, e));
     }
@@ -1368,10 +1338,6 @@ export class Page {
     return t;
   }
 
-  heldSlot(id: number): { nodes: ir.Node[]; env: Env } | undefined {
-    return this.held[id];
-  }
-
   /** Each row of a loop with the locals it binds, as drawing walks it. */
   rows(n: ir.NodeFor, env: Env): [string, Binding][][] {
     return this.machine.loopRows(env.bindings, env.owner, n).map((r) => r.bindings);
@@ -1382,33 +1348,19 @@ export class Page {
     return this.machine.loopRows(env.bindings, env.owner, n).map((r, k) => ({ key: String(r.key), bindings: r.bindings }));
   }
 
-  /** A view held in a value: a slot's content, or a call made as a value. */
-  drawView(v: V, path: string, env: Env): Drawn[] {
-    if (v.kind === "opt") return v.value ? this.drawView(v.value, path, env) : [];
-    if (v.kind === "list") return v.items.flatMap((i, k) => this.drawView(i.value, `${path}[${k}]`, env));
-    if (v.kind !== "view" || v.widget === "#inline") return [];
-    if (v.widget === "#slot") {
-      const id = v.args.get("id");
-      const held = id && id.kind === "num" ? this.held[Number(id.n.show())] : undefined;
-      return held ? this.drawNodes(held.nodes, held.env) : [];
+  /** A view held in a value: a call made as one, or calls. */
+  drawView(v: V, path: string, env: Env, key: string = path): Drawn[] {
+    if (v.kind === "opt") return v.value ? this.drawView(v.value, path, env, key) : [];
+    if (v.kind === "list") return v.items.flatMap((i, k) => this.drawView(i.value, `${path}[${k}]`, env, `${key}[${i.id}]`));
+    if (v.kind === "content") {
+      if ("parts" in v.of) return v.of.parts.flatMap((p, k) => this.drawView(p, join(path, `j${k}`), env, join(key, `j${k}`)));
+      const c = v.of;
+      return this.drawNodes(c.nodes as ir.Node[], { owner: c.owner, bindings: c.captured as [string, Binding][], path: c.at?.path ?? path, key: c.at?.key ?? key });
     }
-    const made: Env = { owner: v.owner, bindings: [...v.captured], path: env.path };
-    const args: Record<string, ir.Expr> = {};
-    for (const [k, x] of v.args) args[k] = toIr(x);
-    const t = this.templates.get(v.widget);
-    if (t) return this.drawUse(v.widget, path, args, v.slots as Record<string, ir.Node[]>, v.events as Record<string, string>, made);
-    const props = new Map(v.args);
-    const w = this.externWidgets.get(v.widget);
-    for (const f of w?.inputs ?? []) {
-      if (!props.has(f.name) && f.default) props.set(f.name, this.evalIn(made, f.default));
-    }
-    const slots = new Map<string, Drawn[]>();
-    for (const [s, nodes] of Object.entries(v.slots)) slots.set(s, this.drawNodes(nodes as ir.Node[], made));
-    const key = join(env.key ?? env.path, path.split("/").pop()!);
-    this.inlineViews(props, slots, path, key);
-    const events = new Map<string, { handler: string; env: Env }>();
-    for (const [e, h] of Object.entries(v.events)) events.set(e, { handler: h as string, env: made });
-    return [{ path, key, widget: v.widget, props, slots, events, writes: new Map(), levels: w?.levels ?? [] }];
+    if (v.kind !== "view") return [];
+    const who = v.at ?? key;
+    const made: Env = { owner: v.owner, bindings: [...v.captured], path, key: who };
+    return this.drawUse(v.widget, path, v.args as Map<string, V>, v.slots as Record<string, ir.Node[]>, v.events as Record<string, string>, made, [], who);
   }
 
   /** The live instance at a path, for the Markdown writer. */
@@ -1441,21 +1393,42 @@ function sameRecord<T>(a: Record<string, T>, b: Record<string, T>): boolean {
   return ka.length === Object.keys(b).length && ka.every((k) => a[k] === b[k]);
 }
 
-/** The widget's slot a VIEW part of its rich text is drawn in: what the part's `#inline` view
- * names. An engine draws that slot where the part is. */
-export function inlineSlot(child: V | undefined): string | undefined {
-  if (child?.kind !== "view" || child.widget !== "#inline") return undefined;
-  const id = child.args.get("id");
-  return id?.kind === "num" ? `~${id.n.show()}` : undefined;
+/** The widgets drawn inside one: its slots', and those its inputs hold. */
+export function childrenOf(d: Drawn): (readonly Drawn[])[] {
+  const out: (readonly Drawn[])[] = [...d.slots.values()];
+  const walk = (v: V): void => {
+    if (v.kind === "nodes") out.push(v.nodes);
+    else if (v.kind === "list") for (const i of v.items) walk(i.value);
+    else if (v.kind === "record") for (const [, x] of v.fields) walk(x);
+    else if (v.kind === "case") for (const [, x] of v.values) walk(x);
+    else if (v.kind === "opt" && v.value) walk(v.value);
+  };
+  for (const v of d.props.values()) walk(v);
+  return out;
 }
 
-/** What a VIEW part holds once its view is drawn as the widget's slot `~id`. */
-function inlineView(id: number): V {
-  return { kind: "view", widget: "#inline", args: new Map([["id", numOf(id)]]), slots: {}, events: {}, exprs: {}, captured: [], owner: undefined } as V;
+/** Whether a piece of Markdown's input or slot holds a sentence, and no blocks. */
+export function takesSentence(piece: string, part: string): boolean {
+  switch (piece) {
+    case "paragraph":
+    case "heading":
+      return part === "value";
+    case "table":
+      return part === "head" || part === "rows";
+    case "bold":
+    case "italic":
+    case "strike":
+    case "link":
+      return part === "body";
+    default:
+      return false;
+  }
 }
 
-function numOf(n: number) {
-  return Value.num(Num.int(n));
+/** A sentence goes here, so a rich_text of blocks doesn't. */
+export function checkSentence(v: V): void {
+  if (v.kind === "opt" && v.value) checkSentence(v.value);
+  else if (v.kind === "content" && v.blocks) throw new Failure("Ir", "a sentence goes here, and this rich_text is blocks");
 }
 
 // the Markdown writer, set by markdown.ts

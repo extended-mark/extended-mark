@@ -28,6 +28,13 @@ pub enum Inline {
     Break,
 }
 
+impl Inline {
+    /// Words with no mark.
+    pub fn words(value: String) -> Inline {
+        Inline::Text { value, bold: false, italic: false, strike: false, link: None }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Align {
     Start,
@@ -179,34 +186,79 @@ fn code_span(c: &str) -> String {
     format!("{}{}{}{}{}", fence, pad, c, pad, fence)
 }
 
-/// A sentence's runs, each with its marks.
+/// A mark around text, outermost first.
+#[derive(Clone, Copy, PartialEq)]
+enum Mark {
+    Link,
+    Strike,
+    Bold,
+    Italic,
+}
+
+/// Whether two runs of text have the mark, the same one.
+fn shares(m: Mark, a: &Inline, b: &Inline) -> bool {
+    match (a, b) {
+        (Inline::Text { bold: ab, italic: ai, strike: ax, link: al, .. }, Inline::Text { bold: bb, italic: bi, strike: bx, link: bl, .. }) => match m {
+            Mark::Link => al.is_some() && al == bl,
+            Mark::Strike => *ax && *bx,
+            Mark::Bold => *ab && *bb,
+            Mark::Italic => *ai && *bi,
+        },
+        _ => false,
+    }
+}
+
+/// A sentence's runs, each mark written once around all the runs that share it.
 pub fn write_inline(runs: &[Inline]) -> String {
+    write_runs(runs, &[Mark::Link, Mark::Strike, Mark::Bold, Mark::Italic], true)
+}
+
+fn write_runs(runs: &[Inline], marks: &[Mark], line_start: bool) -> String {
     let mut out = String::new();
-    for r in runs {
-        let first = out.is_empty();
-        match r {
-            Inline::Text { value, bold, italic, strike, link } => {
-                let mut t = escape(value, first);
-                if *italic {
-                    t = format!("*{}*", t);
-                }
-                if *bold {
-                    t = format!("**{}**", t);
-                }
-                if *strike {
-                    t = format!("~~{}~~", t);
-                }
-                if let Some(l) = link {
-                    t = format!("[{}](<{}>)", t, l.replace('<', "%3C").replace('>', "%3E"));
-                }
-                out.push_str(&t);
+    let mut k = 0;
+    while k < runs.len() {
+        let first = line_start && out.is_empty();
+        // the mark that goes around the most runs from here; a link goes around any other
+        let mut around: Option<(Mark, usize)> = None;
+        for &m in marks {
+            let n = runs[k..].iter().take_while(|r| shares(m, &runs[k], r)).count();
+            if n > 0 && around.map_or(true, |(w, most)| w != Mark::Link && n > most) {
+                around = Some((m, n));
             }
+        }
+        if let Some((m, n)) = around {
+            let rest: Vec<Mark> = marks.iter().copied().filter(|x| *x != m).collect();
+            let inner = write_runs(&runs[k..k + n], &rest, first);
+            k += n;
+            if let (Mark::Link, Inline::Text { link: Some(l), .. }) = (m, &runs[k - n]) {
+                out.push_str(&format!("[{}](<{}>)", inner, l.replace('<', "%3C").replace('>', "%3E")));
+                continue;
+            }
+            let mark = match m {
+                Mark::Strike => "~~",
+                Mark::Bold => "**",
+                _ => "*",
+            };
+            // a mark with a space just inside it doesn't read as one, so the space goes outside
+            let space = [' ', '\n', '\t'];
+            let start = inner.len() - inner.trim_start_matches(space).len();
+            let end = inner.trim_end_matches(space).len();
+            if end <= start {
+                out.push_str(&inner);
+            } else {
+                out.push_str(&format!("{}{}{}{}{}", &inner[..start], mark, &inner[start..end], mark, &inner[end..]));
+            }
+            continue;
+        }
+        match &runs[k] {
+            Inline::Text { value, .. } => out.push_str(&escape(value, first)),
             Inline::Code(c) => out.push_str(&code_span(c)),
             Inline::Math(m) => out.push_str(&format!("${}$", m)),
             Inline::Image { src, alt } => out.push_str(&format!("![{}](<{}>)", escape(alt, false), src)),
             Inline::Note(n) => out.push_str(&format!("[^{}]", n)),
             Inline::Break => out.push_str("\\\n"),
         }
+        k += 1;
     }
     out
 }

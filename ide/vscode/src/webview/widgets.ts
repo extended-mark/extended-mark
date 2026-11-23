@@ -1,4 +1,4 @@
-// The vscode engine's widgets: core's 30 extern widgets, drawn as VS Code draws its own UI. The
+// The vscode engine's widgets: core's 40 extern widgets, drawn as VS Code draws its own UI. The
 // controls are VS Code's components: its buttons, checkboxes, switches, toggles, tabs and radio
 // lists, its input boxes, a slider drawn from its switch, and its hover and dialog widgets, in the
 // editor's theme colours and with its focus ring, and `icon` is a codicon. They keep the web
@@ -6,7 +6,7 @@
 // checks hold every engine to; the look is VS Code's. Markdown's blocks are drawn as VS Code's
 // Markdown preview draws them, and the plane, the layout and the graphics in the editor's colours.
 
-import { widgets as web, type Widget, type WidgetView } from "@extended-mark/dom";
+import { notice, widgets as web, type Widget, type WidgetView } from "@extended-mark/dom";
 import { kase, str, Tokens } from "@extended-mark/dom/shared";
 import type { Drawn } from "@extended-mark/runtime";
 import { CODICONS } from "./codicons.js";
@@ -76,8 +76,8 @@ const icon: Widget = (d, ctx) => {
     update(next) {
       drawn.update(next);
       // the drawing is decoration inside this element, which has the name
-      for (const a of ["role", "aria-label"]) drawn.el.removeAttribute(a);
-      drawn.el.setAttribute("aria-hidden", "true");
+      for (const a of ["role", "aria-label"]) (drawn.el as Element).removeAttribute(a);
+      (drawn.el as Element).setAttribute("aria-hidden", "true");
       const glyph = kase(next.props.get("name")) ?? "";
       const codicon = CODICONS[glyph];
       el.className = codicon ? `vsc vsc-icon codicon codicon-${codicon}` : "vsc vsc-icon";
@@ -123,12 +123,10 @@ export const widgets: Record<string, Widget> = {
   "core/footnote": look("footnote", ["vsc-md"]),
   "core/divider": look("divider", ["vsc-md"]),
 };
-// the notice is the runtime's, not core's: named without core/
-widgets["#notice"] = ((): Widget => {
-  const base = web["#notice"];
-  return (d, ctx) => {
-    const v = base(d, ctx);
-    (v.el as HTMLElement).classList.add("vsc", "vsc-notice");
-    return v;
-  };
-})();
+
+/** A widget that failed, in VS Code's look. */
+export const failed: Widget = (d, ctx) => {
+  const v = notice(d, ctx);
+  (v.el as HTMLElement).classList.add("vsc", "vsc-notice");
+  return v;
+};

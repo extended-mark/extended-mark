@@ -11,6 +11,8 @@ pub enum Ty {
     Text,
     Dur,
     View,
+    /// Sentences, blocks and holes, as calls.
+    Rich,
     List(Box<Ty>),
     Opt(Box<Ty>),
     Range(Box<Ty>),

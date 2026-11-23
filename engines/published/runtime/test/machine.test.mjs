@@ -127,7 +127,7 @@ test("failures carry their kind, and the detail Rust's enum holds", () => {
   assert.throws(() => m.eval(op("/", "1", "0")), (e) => e instanceof Failure && e.kind === "Number" && e.num === "DivisionByZero" && e.message === "a division by zero");
   assert.throws(() => m.eval({ range: {} }) && m.walkRange(m.eval({ range: {} })), Failure);
   assert.throws(() => m.walkRange(m.eval({ range: { low: { num: "1" } } })), (e) => e.kind === "Limit" && e.limit === "Items");
-  assert.throws(() => m.eval({ bind: "b1" }), (e) => e.kind === "NotConstant" && e.message === "binding b1 is worked out when the page runs");
+  assert.throws(() => m.eval({ bind: "b1" }), (e) => e.kind === "Ir" && e.message === "no binding b1");
   const rule = Failure.rule("a span has to end after it starts");
   assert.equal(rule.message, "broken rule: a span has to end after it starts");
   assert.equal(rule.rule, "a span has to end after it starts");

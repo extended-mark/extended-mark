@@ -5,7 +5,7 @@
 // At zoom 1 one unit of the plane is one of the page's own lengths, so a spot's box is its
 // child's size on the page, placed at its point: panning and zooming never change it.
 
-import type { Drawn, Page } from "./page.js";
+import { childrenOf, type Drawn, type Page } from "./page.js";
 import { Num } from "./eval/num.js";
 import { record, some, type Value as V } from "./eval/value.js";
 
@@ -115,10 +115,10 @@ function numOf(v: V | undefined, or: Num): Num {
 // ---- a pass
 
 /** Every plane in the tree, outermost first. */
-export function planes(nodes: Drawn[], out: Drawn[] = []): Drawn[] {
+export function planes(nodes: readonly Drawn[], out: Drawn[] = []): Drawn[] {
   for (const n of nodes) {
     if (n.widget === "core/plane") out.push(n);
-    for (const kids of n.slots.values()) planes(kids, out);
+    for (const kids of childrenOf(n)) planes(kids, out);
   }
   return out;
 }

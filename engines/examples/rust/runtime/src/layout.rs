@@ -144,7 +144,7 @@ pub fn planes(nodes: &[Drawn]) -> Vec<&Drawn> {
             if n.widget == "core/plane" {
                 out.push(n);
             }
-            for kids in n.slots.values() {
+            for kids in n.slots.values().chain(n.held.iter()) {
                 walk(kids, out);
             }
         }

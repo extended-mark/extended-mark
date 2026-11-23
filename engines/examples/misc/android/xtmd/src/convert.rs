@@ -4,6 +4,7 @@
 use std::collections::BTreeMap;
 
 use xtmd_ir::ir::{Empty, Expr, ExprCase, ExprRange, ExprRecord};
+use xtmd_eval::value::ContentOf;
 use xtmd_runtime::{Page, Value};
 
 /// A value, as Kotlin reads and writes it. Numbers are exact decimals, written as Extended Mark writes
@@ -27,9 +28,8 @@ pub enum Val {
     Range { low: Vec<Val>, high: Vec<Val>, step: Vec<Val> },
     /// A fn the tree holds, by name ("" for a lambda): a shade's shader, which only Rust runs.
     Fn { name: String },
-    /// A view held as a value, by its widget. One in a sentence (a VIEW part of a widget's rich
-    /// text) is drawn from the widget's slot `slot` names, where the part is.
-    View { widget: String, slot: Option<String> },
+    /// The calls a widget's input holds, drawn: the widgets of its node's slot `slot` names.
+    Nodes { slot: String },
 }
 
 /// A named value: a record's field, a case's value, a prop.
@@ -70,8 +70,14 @@ pub fn val_in(page: Option<&Page>, v: &Value) -> Val {
             step: r.step.iter().map(|x| val(page, x)).collect(),
         },
         Value::Fn(_) => Val::Fn { name: crate::shader_name(v) },
-        Value::View(view) => Val::View { widget: view.widget.to_string(), slot: xtmd_runtime::inline_slot(Some(v)) },
+        Value::View(_) => Val::Nodes { slot: String::new() },
+        Value::Content(c) => Val::Nodes { slot: if let ContentOf::Drawn(k) = &c.of { held_slot(*k) } else { String::new() } },
     }
+}
+
+/// The slot of a node that holds one of its inputs' calls.
+pub fn held_slot(k: usize) -> String {
+    format!("~{}", k)
 }
 
 /// A value Kotlin gives, in the IR's form: the runtime works it out as it does the host's.
@@ -92,6 +98,6 @@ pub fn expr(v: &Val) -> Expr {
         },
         Val::Range { low, high, step } => Expr::Range(Box::new(ExprRange { low: one(low), high: one(high), step: one(step) })),
         // a fn or a view can't be written back from outside
-        Val::Fn { .. } | Val::View { .. } => Expr::None(Empty {}),
+        Val::Fn { .. } | Val::Nodes { .. } => Expr::None(Empty {}),
     }
 }

@@ -10,6 +10,7 @@
 import type * as ir from "../generated/ir.js";
 import { Num } from "./num.js";
 import type { Binding } from "./interp.js";
+import type { Drawn } from "../page.js";
 
 export interface Item {
   readonly id: number;
@@ -98,6 +99,37 @@ export interface ViewValue {
   readonly captured: readonly [name: string, binding: Binding][];
   /** The widget instance it was made in, for its cells and inputs. */
   readonly owner: number | undefined;
+  /** Who it is on the page, for a call of a slot: where its caller wrote it, not where it is placed. */
+  readonly at?: string;
+}
+
+/** Calls held as a value, drawn where they are placed: a `rich_text`, or what a slot was filled with. */
+export interface ContentValue {
+  readonly kind: "content";
+  readonly of: ContentNodes | ContentParts;
+  /** Blocks, and not a sentence. */
+  readonly blocks: boolean;
+}
+
+export interface ContentNodes {
+  readonly nodes: readonly ir.Node[];
+  /** The locals where it was made, which its nodes read. */
+  readonly captured: readonly [name: string, binding: Binding][];
+  /** The widget instance it was made in. */
+  readonly owner: number | undefined;
+  /** Where its nodes are on the page, for a slot's: its caller's place, not where it is placed. */
+  readonly at?: { readonly path: string; readonly key: string };
+}
+
+/** Others one after another: rich_texts, or views. */
+export interface ContentParts {
+  readonly parts: readonly Value[];
+}
+
+/** An input's calls, drawn: what a page gives a widget whose input is a rich_text or a view. */
+export interface NodesValue {
+  readonly kind: "nodes";
+  readonly nodes: readonly Drawn[];
 }
 
 export type Value =
@@ -111,7 +143,9 @@ export type Value =
   | OptValue
   | RangeValue
   | FnValue
-  | ViewValue;
+  | ViewValue
+  | ContentValue
+  | NodesValue;
 
 const TRUE: BoolValue = { kind: "bool", b: true };
 const FALSE: BoolValue = { kind: "bool", b: false };
@@ -207,7 +241,10 @@ export function typeName(v: Value): string {
     case "fn":
       return "fn";
     case "view":
+    case "nodes":
       return "core/view";
+    case "content":
+      return "core/rich_text";
   }
 }
 
@@ -303,6 +340,15 @@ export function toIr(v: Value): ir.Expr {
       }
       return { view };
     }
+    case "content": {
+      const rich = (nodes: ir.Node[]): ir.Expr => ({ rich: v.blocks ? { nodes, blocks: true } : { nodes } });
+      if ("parts" in v.of) return rich(v.of.parts.map((p, k) => ({ place: v.blocks ? { site: `j${k}`, view: toIr(p) } : { site: `j${k}`, view: toIr(p), sentence: true } })));
+      // the locals it was made with, declared in front of it
+      const lets = v.of.captured.flatMap(([name, b]): ir.Node[] => ("value" in b ? [{ declare: { let: { name, type: { name: typeName(b.value) }, value: toIr(b.value) } } }] : []));
+      return rich([...lets, ...v.of.nodes]);
+    }
+    case "nodes":
+      return { list: v.nodes.map((n) => ({ text: n.path })) };
   }
 }
 

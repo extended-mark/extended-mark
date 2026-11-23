@@ -203,16 +203,16 @@ fn entered(entry: text): opt<email> {
 
 #### Literals with holes
 
-A literal with holes, where a type that fits `literal<template>` is wanted, reaches `from` as a `template`: core's record of the literal's pieces and its holes, kept apart (page 5). `from` places each hole as a value and never reads it as text, so a hole can't turn into formatting. Core's `rich_text`, `md` and `latex` fit `literal<template>`, and a pack's type can too.
+A literal with holes, where a type that fits `literal<template>` is wanted, reaches `from` as a `template`: core's record of the literal's pieces and its holes, kept apart (page 5). `from` places each hole as a value and never reads it as text, so a hole can't turn into formatting. Core's `latex` fits `literal<template>`, and a pack's type can too.
 
 ```java
-@paragraph(value = "Read **this**, \{name}.");
-// rich_text.from gets template { pieces = ["Read **this**, ", "."], holes = [hole.TEXT(name.show())] }
+@math(tex = "x^\{power}");
+// latex.from gets template { pieces = ["x^", ""], holes = [hole.TEXT(power.show())] }
 ```
 
 - **A hole that holds an `opt`** makes the literal an `opt` of its type, and `opt.NONE` when the hole is `NONE`. With page 2's `stat`, `"Note: \{s.note}"` where a `rich_text` is wanted is an `opt<rich_text>`, which `paragraph` doesn't take. A fallback in the hole, `\{s.note.or("none")}`, makes it a plain `rich_text` again.
 - **A hole that `from` would have to read** is a compile error that names the hole and says to build the record instead. A type that takes no `template` would get the hole glued into the text and parsed again, so in `let start: date = "2026-\{month}-01";` even a month of 7 would fail, as "2026-7-01". The fix is `date { year = 2026, month = month, day = 1 }`, where `month` is proved to fit `date`'s field like any value given to a contract (page 2).
-- **Only holes that are placed, never read, stay in literals**: those of text, `rich_text`, `md` and `latex`. For a literal, `from` runs only at compile time, where a hole is a value it can place but not see.
+- **Only holes that are placed, never read, stay in literals**: those of `text`, `rich_text` and `latex`. For a literal, `from` runs only at compile time, where a hole is a value it can place but not see.
 
 That covers every piece of syntax a type can join: literals, holes, `==`, `<` and sorting, ranges, and arithmetic. New symbols are left out on purpose: a pack can't add an operator, a literal form like `250ms`, or `for` and `xs[i]` on its own types (it gives them a fn that returns a list instead). Every file then reads the same way, and every symbol in it is one the reader already knows.
 

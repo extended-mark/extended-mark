@@ -3,16 +3,19 @@
 // classes, so the same stylesheet). Props are read as markdown.ts reads them, so the page's words
 // and its Markdown agree.
 
-import { flag, inner, kase, list, noteId, num, str, texOf } from "@extended-mark/dom/shared";
+import { flag, inner, kase, list, nodes, noteId, num, str, texOf } from "@extended-mark/dom/shared";
 import type { ViewWidget } from "../render.js";
 import type { Act } from "../act.js";
 import { cls, css, h, prop, type VNode } from "../vnode.js";
-import { richChildren, withTex } from "./rich.js";
+import { withTex } from "./rich.js";
 
 const ALIGN: Record<string, string> = { START: "start", CENTER: "center", END: "end", STRETCH: "justify", BASELINE: "start" };
 
+/** An element that holds a sentence. */
+const sentence = (v: VNode): VNode => cls(v, "xtmd-sentence");
+
 export const paragraph: ViewWidget = (d, ctx) => {
-  const el = h("p", "paragraph", {}, richChildren(d.props.get("value"), ctx, d));
+  const el = sentence(h("p", "paragraph", {}, ctx.children(nodes(d.props.get("value")))));
   css(el, "color", ctx.tokens.color(d.props.get("tone")));
   const a = kase(d.props.get("align")) ?? "START";
   css(el, "text-align", a === "START" ? undefined : ALIGN[a]);
@@ -22,7 +25,7 @@ export const paragraph: ViewWidget = (d, ctx) => {
 export const heading: ViewWidget = (d, ctx) => {
   // another level is another element: the renderer puts the new one in the old one's place
   const level = Math.min(6, Math.max(1, Math.round(num(d.props.get("level")) ?? 1)));
-  return h(`h${level}`, "heading", {}, richChildren(d.props.get("value"), ctx, d));
+  return sentence(h(`h${level}`, "heading", {}, ctx.children(nodes(d.props.get("value")))));
 };
 
 export const bullets: ViewWidget = (d, ctx) => {
@@ -70,13 +73,13 @@ export const table: ViewWidget = (d, ctx) => {
     return css(cell, "text-align", a === "CENTER" ? "center" : a === "END" ? "end" : undefined);
   };
   const head = h("thead", undefined, {}, [
-    h("tr", undefined, {}, list(d.props.get("head")).map((c, k) => place(h("th", "table.header", { scope: "col" }, richChildren(c, ctx, d)), k))),
+    h("tr", undefined, {}, list(d.props.get("head")).map((c, k) => place(sentence(h("th", "table.header", { scope: "col" }, ctx.children(nodes(c)))), k))),
   ]);
   const body = h(
     "tbody",
     undefined,
     {},
-    list(d.props.get("rows")).map((r) => h("tr", undefined, {}, list(r).map((c, k) => place(h("td", "table.cell", {}, richChildren(c, ctx, d)), k)))),
+    list(d.props.get("rows")).map((r) => h("tr", undefined, {}, list(r).map((c, k) => place(sentence(h("td", "table.cell", {}, ctx.children(nodes(c)))), k)))),
   );
   // the wrapper scrolls a wide table on a narrow screen, the page itself never does
   return h("div", "table", { tabindex: "0" }, [h("table", "table.grid", {}, [head, body])]);

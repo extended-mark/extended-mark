@@ -15,15 +15,16 @@ export interface WidgetContext {
   /** This widget writing one of its `mut` inputs, as a slider does: checked, then one change. */
   write(input: string, value: Value): void;
   /** Draws a slot's widgets into a container, keeping the ones already there by key. */
-  children(container: Element, nodes: Drawn[]): void;
+  children(container: Element, nodes: readonly Drawn[]): void;
   /** A token case's value: `space.M` → 16, `color.INK` → its colour for the current theme. */
   token(v: Value | undefined): Value | undefined;
 }
 
 /** One drawn widget: its element, and how it follows the page. */
 export interface WidgetView {
-  /** Its root element. @extended-mark/dom sets `data-xtmd-site` (its path) and `data-xtmd-widget` on it. */
-  readonly el: Element;
+  /** Its root: an element, on which @extended-mark/dom sets `data-xtmd-site` (its path) and
+   * `data-xtmd-widget`, or text, for words of a sentence. */
+  readonly el: Element | Text;
   /** The page changed: show this widget's new props and slots. */
   update(d: Drawn): void;
   /** For the checks: the reader acting on it through its own DOM, as a person would.
@@ -41,6 +42,8 @@ export type Widget = (d: Drawn, ctx: WidgetContext) => WidgetView;
 export interface MountOptions {
   /** The host's widgets, by full name (`core/press`, `acme/chart`): they replace ours. */
   widgets?: Record<string, Widget>;
+  /** What is drawn where a widget failed, in place of our notice: `d.failed` says why. */
+  failed?: Widget;
   /** How spots are measured for the plane's layout. Left out, from the DOM: a ResizeObserver
    * and each child's box in page lengths (CSS pixels). The checks pass fixed sizes. */
   measure?: Measure;

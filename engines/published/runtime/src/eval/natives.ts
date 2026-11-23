@@ -28,6 +28,7 @@ export const NATIVES: readonly string[] = [
   "core/text.len", "core/text.slice", "core/text.chars", "core/text.lower", "core/text.upper", "core/text.trim", "core/text.has", "core/text.split", "core/text.number",
   "core/ordered.clamp",
   "core/text.of_code",
+  "core/md_parts", "core/md_blocks",
 ];
 
 const NATIVE_SET: ReadonlySet<string> = new Set(NATIVES);
@@ -485,6 +486,12 @@ export function run(m: Machine, name: string, a: readonly Binding[]): Value | un
       }
       return V.some(V.text(String.fromCodePoint(k)));
     }
+    case "md_parts": {
+      const parts = list(m, a, 0).items.map((i) => i.value);
+      return { kind: "content", of: { parts }, blocks: parts.some((p) => p.kind === "content" && p.blocks) };
+    }
+    case "md_blocks":
+      return { kind: "content", of: { parts: [m.valueOf(a[0])] }, blocks: true };
     case "ordered.clamp": {
       const x = m.valueOf(a[0]);
       const low = m.valueOf(a[1]);

@@ -3,8 +3,8 @@
 // @extended-mark/dom marks its own, so focus and what is being typed survive a redraw in every framework.
 
 import type { Drawn, Page, Value } from "@extended-mark/runtime";
-import { styleText, Tokens, str } from "@extended-mark/dom/shared";
-import { h, type VNode } from "./vnode.js";
+import { styleText, Tokens } from "@extended-mark/dom/shared";
+import { h, type Child, type VNode } from "./vnode.js";
 
 /** What a widget can do on the page it is drawn on. */
 export interface ViewContext {
@@ -17,14 +17,14 @@ export interface ViewContext {
   /** This widget writing one of its `mut` inputs, as a field or a slider does: checked, then one change. */
   write(input: string, value: Value): void;
   /** A slot's widgets, drawn. */
-  children(nodes: Drawn[]): VNode[];
+  children(nodes: readonly Drawn[]): Child[];
   /** Asks for the plane's layout once this render is in the document. */
   layout(): void;
 }
 
-/** A widget: its element for what the page shows now. Core's are in `widgets`; a pack's own extern
+/** A widget: its element, or words, for what the page shows now. Core's are in `widgets`; a pack's own extern
  * widgets are given the same way, by full name. */
-export type ViewWidget = (d: Drawn, ctx: ViewContext) => VNode;
+export type ViewWidget = (d: Drawn, ctx: ViewContext) => Child;
 
 function notice(message: string): VNode {
   return h("div", "notice", { role: "alert" }, [message]);
@@ -54,22 +54,27 @@ export function renderPage(dr: Drawing): VNode {
 }
 
 /** Drawn widgets as elements, each keyed once among its siblings. */
-export function children(dr: Drawing, nodes: Drawn[]): VNode[] {
-  const seen = new Set<string>();
-  return nodes.map((d) => {
-    let key = d.key;
-    for (let k = 2; seen.has(key); k++) key = `${d.key}#${k}`;
-    seen.add(key);
+export function children(dr: Drawing, nodes: readonly Drawn[]): Child[] {
+  const out: Child[] = [];
+  for (const d of nodes) {
     const v = draw(dr, d);
-    v.key = key;
+    if (typeof v === "string") {
+      // words that follow words are one text, as a document read back from HTML has them
+      const last = out.length - 1;
+      if (typeof out[last] === "string") out[last] += v;
+      else if (v) out.push(v);
+      continue;
+    }
+    v.key = d.key;
     v.attrs["data-xtmd-site"] = d.path;
     v.attrs["data-xtmd-widget"] = d.widget;
-    return v;
-  });
+    out.push(v);
+  }
+  return out;
 }
 
-function draw(dr: Drawing, d: Drawn): VNode {
-  if (d.widget === "#notice") return notice(str(d.props.get("message")));
+function draw(dr: Drawing, d: Drawn): Child {
+  if (d.failed !== undefined) return notice(`${d.widget.split("/").pop()} failed: ${d.failed}`);
   const maker = dr.registry[d.widget];
   // an extern widget nobody supplies shows its Markdown instead (page 6): the page draws it with
   // the blocks we do draw, so this is only one whose supplier the page wasn't told about

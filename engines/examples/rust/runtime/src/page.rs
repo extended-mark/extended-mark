@@ -13,9 +13,10 @@
 use std::cell::{RefCell, RefMut};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::rc::Rc;
+use std::sync::Arc;
 
 use xtmd_eval::interp::{Outer, Place, PlaceRoot, Step, R};
-use xtmd_eval::value::{Case, Closure, List, Record, ViewValue};
+use xtmd_eval::value::{Case, Closure, Content, ContentOf, List, Record};
 use xtmd_eval::{Binding, Constants, FailKind, Failure, Host, Machine, Num, Program, Row, Value};
 use xtmd_ir::check::{Call, CallCall, Mounted, PageTheme, PageWidth};
 use xtmd_ir::ir::{self, Expr, Node, Stmt};
@@ -71,6 +72,8 @@ pub struct Env {
     pub bindings: Bindings,
     pub path: String,
     pub key: Option<String>,
+    /// The content whose nodes are being drawn, kept so that a call in it is known again.
+    pub keep: Option<Arc<Vec<Node>>>,
 }
 
 impl Env {
@@ -133,6 +136,10 @@ pub struct DrawnNode {
     /// `mut` inputs given a variable.
     pub writes: BTreeMap<String, WriteTo>,
     pub levels: Vec<ir::Level>,
+    /// A widget that failed: why, shown in its place (page 6). `widget` is the one that did.
+    pub failed: Option<String>,
+    /// The calls its inputs hold, drawn: what a `Content` in `props` stands for.
+    pub held: Vec<Vec<Drawn>>,
 }
 
 impl DrawnNode {
@@ -140,9 +147,21 @@ impl DrawnNode {
         self.props.get(name)
     }
 
-    /// Every widget in a slot, in order.
+    /// Every widget inside it, in order: its slots', and those its inputs hold.
     pub fn children(&self) -> impl Iterator<Item = &Drawn> {
-        self.slots.values().flatten()
+        self.slots.values().flatten().chain(self.held.iter().flatten())
+    }
+
+    /// The calls a value of one of its inputs holds, drawn: a rich_text's or a view's.
+    pub fn nodes(&self, v: &Value) -> Option<&[Drawn]> {
+        match v {
+            Value::Content(c) => match &c.of {
+                ContentOf::Drawn(k) => self.held.get(*k).map(Vec::as_slice),
+                _ => None,
+            },
+            Value::Opt(Some(x)) => self.nodes(x),
+            _ => None,
+        }
     }
 }
 
@@ -178,14 +197,6 @@ pub(crate) fn join(path: &str, part: &str) -> String {
     }
 }
 
-fn last_part(path: &str) -> &str {
-    path.rsplit('/').next().unwrap_or(path)
-}
-
-fn parent(path: &str) -> &str {
-    path.rsplit_once('/').map_or("", |(a, _)| a)
-}
-
 /// A failure's code, as the checks report it: `failure.rule`, `failure.limit`.
 pub fn failure_code(f: &Failure) -> String {
     let kind = match f.kind {
@@ -211,34 +222,34 @@ fn outer_kind(o: &Outer) -> (&'static str, &str) {
     }
 }
 
-pub(crate) fn num_value(n: i64) -> Value {
-    Value::Num(Num::int(n))
+/// What a widget is given: expressions to work out where it is called, or the values of a call
+/// made as one.
+#[derive(Clone, Copy)]
+pub(crate) enum Args<'a> {
+    Exprs(&'a BTreeMap<String, Expr>),
+    Values(&'a BTreeMap<String, Value>),
 }
 
-/// The widget's slot a VIEW part of its rich text is drawn in: what the part's `#inline` view
-/// names. An engine draws that slot where the part is.
-pub fn inline_slot(child: Option<&Value>) -> Option<String> {
-    match child {
-        Some(Value::View(v)) if &*v.widget == "#inline" => match v.args.get("id") {
-            Some(Value::Num(n)) => Some(format!("~{}", n.show())),
-            _ => None,
-        },
-        _ => None,
+/// Whether a piece of Markdown's input or slot holds a sentence, and no blocks.
+pub(crate) fn takes_sentence(piece: &str, part: &str) -> bool {
+    matches!((piece, part), ("paragraph" | "heading", "value") | ("table", "head" | "rows") | ("bold" | "italic" | "strike" | "link", "body"))
+}
+
+/// A sentence goes here, so a rich_text of blocks doesn't.
+pub(crate) fn check_sentence(v: &Value) -> R<()> {
+    match v {
+        Value::Content(c) if c.blocks => Err(Failure::ir("a sentence goes here, and this rich_text is blocks")),
+        Value::Opt(Some(x)) => check_sentence(x),
+        Value::List(l) => l.items.iter().try_for_each(|i| check_sentence(&i.value)),
+        _ => Ok(()),
     }
-}
-
-/// What a VIEW part holds once its view is drawn as the widget's slot `~id`.
-fn inline_view(id: usize) -> Value {
-    let mut args = BTreeMap::new();
-    args.insert("id".to_string(), num_value(id as i64));
-    Value::View(Rc::new(ViewValue { widget: Rc::from("#inline"), args, slots: BTreeMap::new(), events: BTreeMap::new(), exprs: BTreeMap::new(), captured: Vec::new(), owner: None }))
 }
 
 pub(crate) fn case_value(ty: &str, name: &str) -> Value {
     Value::Case(Rc::new(Case { ty: Rc::from(ty), name: Rc::from(name), values: Vec::new() }))
 }
 
-pub(crate) type Nodes = Rc<Vec<Node>>;
+pub(crate) type Nodes = Arc<Vec<Node>>;
 type Body = Rc<Vec<Stmt>>;
 
 /// A rule: its body and its message.
@@ -266,7 +277,6 @@ pub(crate) struct Shared {
     /// Each extern widget as a template, for the instance its Markdown is written in.
     extern_templates: HashMap<String, Rc<ir::Template>>,
     handlers: HashMap<String, HandlerFn>,
-    bindings: HashMap<String, Expr>,
     host_fns: HashSet<String>,
     state_decl: Option<ir::State>,
     state_rules: Rules,
@@ -283,7 +293,7 @@ impl Shared {
     fn nodes_rc(&self, nodes: &Vec<Node>) -> Nodes {
         match self.stable.lists.get(&addr(nodes)) {
             Some(n) => n.clone(),
-            None => Rc::new(nodes.clone()),
+            None => Arc::new(nodes.clone()),
         }
     }
 
@@ -296,7 +306,7 @@ impl Shared {
     /// Whether two slots hold the same content: the same shared copy, or nodes that are equal.
     fn same_slot(&self, held: &Nodes, now: &Vec<Node>) -> bool {
         match self.stable.lists.get(&addr(now)) {
-            Some(rc) if Rc::ptr_eq(rc, held) => true,
+            Some(rc) if Arc::ptr_eq(rc, held) => true,
             _ => **held == *now,
         }
     }
@@ -325,7 +335,7 @@ impl Stable {
         if let Some(rc) = self.lists.get(&addr(s)) {
             return rc.clone();
         }
-        let rc = Rc::new(s.clone());
+        let rc = Arc::new(s.clone());
         self.lists.insert(addr(s), rc.clone());
         self.link(s, &rc);
         rc
@@ -404,8 +414,9 @@ struct Memo {
 /// An extern call as it was last drawn, with what its drawing read.
 struct ExternMemo {
     frame: Frame,
-    /// The call it was: [`Shared::call_id`].
+    /// The call it was: [`Shared::call_id`], or where it is in the content it is kept with.
     node: usize,
+    keep: Option<Arc<Vec<Node>>>,
     path: String,
     owner: Option<u64>,
     bindings: Bindings,
@@ -423,6 +434,7 @@ fn same_ptr(a: &Value, b: &Value) -> bool {
         (Value::Range(x), Value::Range(y)) => Rc::ptr_eq(x, y),
         (Value::Fn(x), Value::Fn(y)) => Rc::ptr_eq(x, y),
         (Value::View(x), Value::View(y)) => Rc::ptr_eq(x, y),
+        (Value::Content(x), Value::Content(y)) => Rc::ptr_eq(x, y),
         (Value::Opt(Some(x)), Value::Opt(Some(y))) => Rc::ptr_eq(x, y),
         _ => false,
     }
@@ -470,8 +482,8 @@ pub(crate) struct World {
     /// Extern widgets' own `mut` values, for inputs the caller gave no variable, by identity.
     own: HashMap<String, BTreeMap<String, Value>>,
     own_seen: HashSet<String>,
-    /// Slots read as values, by the id their view holds.
-    held: Vec<(Nodes, Env)>,
+    /// Who has been drawn this redraw: content placed twice is two widgets.
+    claimed: HashSet<String>,
     /// `$state`, in the order its values were given.
     state: Vec<(String, Value)>,
     externs: HashMap<String, Value>,
@@ -668,7 +680,11 @@ impl Rt {
                     (i.template.clone(), i.slots.get(&**n).cloned())
                 };
                 match held {
-                    Some((nodes, env)) => self.slot_value(m, &t, n, nodes, env),
+                    Some((nodes, env)) => {
+                        let ty = t.slots.iter().find(|s| s.name == **n).map_or_else(|| ir::Type::named("core/view"), |s| s.ty.clone());
+                        let key = env.key_or_path().to_string();
+                        m.slot_value(&ty, &nodes, &env.bindings, env.owner, (Rc::from(env.path), Rc::from(key)))
+                    }
                     // only an `opt` slot may be left out (page 3): the runtime makes up no value
                     None if t.slots.iter().any(|s| s.name == **n && s.ty.name == "core/opt") => Ok(Value::none()),
                     None => Err(Failure::ir(format!("the slot {} isn't filled", n))),
@@ -727,108 +743,8 @@ impl Rt {
         }
     }
 
-    /// A slot read as a value: a list slot gives its calls as views; any other, one view.
-    fn slot_value(&self, m: &mut Machine, t: &ir::Template, name: &str, nodes: Nodes, env: Env) -> R<Value> {
-        let mut ty = t.slots.iter().find(|s| s.name == name).map(|d| &d.ty);
-        // a filled `opt` slot is what it holds, as a plain value where an opt is wanted is
-        if let Some(inner) = ty.filter(|x| x.name == "core/opt").and_then(|x| x.args.first()) {
-            ty = Some(inner);
-        }
-        if ty.map_or(false, |x| x.name == "core/list") {
-            let views = self.expand_views(m, &nodes, &env)?;
-            return m.make_list(views);
-        }
-        let id = {
-            let mut w = self.w();
-            w.held.push((nodes, env));
-            w.held.len() - 1
-        };
-        let mut args = BTreeMap::new();
-        args.insert("id".to_string(), num_value(id as i64));
-        Ok(Value::View(Rc::new(ViewValue { widget: Rc::from("#slot"), args, slots: BTreeMap::new(), events: BTreeMap::new(), exprs: BTreeMap::new(), captured: Vec::new(), owner: None })))
-    }
-
-    /// A slot's calls as views, through its loops and branches.
-    fn expand_views(&self, m: &mut Machine, nodes: &[Node], env: &Env) -> R<Vec<Value>> {
-        let mut env = env.clone();
-        let mut out = Vec::new();
-        for n in nodes {
-            match n {
-                Node::Extern(_) | Node::Use(_) => {
-                    let (name, given, slots, events) = match n {
-                        Node::Extern(x) => (&x.name, &x.props, &x.slots, &x.events),
-                        Node::Use(u) => (&u.name, &u.args, &u.slots, &u.events),
-                        _ => unreachable!(),
-                    };
-                    let mut args = BTreeMap::new();
-                    for (k, e) in given {
-                        args.insert(k.clone(), self.eval_in(m, &env, e)?);
-                    }
-                    out.push(Value::View(Rc::new(ViewValue {
-                        widget: Rc::from(name.as_str()),
-                        args,
-                        slots: slots.clone(),
-                        events: events.clone(),
-                        exprs: given.clone(),
-                        captured: env.bindings.clone(),
-                        owner: env.owner,
-                    })));
-                }
-                Node::For(f) => {
-                    for row in self.loop_rows(m, f, &env)? {
-                        let mut inner = env.clone();
-                        inner.bindings.extend(row.bindings);
-                        out.extend(self.expand_views(m, &f.body, &inner)?);
-                    }
-                }
-                Node::If(i) => {
-                    let (nodes, env) = self.pick_branch(m, i, &env)?;
-                    out.extend(self.expand_views(m, nodes, &env)?);
-                }
-                Node::Match(mt) => {
-                    let v = self.eval_in(m, &env, &mt.value)?;
-                    let mut found = None;
-                    for c in &mt.cases {
-                        if let Some(binds) = self.matches(m, &v, &c.when)? {
-                            found = Some((&c.then, binds));
-                            break;
-                        }
-                    }
-                    match found {
-                        Some((then, binds)) => {
-                            let mut inner = env.clone();
-                            inner.bindings.extend(binds);
-                            out.extend(self.expand_views(m, then, &inner)?);
-                        }
-                        None => out.extend(self.expand_views(m, &mt.else_, &env)?),
-                    }
-                }
-                Node::Declare(d) => {
-                    let v = self.eval_in(m, &env, &d.let_.value)?;
-                    env.bindings.push((Rc::from(d.let_.name.as_str()), Binding::Value(v)));
-                }
-                Node::Place(p) => {
-                    fn flat(v: &Value, out: &mut Vec<Value>) {
-                        match v {
-                            Value::Opt(Some(x)) => flat(x, out),
-                            Value::List(l) => l.items.iter().for_each(|i| flat(&i.value, out)),
-                            Value::View(_) => out.push(v.clone()),
-                            _ => {}
-                        }
-                    }
-                    flat(&self.eval_in(m, &env, &p.view)?, &mut out);
-                }
-            }
-        }
-        Ok(out)
-    }
-
     pub(crate) fn eval_in(&self, m: &mut Machine, env: &Env, e: &Expr) -> R<Value> {
-        let x = match e {
-            Expr::Bind(id) => self.s.bindings.get(id).ok_or_else(|| Failure::ir("a binding the page doesn't have"))?,
-            other => other,
-        };
-        m.eval_with(&env.bindings, env.owner, x)
+        m.eval_with(&env.bindings, env.owner, e)
     }
 
     fn write_place(&self, m: &mut Machine, w: &WriteTo, value: Value) -> R<()> {
@@ -929,7 +845,7 @@ impl Rt {
                         let key = row.key;
                         let mut bindings = env.bindings.clone();
                         bindings.extend(row.bindings);
-                        let inner = Env { owner: env.owner, bindings, path: join(&env.path, &format!("{}[{}]", f.site, k)), key: Some(join(env.key_or_path(), &format!("{}[{}]", f.site, key))) };
+                        let inner = Env { owner: env.owner, bindings, path: join(&env.path, &format!("{}[{}]", f.site, k)), key: Some(join(env.key_or_path(), &format!("{}[{}]", f.site, key))), keep: env.keep.clone() };
                         out.extend(self.draw_nodes(m, &f.body, &inner)?);
                     }
                 }
@@ -955,13 +871,16 @@ impl Rt {
                 }
                 Node::Place(p) => {
                     let v = self.eval_in(m, &env, &p.view)?;
-                    out.extend(self.draw_view(m, &v, &join(&env.path, &p.site), &env)?);
+                    if p.sentence {
+                        check_sentence(&v)?;
+                    }
+                    out.extend(self.draw_view(m, &v, &join(&env.path, &p.site), &join(env.key_or_path(), &p.site))?);
                 }
-                Node::Extern(x) => out.extend(self.draw_extern(m, self.s.call_id(x), &x.name, &x.site, &x.props, &x.slots, &x.events, &x.writes, &x.levels, &env)?),
+                Node::Extern(x) => out.extend(self.draw_extern(m, self.s.call_id(x).or_else(|| env.keep.as_ref().map(|_| addr(x))), &x.name, &x.site, Args::Exprs(&x.props), &x.slots, &x.events, &x.writes, &x.levels, &env)?),
                 Node::Use(u) => {
                     let path = join(&env.path, &u.site);
                     let key = join(env.key_or_path(), &u.site);
-                    out.extend(self.draw_use(m, &u.name, &path, &u.args, &u.slots, &u.events, &env, &u.levels, &key)?);
+                    out.extend(self.draw_use(m, &u.name, &path, Args::Exprs(&u.args), &u.slots, &u.events, &env, &u.levels, &key)?);
                 }
             }
         }
@@ -1018,20 +937,38 @@ impl Rt {
         node: Option<usize>,
         name: &str,
         site: &str,
-        given: &BTreeMap<String, Expr>,
+        given: Args,
         slots: &BTreeMap<String, Vec<Node>>,
         events: &BTreeMap<String, String>,
         writes: &BTreeMap<String, ir::Place>,
         levels: &[ir::Level],
         env: &Env,
     ) -> R<Vec<Drawn>> {
-        let key = join(env.key_or_path(), site);
-        let path = join(&env.path, site);
+        self.draw_extern_as(m, node, name, join(env.key_or_path(), site), join(&env.path, site), given, slots, events, writes, levels, env)
+    }
+
+    /// The same, as who it is and at the path it is drawn.
+    #[allow(clippy::too_many_arguments)]
+    fn draw_extern_as(
+        &self,
+        m: &mut Machine,
+        node: Option<usize>,
+        name: &str,
+        key: String,
+        path: String,
+        given: Args,
+        slots: &BTreeMap<String, Vec<Node>>,
+        events: &BTreeMap<String, String>,
+        writes: &BTreeMap<String, ir::Place>,
+        levels: &[ir::Level],
+        env: &Env,
+    ) -> R<Vec<Drawn>> {
+        let key = self.claim(&key);
         let memo_on = self.w.borrow().memo_on;
         if let (true, Some(id)) = (memo_on, node) {
             let hit = {
                 let w = self.w.borrow();
-                w.extern_memo.get(&key).filter(|x| x.node == id && x.epoch == w.epoch && x.path == path && x.owner == env.owner && w.current(&x.frame.deps)).cloned()
+                w.extern_memo.get(&key).filter(|x| x.node == id && x.epoch == w.epoch && x.path == path && x.owner == env.owner && same_keep(&x.keep, &env.keep) && w.current(&x.frame.deps)).cloned()
             };
             if let Some(x) = hit {
                 if self.same_bindings(m, &x.bindings, &env.bindings) {
@@ -1042,7 +979,7 @@ impl Rt {
             }
         }
         self.w().frames.push(Frame::default());
-        let drawn = self.draw_extern_now(m, name, site, given, slots, events, writes, levels, env);
+        let drawn = self.draw_extern_now(m, name, &key, &path, given, slots, events, writes, levels, env);
         let frame = self.w().frames.pop().unwrap_or_default();
         let drawn = drawn?;
         {
@@ -1050,7 +987,7 @@ impl Rt {
             match node {
                 Some(id) if w.memo_on && !frame.dirty => {
                     let epoch = w.epoch;
-                    w.extern_memo.insert(key.clone(), Rc::new(ExternMemo { frame, node: id, path, owner: env.owner, bindings: env.bindings.clone(), epoch, drawn: drawn.clone() }));
+                    w.extern_memo.insert(key.clone(), Rc::new(ExternMemo { frame, node: id, keep: env.keep.clone(), path, owner: env.owner, bindings: env.bindings.clone(), epoch, drawn: drawn.clone() }));
                 }
                 _ => {
                     w.extern_memo.remove(&key);
@@ -1078,12 +1015,14 @@ impl Rt {
         for (id, p) in &f.nested {
             if let Some(i) = w.instances.get_mut(id) {
                 i.seen = true;
+                w.claimed.insert(i.path.clone());
             }
             w.at_path.insert(p.clone(), *id);
         }
         w.own_seen.extend(f.own.iter().cloned());
         w.missed.extend(f.missed.iter().cloned());
         w.extern_seen.extend(f.ext.iter().cloned());
+        w.claimed.extend(f.ext.iter().cloned());
         for fr in w.frames.iter_mut() {
             for (k, v) in &f.deps {
                 if !fr.deps.contains_key(k) {
@@ -1111,7 +1050,11 @@ impl Rt {
     }
 
     /// A call's arguments as values, in their names' order.
-    fn arg_values(&self, m: &mut Machine, args: &BTreeMap<String, Expr>, env: &Env) -> R<Vec<Value>> {
+    fn arg_values(&self, m: &mut Machine, args: Args, env: &Env) -> R<Vec<Value>> {
+        let args = match args {
+            Args::Values(v) => return Ok(v.values().cloned().collect()),
+            Args::Exprs(args) => args,
+        };
         args.values().map(|e| if let Expr::Place(_) = e { m.eval_with(&env.bindings, env.owner, e) } else { self.eval_in(m, env, e) }).collect()
     }
 
@@ -1120,7 +1063,7 @@ impl Rt {
     /// are seen again, and every widget around it is told what it read. A failure working out
     /// whether it is the same is a no: the widget is drawn, and fails there, as without reuse.
     #[allow(clippy::too_many_arguments)]
-    fn reuse(&self, m: &mut Machine, name: &str, path: &str, key: &str, args: &BTreeMap<String, Expr>, slots: &BTreeMap<String, Vec<Node>>, events: &BTreeMap<String, String>, env: &Env) -> Option<Vec<Drawn>> {
+    fn reuse(&self, m: &mut Machine, name: &str, path: &str, key: &str, args: Args, slots: &BTreeMap<String, Vec<Node>>, events: &BTreeMap<String, String>, env: &Env) -> Option<Vec<Drawn>> {
         let memo = {
             let w = self.w.borrow();
             if !w.memo_on {
@@ -1156,20 +1099,26 @@ impl Rt {
         &self,
         m: &mut Machine,
         name: &str,
-        site: &str,
-        given: &BTreeMap<String, Expr>,
+        key: &str,
+        path: &str,
+        given: Args,
         slots: &BTreeMap<String, Vec<Node>>,
         events: &BTreeMap<String, String>,
         writes: &BTreeMap<String, ir::Place>,
         levels: &[ir::Level],
         env: &Env,
     ) -> R<Vec<Drawn>> {
-        let path = join(&env.path, site);
-        let key = join(env.key_or_path(), site);
-        let mut props = BTreeMap::new();
-        for (k, e) in given {
-            props.insert(k.clone(), self.eval_in(m, env, e)?);
-        }
+        let (key, path) = (key.to_string(), path.to_string());
+        let mut props = match given {
+            Args::Values(v) => v.clone(),
+            Args::Exprs(given) => {
+                let mut props = BTreeMap::new();
+                for (k, e) in given {
+                    props.insert(k.clone(), self.eval_in(m, env, e)?);
+                }
+                props
+            }
+        };
         let mut written = BTreeMap::new();
         for (k, p) in writes {
             props.insert(k.clone(), m.eval_with(&env.bindings, env.owner, &Expr::Place(p.clone()))?);
@@ -1221,73 +1170,83 @@ impl Rt {
         for (s, nodes) in slots {
             drawn_slots.insert(s.clone(), self.draw_nodes(m, nodes, env)?);
         }
-        self.inline_views(m, &mut props, &mut drawn_slots, &path, &key)?;
         if let Some(w) = w.as_ref().filter(|w| !w.requires.is_empty()) {
             let inst = self.enter_extern(m, w, &path, &props, slots, env)?;
             let held = self.check_rules(m, &w.name, &inst, &path);
             self.leave(&inst);
             held?;
         }
+        let mut inside = Vec::new();
+        self.draw_inputs(m, w.as_deref(), &mut props, &mut inside, &path, &key)?;
         let events = events.iter().map(|(e, h)| (e.clone(), Handle { handler: h.clone(), env: env.clone() })).collect();
-        Ok(vec![Drawn::new(DrawnNode { path, key, widget: name.to_string(), props, slots: drawn_slots, events, writes: written, levels: levels.to_vec() })])
+        Ok(vec![Drawn::new(DrawnNode { path, key, widget: name.to_string(), props, slots: drawn_slots, events, writes: written, levels: levels.to_vec(), failed: None, held: inside })])
     }
 
-    /// A sentence's views, in the tree: each VIEW part of a rich_text in a widget's props is
-    /// drawn as its slot `~n`, numbered in the props' order, and holds an `#inline` view with the
-    /// number instead, so an engine draws the slot where the part is. Its widgets are the page's
-    /// like any slot's, their events and writes found by path.
-    fn inline_views(&self, m: &mut Machine, props: &mut BTreeMap<String, Value>, slots: &mut BTreeMap<String, Vec<Drawn>>, path: &str, key: &str) -> R<()> {
-        let mut n = 0;
-        for v in props.values_mut() {
-            if let Some(w) = self.inline_in(m, v, slots, path, key, &mut n)? {
-                *v = w;
+    /// The calls an input holds, drawn: a rich_text's and a view's, wherever in its value they are.
+    fn draw_inputs(&self, m: &mut Machine, w: Option<&ir::ExternWidget>, props: &mut BTreeMap<String, Value>, held: &mut Vec<Vec<Drawn>>, path: &str, key: &str) -> R<()> {
+        let piece = w.and_then(|w| w.piece.as_deref()).unwrap_or("");
+        for (k, v) in props.iter_mut() {
+            if takes_sentence(piece, k) {
+                check_sentence(v)?;
+            }
+            if let Some(x) = self.draw_input(m, v, held, &join(path, k), &join(key, k))? {
+                *v = x;
             }
         }
         Ok(())
     }
 
-    /// `v` with its sentences' views drawn, or None when it holds none.
-    fn inline_in(&self, m: &mut Machine, v: &Value, slots: &mut BTreeMap<String, Vec<Drawn>>, path: &str, key: &str, n: &mut usize) -> R<Option<Value>> {
+    /// `v` with the calls it holds drawn, or None when it holds none.
+    fn draw_input(&self, m: &mut Machine, v: &Value, held: &mut Vec<Vec<Drawn>>, path: &str, key: &str) -> R<Option<Value>> {
         Ok(match v {
+            Value::Content(_) | Value::View(_) => {
+                let drawn = self.draw_view(m, v, path, key)?;
+                held.push(drawn);
+                Some(Value::Content(Rc::new(Content { of: ContentOf::Drawn(held.len() - 1), blocks: false })))
+            }
             Value::List(l) => {
                 let mut items = None;
                 for (k, i) in l.items.iter().enumerate() {
-                    if let Some(w) = self.inline_in(m, &i.value, slots, path, key, n)? {
-                        items.get_or_insert_with(|| l.items.clone())[k].value = w;
+                    if let Some(x) = self.draw_input(m, &i.value, held, &format!("{}[{}]", path, k), &format!("{}[{}]", key, k))? {
+                        items.get_or_insert_with(|| l.items.clone())[k].value = x;
                     }
                 }
                 items.map(|items| Value::List(Rc::new(List { items })))
             }
             Value::Record(r) => {
                 let mut fields = None;
-                for (k, (_, x)) in r.fields.iter().enumerate() {
-                    if let Some(w) = self.inline_in(m, x, slots, path, key, n)? {
-                        fields.get_or_insert_with(|| r.fields.clone())[k].1 = w;
+                for (k, (f, x)) in r.fields.iter().enumerate() {
+                    if let Some(x) = self.draw_input(m, x, held, &format!("{}.{}", path, f), &format!("{}.{}", key, f))? {
+                        fields.get_or_insert_with(|| r.fields.clone())[k].1 = x;
                     }
                 }
                 fields.map(|fields| Value::Record(Rc::new(Record { ty: r.ty.clone(), fields })))
             }
-            Value::Case(c) if &*c.ty == "core/part" && &*c.name == "VIEW" => {
-                let id = *n;
-                *n += 1;
-                let child = c.values.iter().find(|(f, _)| &**f == "child").map_or_else(Value::none, |(_, x)| x.clone());
-                let at = Env { owner: None, bindings: Vec::new(), path: path.to_string(), key: Some(key.to_string()) };
-                let drawn = self.draw_view(m, &child, &join(path, &format!("~{}", id)), &at)?;
-                slots.insert(format!("~{}", id), drawn);
-                Some(Value::Case(Rc::new(Case { ty: c.ty.clone(), name: c.name.clone(), values: vec![(Rc::from("child"), inline_view(id))] })))
-            }
             Value::Case(c) => {
                 let mut values = None;
-                for (k, (_, x)) in c.values.iter().enumerate() {
-                    if let Some(w) = self.inline_in(m, x, slots, path, key, n)? {
-                        values.get_or_insert_with(|| c.values.clone())[k].1 = w;
+                for (k, (f, x)) in c.values.iter().enumerate() {
+                    if let Some(x) = self.draw_input(m, x, held, &format!("{}.{}", path, f), &format!("{}.{}", key, f))? {
+                        values.get_or_insert_with(|| c.values.clone())[k].1 = x;
                     }
                 }
                 values.map(|values| Value::Case(Rc::new(Case { ty: c.ty.clone(), name: c.name.clone(), values })))
             }
-            Value::Opt(Some(x)) => self.inline_in(m, x, slots, path, key, n)?.map(Value::some),
+            Value::Opt(Some(x)) => self.draw_input(m, x, held, path, key)?.map(Value::some),
             _ => None,
         })
+    }
+
+    /// Who a widget is, this redraw: the place it was written, or that and which time it is placed.
+    fn claim(&self, key: &str) -> String {
+        let mut w = self.w();
+        let mut id = key.to_string();
+        let mut n = 2;
+        while w.claimed.contains(&id) {
+            id = format!("{}~{}", key, n);
+            n += 1;
+        }
+        w.claimed.insert(id.clone());
+        id
     }
 
     /// A widget written in Extended Mark: its instance, kept by its key, and its view.
@@ -1297,7 +1256,7 @@ impl Rt {
         m: &mut Machine,
         name: &str,
         path: &str,
-        args: &BTreeMap<String, Expr>,
+        args: Args,
         slots: &BTreeMap<String, Vec<Node>>,
         events: &BTreeMap<String, String>,
         env: &Env,
@@ -1306,16 +1265,17 @@ impl Rt {
     ) -> R<Vec<Drawn>> {
         let Some(t) = self.s.templates.get(name).cloned() else {
             // an extern widget held as a view value
-            let at = Env { path: parent(path).to_string(), ..env.clone() };
-            return self.draw_extern(m, None, name, last_part(path), args, slots, events, &BTreeMap::new(), levels, &at);
+            return self.draw_extern_as(m, None, name, key.to_string(), path.to_string(), args, slots, events, &BTreeMap::new(), levels, env);
         };
+        let claimed = self.claim(key);
+        let key = claimed.as_str();
         if let Some(reused) = self.reuse(m, name, path, key, args, slots, events, env) {
             return Ok(reused);
         }
         self.w().frames.push(Frame::default());
         let drawn = match self.enter_use(m, &t, path, args, slots, events, env, key).and_then(|own| self.draw_nodes(m, &t.view, &own)) {
             Ok(out) => out,
-            Err(f) => vec![self.failed(name, path, &f)],
+            Err(f) => vec![self.failed(name, path, key, &f)],
         };
         let frame = self.w().frames.pop().unwrap_or_default();
         let (memo_on, kept) = {
@@ -1339,8 +1299,8 @@ impl Rt {
         Ok(drawn)
     }
 
-    /// A widget that failed: reported once, and a notice in its place (page 6).
-    fn failed(&self, name: &str, path: &str, f: &Failure) -> Drawn {
+    /// A widget that failed: reported once, and in its place (page 6).
+    fn failed(&self, name: &str, path: &str, key: &str, f: &Failure) -> Drawn {
         let broken = match (&f.kind, &f.rule) {
             (FailKind::Rule, Some(rule)) => Broken { code: None, rule: Some(rule.clone()), site: Some(path.to_string()) },
             _ => broken_code(&failure_code(f), path),
@@ -1354,9 +1314,7 @@ impl Rt {
                 w.outcome.failures.push(broken);
             }
         }
-        let mut props = BTreeMap::new();
-        props.insert("message".to_string(), Value::text(&format!("{} failed: {}", last_part(name), f.message)));
-        Drawn::new(DrawnNode { path: path.to_string(), key: path.to_string(), widget: "#notice".to_string(), props, slots: BTreeMap::new(), events: BTreeMap::new(), writes: BTreeMap::new(), levels: Vec::new() })
+        Drawn::new(DrawnNode { path: path.to_string(), key: key.to_string(), widget: name.to_string(), props: BTreeMap::new(), slots: BTreeMap::new(), events: BTreeMap::new(), writes: BTreeMap::new(), levels: Vec::new(), failed: Some(f.message.clone()), held: Vec::new() })
     }
 
     /// A widget's instance at a key, made or kept, with its inputs, slots and events from this
@@ -1367,7 +1325,7 @@ impl Rt {
         m: &mut Machine,
         t: &Rc<ir::Template>,
         path: &str,
-        args: &BTreeMap<String, Expr>,
+        args: Args,
         slots: &BTreeMap<String, Vec<Node>>,
         events: &BTreeMap<String, String>,
         env: &Env,
@@ -1410,7 +1368,11 @@ impl Rt {
             it.places.clear();
             std::mem::take(&mut it.inputs)
         };
-        for (k, e) in args {
+        if let Args::Values(values) = args {
+            let values: Vec<(String, Value)> = values.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+            self.with_instance(id, |i| i.inputs.extend(values));
+        }
+        for (k, e) in if let Args::Exprs(args) = args { args.iter().collect() } else { Vec::new() } {
             match e {
                 Expr::Place(p) => {
                     self.with_instance(id, |i| i.places.insert(k.clone(), WriteTo { place: p.clone(), env: env.clone() }));
@@ -1421,7 +1383,7 @@ impl Rt {
                 }
             }
         }
-        let own = Env { owner: Some(id), bindings: Vec::new(), path: path.to_string(), key: Some(key.to_string()) };
+        let own = Env { owner: Some(id), bindings: Vec::new(), path: path.to_string(), key: Some(key.to_string()), keep: None };
         for f in &t.inputs {
             let given = self.with_instance(id, |i| i.inputs.contains_key(&f.name) || i.places.contains_key(&f.name)).unwrap_or(true);
             if !given {
@@ -1451,7 +1413,7 @@ impl Rt {
             let names: std::collections::BTreeSet<&String> = before.keys().chain(held.keys()).collect();
             for s in names {
                 let same = match (before.get(s), held.get(s)) {
-                    (Some((a, x)), Some((b, y))) => Rc::ptr_eq(a, b) && x.owner == y.owner && x.path == y.path && self.same_bindings(m, &x.bindings, &y.bindings),
+                    (Some((a, x)), Some((b, y))) => Arc::ptr_eq(a, b) && x.owner == y.owner && x.path == y.path && self.same_bindings(m, &x.bindings, &y.bindings),
                     _ => false,
                 };
                 if !same {
@@ -1511,7 +1473,7 @@ impl Rt {
         let held = slots.iter().map(|(s, nodes)| (s.clone(), (self.s.nodes_rc(nodes), env.clone()))).collect();
         let inst = Instance { id, path: format!("{}#md", path), template: t, inputs, places: HashMap::new(), cells: HashMap::new(), slots: held, events: HashMap::new(), seen: true };
         self.w().instances.insert(id, inst);
-        Ok(Env { owner: Some(id), bindings: Vec::new(), path: path.to_string(), key: None })
+        Ok(Env { owner: Some(id), bindings: Vec::new(), path: path.to_string(), key: None, keep: None })
     }
 
     /// Drops an instance made only to write Markdown.
@@ -1524,66 +1486,51 @@ impl Rt {
         }
     }
 
-    pub(crate) fn held_slot(&self, id: &Value) -> Option<(Nodes, Env)> {
-        let k = match id {
-            Value::Num(n) => n.to_i64()?,
-            _ => return None,
-        };
-        self.w.borrow().held.get(usize::try_from(k).ok()?).cloned()
-    }
-
-    /// A view held in a value: a slot's content, or a call made as a value.
-    fn draw_view(&self, m: &mut Machine, v: &Value, path: &str, env: &Env) -> R<Vec<Drawn>> {
-        let view = match v {
-            Value::Opt(Some(x)) => return self.draw_view(m, x, path, env),
+    /// A view held in a value: a call made as one, or calls.
+    pub(crate) fn draw_view(&self, m: &mut Machine, v: &Value, path: &str, key: &str) -> R<Vec<Drawn>> {
+        match v {
+            Value::Opt(Some(x)) => self.draw_view(m, x, path, key),
             Value::List(l) => {
                 let mut out = Vec::new();
                 for (k, i) in l.items.iter().enumerate() {
-                    out.extend(self.draw_view(m, &i.value, &format!("{}[{}]", path, k), env)?);
+                    out.extend(self.draw_view(m, &i.value, &format!("{}[{}]", path, k), &format!("{}[{}]", key, i.id))?);
                 }
-                return Ok(out);
+                Ok(out)
             }
-            Value::View(view) if &*view.widget != "#inline" => view.clone(),
-            _ => return Ok(Vec::new()),
-        };
-        if &*view.widget == "#slot" {
-            return match view.args.get("id").and_then(|id| self.held_slot(id)) {
-                Some((nodes, at)) => self.draw_nodes(m, &nodes, &at),
-                None => Ok(Vec::new()),
-            };
-        }
-        let made = Env { owner: view.owner, bindings: view.captured.clone(), path: env.path.clone(), key: None };
-        if self.s.templates.contains_key(&*view.widget) {
-            let args: BTreeMap<String, Expr> = view.args.iter().map(|(k, x)| (k.clone(), x.to_ir())).collect();
-            return self.draw_use(m, &view.widget, path, &args, &view.slots, &view.events, &made, &[], path);
-        }
-        let mut props = view.args.clone();
-        let w = self.s.extern_widgets.get(&*view.widget).cloned();
-        for f in w.iter().flat_map(|w| w.inputs.iter()) {
-            if !props.contains_key(&f.name) {
-                if let Some(d) = &f.default {
-                    let v = self.eval_in(m, &made, d)?;
-                    props.insert(f.name.clone(), v);
+            Value::Content(c) => match &c.of {
+                ContentOf::Nodes { nodes, captured, owner, at } => {
+                    let (path, key) = match at {
+                        Some((p, k)) => (p.to_string(), k.to_string()),
+                        None => (path.to_string(), key.to_string()),
+                    };
+                    self.draw_nodes(m, nodes, &Env { owner: *owner, bindings: captured.clone(), path, key: Some(key), keep: Some(nodes.clone()) })
                 }
+                ContentOf::Parts(parts) => {
+                    let mut out = Vec::new();
+                    for (k, p) in parts.iter().enumerate() {
+                        let site = format!("j{}", k);
+                        out.extend(self.draw_view(m, p, &join(path, &site), &join(key, &site))?);
+                    }
+                    Ok(out)
+                }
+                ContentOf::Drawn(_) => Ok(Vec::new()),
+            },
+            Value::View(view) => {
+                let who = view.at.as_deref().unwrap_or(key);
+                let made = Env { owner: view.owner, bindings: view.captured.clone(), path: path.to_string(), key: Some(who.to_string()), keep: None };
+                self.draw_use(m, &view.widget, path, Args::Values(&view.args), &view.slots, &view.events, &made, &[], who)
             }
+            _ => Ok(Vec::new()),
         }
-        let mut slots = BTreeMap::new();
-        for (s, nodes) in &view.slots {
-            slots.insert(s.clone(), self.draw_nodes(m, nodes, &made)?);
-        }
-        let key = join(env.key_or_path(), last_part(path));
-        self.inline_views(m, &mut props, &mut slots, path, &key)?;
-        let events = view.events.iter().map(|(e, h)| (e.clone(), Handle { handler: h.clone(), env: made.clone() })).collect();
-        Ok(vec![Drawn::new(DrawnNode {
-            path: path.to_string(),
-            key,
-            widget: view.widget.to_string(),
-            props,
-            slots,
-            events,
-            writes: BTreeMap::new(),
-            levels: w.map(|w| w.levels.clone()).unwrap_or_default(),
-        })])
+    }
+}
+
+/// Whether two calls are kept by the same content.
+fn same_keep(a: &Option<Arc<Vec<Node>>>, b: &Option<Arc<Vec<Node>>>) -> bool {
+    match (a, b) {
+        (None, None) => true,
+        (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+        _ => false,
     }
 }
 
@@ -1658,7 +1605,6 @@ impl Page {
                 (h.id.clone(), HandlerFn { params: h.params.clone(), body: Rc::new(h.body.clone()), passes })
             })
             .collect();
-        let bindings = module.bindings.iter().map(|b| (b.id.clone(), b.value.clone())).collect();
         let host_fns = module.needs.host.iter().cloned().collect();
         let mut state_decl = None;
         let mut extern_widgets = HashMap::new();
@@ -1705,7 +1651,6 @@ impl Page {
             extern_widgets,
             extern_templates,
             handlers,
-            bindings,
             host_fns,
             state_decl,
             state_rules,
@@ -1807,7 +1752,7 @@ impl Page {
                 let props = n.props.iter().filter(|(_, v)| !matches!(v, Value::Fn(_))).map(|(k, v)| (k.clone(), v.to_ir())).collect();
                 let slots = n.slots.iter().map(|(s, kids)| (s.clone(), kids.iter().map(|k| k.path.clone()).collect())).collect();
                 out.insert(n.path.clone(), Mounted { widget: n.widget.clone(), props, slots });
-                for kids in n.slots.values() {
+                for kids in n.slots.values().chain(n.held.iter()) {
                     walk(kids, out);
                 }
             }
@@ -1826,7 +1771,7 @@ impl Page {
                 if n.widget == "core/shade" {
                     out.push(n);
                 }
-                for kids in n.slots.values() {
+                for kids in n.slots.values().chain(n.held.iter()) {
                     shades(kids, out);
                 }
             }
@@ -1895,7 +1840,7 @@ impl Page {
                         out.entry(n.path.clone()).or_default().insert(k.clone(), v.to_ir());
                     }
                 }
-                for kids in n.slots.values() {
+                for kids in n.slots.values().chain(n.held.iter()) {
                     walk(kids, w, out);
                 }
             }
@@ -2428,7 +2373,7 @@ impl Page {
                 if n.path == path {
                     return Some(n);
                 }
-                for kids in n.slots.values() {
+                for kids in n.slots.values().chain(n.held.iter()) {
                     if let Some(f) = walk(kids, path) {
                         return Some(f);
                     }
@@ -2449,7 +2394,7 @@ impl Page {
                 for i in w.instances.values_mut() {
                     i.seen = false;
                 }
-                w.held.clear();
+                w.claimed.clear();
                 w.missed.clear();
                 w.at_path.clear();
                 w.own_seen.clear();

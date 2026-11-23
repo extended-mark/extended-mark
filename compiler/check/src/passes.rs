@@ -173,6 +173,9 @@ impl Checker {
                             self.want(&cx, e, &x, &ti, format!("`$state.{}`", f.name.name));
                             x
                         });
+                        if self.holds_calls(&t, 0) {
+                            self.error(file, codes::VIEW_IN_MUT, f.ty.span, "`$state` holds data, and a view or a rich_text is a list of calls: keep the text, and make the calls from it where they are placed");
+                        }
                         irf.push(ir::Field { name: f.name.name.clone(), ty: ti, mutable: false, default: d });
                     }
                     ast::Member::Require(r) => {
@@ -292,6 +295,7 @@ impl Checker {
         let links = links_value(&self.prose_links);
         let mut errors: Vec<(usize, Span, String)> = Vec::new();
         let mut literal_errors: Vec<(usize, Span, String)> = Vec::new();
+        let mut blocks_in: Vec<(usize, Span, String)> = Vec::new();
         {
             let mut patch = |e: &mut ir::Expr| {
                 let ir::Expr::Call(c) = e else { return };
@@ -307,14 +311,27 @@ impl Checker {
                 let p = &pending[id];
                 // in code, a literal is its type's `from`; a document's prose also sees its link definitions
                 let literal = p.ty.strip_prefix("literal:");
-                let out = if t.ty.name == "core/rich_text" && literal.is_none() {
-                    m.call("core/rich_text.read", vec![xtmd_eval::Binding::Value(tpl), xtmd_eval::Binding::Value(links.clone())])
+                let rich = t.ty.name == "core/rich_text";
+                let out = if rich && literal.is_none() {
+                    m.call("core/md_inline", vec![xtmd_eval::Binding::Value(tpl), xtmd_eval::Binding::Value(links.clone())])
+                } else if rich {
+                    m.call("core/md_read", vec![xtmd_eval::Binding::Value(tpl)])
                 } else {
                     m.call(&format!("{}.from", t.ty.name), vec![xtmd_eval::Binding::Value(tpl)])
                 };
                 match out {
                     Ok(Some(xtmd_eval::Value::Opt(Some(v)))) => {
-                        *e = if t.ty.name == "core/rich_text" { rich_ir(&v, &holes) } else { put_holes(v.to_ir(), &holes) };
+                        let mut lower = crate::rich::Rich::new(&holes, &p.holes);
+                        *e = match (rich, literal) {
+                            (true, None) => lower.sentence(Some(&v)),
+                            (true, Some(_)) => lower.literal(&v),
+                            _ => put_holes(v.to_ir(), &holes),
+                        };
+                        if let (ir::Expr::Rich(r), Some(of)) = (&*e, &p.sentence_for) {
+                            if r.blocks {
+                                blocks_in.push((p.file, p.span, of.clone()));
+                            }
+                        }
                     }
                     Ok(_) => {
                         let why = m.last_rule.clone().map(|r| format!(": {}", r)).unwrap_or_default();
@@ -338,6 +355,9 @@ impl Checker {
         }
         for (file, span, msg) in literal_errors {
             self.error(file, codes::LITERAL, span, msg);
+        }
+        for (file, span, of) in blocks_in {
+            self.error(file, codes::SENTENCE, span, format!("`{}` takes a sentence, and this literal is blocks of Markdown", of));
         }
         // constant lets, each once the ones it reads are known
         let mut prog = self.program();
@@ -465,7 +485,7 @@ fn template_value(m: &mut Machine, pieces: &[String], holes: Vec<xtmd_eval::Valu
 }
 
 /// Which hole a placeholder text stands for.
-fn hole_of(s: &str) -> Option<usize> {
+pub(crate) fn hole_of(s: &str) -> Option<usize> {
     let mut it = s.chars();
     let c = it.next()?;
     if it.next().is_none() && ('\u{E000}'..='\u{F8FF}').contains(&c) {
@@ -476,7 +496,7 @@ fn hole_of(s: &str) -> Option<usize> {
 }
 
 /// The IR with each placeholder text replaced by its hole's expression.
-fn put_holes(mut x: ir::Expr, holes: &[ir::Expr]) -> ir::Expr {
+pub(crate) fn put_holes(mut x: ir::Expr, holes: &[ir::Expr]) -> ir::Expr {
     walk_expr(&mut x, &mut |e| {
         if let ir::Expr::Text(s) = e {
             if let Some(k) = hole_of(s) {
@@ -487,49 +507,6 @@ fn put_holes(mut x: ir::Expr, holes: &[ir::Expr]) -> ir::Expr {
         }
     });
     x
-}
-
-/// A rich_text value as the IR's `rich` form, its holes put back as expressions.
-fn rich_ir(v: &xtmd_eval::Value, holes: &[ir::Expr]) -> ir::Expr {
-    use xtmd_eval::Value;
-    use ir::SegmentSegmentPart as P;
-    let mut segments = Vec::new();
-    let Value::Record(r) = v else { return v.to_ir() };
-    let Some(Value::List(list)) = r.get("segments") else { return v.to_ir() };
-    for item in &list.items {
-        let Value::Record(seg) = &item.value else { continue };
-        let (Some(Value::Case(part)), Some(Value::Record(marks))) = (seg.get("part"), seg.get("marks")) else { continue };
-        let get = |n: &str| part.values.iter().find(|(k, _)| &**k == n).map(|(_, x)| x.clone());
-        let text = |n: &str| get(n).map(|x| x.to_ir());
-        let (kind, value, src, alt) = match &*part.name {
-            "TEXT" => match get("value") {
-                Some(Value::Text(t)) => match hole_of(&t) {
-                    Some(k) => {
-                        let h = holes.get(k).cloned().unwrap_or(ir::Expr::Text(String::new()));
-                        let is_view = !matches!(h, ir::Expr::Show(_) | ir::Expr::Text(_)) && !matches!(&h, ir::Expr::Get(_) | ir::Expr::Field(_) | ir::Expr::Call(_) | ir::Expr::Template(_) | ir::Expr::Op(_));
-                        (if is_view { P::View } else { P::Text }, Some(h), None, None)
-                    }
-                    None => (P::Text, Some(ir::Expr::Text(t.to_string())), None, None),
-                },
-                _ => (P::Text, text("value"), None, None),
-            },
-            "CODE" => (P::Code, text("value"), None, None),
-            "MATH" => (P::Math, get("tex").map(|x| put_holes(x.to_ir(), holes)), None, None),
-            "IMAGE" => (P::Image, None, text("src"), text("alt")),
-            "NOTE" => (P::Note, text("mark"), None, None),
-            "VIEW" => (P::View, text("child"), None, None),
-            _ => (P::Break, None, None, None),
-        };
-        let flag = |n: &str| matches!(marks.get(n), Some(Value::Bool(true)));
-        let link = match marks.get("link") {
-            Some(Value::Opt(Some(l))) => Some(l.to_ir()),
-            _ => None,
-        };
-        let any = flag("bold") || flag("italic") || flag("strike") || link.is_some();
-        let m = any.then(|| ir::Marks { bold: flag("bold"), italic: flag("italic"), strike: flag("strike"), link });
-        segments.push(ir::Segment { segment: ir::SegmentSegment { part: kind, value, src, alt, marks: m } });
-    }
-    ir::Expr::Rich(ir::Rich { segments })
 }
 
 pub(crate) fn text_of(t: &ast::TextLit) -> String {
@@ -621,13 +598,8 @@ pub(crate) fn walk_expr(e: &mut ir::Expr, f: &mut dyn FnMut(&mut ir::Expr)) {
             }
         }
         X::Tokval(t) => walk_expr(&mut t.value, f),
-        X::Rich(r) => {
-            for s in &mut r.segments {
-                for x in [&mut s.segment.value, &mut s.segment.src, &mut s.segment.alt].into_iter().flatten() {
-                    walk_expr(x, f);
-                }
-            }
-        }
+        X::Rich(r) => std::sync::Arc::make_mut(&mut r.nodes).iter_mut().for_each(|n| walk_node(n, f)),
+        X::Sentence(x) => walk_expr(x, f),
         X::Template(t) => t.holes.iter_mut().for_each(|x| walk_expr(x, f)),
         X::View(v) => {
             v.args.values_mut().for_each(|x| walk_expr(x, f));

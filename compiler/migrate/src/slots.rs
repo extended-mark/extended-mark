@@ -172,7 +172,8 @@ fn fill_empty(text: &str, x: &SlotFind, finds: &[SlotFind]) -> Option<Edit> {
     let end = x.whole.end as usize;
     let line = text[..x.at.start as usize].rfind('\n').map_or(0, |k| k + 1);
     let indent = text[line..][..text[line..].len() - text[line..].trim_start_matches(' ').len()].to_string();
-    let prose = in_prose(text, x);
+    let entry = if x.file.ends_with(".xtmd") { Entry::Document } else { Entry::Xtmd };
+    let prose = in_prose(text, entry, x.at.start as usize);
     if prose {
         if let Some((first, close, _, _)) = prose_block(text, x) {
             // as deep as the slots it names
@@ -194,16 +195,16 @@ fn fill_empty(text: &str, x: &SlotFind, finds: &[SlotFind]) -> Option<Edit> {
     Some(Edit { start: end, end: semi, text: format!(" {{\n{}{}}}", named, indent) })
 }
 
-/// Whether the call is in prose: below a document's divider, or in a widget's markdown block.
-fn in_prose(text: &str, x: &SlotFind) -> bool {
-    let entry = if x.file.ends_with(".xtmd") { Entry::Document } else { Entry::Xtmd };
+/// Whether a place is in prose: below a document's divider, or in a widget's markdown block.
+pub fn in_prose(text: &str, entry: Entry, at: usize) -> bool {
+    let at = at as u32;
     let Some(file) = parse(text, entry).file else { return false };
-    if file.prose.is_some() && file.divider.map_or(true, |d| x.at.start > d.start) {
+    if file.prose.is_some() && file.divider.map_or(true, |d| at > d.start) {
         return true;
     }
     file.items.iter().any(|n| match &n.item {
         Item::Decl(d) => match &d.kind {
-            DeclKind::Widget(w) | DeclKind::ExternWidget(w) => w.body.iter().flat_map(|b| b.iter()).any(|m| matches!(m, WidgetMember::Markdown(m) if m.span.start <= x.at.start && x.at.start < m.span.end)),
+            DeclKind::Widget(w) | DeclKind::ExternWidget(w) => w.body.iter().flat_map(|b| b.iter()).any(|m| matches!(m, WidgetMember::Markdown(m) if m.span.start <= at && at < m.span.end)),
             _ => false,
         },
         _ => false,

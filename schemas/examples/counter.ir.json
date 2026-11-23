@@ -8,7 +8,8 @@
         "core/flex",
         "core/label",
         "core/paragraph",
-        "core/press"
+        "core/press",
+        "core/words"
       ],
       "packs": [],
       "host": []
@@ -122,19 +123,22 @@
                     "props": {
                       "value": {
                         "rich": {
-                          "segments": [
+                          "nodes": [
                             {
-                              "segment": {
-                                "part": "TEXT",
-                                "value": {
-                                  "show": {
-                                    "value": {
-                                      "get": {
-                                        "input": "value"
+                              "extern": {
+                                "name": "core/words",
+                                "props": {
+                                  "value": {
+                                    "show": {
+                                      "value": {
+                                        "get": {
+                                          "input": "value"
+                                        }
                                       }
                                     }
                                   }
-                                }
+                                },
+                                "site": "t0"
                               }
                             }
                           ]
@@ -201,19 +205,22 @@
                     "props": {
                       "value": {
                         "rich": {
-                          "segments": [
+                          "nodes": [
                             {
-                              "segment": {
-                                "part": "TEXT",
-                                "value": {
-                                  "show": {
-                                    "value": {
-                                      "get": {
-                                        "input": "label"
+                              "extern": {
+                                "name": "core/words",
+                                "props": {
+                                  "value": {
+                                    "show": {
+                                      "value": {
+                                        "get": {
+                                          "input": "label"
+                                        }
                                       }
                                     }
                                   }
-                                }
+                                },
+                                "site": "t1"
                               }
                             }
                           ]
@@ -326,19 +333,22 @@
               "props": {
                 "value": {
                   "rich": {
-                    "segments": [
+                    "nodes": [
                       {
-                        "segment": {
-                          "part": "TEXT",
-                          "value": {
-                            "show": {
-                              "value": {
-                                "get": {
-                                  "cell": "n"
+                        "extern": {
+                          "name": "core/words",
+                          "props": {
+                            "value": {
+                              "show": {
+                                "value": {
+                                  "get": {
+                                    "cell": "n"
+                                  }
                                 }
                               }
                             }
-                          }
+                          },
+                          "site": "t2"
                         }
                       }
                     ]

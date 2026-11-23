@@ -1,10 +1,8 @@
-// Notices: a widget that failed (the runtime's `#notice`), one nobody supplies, and one whose
-// own drawing threw. Each says so where the widget would be, as an alert.
+// Notices: a widget that failed, one nobody supplies, and one whose own drawing threw. Each says so where the widget would be, as an alert.
 
 import type { Drawn } from "@extended-mark/runtime";
 import type { Widget, WidgetView } from "../api.js";
 import { h, text } from "../kit.js";
-import { str } from "../values.js";
 
 function noticeView(message: string): WidgetView & { el: HTMLElement } {
   const el = h("div", "notice", { role: "alert" });
@@ -12,13 +10,14 @@ function noticeView(message: string): WidgetView & { el: HTMLElement } {
   return { el, update() {} };
 }
 
-/** The runtime's notice for a widget that failed: its message, kept current. */
+/** A widget that failed: which, and why, kept current. */
 export const notice: Widget = (d) => {
-  const v = noticeView(str(d.props.get("message")));
+  const says = (d: Drawn) => `${d.widget.split("/").pop()} failed: ${d.failed ?? ""}`;
+  const v = noticeView(says(d));
   return {
     el: v.el,
     update(d: Drawn) {
-      text(v.el, str(d.props.get("message")));
+      text(v.el, says(d));
     },
   };
 };

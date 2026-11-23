@@ -8,7 +8,7 @@ import { giveKit, newUid, tokensOf, type Kit } from "./kit.js";
 import { webFns } from "./fns.js";
 import { css as styleText } from "./style.js";
 import { widgets as ours } from "./widgets/index.js";
-import { broken, failedView, unknownWidget } from "./widgets/notice.js";
+import { broken, failedView, notice, unknownWidget } from "./widgets/notice.js";
 
 interface Entry {
   key: string;
@@ -91,12 +91,13 @@ export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): M
     e.path = d.path;
     byPath.set(d.path, e);
     const el = e.view.el;
+    if (!(el instanceof Element)) return;
     if (el.getAttribute("data-xtmd-site") !== d.path) el.setAttribute("data-xtmd-site", d.path);
     if (el.getAttribute("data-xtmd-widget") !== d.widget) el.setAttribute("data-xtmd-widget", d.widget);
   }
 
   function make(d: Drawn): Entry {
-    const e = { key: d.key, widget: d.widget, path: d.path, d } as Entry;
+    const e = { key: d.key, widget: kindOf(d), path: d.path, d } as Entry;
     e.ctx = {
       page,
       event: (name, args = []) => page.event(e.d.path, name, args),
@@ -105,7 +106,7 @@ export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): M
       token: (v) => tokens.value(v),
     };
     giveKit(e.ctx, kitFor);
-    const maker = registry[d.widget] ?? (d.widget.startsWith("#") && registry["#notice"] ? registry["#notice"] : unknownWidget);
+    const maker = d.failed !== undefined ? (opts.failed ?? notice) : (registry[d.widget] ?? unknownWidget);
     try {
       e.view = maker(d, e.ctx);
     } catch (f) {
@@ -139,7 +140,7 @@ export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): M
   }
 
   function forget(e: Entry): void {
-    release(e.view.el);
+    if (e.view.el instanceof Element) release(e.view.el);
     try {
       e.view.destroy?.();
     } catch (f) {
@@ -154,16 +155,21 @@ export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): M
     if (!keepEl) e.view.el.remove();
   }
 
-  function children(container: Element, nodes: Drawn[]): void {
+  /** What is drawn: a widget that failed is drawn by another, and is another when it draws again. */
+  function kindOf(d: Drawn): string {
+    return d.failed === undefined ? d.widget : `${d.widget} failed`;
+  }
+
+  function children(container: Element, nodes: readonly Drawn[]): void {
     let map = containers.get(container);
     if (!map) containers.set(container, (map = new Map()));
     const seen = new Map<string, Entry>();
-    const els: Element[] = [];
+    const els: ChildNode[] = [];
     for (const d of nodes) {
       let key = d.key;
       for (let k = 2; seen.has(key); k++) key = `${d.key}#${k}`;
       let e = map.get(key);
-      if (e && (e.widget !== d.widget || broken.has(e.view))) {
+      if (e && (e.widget !== kindOf(d) || broken.has(e.view))) {
         drop(e);
         map.delete(key);
         e = undefined;
@@ -182,7 +188,7 @@ export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): M
     for (const [k, e] of map) if (!seen.has(k)) drop(e);
     containers.set(container, seen);
     // in the tree's order, moving only what is out of place, so a focused field stays put
-    let cursor = container.firstChild;
+    let cursor: ChildNode | null = container.firstChild;
     for (const el of els) {
       if (el === cursor) cursor = cursor.nextSibling;
       else container.insertBefore(el, cursor);
@@ -285,8 +291,8 @@ export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): M
 
 /** Makes the page from an IR file, with the web's value fns under the host's own, and mounts it. */
 export function run(irFile: ir.File | ir.Module | string, root: HTMLElement, opts: PageOptions & MountOptions = {}): Mounted {
-  const { widgets, measure, ...pageOpts } = opts;
+  const { widgets, measure, failed, ...pageOpts } = opts;
   const file = typeof irFile === "string" ? (JSON.parse(irFile) as ir.File) : irFile;
   const page = new Page(file, { ...pageOpts, fns: { ...webFns(), ...(pageOpts.fns ?? {}) } });
-  return mount(page, root, { widgets, measure });
+  return mount(page, root, { widgets, measure, failed });
 }

@@ -187,6 +187,8 @@ export class Program {
   readonly interfaces = new Map<string, ir.Interface>();
   /** Constant lets, already worked out. */
   readonly lets = new Map<string, Value>();
+  /** A lowered page's bindings: what a call's input is worked out from. */
+  readonly bindings = new Map<string, ir.Expr>();
 
   add(d: ir.Decl): void {
     if ("fn" in d) {
@@ -219,6 +221,7 @@ export class Program {
     for (const d of m.declarations) {
       p.add(d.declare);
     }
+    for (const b of m.bindings) p.bindings.set(b.id, b.value);
     return p;
   }
 }
@@ -407,6 +410,97 @@ export class Machine {
       }
       return rows;
     });
+  }
+
+  /** The calls some nodes make, through their loops and branches, each a view of its own: what a
+   * list slot is when it is read. */
+  calls(nodes: readonly ir.Node[], bindings: readonly (readonly [string, Binding])[], owner: number | undefined, key: string): Value[] {
+    return this.withFrame(bindings, owner, () => {
+      const out: Value[] = [];
+      this.callsInto(nodes, key, out);
+      return out;
+    });
+  }
+
+  /** `key` is who the widget around the calls is: each call is who it is there. */
+  private callsInto(nodes: readonly ir.Node[], key: string, out: Value[]): void {
+    const at = (site: string): string => (key ? `${key}/${site}` : site);
+    const depth = this.frame().vars.length;
+    for (const n of nodes) {
+      const here = this.frame().vars.length;
+      if ("extern" in n || "use" in n) {
+        const x = ("extern" in n ? n.extern : n.use) as ir.NodeExtern & ir.NodeUse;
+        const given = ("extern" in n ? n.extern.props : n.use.args) as Record<string, ir.Expr>;
+        const args = new Map<string, Value>();
+        for (const [k, e] of V.sortedEntries(given)) args.set(k, this.eval(e));
+        out.push({ kind: "view", widget: x.name, args, slots: x.slots ?? {}, events: x.events ?? {}, exprs: given, captured: this.frame().vars.slice(), owner: this.owner(), at: at(x.site) });
+      } else if ("for" in n) {
+        for (const row of this.loopRows(this.frame().vars, this.owner(), n.for)) {
+          this.frame().vars.push(...row.bindings);
+          this.callsInto(n.for.body, at(`${n.for.site}[${row.key}]`), out);
+          this.truncate(here);
+        }
+      } else if ("if" in n) {
+        let done = false;
+        for (const b of n.if.branches) {
+          if (this.cond(b.when)) {
+            this.callsInto(b.then, key, out);
+            done = true;
+          }
+          this.truncate(here);
+          if (done) break;
+        }
+        if (!done) this.callsInto(n.if.else, key, out);
+      } else if ("match" in n) {
+        const v = this.eval(n.match.value);
+        let done = false;
+        for (const c of n.match.cases) {
+          if (this.patterns(c.when, v)) {
+            this.callsInto(c.then, key, out);
+            done = true;
+          }
+          this.truncate(here);
+          if (done) break;
+        }
+        if (!done) this.callsInto(n.match.else ?? [], key, out);
+      } else if ("declare" in n) {
+        // a `let` is seen by the nodes after it
+        this.bind(n.declare.let.name, { value: this.eval(n.declare.let.value) });
+      } else if ("place" in n) {
+        this.callsOf(this.eval(n.place.view), at(n.place.site), out);
+      }
+    }
+    this.truncate(depth);
+  }
+
+  private callsOf(v: Value, key: string, out: Value[]): void {
+    if (v.kind === "opt") {
+      if (v.value !== null) this.callsOf(v.value, key, out);
+    } else if (v.kind === "list") {
+      v.items.forEach((i, k) => this.callsOf(i.value, `${key}[${k}]`, out));
+    } else if (v.kind === "view") {
+      out.push(v.at === undefined ? { ...v, at: key } : v);
+    } else if (v.kind === "content") {
+      if ("parts" in v.of) v.of.parts.forEach((p, k) => this.callsOf(p, `${key}/j${k}`, out));
+      else out.push(...this.calls(v.of.nodes, v.of.captured, v.of.owner, v.of.at?.key ?? key));
+    }
+  }
+
+  /** A slot read as a value: a list slot is its calls, a widget's the one call it holds, and any
+   * other what it was filled with. */
+  slotValue(type: ir.Type | undefined, nodes: readonly ir.Node[], captured: readonly [string, Binding][], owner: number | undefined, at: { path: string; key: string }): Value {
+    // a filled `opt` slot is what it holds, as a plain value where an opt is wanted is
+    const ty = type?.name === "core/opt" ? type.args?.[0] : type;
+    switch (ty?.name) {
+      case "core/list":
+        return this.makeList(this.calls(nodes, captured, owner, at.key));
+      case undefined:
+      case "core/view":
+      case "core/rich_text":
+        return { kind: "content", of: { nodes, captured, owner, at }, blocks: false };
+      default:
+        return this.calls(nodes, captured, owner, at.key)[0] ?? V.none();
+    }
   }
 
   private bind(name: string, b: Binding): void {
@@ -958,8 +1052,14 @@ export class Machine {
         const field = this.caseFields(t.type, t.name)[0] ?? "value";
         return V.caseOf(t.type, t.name, [[field, v]]);
       }
-      case "rich":
-        return this.rich((e as { rich: ir.Rich }).rich);
+      case "rich": {
+        const x = (e as { rich: ir.Rich }).rich;
+        return { kind: "content", of: { nodes: x.nodes, captured: this.frame().vars.slice(), owner: this.owner() }, blocks: x.blocks === true };
+      }
+      case "sentence": {
+        const x = this.eval((e as { sentence: ir.Expr }).sentence);
+        return V.bool(!(x.kind === "content" && x.blocks));
+      }
       case "template":
         return this.template((e as { template: ir.ExprTemplate }).template);
       case "view": {
@@ -973,8 +1073,12 @@ export class Machine {
       }
       case "get":
         return this.get((e as { get: ir.Get }).get);
-      case "bind":
-        throw new Failure("NotConstant", `binding ${(e as { bind: string }).bind} is worked out when the page runs`);
+      case "bind": {
+        const id = (e as { bind: string }).bind;
+        const x = this.prog.bindings.get(id);
+        if (x === undefined) throw Failure.ir(`no binding ${id}`);
+        return this.eval(x);
+      }
       case "field": {
         const f = (e as { field: ir.ExprField }).field;
         const v = this.eval(f.value);
@@ -1424,7 +1528,28 @@ export class Machine {
       }
       return true;
     }
+    // the same calls, made in the same place with the same values around them
+    if (a.kind === "content" && b.kind === "content") {
+      if (a === b) return true;
+      if (a.blocks !== b.blocks) return false;
+      const [x, y] = [a.of, b.of];
+      if ("parts" in x) return "parts" in y && x.parts.length === y.parts.length && x.parts.every((p, k) => this.equal(p, y.parts[k]));
+      return !("parts" in y) && x.nodes === y.nodes && x.owner === y.owner && x.at?.path === y.at?.path && x.at?.key === y.at?.key && this.sameCaptured(x.captured, y.captured);
+    }
+    if (a.kind === "view" && b.kind === "view") {
+      if (a === b) return true;
+      if (a.widget !== b.widget || a.owner !== b.owner || a.exprs !== b.exprs || a.args.size !== b.args.size) return false;
+      for (const [k, v] of a.args) {
+        const w = b.args.get(k);
+        if (w === undefined || !this.equal(v, w)) return false;
+      }
+      return this.sameCaptured(a.captured, b.captured);
+    }
     return false;
+  }
+
+  private sameCaptured(a: readonly (readonly [string, Binding])[], b: readonly (readonly [string, Binding])[]): boolean {
+    return a === b || (a.length === b.length && a.every(([n, x], k) => n === b[k][0] && "value" in x && "value" in b[k][1] && this.equal(x.value, (b[k][1] as { value: Value }).value)));
   }
 
   /** `<`: numbers and texts by value, enums in the order written, anything else by `before`. */
@@ -1708,63 +1833,6 @@ export class Machine {
 
   // ---- prose values
 
-  private rich(r: ir.Rich): Value {
-    const segments: Value[] = [];
-    for (const seg of r.segments) {
-      const s = seg.segment;
-      const value = s.value !== undefined ? this.eval(s.value) : undefined;
-      let p: Value;
-      switch (s.part) {
-        case "TEXT":
-        case "CODE":
-          p = V.caseOf("core/part", s.part, [["value", value ?? V.text("")]]);
-          break;
-        case "MATH":
-          if (value === undefined) {
-            throw Failure.ir("maths with no TeX");
-          }
-          p = V.caseOf("core/part", "MATH", [["tex", value]]);
-          break;
-        case "NOTE":
-          p = V.caseOf("core/part", "NOTE", [["mark", value ?? V.text("")]]);
-          break;
-        case "VIEW":
-          if (value === undefined) {
-            throw Failure.ir("a view segment with no view");
-          }
-          p = V.caseOf("core/part", "VIEW", [["child", value]]);
-          break;
-        case "IMAGE": {
-          const src = s.src !== undefined ? this.eval(s.src) : V.text("");
-          const alt = s.alt !== undefined ? this.eval(s.alt) : V.text("");
-          p = V.caseOf("core/part", "IMAGE", [
-            ["src", src],
-            ["alt", alt],
-          ]);
-          break;
-        }
-        default:
-          p = V.caseOf("core/part", "BREAK");
-      }
-      const m = s.marks ?? {};
-      const link = m.link !== undefined ? V.some(this.eval(m.link)) : V.none();
-      const marks = V.record("core/marks", [
-        ["bold", V.bool(m.bold === true)],
-        ["italic", V.bool(m.italic === true)],
-        ["strike", V.bool(m.strike === true)],
-        ["link", link],
-      ]);
-      segments.push(
-        V.record("core/segment", [
-          ["part", p],
-          ["marks", marks],
-        ]),
-      );
-    }
-    const list = this.makeList(segments);
-    return V.record("core/rich_text", [["segments", list]]);
-  }
-
   private template(t: ir.ExprTemplate): Value {
     if (t.type.name === "core/text") {
       let out = "";
@@ -1782,7 +1850,7 @@ export class Machine {
     const holes: Value[] = [];
     for (const h of t.holes) {
       let v = this.eval(h);
-      const isView = v.kind === "view";
+      const isView = v.kind === "view" || v.kind === "content";
       if (!isView) {
         v = V.text(this.show(v));
       }

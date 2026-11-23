@@ -2,7 +2,7 @@
 
 Page 2 of 9. Records, enums, constant and mut, passing values, optional values, numbers, contracts and the proofs they need, and what a fn may change.
 
-Eight types are built in, because the syntax makes them: `number`, `bool`, `text`, `duration`, `list<T>`, `opt<T>`, `range<T>` and `view`. Everything else, from `int`, `point`, `date`, `moment`, `latex`, `md` and `template` to the token types, the options and `page`, is declared in `core`, the standard library, which is written in Extended Mark and imported by every file. Page 5 has all of it.
+Nine types are built in, because the syntax makes them: `number`, `bool`, `text`, `duration`, `list<T>`, `opt<T>`, `range<T>`, `view` and `rich_text`. Text that code works with is `text`, and Markdown is `rich_text`: there is no third. Everything else, from `int`, `point`, `date`, `moment`, `latex` and `template` to the token types, the options and `page`, is declared in `core`, the standard library, which is written in Extended Mark and imported by every file. Page 5 has all of it.
 
 A type is written in one of five forms.
 
@@ -98,7 +98,7 @@ fn mark(mut s: stat) {
 
 - **Every `let` and `mut` writes its type**, `if (let c: text = …)` and `if (mut x: todo = …)` included. Names bound by `for` and `case` take the type of what they walk or open, because they are not declarations: in `mut for (t in todos)`, `t` is an `opt<todo>`.
 - **A literal takes the type that is expected**: `stat { … }`, `[1, 2]` and `opt.NONE` are checked against the declared type. With nothing to aim for, as in `"\{42}"`, `42` is a `number`.
-- **A literal with holes** is an `opt` when one of its holes is (Optional values, below). A literal whose type's `from` would have to read a hole is a compile error that names the hole and says to build the record: `"2026-\{month}-01"` is no `date`, and `date { year = 2026, month = month, day = 1 }` is, with `month` proved to be an `int 1..12`. A hole is glued in as text and parsed again, so even a month of 7 would fail as `2026-7-01`. Holes stay in literals only where they are placed and never read: in `text`, `rich_text`, `md` and `latex` (page 4).
+- **A literal with holes** is an `opt` when one of its holes is (Optional values, below). A literal whose type's `from` would have to read a hole is a compile error that names the hole and says to build the record: `"2026-\{month}-01"` is no `date`, and `date { year = 2026, month = month, day = 1 }` is, with `month` proved to be an `int 1..12`. A hole is glued in as text and parsed again, so even a month of 7 would fail as `2026-7-01`. Holes stay in literals only where they are placed and never read: in `text`, `rich_text` and `latex` (page 4).
 - **A lambda's types may come from where it is used.** Passed to an input, a parameter or an event, or given to a `let` that writes its type, a lambda may leave out its parameter types and its return type: `fn(p) { return p.nick; }`. Anywhere else it writes them all. Writing them is always allowed.
 
 ### Passing values

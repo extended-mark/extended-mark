@@ -24,7 +24,6 @@ let check_region: bool = region { from = point { x = 0, y = 0 }, to = point { x 
 let check_middle: bool = region { from = point { x = 0, y = 0 }, to = point { x = 2, y = 4 } }.middle() == point { x = 1, y = 2 };
 
 let check_map: bool = lookup.get("b").or(0) == 2 && lookup.get("z") == opt.NONE && lookup.has("a") && lookup.keys() == ["a", "b"];
-let check_plain: bool = rich_text.plain("x").show() == "x";
 let check_template: bool = template.of("x").pieces == ["x"];
 
 let check_latex: bool = latex.from(template.of("x^2")) != opt.NONE && latex.from(template.of("x^")) == opt.NONE;

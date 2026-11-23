@@ -1,15 +1,15 @@
 //! CommonMark's and GitHub's spec examples, compiled as Extended Mark documents and compared as blocks.
 //!
 //! Each example's Markdown is a document of its own: the compiler splits its blocks, and core's
-//! `rich_text.read`, written in Extended Mark, reads each block's inline Markdown. The page that results
+//! `md_inline`, written in Extended Mark, reads each block's inline Markdown. The page that results
 //! is compared with the spec's own HTML, both read into the same blocks: what a block is, and
 //! each run of text with its marks. Examples where Extended Mark reads Markdown its own way (raw HTML is
 //! text; `\{`, `$…$`, `@name` and `}` lines are Extended Mark's) are compared with the reading written
 //! in checks/commonmark/xtmd-readings.json, each with its reason.
 //!
-//! Each example is also read by core's `md.from`, run in the evaluator, which reads Markdown as
+//! Each example is also read by core's `md_read`, run in the evaluator, which reads Markdown as
 //! data (no holes, calls or front matter): the same expectations, except readings marked
-//! `"only": "prose"`, and its own reading under an `md.from:` key where it has one.
+//! `"only": "prose"`, and its own reading under an `md_read:` key where it has one.
 
 use xtmd_check::{compile_core, compile_on, Source};
 use xtmd_ir::ir;
@@ -36,16 +36,32 @@ fn text_of(e: &ir::Expr) -> String {
     }
 }
 
+/// The marks around a run of words.
+#[derive(Clone, Default)]
+struct Around {
+    bold: bool,
+    italic: bool,
+    strike: bool,
+    link: Option<String>,
+}
+
 fn inlines_of_rich(e: &ir::Expr) -> Vec<Value> {
     let ir::Expr::Rich(r) = e else { return vec![json!({"text": {"value": "<not rich>"}})] };
     let mut out = Vec::new();
-    for s in &r.segments {
-        let s = &s.segment;
-        let v = s.value.as_ref().map(text_of).unwrap_or_default();
-        let m = s.marks.clone().unwrap_or(ir::Marks { bold: false, italic: false, strike: false, link: None });
-        out.push(match s.part {
-            ir::SegmentSegmentPart::Text => {
-                let mut t = json!({"value": v});
+    runs(&r.nodes, &Around::default(), &mut out);
+    normalize_inlines(out)
+}
+
+fn runs(nodes: &[ir::Node], m: &Around, out: &mut Vec<Value>) {
+    for n in nodes {
+        let ir::Node::Extern(e) = n else {
+            out.push(json!({"view": {}}));
+            continue;
+        };
+        let p = |k: &str| e.props.get(k).map(text_of).unwrap_or_default();
+        match e.name.as_str() {
+            "core/words" => {
+                let mut t = json!({"value": p("value")});
                 if m.bold {
                     t["bold"] = json!(true);
                 }
@@ -56,19 +72,28 @@ fn inlines_of_rich(e: &ir::Expr) -> Vec<Value> {
                     t["strike"] = json!(true);
                 }
                 if let Some(l) = &m.link {
-                    t["link"] = json!(encode_url(&text_of(l)));
+                    t["link"] = json!(encode_url(l));
                 }
-                json!({"text": t})
+                out.push(json!({"text": t}));
             }
-            ir::SegmentSegmentPart::Code => json!({"code": v}),
-            ir::SegmentSegmentPart::Math => json!({"math": "tex"}),
-            ir::SegmentSegmentPart::Image => json!({"image": {"src": encode_url(&s.src.as_ref().map(text_of).unwrap_or_default()), "alt": s.alt.as_ref().map(text_of).unwrap_or_default()}}),
-            ir::SegmentSegmentPart::Note => json!({"note": v}),
-            ir::SegmentSegmentPart::Break => json!({"break": {}}),
-            ir::SegmentSegmentPart::View => json!({"view": {}}),
-        });
+            "core/code_span" => out.push(json!({"code": p("src")})),
+            "core/inline_math" => out.push(json!({"math": "tex"})),
+            "core/inline_image" => out.push(json!({"image": {"src": encode_url(&p("src")), "alt": p("alt")}})),
+            "core/note_mark" => out.push(json!({"note": p("mark")})),
+            "core/line_break" => out.push(json!({"break": {}})),
+            "core/bold" | "core/italic" | "core/strike" | "core/link" => {
+                let mut m = m.clone();
+                match e.name.as_str() {
+                    "core/bold" => m.bold = true,
+                    "core/italic" => m.italic = true,
+                    "core/strike" => m.strike = true,
+                    _ => m.link = Some(p("to")),
+                }
+                runs(e.slots.get("body").map_or(&[], Vec::as_slice), &m, out);
+            }
+            _ => out.push(json!({"view": {}})),
+        }
     }
-    normalize_inlines(out)
 }
 
 fn blocks_of_nodes(nodes: &[ir::Node]) -> Vec<Value> {
@@ -507,7 +532,7 @@ fn normalize_inlines(v: Vec<Value>) -> Vec<Value> {
     out
 }
 
-// ---- core's md.from, run in the evaluator
+// ---- core's md_read, run in the evaluator
 
 fn field<'a>(v: &'a xtmd_eval::Value, name: &str) -> Option<&'a xtmd_eval::Value> {
     match v {
@@ -540,7 +565,7 @@ fn list_items(v: Option<&xtmd_eval::Value>) -> Vec<xtmd_eval::Value> {
 
 fn inlines_of_value(v: &xtmd_eval::Value) -> Vec<Value> {
     let mut out = Vec::new();
-    for seg in list_items(field(v, "segments")) {
+    for seg in list_items(Some(v)) {
         let Some(xtmd_eval::Value::Case(part)) = field(&seg, "part") else { continue };
         let marks = field(&seg, "marks");
         let flag = |n: &str| matches!(marks.and_then(|m| field(m, n)), Some(xtmd_eval::Value::Bool(true)));
@@ -583,8 +608,8 @@ fn blocks_of_value(blocks: Vec<xtmd_eval::Value>) -> Vec<Value> {
         let xtmd_eval::Value::Case(c) = &b else { continue };
         let get = |n: &str| case_value(&b, n);
         out.push(match &*c.name {
-            "PARAGRAPH" => json!({"paragraph": get("value").map(inlines_of_value).unwrap_or_default()}),
-            "HEADING" => json!({"heading": {"level": text_value(get("level")).parse::<i64>().unwrap_or(0), "inline": get("value").map(inlines_of_value).unwrap_or_default()}}),
+            "PARAGRAPH" => json!({"paragraph": get("words").map(inlines_of_value).unwrap_or_default()}),
+            "HEADING" => json!({"heading": {"level": text_value(get("level")).parse::<i64>().unwrap_or(0), "inline": get("words").map(inlines_of_value).unwrap_or_default()}}),
             "BULLETS" => {
                 let ordered = matches!(get("ordered"), Some(xtmd_eval::Value::Bool(true)));
                 let items: Vec<Value> = list_items(get("items"))
@@ -620,7 +645,7 @@ fn blocks_of_value(blocks: Vec<xtmd_eval::Value>) -> Vec<Value> {
     out
 }
 
-/// An example's Markdown read by core's md.from, as a reader's text would be.
+/// An example's Markdown read by core's md_read, as a reader's text would be.
 fn read_md(prog: &xtmd_eval::Program, md: &str) -> Value {
     use xtmd_eval::{interp::Constants, Binding, Machine, Value as V};
     use std::rc::Rc;
@@ -628,9 +653,9 @@ fn read_md(prog: &xtmd_eval::Program, md: &str) -> Value {
     let pieces = m.make_list(vec![V::text(md)]).unwrap();
     let holes = m.make_list(vec![]).unwrap();
     let tpl = V::Record(Rc::new(xtmd_eval::value::Record { ty: Rc::from("core/template"), fields: vec![(Rc::from("pieces"), pieces), (Rc::from("holes"), holes)] }));
-    match m.call("core/md.from", vec![Binding::Value(tpl)]) {
-        Ok(Some(V::Opt(Some(v)))) => json!(blocks_of_value(list_items(field(&v, "blocks")))),
-        Ok(_) => json!({"errors": ["md.from gave opt.NONE"]}),
+    match m.call("core/md_read", vec![Binding::Value(tpl)]) {
+        Ok(Some(V::Opt(Some(v)))) => json!(blocks_of_value(list_items(Some(&v)))),
+        Ok(_) => json!({"errors": ["md_read gave opt.NONE"]}),
         Err(f) => json!({"errors": [f.message]}),
     }
 }
@@ -660,11 +685,11 @@ fn run(file: &str, base: &xtmd_check::Checker, readings: &Value, through_md: Opt
         let md = ex["markdown"].as_str().unwrap();
         let key = format!("{}#{}", file, n);
         let html = github.get(md).cloned().unwrap_or_else(|| ex["html"].as_str().unwrap().to_string());
-        // a reading of Extended Mark's own syntax applies to prose only: md.from reads plain Markdown, and
-        // has its own reading under `md.from:` where it too differs from CommonMark
+        // a reading of Extended Mark's own syntax applies to prose only: md_read reads plain Markdown, and
+        // has its own reading under `md_read:` where it too differs from CommonMark
         let reading = match through_md {
             None => readings.get(&key),
-            Some(_) => readings.get(&format!("md.from:{}", key)).or_else(|| readings.get(&key).filter(|r| r["only"].as_str() != Some("prose"))),
+            Some(_) => readings.get(&format!("md_read:{}", key)).or_else(|| readings.get(&key).filter(|r| r["only"].as_str() != Some("prose"))),
         };
         let expected: Value = match reading {
             Some(r) => r["blocks"].clone(),
@@ -712,7 +737,7 @@ fn commonmark_and_github_examples() {
     let prog = b.program();
     for (file, through) in [("commonmark-0.31.2.json", None), ("gfm-0.29.json", None), ("commonmark-0.31.2.json", Some(&prog)), ("gfm-0.29.json", Some(&prog))] {
         let o = run(file, &base, &readings, through);
-        let label = if through.is_some() { format!("md.from {}", file) } else { format!("prose {}", file) };
+        let label = if through.is_some() { format!("md_read {}", file) } else { format!("prose {}", file) };
         report.push_str(&format!("{}: {} pass, {} fail\n", label, o.passed, o.failed.len()));
         for (n, sec, want, got) in &o.failed {
             report.push_str(&format!("  #{} ({})\n    want {}\n    got  {}\n", n, sec, want, got));

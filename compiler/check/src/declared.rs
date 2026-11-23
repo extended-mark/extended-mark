@@ -70,7 +70,7 @@ impl Checker {
             self.check_type_params(d);
             // a slot or a view held in an input can't take a visible widget's name
             if let DefKind::Widget { slots, inputs, .. } = &def.kind {
-                let named: Vec<(String, bool)> = slots.iter().map(|s| (s.name.clone(), true)).chain(inputs.iter().map(|i| (i.name.clone(), self.is_view_type(&i.ty)))).collect();
+                let named: Vec<(String, bool)> = slots.iter().map(|s| (s.name.clone(), true)).chain(inputs.iter().map(|i| (i.name.clone(), self.is_view_type(&i.ty) && self.vars.resolve(&i.ty) != Ty::Rich))).collect();
                 for (name, is_view) in named {
                     if is_view {
                         self.check_view_name(def.file, &name, def.span);
@@ -298,7 +298,7 @@ impl Checker {
             Ty::Num | Ty::Dur | Ty::Text | Ty::Bool | Ty::Err | Ty::Param(_) | Ty::Var(_) => true,
             Ty::List(x) | Ty::Opt(x) | Ty::Range(x) => self.compares(&x, same),
             Ty::Inline(fields) => fields.iter().all(|(_, t)| self.compares(t, same)),
-            Ty::Fn(..) | Ty::View => false,
+            Ty::Fn(..) | Ty::View | Ty::Rich => false,
             t => match same {
                 Some(s) => self.fits(&t, s, &[], &[]),
                 None => true,
@@ -337,7 +337,7 @@ impl Checker {
     pub(crate) fn check_comparable(&mut self, cx: &crate::body::Cx, t: &Ty, iface: &str, op: xtmd_syntax::ast::BinOp, span: Span) {
         let t = self.vars.resolve(t);
         let never = match &t {
-            Ty::View | Ty::Fn(..) => true,
+            Ty::View | Ty::Rich | Ty::Fn(..) => true,
             Ty::Def(d, _) => matches!(self.defs[*d].kind, DefKind::Widget { .. }),
             Ty::Any(d, _) => matches!(self.defs[*d].kind, DefKind::Interface { widget: true, .. }),
             _ => false,
@@ -383,7 +383,7 @@ impl Checker {
         };
         // a view: `view`, a widget, `any` of a widget interface, or a parameter bounded by one
         let view = match &t {
-            Ty::View => true,
+            Ty::View | Ty::Rich => true,
             Ty::Def(d, _) => matches!(self.defs[*d].kind, DefKind::Widget { .. }),
             Ty::Any(d, _) => matches!(self.defs[*d].kind, DefKind::Interface { widget: true, .. }),
             _ => false,
@@ -392,10 +392,6 @@ impl Checker {
             if !views_go {
                 self.error(cx.file, codes::VIEW_IN_TEXT, span, "a `text` can't hold a view: place it with `@`, or put it in prose or a `rich_text`, where a view goes in a sentence");
             }
-            return;
-        }
-        // an md holds blocks: reported on its own
-        if matches!(&t, Ty::Def(d, _) if self.defs[*d].full == "core/md") {
             return;
         }
         let shown = self.core_iface("shown");

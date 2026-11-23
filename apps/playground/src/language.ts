@@ -22,7 +22,7 @@ const keywords = [
 // core's own types, coloured as types wherever they are named
 const coreTypes = [
   "int", "number", "text", "bool", "list", "opt", "map", "date", "moment", "duration", "range", "view", "point",
-  "region", "size", "space", "color", "radius", "font", "shadow", "stroke", "template", "md", "rich_text", "latex",
+  "region", "size", "space", "color", "radius", "font", "shadow", "stroke", "template", "rich_text", "latex",
 ];
 
 const ident = /[a-z_][a-z0-9_]*/;

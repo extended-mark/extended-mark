@@ -1,4 +1,4 @@
-//! Our default egui widgets, by full name: every core extern, and the runtime's notice. A host's
+//! Our default egui widgets, by full name: every core extern, and what is drawn where one failed. A host's
 //! own, given to [`crate::XtmdPage::widget`], replace them by name.
 //!
 //! Each draws the way egui draws, with the roles, names and states a screen reader needs in
@@ -21,7 +21,7 @@ fn stateless(r: &mut Registry, name: &str, f: Draw) {
     r.set(name, move || f);
 }
 
-/// Our widgets for every core extern widget, and `#notice`.
+/// Our widgets for every core extern widget.
 pub fn defaults() -> Registry {
     let mut r = Registry::empty();
     stateless(&mut r, "core/paragraph", blocks::paragraph);
@@ -54,6 +54,8 @@ pub fn defaults() -> Registry {
     r.set("core/shade", gfx::Shade::default);
     r.set("core/plane", plane::Plane::default);
     r.set("core/spot", plane::Spot::default);
-    stateless(&mut r, "#notice", notice::widget);
+    for name in ["words", "bold", "italic", "strike", "link", "code_span", "inline_math", "inline_image", "note_mark", "line_break"] {
+        stateless(&mut r, &format!("core/{}", name), blocks::words);
+    }
     r
 }

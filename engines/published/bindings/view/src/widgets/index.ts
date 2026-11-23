@@ -7,6 +7,7 @@ import { field, icon, image, label, overlay, press, slider } from "./controls.js
 import { canvas, circle, handle, layer, path, place, shade } from "./gfx.js";
 import { cell, flex, grid, sizing } from "./layout.js";
 import { plane, spot } from "./plane.js";
+import { bold, codeSpan, inlineImage, inlineMath, italic, lineBreak, link, noteMark, strike, words } from "./rich.js";
 
 export const widgets: Record<string, ViewWidget> = {
   "core/paragraph": paragraph,
@@ -19,6 +20,16 @@ export const widgets: Record<string, ViewWidget> = {
   "core/table": table,
   "core/footnote": footnote,
   "core/divider": divider,
+  "core/words": words,
+  "core/bold": bold,
+  "core/italic": italic,
+  "core/strike": strike,
+  "core/link": link,
+  "core/code_span": codeSpan,
+  "core/inline_math": inlineMath,
+  "core/inline_image": inlineImage,
+  "core/note_mark": noteMark,
+  "core/line_break": lineBreak,
   "core/label": label,
   "core/image": image,
   "core/icon": icon,

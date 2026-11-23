@@ -40,7 +40,7 @@ anywhere.
 
 ## The vscode engine
 
-The preview is an engine like any other: core's 30 extern widgets, drawn by
+The preview is an engine like any other: core's 40 extern widgets, drawn by
 `src/webview/widgets.ts` as VS Code draws its own UI. press is VS Code's button, checkbox, radio,
 toggle, tab or list option; field its input box; slider, overlay and label in its colours; icon a
 codicon. Markdown's blocks look as VS Code's Markdown preview draws them. The widgets keep the web

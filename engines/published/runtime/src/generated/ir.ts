@@ -171,6 +171,7 @@ export type Expr =
   | { token: string }
   | { tokval: ExprTokval }
   | { rich: Rich }
+  | { sentence: Expr }
   | { template: ExprTemplate }
   | { view: ViewValue }
   | { get: Get }
@@ -319,13 +320,6 @@ export interface Local {
   value: Expr;
 }
 
-export interface Marks {
-  bold?: boolean;
-  italic?: boolean;
-  link?: Expr;
-  strike?: boolean;
-}
-
 /** One build: the document (or pack) with the parts of core and of the given packs it uses, checked and lowered, ready to run. */
 export interface Module {
   bindings: Binding[];
@@ -424,6 +418,8 @@ export interface NodeMatch {
 
 /** A view value or a slot, drawn here. */
 export interface NodePlace {
+  /** It goes in a sentence, so a rich_text placed here is one: blocks are a failure. */
+  sentence?: boolean;
   site: string;
   view: Expr;
 }
@@ -489,8 +485,10 @@ export interface Require {
   warn?: boolean;
 }
 
+/** A rich_text: calls, as a value. A sentence's are drawn among words; `blocks` says they are blocks instead. */
 export interface Rich {
-  segments: Segment[];
+  blocks?: boolean;
+  nodes: Node[];
 }
 
 export type Root =
@@ -498,21 +496,6 @@ export type Root =
   | { input: string }
   | { cell: string }
   | { "$state": string };
-
-export type SegmentSegmentPart = "TEXT" | "CODE" | "MATH" | "IMAGE" | "NOTE" | "BREAK" | "VIEW";
-
-export interface SegmentSegment {
-  alt?: Expr;
-  marks?: Marks;
-  part: SegmentSegmentPart;
-  src?: Expr;
-  /** TEXT and CODE: the text; MATH: the `core/latex`; NOTE: the mark; VIEW: the view. */
-  value?: Expr;
-}
-
-export interface Segment {
-  segment: SegmentSegment;
-}
 
 export interface Slot {
   name: string;

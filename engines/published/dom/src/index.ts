@@ -3,4 +3,5 @@
 
 export { mount, run } from "./mount.js";
 export { widgets } from "./widgets/index.js";
+export { notice } from "./widgets/notice.js";
 export type { Action, Drawn, Measure, Mounted, MountOptions, Page, PageOptions, Value, Widget, WidgetContext, WidgetView, ir } from "./api.js";

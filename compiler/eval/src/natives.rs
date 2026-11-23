@@ -23,6 +23,7 @@ pub const NATIVES: &[&str] = &[
     "core/text.len", "core/text.slice", "core/text.chars", "core/text.lower", "core/text.upper", "core/text.trim", "core/text.has", "core/text.split", "core/text.number",
     "core/ordered.clamp",
     "core/text.of_code",
+    "core/md_parts", "core/md_blocks",
 ];
 
 /// core's bodyless `extern fn`s that only an engine can supply, from what it runs on (page 5,
@@ -297,6 +298,15 @@ fn run(m: &mut Machine, name: &str, a: &[Binding]) -> R<Value> {
                 Some(c) => Value::some(Value::text(&c.to_string())),
                 None => Value::none(),
             }
+        }
+        "md_parts" => {
+            let parts: Vec<Value> = list(m, a, 0)?.items.iter().map(|i| i.value.clone()).collect();
+            let blocks = parts.iter().any(|p| matches!(p, Value::Content(c) if c.blocks));
+            Value::Content(Rc::new(Content { of: ContentOf::Parts(parts), blocks }))
+        }
+        "md_blocks" => {
+            let view = m.value_of(&a[0])?;
+            Value::Content(Rc::new(Content { of: ContentOf::Parts(vec![view]), blocks: true }))
         }
         "ordered.clamp" => {
             let x = m.value_of(&a[0])?;

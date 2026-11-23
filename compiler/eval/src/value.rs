@@ -9,6 +9,7 @@ use crate::num::Num;
 use xtmd_ir::ir::{Expr, Node, Param, Stmt};
 use std::collections::BTreeMap;
 use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -25,6 +26,8 @@ pub enum Value {
     Range(Rc<RangeValue>),
     Fn(Rc<Closure>),
     View(Rc<ViewValue>),
+    /// Calls held as a value: a `rich_text`, or what a slot was filled with.
+    Content(Rc<Content>),
 }
 
 #[derive(Clone, Debug)]
@@ -92,6 +95,33 @@ pub struct ViewValue {
     pub captured: Vec<(Rc<str>, crate::interp::Binding)>,
     /// The widget instance it was made in, for its cells and inputs.
     pub owner: Option<u64>,
+    /// Who it is on the page, for a call of a slot: where its caller wrote it, not where it is placed.
+    pub at: Option<Rc<str>>,
+}
+
+/// Calls held as a value, drawn where they are placed.
+#[derive(Debug)]
+pub struct Content {
+    pub of: ContentOf,
+    /// Blocks, and not a sentence.
+    pub blocks: bool,
+}
+
+#[derive(Debug)]
+pub enum ContentOf {
+    Nodes {
+        nodes: Arc<Vec<Node>>,
+        /// The locals where it was made, which its nodes read.
+        captured: Vec<(Rc<str>, crate::interp::Binding)>,
+        /// The widget instance it was made in.
+        owner: Option<u64>,
+        /// Where its nodes are on the page, for a slot's: its caller's place, not where it is placed.
+        at: Option<(Rc<str>, Rc<str>)>,
+    },
+    /// Others one after another: rich_texts, or views.
+    Parts(Vec<Value>),
+    /// Drawn, by a runtime: which of the drawn widget's it is.
+    Drawn(usize),
 }
 
 impl Value {
@@ -153,6 +183,7 @@ impl Value {
             Value::Range(_) => "core/range",
             Value::Fn(_) => "fn",
             Value::View(_) => "core/view",
+            Value::Content(_) => "core/rich_text",
         }
     }
 
@@ -188,6 +219,28 @@ impl Value {
                 slots: v.slots.clone(),
                 events: v.events.clone(),
             }),
+            Value::Content(c) => {
+                let nodes = match &c.of {
+                    ContentOf::Nodes { nodes, captured, .. } => {
+                        // the locals it was made with, declared in front of it
+                        let mut out: Vec<Node> = captured
+                            .iter()
+                            .filter_map(|(n, b)| match b {
+                                crate::interp::Binding::Value(v) => Some(Node::Declare(xtmd_ir::ir::NodeDeclare { let_: xtmd_ir::ir::Local { name: n.to_string(), ty: xtmd_ir::ir::Type::named(v.type_name()), value: v.to_ir() } })),
+                                _ => None,
+                            })
+                            .collect();
+                        if out.is_empty() {
+                            return Expr::Rich(xtmd_ir::ir::Rich { blocks: c.blocks, nodes: nodes.clone() });
+                        }
+                        out.extend(nodes.iter().cloned());
+                        out
+                    }
+                    ContentOf::Drawn(_) => Vec::new(),
+                    ContentOf::Parts(parts) => parts.iter().enumerate().map(|(k, v)| Node::Place(xtmd_ir::ir::NodePlace { sentence: !c.blocks, site: format!("j{}", k), view: v.to_ir() })).collect(),
+                };
+                Expr::Rich(xtmd_ir::ir::Rich { blocks: c.blocks, nodes: Arc::new(nodes) })
+            }
         }
     }
 }

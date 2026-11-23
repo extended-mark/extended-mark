@@ -23,13 +23,12 @@ fun Val?.field(name: String): Val? = when (val v = inner()) {
     else -> null
 }
 
-/** A text, a number's or a bool's words; a rich_text's or a template's words; else "". */
+/** A text, a number's or a bool's words; a template's words; else "". */
 fun Val?.str(): String = when (val v = inner()) {
     is Val.Text -> v.s
     is Val.Num -> v.n
     is Val.Bool -> v.b.toString()
     is Val.Record -> when (v.ty) {
-        "core/rich_text" -> richWords(v)
         "core/template" -> templateText(v)
         "core/latex" -> templateText(v.field("tex"))
         else -> ""
@@ -72,18 +71,6 @@ fun templateText(v: Val?): String {
     val pieces = v.field("pieces").items()
     val holes = v.field("holes").items()
     return pieces.mapIndexed { k, p -> p.str() + (holes.getOrNull(k)?.let { it.field("value").str() } ?: "") }.joinToString("")
-}
-
-private fun richWords(v: Val): String = v.field("segments").items().joinToString("") { seg ->
-    val part = seg.field("part")
-    when (part.case()) {
-        "TEXT", "CODE" -> part.field("value").str()
-        "MATH" -> templateText(part.field("tex").field("tex"))
-        "IMAGE" -> part.field("alt").str()
-        "NOTE" -> part.field("mark").str()
-        "BREAK" -> "\n"
-        else -> ""
-    }
 }
 
 /** A point's x and y, in its own units. */

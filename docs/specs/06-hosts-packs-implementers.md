@@ -30,7 +30,7 @@ tokens brand {
 
 - **`import kit;`** makes every name `kit` provides usable in the file. **`import kit.stats;`** brings in that one name, and **`import kit.stats as kit_stats;`** brings it in under another name.
 - **Fns added to a type, and the token cases a pack gives values to,** come with the pack: importing any of it brings them in. `as` renames a fn added to a type too: `import b.slug as b_slug;` brings `b`'s `text.slug` in as `text.b_slug`.
-- **A clash** between two imported names, two fns with one name on one type, or an import and a declaration in the file, is a compile error on the import. Import the single names you need, or rename one with `as`. Names are never written with their pack in front.
+- **A clash** between two imported names, two fns with one name on one type, or an import and a declaration in the file, is a compile error on the import. Core's names are no clash: a name the file imports or declares hides core's. Import the single names you need, or rename one with `as`. Names are never written with their pack in front.
 - **A pack has no state.** It holds no variables outside its widgets and no `expose` block: those belong to a document (below). Its widgets share values through `mut` inputs.
 - **A document** has no `package` line and no `pack` block. It imports above its `@@@` line and writes no versions: `import kit;`. Whoever builds the page decides which version of each pack it gets, by the packs it builds it with.
 - **`@` followed by a digit** names a version, and never starts a view, because a view's `@` is always followed by a name.
@@ -253,7 +253,7 @@ extern widget jump(to: opt<view>, label: text) {
 | Level | What the engine can do | What needs it |
 |---|---|---|
 | Markdown only | Compile, and write every widget's Markdown | Nothing more. Every widget has a markdown block, perhaps an empty one, or is a Markdown block, so this always works |
-| `core.draw` | Draw the 23 extern widgets of `core.draw`, Markdown's own blocks, `plane` and `spot` among them, glyphs, tokens and page values. The other base widgets are written in Extended Mark on top of them | Every widget |
+| `core.draw` | Draw the 33 extern widgets of `core.draw`, Markdown's own blocks and what its sentences are made of, `plane` and `spot` among them, glyphs, tokens and page values. The other base widgets are written in Extended Mark on top of them | Every widget |
 | `core.live` | Hold variables and change `$state`, run events and redraw, and move a plane as the reader drags, pinches or scrolls | A call that has variables of its own, gives a variable to a `mut` input, or sets an event to a handler that can change something (one that assigns a variable, calls an extern action, or invokes an event its own caller set), or that places one that does. An event that is declared but never set needs nothing. Without `core.live`, `$state` keeps its starting values and never changes, and a plane is drawn where its centre puts it and doesn't move |
 | `core.gfx` | Draw its 7 widgets: a `canvas`, and the `layer`s of `circle`s, `path`s, `place`d widgets, `handle`s and `shade`s that go on a canvas or on a plane's background | Those widgets, so a plane with a background too, and any pack's extern widget that `uses core.gfx` |
 | `core.motion` | A reserved name for timed controls | Nothing in this spec. See page 8 |

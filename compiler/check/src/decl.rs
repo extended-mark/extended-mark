@@ -302,6 +302,7 @@ impl Checker {
                         "text" => Ty::Text,
                         "duration" => Ty::Dur,
                         "view" => Ty::View,
+                        "rich_text" => Ty::Rich,
                         "list" => Ty::list(one()),
                         "opt" => Ty::opt(one()),
                         "range" => Ty::Range(Box::new(one())),

@@ -10,7 +10,7 @@ Only the syntax is built in: literals, operators, holes, prose and `@`. A number
 | Interfaces in core | **6** (shown, same, ordered, numeric, scaled, literal&lt;T>) |
 | Native fns in core | **61** |
 | core fns written in Extended Mark | **30** |
-| Base widgets | **43** (23 extern, 7 more in core.gfx, 13 written in Extended Mark) |
+| Base widgets | **52** (33 extern, 7 more in core.gfx, 12 written in Extended Mark) |
 
 ### Built in
 
@@ -461,91 +461,9 @@ extern fn can_draw_tex(tex: template): bool {
     return true;
 }
 
-//@about Markdown blocks, parsed by core when the value is made. @blocks draws them.
-record md implements literal<template> {
-    blocks: list<block>;
-}
-
-//@about One Markdown block, as md holds it. Each case is drawn by the extern block of its kind.
-enum block {
-    PARAGRAPH(value: rich_text),
-    HEADING(level: int 1..6, value: rich_text),
-    BULLETS(ordered: bool, start: int 0..., items: list<list_item>[1...]),
-    QUOTE(body: list<block>),
-    CODE(src: text, lang: text),
-    MATH(tex: latex),
-    TABLE(head: list<rich_text>[1...], rows: list<list<rich_text>>, align: list<cell_align>),
-    FOOTNOTE(mark: text, body: list<block>),
-    DIVIDER,
-}
-
-//@about One item of a list in md. done is a task box: ticked, not ticked, or none for an ordinary item.
-record list_item {
-    done: opt<bool> = opt.NONE;
-    body: list<block>;
-}
-
-//@about Inline Markdown as segments, parsed by core's rich_text.from: from prose, or from a text literal where rich_text is wanted.
-record rich_text implements literal<template>, shown {
-    segments: list<segment>;
-}
-
-//@about A part of a sentence and how it is marked.
-record segment {
-    part: part;
-    marks: marks = marks { };
-}
-
-//@about What a segment holds. A hole's value is TEXT, or VIEW for a widget, so a value never becomes formatting.
-enum part {
-    TEXT(value: text),
-    CODE(value: text),                          // a code span
-    MATH(tex: latex),                           // $x^2$
-    IMAGE(src: text, alt: text),                // ![alt](src)
-    NOTE(mark: text),                           // [^1], the mark of a footnote
-    BREAK,                                      // a hard line break
-    VIEW(child: view),                          // \{@icon(…)} in a sentence
-}
-
-//@about How a segment is marked. A link is a mark, so bold words inside a link are one segment.
-record marks {
-    bold: bool = false;
-    italic: bool = false;
-    strike: bool = false;
-    link: opt<text> = opt.NONE;
-}
-
-//@about Text from a value, as one plain segment: nothing in it is read as Markdown.
+//@about Text from a value, as one plain sentence: nothing in it is read as Markdown.
 fn rich_text.plain(value: text): rich_text {
-    return rich_text { segments = [segment { part = part.TEXT(value) }] };
-}
-
-//@about The words, without their marks.
-fn rich_text.show(self): text {
-    return self.segments.map(fn(s) { return s.part.words(); }).join("");
-}
-
-fn part.words(self): text {
-    match (self) {
-        case part.TEXT(v) {
-            return v;
-        }
-        case part.CODE(v) {
-            return v;
-        }
-        case part.MATH(m) {
-            return m.show();
-        }
-        case part.IMAGE(src, alt) {
-            return alt;
-        }
-        case part.BREAK {
-            return " ";
-        }
-        case else {
-            return "";
-        }
-    }
+    return "\{value}";
 }
 
 // TeX as tokens: a command (\frac, \{, \\), one character, or a hole, which is the one token "hole".
@@ -772,23 +690,21 @@ fn ordered.max(self, other: self): self {
 }
 ```
 
-`map`, `date`, `moment`, `template`, `latex`, `md` and `rich_text` are ordinary records written in Extended Mark, not extern: nothing about them needs the implementer.
+`map`, `date`, `moment`, `template` and `latex` are ordinary records written in Extended Mark, not extern: nothing about them needs the implementer.
 
 - **Dates and moments** fit `literal<text>`, like `email` on page 4, so `"2026-11-10"` is checked where it is written. Their fields mirror the text, so each simple limit is a field contract, proved like any other, and only a rule across fields, that the day fits its month, is a `require`. `from` only cuts the text and checks its separators, and a reader's text goes through it by name: `date.from(entry)` is an `opt<date>`. A date literal with a hole is a compile error that says to build the record: `date { year = 2026, month = month, day = 1 }`. `plus` stops at the ends of the calendar, 0001-01-01 and 9999-12-31.
 - **Offsets, not zones.** `moment` always carries its offset; named zones and daylight saving are left out, and authors write offsets. The current time is `page.now`, which the host updates, because drawing can't ask what time it is. `local()` is an extern fn: it shows a moment in the reader's own zone, with the offset that zone uses on that date, from the platform's zone rules. Two moments are equal when they are the same instant, because `moment`'s own `same` replaces the field-by-field one.
-- **Holes stay values.** `rich_text`, `md` and `latex` fit `literal<template>`: a literal, holes and all, reaches their `from` as a `template`, and each hole is placed as a value, never read, so it can't become formatting or TeX.
-- **Markdown is parsed by core**, in Extended Mark, as any pack could: CommonMark, with GitHub's tables, task lists, strikethrough, footnotes and bare links. No implementer parses it. The parser is long and follows those two specs, so this page gives its two entry points as signatures, below. `md.from` may also be called by name: `md.from(template.of(entry))` reads what a reader typed as Markdown, and `@blocks(value = …)` draws it.
+- **Holes stay values.** `latex` fits `literal<template>`: a literal, holes and all, reaches its `from` as a `template`, and each hole is placed as a value, never read, so it can't become TeX. A hole of a `rich_text` is placed the same way, as words or a view.
+- **`rich_text` is calls.** It is built in, and a view: a list of calls, a sentence's or blocks', made by a literal or by `rich_text.from`. A literal is read when the page is compiled, so the page holds its calls. It is placed like any view, given to an input or a slot of type `rich_text`, returned, kept in a record or a `let`. It has no fields, can't be compared, measured or put in a `text`, and can't be kept in `$state` or a widget's own variable, which hold data: keep the text, and make the calls where they are placed.
+- **A sentence or blocks.** One paragraph is a sentence, and anything else is blocks. Placed on its own, a sentence is a paragraph. Where only a sentence fits, in a paragraph, a heading, a table's cell, `bold` and its like, or among the words around a hole, blocks are an error when they are written there, and otherwise a failure of that widget.
+- **Markdown is parsed by core**, in Extended Mark, as any pack could: CommonMark, with GitHub's tables, task lists, strikethrough, footnotes and bare links. No implementer parses it. The parser is long and follows those two specs, so this page gives its entry point as a signature, below. `rich_text.from(template.of(entry))` reads what a reader typed as Markdown, and `rich_text.plain(entry)` keeps it as words.
 - **TeX** is checked by `latex`'s seven `require` blocks, written in Extended Mark, each counting a hole as one token. An eighth asks `can_draw_tex`, an extern fn whose body is the default and which an engine may replace with its own, such as one that refuses a command it can't draw. `show` gives the whole TeX with each hole's characters escaped, which is what an engine draws.
 
 ```java
-// inline Markdown as segments: CommonMark's emphasis, GitHub's strikethrough, links and bare links, code spans,
-// maths, pictures, footnote marks, hard breaks and escapes. Each hole is a segment of its own, with its marks.
+// Markdown as calls: CommonMark, with GitHub's tables, task lists, strikethrough, footnotes and bare links, maths,
+// and each block's sentences. A hole is placed, never read, so it never starts or ends a block.
 // opt.NONE when the TeX of a maths span fails latex's checks
 fn rich_text.from(value: template): opt<rich_text>;
-
-// Markdown blocks: CommonMark, with GitHub's tables, task lists and footnotes, and each block's inline Markdown
-// through rich_text.from. A hole is never read, so it never starts or ends a block
-fn md.from(value: template): opt<md>;
 ```
 
 #### range
@@ -1286,12 +1202,13 @@ The statements a migration is written with (page 6), and the fns it decides with
 
 #### widgets
 
-Twenty-three widgets are extern: ten are Markdown's own blocks, so every implementer draws Markdown natively, and thirteen are what Extended Mark can't express in terms of the others. Seven more belong to the optional `core.gfx` level. The other thirteen are written in Extended Mark below, from the extern ones, so an implementer draws only the twenty-three, and the seven for `core.gfx`.
+Thirty-three widgets are extern: ten are Markdown's own blocks and ten are what its sentences are made of, so every implementer draws Markdown natively, and thirteen are what Extended Mark can't express in terms of the others. Seven more belong to the optional `core.gfx` level. The other twelve are written in Extended Mark below, from the extern ones, so an implementer draws only the thirty-three, and the seven for `core.gfx`.
 
 | Extern | Widgets | What Extended Mark can't do itself |
 |---|---|---|
 | Layout | `flex`, `grid`, `cell`, `sizing`, `plane`, `spot` | Lay children along one axis with wrapping; line columns up across rows; place a child in a grid; say how big a child is; place any widget anywhere on a plane the reader can pan and zoom, and say where it landed |
-| Markdown blocks | `paragraph`, `heading`, `bullets`, `item`, `quote`, `code`, `math`, `table`, `footnote`, `divider` | Markdown's own blocks, drawn natively, with inline Markdown already parsed into `rich_text` |
+| Markdown blocks | `paragraph`, `heading`, `bullets`, `item`, `quote`, `code`, `math`, `table`, `footnote`, `divider` | Markdown's own blocks, drawn natively, with inline Markdown already parsed |
+| Sentences | `words`, `bold`, `italic`, `strike`, `link`, `code_span`, `inline_math`, `inline_image`, `note_mark`, `line_break` | What a sentence is made of, drawn natively |
 | Drawing | `label`, `image`, `icon` | Draw plain text, a picture, and a glyph from the implementer's set |
 | Input | `press`, `field`, `slider` | Being clicked, typed into and dragged |
 | Above the page | `overlay` | Content outside the layout: popovers, tooltips, dialogs and menus |
@@ -1445,7 +1362,7 @@ extern widget spot(
 ```java
 package core;
 
-//@about A paragraph of inline Markdown, parsed by core.
+//@about A paragraph: a sentence on its own.
 extern widget paragraph(value: rich_text, tone: opt<color> = opt.NONE, align: align = align.START) {
     markdown #paragraph;
 }
@@ -1518,6 +1435,71 @@ extern widget divider() {
 
 //@about How a table column is aligned. A column the list doesn't reach starts.
 enum cell_align { START, CENTER, END }
+
+//@about Words of a sentence, as they are.
+extern widget words(value: text) {
+    markdown #text;
+}
+
+//@about Words in bold: **so**.
+extern widget bold() {
+    slot body: rich_text;
+
+    markdown #bold;
+}
+
+//@about Words in italics: *so*.
+extern widget italic() {
+    slot body: rich_text;
+
+    markdown #italic;
+}
+
+//@about Words struck through: ~~so~~.
+extern widget strike() {
+    slot body: rich_text;
+
+    markdown #strike;
+}
+
+//@about Words that lead somewhere: [so](to).
+extern widget link(to: text) {
+    slot body: rich_text;
+    tokens color.ACCENT;
+
+    markdown #link;
+}
+
+//@about Literal text in a sentence, in the mono font: `so`.
+extern widget code_span(src: text) {
+    tokens font.MONO, color.LINE;
+
+    markdown #code_span;
+}
+
+//@about Maths in a sentence: $x^2$.
+extern widget inline_math(tex: latex) {
+    tokens font.MONO;
+
+    markdown #inline_math;
+}
+
+//@about A picture in a sentence.
+extern widget inline_image(src: text, alt: text) {
+    markdown #inline_image;
+}
+
+//@about The mark of a footnote, in the sentence the note is about: [^1].
+extern widget note_mark(mark: text) {
+    tokens color.ACCENT;
+
+    markdown #note_mark;
+}
+
+//@about A line break in a sentence.
+extern widget line_break() {
+    markdown #line_break;
+}
 ```
 
 - **Markdown's own blocks are extern.** Every implementer draws them natively, which is what makes Extended Mark a superset of Markdown: a document is Markdown first, and Extended Mark lowers onto the same blocks. They have no `markdown` block, because they are Markdown blocks themselves. Every implementer, a Markdown-only one included, writes each out as the block it stands for, with the spellings page 1 gives.
@@ -1535,10 +1517,18 @@ enum cell_align { START, CENTER, END }
 | `#table` | `head: list<rich_text>`, `rows: list<list<rich_text>>`, and `align: list<cell_align>`, which may be left out |
 | `#footnote` | `mark: text`, the slot `body` |
 | `#divider` | nothing |
+| `#text` | `value: text` |
+| `#bold`, `#italic`, `#strike` | the slot `body` |
+| `#link` | `to: text`, the slot `body` |
+| `#code_span` | `src: text` |
+| `#inline_math` | `tex: latex` |
+| `#inline_image` | `src: text`, `alt: text` |
+| `#note_mark` | `mark: text` |
+| `#line_break` | nothing |
 
-- **Inline Markdown arrives parsed.** A paragraph, a heading and a table cell take `rich_text`: segments of text, code spans, maths, pictures, footnote marks and line breaks, each with its marks. Core parses it, in Extended Mark, with `rich_text.from`, so an implementer draws the segments and never parses Markdown. A hole's value is a `TEXT` segment, so it can never turn into formatting.
-- **From code**, a text literal where `rich_text` is wanted goes to `rich_text.from` as a template, holes included: `@paragraph(value = "Read **this**, \{name}.");`. A value from a variable goes through `rich_text.plain(entry)`, which keeps it as plain text, or through `rich_text.from(template.of(entry))`, which reads it as Markdown and gives an `opt`.
-- **Blocks from code** are an `md` value, drawn with `@blocks(value = note);` (below). Each block is drawn by the extern block of its kind.
+- **A sentence arrives as calls.** A paragraph, a heading and a table's cell take a `rich_text`, whose calls the engine draws among the words: `words`, the marks around them, and any other widget. Core parses Markdown, in Extended Mark, so an engine never does. A hole's value is words, so it can never turn into formatting.
+- **From code**, a text literal where a `rich_text` is wanted is Markdown, holes included: `@paragraph(value = "Read **this**, \{name}.");`. A value from a variable goes through `rich_text.plain(entry)`, which keeps it as words, or through `rich_text.from(template.of(entry))`, which reads it as Markdown and gives an `opt`. A link to an address code works out is a call: `@link(to = address) { @title; }`.
+- **In a sentence** go words, marks and any widget: `Press \{@press(label = "Add one", …)} to start`. `bold`, `italic`, `strike` and `link` hold a `rich_text`, so in a block they take a sentence's calls: `@bold { @title; }`.
 
 #### widgets: extern drawing, input and overlay
 
@@ -2013,69 +2003,11 @@ widget pane(title: text = "", note: text = "") {
         \{body}
     }
 }
-
-// one block of an md value, as the extern block of its kind. Private to core
-fn block_view(b: block): view {
-    match (b) {
-        case block.PARAGRAPH(words) {
-            return @paragraph(value = words);
-        }
-        case block.HEADING(level, words) {
-            return @heading(level = level, value = words);
-        }
-        case block.BULLETS(ordered, start, items) {
-            return @bullets(ordered = ordered, start = start) {
-                for (it in items) {
-                    @item(done = it.done) {
-                        @blocks(value = md { blocks = it.body });
-                    }
-                }
-            };
-        }
-        case block.QUOTE(body) {
-            return @quote {
-                @blocks(value = md { blocks = body });
-            };
-        }
-        case block.CODE(src, lang) {
-            return @code(src = src, lang = lang);
-        }
-        case block.MATH(tex) {
-            return @math(tex = tex);
-        }
-        case block.TABLE(head, rows, align) {
-            return @table(head = head, rows = rows, align = align);
-        }
-        case block.FOOTNOTE(mark, body) {
-            return @footnote(mark = mark) {
-                @blocks(value = md { blocks = body });
-            };
-        }
-        case block.DIVIDER {
-            return @divider;
-        }
-    }
-}
-
-//@about The blocks of an md value, each drawn by the extern Markdown block of its kind.
-widget blocks(value: md) {
-    view {
-        for (b in value.blocks) {
-            @block_view(b);
-        }
-    }
-
-    markdown {
-        @for (b in value.blocks) {
-            \{@block_view(b)}
-        }
-    }
-}
 ```
 
 - **Each sizing wrapper is a box.** A wrapper inside another is a box in a box, so `@grow { @min_size(…) { … } }` grows a box that holds one with a least size, and the other way round gives a least size to a box that holds one that grows. `@sizing` sets several properties on one box. A child with no wrapper doesn't grow, shrinks by 1, and starts from its own size, as in CSS.
-- **Built in**: The eight types the syntax makes, and the syntax itself: literals, operators, holes, prose and `@`.
-- **core, declared extern with no body**: the 61 native fns: list storage, Unicode text, exact numbers with their maths, the interface fns of `number`, `duration`, `text` and `bool`, a range's ends and step, a duration in milliseconds, and `clamp`.
-- **core, written in Extended Mark**: the six interfaces, `int`, point, region, map, date, moment, template, latex, md, rich_text, the tokens and options, the thirteen widgets above, and 30 fns built from the native ones: or, min, max, some, all, count, find, filter, map, remove_where, first, last, reversed, has, position, unique, sorted, join, sum, starts, ends, like, replace, the range helpers negate, shift, scale, widen, overlap and span, and `rect` for canvas paths.
-- **core, supplied by the implementer**: the native fns, page values, `moment.local`, `can_draw_tex` if it replaces the default, and the drawing of the 23 extern widgets (and 7 more for `core.gfx`), marked extern. Extern is only for what Extended Mark can never do on its own, and for Markdown's own blocks.
+- **Built in**: The nine types the syntax makes, and the syntax itself: literals, operators, holes, prose and `@`.
+- **core, declared extern with no body**: the 63 native fns: list storage, Unicode text, exact numbers with their maths, the interface fns of `number`, `duration`, `text` and `bool`, a range's ends and step, a duration in milliseconds, `clamp`, and the two that hold calls as a `rich_text`.
+- **core, written in Extended Mark**: the six interfaces, `int`, point, region, map, date, moment, template, latex, the tokens and options, the twelve widgets above, and 30 fns built from the native ones: or, min, max, some, all, count, find, filter, map, remove_where, first, last, reversed, has, position, unique, sorted, join, sum, starts, ends, like, replace, the range helpers negate, shift, scale, widen, overlap and span, and `rect` for canvas paths.
+- **core, supplied by the implementer**: the native fns, page values, `moment.local`, `can_draw_tex` if it replaces the default, and the drawing of the 33 extern widgets (and 7 more for `core.gfx`), marked extern. Extern is only for what Extended Mark can never do on its own, and for Markdown's own blocks.
 - **A pack's own types**: Join the syntax by fitting shown, same, ordered, numeric, scaled or literal&lt;T>. They can't add new symbols, on purpose.

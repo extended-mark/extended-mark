@@ -3,6 +3,7 @@
 
 use crate::body::{Cx, LocalKind, WidgetCx};
 pub const PROSE_MARK: &str = "@prose";
+use crate::rich::holds_rich;
 use crate::ty::Ty;
 use crate::*;
 use xtmd_syntax::ast::{ExprKind as E, ProseNode};
@@ -41,7 +42,7 @@ impl Checker {
     /// never hides the widget `icon`.
     fn holds_view(&self, t: &Ty) -> bool {
         match self.vars.resolve(t) {
-            Ty::View => true,
+            Ty::View | Ty::Rich => true,
             Ty::Def(d, _) => matches!(self.defs[d].kind, DefKind::Widget { .. }),
             Ty::Any(d, _) => matches!(self.defs[d].kind, DefKind::Interface { widget: true, .. }),
             Ty::List(inner) | Ty::Opt(inner) => self.holds_view(&inner),
@@ -54,8 +55,11 @@ impl Checker {
     /// What follows `@` when it isn't a widget: a slot, a view held in a value, or a fn that returns one.
     fn placed_value(&mut self, cx: &mut Cx, call: &ast::ViewCall) -> Option<(ir::Expr, Ty)> {
         let name = &call.name.name;
+        // a rich_text is mostly words, a `label` or a `title`: a widget of its name is the widget
+        let widget = self.widget_of(cx, name).is_some();
+        let rich = |c: &Self, t: &Ty| matches!(c.vars.resolve(t), Ty::Rich);
         if let Some(l) = cx.local(name).cloned() {
-            if call.args.is_none() && self.holds_view(&l.ty) {
+            if call.args.is_none() && self.holds_view(&l.ty) && !(widget && rich(self, &l.ty)) {
                 return Some((ir::Expr::Get(ir::Get::Local(name.clone())), l.ty));
             }
             if let Ty::Fn(..) = self.vars.resolve(&l.ty) {
@@ -75,7 +79,7 @@ impl Checker {
                     return Some(self.expr(cx, &ast::Expr { kind: E::Call { callee: Box::new(callee), args: g }, span: call.span }, None));
                 }
                 // a view held in an input takes no arguments: `@name(…)` calls the widget
-                if call.args.is_none() && self.holds_view(t) {
+                if call.args.is_none() && self.holds_view(t) && !(widget && rich(self, t)) {
                     return Some((ir::Expr::Get(ir::Get::Input(name.clone())), t.clone()));
                 }
             }
@@ -223,7 +227,8 @@ impl Checker {
                 self.error(cx.file, codes::CHILDREN_ONE_SLOT, call.name.span, format!("`{}` is a view held in a value, which takes no block", call.name.name));
             }
             // a slot that holds a list is placed item by item
-            if let Ty::List(_) = self.vars.resolve(&t) {
+            if let Ty::List(inner) = self.vars.resolve(&t) {
+                let inner = self.vars.resolve(&inner);
                 let name = format!("{}_item", call.name.name);
                 return vec![ir::Node::For(ir::NodeFor {
                     mutable: false,
@@ -233,10 +238,22 @@ impl Checker {
                     over: x,
                     key: ir::NodeForKey::Item,
                     site: site.clone(),
-                    body: vec![ir::Node::Place(ir::NodePlace { site: format!("{}p", site), view: ir::Expr::Get(ir::Get::Local(name)) })],
+                    body: match &inner {
+                        Ty::Rich if !cx.sentence => crate::rich::alone(format!("{}p", site), ir::Expr::Get(ir::Get::Local(name))),
+                        t => vec![ir::Node::Place(ir::NodePlace { sentence: cx.sentence && *t == Ty::Rich, site: format!("{}p", site), view: ir::Expr::Get(ir::Get::Local(name)) })],
+                    },
                 })];
             }
-            return vec![ir::Node::Place(ir::NodePlace { site, view: x })];
+            // an opt of one is placed when it is there
+            let rich = match self.vars.resolve(&t) {
+                Ty::Rich => true,
+                Ty::Opt(inner) => self.vars.resolve(&inner) == Ty::Rich,
+                _ => false,
+            };
+            if rich && !cx.sentence {
+                return crate::rich::alone(site, x);
+            }
+            return vec![ir::Node::Place(ir::NodePlace { sentence: rich, site, view: x })];
         }
         let Some(d) = self.widget_of(cx, &call.name.name) else {
             let known = self.widget_names(cx.file);
@@ -334,7 +351,12 @@ impl Checker {
                         }
                     }
                 } else {
+                    let outer = self.sentence_for.take();
+                    if self.piece_of(d).as_deref().map_or(false, |p| crate::pieces::takes_sentence(p, &n.name)) {
+                        self.sentence_for = Some(wname.clone());
+                    }
                     let (x, _) = self.expr(cx, value, Some(&it));
+                    self.sentence_for = outer;
                     self.want(cx, value, &x, &input.ir, format!("`{}`'s `{}`", wname, n.name));
                     // the engine runs it, as often as it draws, within the step limit (page 5)
                     if matches!(self.defs[d].kind, DefKind::Widget { external: true, .. }) && matches!(&input.ty, Ty::Fn(_, Some(_))) {
@@ -369,13 +391,20 @@ impl Checker {
         }
         let mut filled: Vec<(String, Vec<ir::Node>, Span)> = Vec::new();
         for (name, block, at) in slot_blocks {
+            // a rich_text slot's block holds a sentence's calls
+            let outside = cx.sentence;
+            cx.sentence = slots.iter().any(|s| s.name == name && holds_rich(&s.ir));
             let nodes = self.view_nodes(cx, &block);
+            cx.sentence = outside;
             filled.push((name, nodes, at));
         }
         match prose {
             None => {}
             // a plain block fills the widget's one slot
-            Some(ProseFill::Plain(nodes)) if slots.len() == 1 => filled.push((slots[0].name.clone(), nodes, call.name.span)),
+            Some(ProseFill::Plain(nodes)) if slots.len() == 1 => {
+                let nodes = self.prose_fill(file, d, &slots[0], nodes, call.name.span);
+                filled.push((slots[0].name.clone(), nodes, call.name.span))
+            }
             Some(ProseFill::Plain(nodes)) => {
                 if !nodes.is_empty() || slots.is_empty() {
                     misplaced = true;
@@ -390,7 +419,13 @@ impl Checker {
             Some(ProseFill::Named(body)) => {
                 let (named, lost) = self.prose_slots(cx, d, call, body);
                 misplaced |= lost;
-                filled.extend(named);
+                for (name, nodes, at) in named {
+                    let nodes = match slots.iter().find(|s| s.name == name) {
+                        Some(s) => self.prose_fill(file, d, s, nodes, at),
+                        None => nodes,
+                    };
+                    filled.push((name, nodes, at));
+                }
             }
         }
         // every slot the widget declares, written or not, as every input is
@@ -475,7 +510,7 @@ impl Checker {
                 ast::WidgetMember::Own(v) => {
                     let t = self.resolve(file, &v.ty, &cx.generics.clone());
                     let ti = self.ir_type(file, &v.ty, &cx.generics.clone());
-                    if self.is_view_type(&t) {
+                    if self.is_view_type(&t) || self.holds_calls(&t, 0) {
                         self.error(file, codes::VIEW_IN_MUT, v.name.span, "a view is a description, not a variable: hold it in a `let`, or keep the data it is drawn from in the variable instead");
                     }
                     wcx.cells.push((v.name.name.clone(), t));
@@ -690,7 +725,7 @@ impl Checker {
                             let site = self.site("m");
                             self.prose_span = Span::new(lines[0].span.start as usize, lines[0].span.end as usize);
                             let tex = ir::Expr::Template(Box::new(ir::ExprTemplate { pieces, holes: hs, ty: ir::Type::named("core/latex") }));
-                            let tex = self.prose_mark(cx, tex, "latex");
+                            let tex = self.prose_mark(cx, tex, "latex", Vec::new());
                             out.push(extern_node("core/math", site, vec![("tex", tex)], BTreeMap::new()));
                         }
                         ProseNode::Call(c) => {
@@ -807,8 +842,11 @@ impl Checker {
                 if t.len() == 1 && ('\u{E000}'..='\u{F8FF}').contains(&t[0]) {
                     let k = t[0] as usize - 0xE000;
                     if let Some((x, ty, _)) = holes.get(k) {
+                        if self.hole_kind(ty) == body::Hole::Rich {
+                            return crate::rich::alone(site, x.clone());
+                        }
                         if self.is_view_type(ty) {
-                            return vec![ir::Node::Place(ir::NodePlace { site, view: x.clone() })];
+                            return vec![ir::Node::Place(ir::NodePlace { sentence: false, site, view: x.clone() })];
                         }
                     }
                 }
@@ -844,7 +882,8 @@ impl Checker {
             MdBlock::Code { lang, src } => extern_node("core/code", site, vec![("src", ir::Expr::Text(unsentinel(src, holes))), ("lang", ir::Expr::Text(lang.clone()))], BTreeMap::new()),
             MdBlock::Html(text) => {
                 // raw HTML is shown as text, never run
-                let rich = ir::Expr::Rich(ir::Rich { segments: vec![ir::Segment { segment: ir::SegmentSegment { part: ir::SegmentSegmentPart::Text, value: Some(ir::Expr::Text(unsentinel(text, holes))), src: None, alt: None, marks: None } }] });
+                let words = extern_node("core/words", "t0".into(), vec![("value", ir::Expr::Text(unsentinel(text, holes)))], BTreeMap::new());
+                let rich = ir::Expr::Rich(ir::Rich { blocks: false, nodes: std::sync::Arc::new(vec![words]) });
                 extern_node("core/paragraph", site, vec![("value", rich)], BTreeMap::new())
             }
             MdBlock::Table { align, head, rows } => {
@@ -881,18 +920,17 @@ impl Checker {
         }
         let mut pieces = vec![String::new()];
         let mut hs = Vec::new();
+        let mut kinds = Vec::new();
         for c in text.chars() {
             if ('\u{E000}'..='\u{F8FF}').contains(&c) {
                 let k = c as usize - 0xE000;
                 if let Some((x, ty, span)) = holes.get(k) {
                     let ty = self.vars.resolve(ty);
                     self.check_hole(cx, &ty, *span, true);
-                    if matches!(&ty, Ty::Def(d, _) if self.defs[*d].full == "core/md") {
-                        self.error(cx.file, codes::MD_HOLE, *span, "an `md` holds blocks, so it goes in no hole: place its blocks with `@blocks(value = …);`");
-                    }
                     if let Ty::Opt(_) = ty {
                         self.error(cx.file, codes::OPT_HOLE, *span, "a paragraph takes rich_text, not an opt: give this hole a fallback, `\\{x.or(…)}`, or open it first with `@if (let …)`");
                     }
+                    kinds.push(self.hole_kind(&ty));
                     hs.push(if ty == Ty::Text || self.is_view_type(&ty) { x.clone() } else { ir::Expr::Show(Box::new(ir::ExprShow { value: x.clone() })) });
                     pieces.push(String::new());
                     continue;
@@ -901,19 +939,19 @@ impl Checker {
             pieces.last_mut().unwrap().push(c);
         }
         let t = ir::Expr::Template(Box::new(ir::ExprTemplate { pieces, holes: hs, ty: ir::Type::named("core/rich_text") }));
-        self.prose_mark(cx, t, "rich_text")
+        self.prose_mark(cx, t, "rich_text", kinds)
     }
 
     /// A template core reads when the constants are worked out, marked with where it is.
-    pub(crate) fn prose_mark(&mut self, cx: &Cx, t: ir::Expr, ty: &str) -> ir::Expr {
+    pub(crate) fn prose_mark(&mut self, cx: &Cx, t: ir::Expr, ty: &str, holes: Vec<body::Hole>) -> ir::Expr {
         let id = self.pending.len();
-        self.pending.push(body::Pending { file: cx.file, span: self.prose_span, ty: ty.to_string() });
+        self.pending.push(body::Pending { file: cx.file, span: self.prose_span, ty: ty.to_string(), holes, sentence_for: None });
         ir::Expr::Call(Box::new(ir::Call { name: format!("{}#{}", PROSE_MARK, id), args: vec![t], ty: None }))
     }
 
     pub(crate) fn is_view_type(&self, t: &Ty) -> bool {
         let t = self.vars.resolve(t);
-        matches!(t, Ty::View | Ty::Any(..)) || matches!(&t, Ty::Def(d, _) if matches!(self.defs[*d].kind, DefKind::Widget { .. }))
+        matches!(t, Ty::View | Ty::Rich | Ty::Any(..)) || matches!(&t, Ty::Def(d, _) if matches!(self.defs[*d].kind, DefKind::Widget { .. }))
     }
 
     /// A prose call's `@slot name {` blocks, each filling the slot it names. Anything else in the
@@ -953,7 +991,7 @@ impl Checker {
 
 }
 
-fn extern_node(name: &str, site: String, props: Vec<(&str, ir::Expr)>, slots: BTreeMap<String, Vec<ir::Node>>) -> ir::Node {
+pub(crate) fn extern_node(name: &str, site: String, props: Vec<(&str, ir::Expr)>, slots: BTreeMap<String, Vec<ir::Node>>) -> ir::Node {
     ir::Node::Extern(ir::NodeExtern {
         name: name.to_string(),
         site,
@@ -1005,7 +1043,7 @@ impl Checker {
             }
         }
         let want: Option<(String, Option<DefId>)> = match el.name.as_str() {
-            "core/view" => None,
+            "core/view" | "core/rich_text" => None,
             "any" => el.interface.clone().map(|i| (i.clone(), self.defs.iter().position(|d| d.full == i))),
             name => self.defs.iter().any(|d| d.full == name && matches!(d.kind, DefKind::Widget { .. })).then(|| (name.to_string(), None)),
         };

@@ -4,8 +4,8 @@
 
 import type * as ir from "./generated/ir.js";
 import { Failure, type Binding } from "./eval/index.js";
-import { none, toIr, type Value as V } from "./eval/value.js";
-import { type Env, Page, setMarkdownWriter } from "./page.js";
+import type { Value as V } from "./eval/value.js";
+import { type Env, Page, checkSentence, setMarkdownWriter } from "./page.js";
 
 export type Inline =
   | { text: { value: string; bold?: boolean; italic?: boolean; strike?: boolean; link?: string } }
@@ -31,7 +31,7 @@ export type Block =
   | { footnote: { mark: string; blocks: Block[] } }
   | { divider: Record<string, never> };
 
-type Piece = { block: Block } | { item: Item };
+type Piece = { block: Block } | { item: Item } | { run: Inline };
 
 function field(v: V | undefined, name: string): V | undefined {
   if (!v) return undefined;
@@ -77,18 +77,48 @@ function joinRuns(runs: Inline[]): Inline[] {
   return out;
 }
 
-/** List items that follow one another make one list, across a loop's turns too (page 3). */
+/** List items that follow one another make one list, across a loop's turns too (page 3); a
+ * sentence among blocks is a paragraph. */
 function blocksOf(pieces: Piece[]): Block[] {
   const out: Block[] = [];
+  let inSentence = false;
   for (const p of pieces) {
-    const b: Block = "block" in p ? p.block : { bullets: { ordered: false, items: [p.item] } };
     const last = out[out.length - 1];
+    if ("run" in p) {
+      if (inSentence && last && "paragraph" in last) last.paragraph.push(p.run);
+      else out.push({ paragraph: [p.run] });
+      inSentence = true;
+      continue;
+    }
+    inSentence = false;
+    const b: Block = "block" in p ? p.block : { bullets: { ordered: false, items: [p.item] } };
     if (last && "bullets" in last && "bullets" in b && last.bullets.ordered === b.bullets.ordered) {
       last.bullets.items.push(...b.bullets.items);
       continue;
     }
     out.push(b);
   }
+  return out;
+}
+
+/** What some calls write in a sentence: their runs, and the words of any blocks among them. */
+function runsOf(pieces: Piece[]): Inline[] {
+  const out: Inline[] = [];
+  let among: Piece[] = [];
+  const flush = () => {
+    const bs = blocksOf(among);
+    among = [];
+    // a widget that is one paragraph writes its sentence
+    if (bs.length === 1 && "paragraph" in bs[0]) out.push(...bs[0].paragraph);
+    else if (bs.length) out.push({ text: { value: bs.map(plain).filter((s) => s).join(" ") } });
+  };
+  for (const p of pieces) {
+    if ("run" in p) {
+      flush();
+      out.push(p.run);
+    } else among.push(p);
+  }
+  flush();
   return out;
 }
 
@@ -128,12 +158,14 @@ class Writer {
         }
         if (!done) out.push(...this.nodes(n.match.else ?? [], env));
       } else if ("place" in n) {
-        out.push(...this.view(this.page.evalIn(env, n.place.view), env, `${env.path ? env.path + "/" : ""}${n.place.site}`));
+        const v = this.page.evalIn(env, n.place.view);
+        if (n.place.sentence) checkSentence(v);
+        out.push(...this.view(v, join(env.path, n.place.site), join(env.key ?? env.path, n.place.site)));
       } else if ("extern" in n) {
         const props = new Map<string, V>();
         for (const [k, e] of Object.entries(n.extern.props)) props.set(k, this.page.evalIn(env, e));
         for (const [k, p] of Object.entries(n.extern.writes ?? {})) props.set(k, this.page.machine.evalWith(env.bindings, env.owner, { place: p } as ir.Expr));
-        out.push(...this.widget(n.extern.name, `${env.path ? env.path + "/" : ""}${n.extern.site}`, props, {}, n.extern.slots ?? {}, env));
+        out.push(...this.widget(n.extern.name, join(env.path, n.extern.site), props, props, n.extern.slots ?? {}, env, join(env.key ?? env.path, n.extern.site)));
       } else if ("use" in n) {
         out.push(...this.widget(n.use.name, join(env.path, n.use.site), new Map(), n.use.args, n.use.slots ?? {}, env, join(env.key ?? env.path, n.use.site), n.use.events ?? {}));
       }
@@ -141,19 +173,25 @@ class Writer {
     return out;
   }
 
-  view(v: V, env: Env, path: string): Piece[] {
-    if (v.kind === "opt") return v.value ? this.view(v.value, env, path) : [];
-    if (v.kind === "list") return v.items.flatMap((i, k) => this.view(i.value, env, `${path}[${k}]`));
-    if (v.kind !== "view") return [];
-    if (v.widget === "#slot") {
-      const id = v.args.get("id");
-      const held = id && id.kind === "num" ? this.page.heldSlot(Number(id.n.show())) : undefined;
-      return held ? this.nodes(held.nodes, held.env) : [];
+  view(v: V, path: string, key: string): Piece[] {
+    if (v.kind === "opt") return v.value ? this.view(v.value, path, key) : [];
+    if (v.kind === "list") return v.items.flatMap((i, k) => this.view(i.value, `${path}[${k}]`, `${key}[${i.id}]`));
+    if (v.kind === "content") {
+      if ("parts" in v.of) return v.of.parts.flatMap((p, k) => this.view(p, join(path, `j${k}`), join(key, `j${k}`)));
+      const c = v.of;
+      return this.nodes(c.nodes as ir.Node[], { owner: c.owner, bindings: c.captured as [string, Binding][], path: c.at?.path ?? path, key: c.at?.key ?? key });
     }
-    const made: Env = { owner: v.owner, bindings: [...v.captured] as [string, Binding][], path: env.path };
-    // its arguments as drawing gives them, so a widget written in Extended Mark gets its inputs
-    const args = Object.fromEntries([...v.args].map(([k, x]) => [k, toIr(x)]));
-    return this.widget(v.widget, path, new Map(v.args), args, v.slots as Record<string, ir.Node[]>, made, path, v.events as Record<string, string>);
+    if (v.kind !== "view") return [];
+    const who = v.at ?? key;
+    const made: Env = { owner: v.owner, bindings: [...v.captured] as [string, Binding][], path, key: who };
+    return this.widget(v.widget, path, new Map(v.args), v.args as Map<string, V>, v.slots as Record<string, ir.Node[]>, made, who, v.events as Record<string, string>);
+  }
+
+  /** A sentence's calls as runs. */
+  sentence(v: V | undefined, path: string, key: string): Inline[] {
+    if (!v) return [];
+    checkSentence(v);
+    return joinRuns(runsOf(this.view(v, path, key)));
   }
 
   slot(slots: Record<string, ir.Node[]>, name: string, env: Env): Piece[] {
@@ -163,7 +201,7 @@ class Writer {
   /** A widget: one that is a piece of Markdown is written as it; any other writes its markdown. */
   /** `key` and `events` are the call's, as drawing gives them: entering a widget to write its
    * Markdown must find the instance the page drew and leave it as it was. */
-  widget(name: string, path: string, props: Map<string, V>, args: Record<string, ir.Expr>, slots: Record<string, ir.Node[]>, env: Env, key: string = path, events: Record<string, string> = {}): Piece[] {
+  widget(name: string, path: string, props: Map<string, V>, args: Record<string, ir.Expr> | Map<string, V>, slots: Record<string, ir.Node[]>, env: Env, key: string = path, events: Record<string, string> = {}): Piece[] {
     if (++this.depth > 64) {
       this.depth--;
       throw new Failure("Limit", `${name} places itself more than 64 deep`);
@@ -180,24 +218,24 @@ class Writer {
     }
   }
 
-  private widgetInner(name: string, path: string, props: Map<string, V>, args: Record<string, ir.Expr>, slots: Record<string, ir.Node[]>, env: Env, key: string, events: Record<string, string>): Piece[] {
+  private widgetInner(name: string, path: string, props: Map<string, V>, args: Record<string, ir.Expr> | Map<string, V>, slots: Record<string, ir.Node[]>, env: Env, key: string, events: Record<string, string>): Piece[] {
     const p = (k: string) => props.get(k);
     switch (this.page.externWidget(name)?.piece) {
       case "paragraph": {
-        const runs = this.inline(p("value"));
+        const runs = this.sentence(p("value"), join(path, "value"), join(key, "value"));
         return runs.length ? [{ block: { paragraph: runs } }] : [];
       }
       case "heading": {
         const l = p("level");
         const level = l && l.kind === "num" ? Math.min(6, Math.max(1, Number(l.n.show()))) : 1;
-        return [{ block: { heading: { level, inline: this.inline(p("value")) } } }];
+        return [{ block: { heading: { level, inline: this.sentence(p("value"), join(path, "value"), join(key, "value")) } } }];
       }
       case "bullets": {
         const o = p("ordered");
         const ordered = !!o && o.kind === "bool" && o.b;
         const s = p("start");
         const start = s && s.kind === "num" ? Number(s.n.show()) : 1;
-        const items: Item[] = this.slot(slots, "items", env).map((x) => ("item" in x ? x.item : { blocks: [x.block] }));
+        const items: Item[] = this.slot(slots, "items", env).map((x) => ("item" in x ? x.item : { blocks: blocksOf([x]) }));
         if (!items.length) return [];
         return [{ block: { bullets: ordered ? { ordered, start, items } : { ordered, items } } }];
       }
@@ -216,11 +254,32 @@ class Writer {
         return [{ block: { math: templateText(field(p("tex"), "tex")) } }];
       case "divider":
         return [{ block: { divider: {} } }];
+      case "text":
+        return [{ run: { text: { value: textOf(p("value")) } } }];
+      case "bold":
+      case "italic":
+      case "strike":
+      case "link": {
+        const mark = this.page.externWidget(name)!.piece as "bold" | "italic" | "strike" | "link";
+        const to = textOf(p("to"));
+        return runsOf(this.slot(slots, "body", env)).map((run): Piece => ("text" in run ? { run: { text: { ...run.text, ...(mark === "link" ? { link: to } : { [mark]: true }) } } } : { run }));
+      }
+      case "code_span":
+        return [{ run: { code: textOf(p("src")) } }];
+      case "inline_math":
+        return [{ run: { math: templateText(field(p("tex"), "tex")) } }];
+      case "inline_image":
+        return [{ run: { image: { src: textOf(p("src")), alt: textOf(p("alt")) } } }];
+      case "note_mark":
+        return [{ run: { note: textOf(p("mark")) } }];
+      case "line_break":
+        return [{ run: { break: {} } }];
       case "footnote":
         return [{ block: { footnote: { mark: textOf(p("mark")), blocks: blocksOf(this.slot(slots, "body", env)) } } }];
       case "table": {
-        const head = itemsOf(p("head")).map((c) => this.inline(c));
-        const rows = itemsOf(p("rows")).map((r) => itemsOf(r).map((c) => this.inline(c)));
+        const cell = (at: string) => (c: V, k: number) => this.sentence(c, `${join(path, at)}[${k}]`, `${join(key, at)}[${k}]`);
+        const head = itemsOf(p("head")).map(cell("head"));
+        const rows = itemsOf(p("rows")).map((r, k) => itemsOf(r).map(cell(`rows[${k}]`)));
         const align = itemsOf(p("align")).map((a) => (a.kind === "case" && (a.name === "CENTER" || a.name === "END") ? a.name : "START")) as ("START" | "CENTER" | "END")[];
         return [{ block: { table: { head, rows, align } } }];
       }
@@ -241,56 +300,6 @@ class Writer {
       }
     }
     throw new Failure("Ir", `there is no widget ${name} to write`);
-  }
-
-  /** A rich text's segments as runs; a view in a sentence puts its own Markdown's text there. */
-  inline(v: V | undefined): Inline[] {
-    const out: Inline[] = [];
-    for (const seg of itemsOf(field(v, "segments"))) {
-      const part = field(seg, "part");
-      if (!part || part.kind !== "case") continue;
-      const marks = field(seg, "marks");
-      const flag = (n: string) => {
-        const x = field(marks, n);
-        return !!x && x.kind === "bool" && x.b;
-      };
-      const l = field(marks, "link");
-      const link = l && l.kind === "opt" && l.value ? textOf(l.value) : undefined;
-      const text = (value: string): Inline => {
-        const t: { value: string; bold?: boolean; italic?: boolean; strike?: boolean; link?: string } = { value };
-        if (flag("bold")) t.bold = true;
-        if (flag("italic")) t.italic = true;
-        if (flag("strike")) t.strike = true;
-        if (link !== undefined) t.link = link;
-        return { text: t };
-      };
-      switch (part.name) {
-        case "TEXT":
-          out.push(text(textOf(field(part, "value"))));
-          break;
-        case "CODE":
-          out.push({ code: textOf(field(part, "value")) });
-          break;
-        case "MATH":
-          out.push({ math: templateText(field(field(part, "tex"), "tex")) });
-          break;
-        case "IMAGE":
-          out.push({ image: { src: textOf(field(part, "src")), alt: textOf(field(part, "alt")) } });
-          break;
-        case "NOTE":
-          out.push({ note: textOf(field(part, "mark")) });
-          break;
-        case "BREAK":
-          out.push({ break: {} });
-          break;
-        case "VIEW": {
-          const blocks = blocksOf(this.view(field(part, "child") ?? none(), { owner: undefined, bindings: [], path: "" }, ""));
-          out.push(text(blocks.map(plain).filter((s) => s).join(" ")));
-          break;
-        }
-      }
-    }
-    return joinRuns(out);
   }
 }
 
@@ -338,22 +347,52 @@ function codeSpan(c: string): string {
   return fence + pad + c + pad + fence;
 }
 
+type Mark = "link" | "strike" | "bold" | "italic";
+
+/** Whether two runs of text have the mark, the same one. */
+function shares(m: Mark, a: Inline, b: Inline): boolean {
+  return "text" in a && "text" in b && a.text[m] !== undefined && a.text[m] !== false && a.text[m] === b.text[m];
+}
+
+/** A sentence's runs, each mark written once around all the runs that share it. */
 export function writeInline(runs: Inline[]): string {
+  return writeRuns(runs, ["link", "strike", "bold", "italic"], true);
+}
+
+function writeRuns(runs: Inline[], marks: Mark[], lineStart: boolean): string {
   let out = "";
-  for (const r of runs) {
-    const first = out === "";
-    if ("text" in r) {
-      let t = escape(r.text.value, first);
-      if (r.text.italic) t = `*${t}*`;
-      if (r.text.bold) t = `**${t}**`;
-      if (r.text.strike) t = `~~${t}~~`;
-      if (r.text.link !== undefined) t = `[${t}](<${r.text.link.replace(/</g, "%3C").replace(/>/g, "%3E")}>)`;
-      out += t;
-    } else if ("code" in r) out += codeSpan(r.code);
+  for (let k = 0; k < runs.length; ) {
+    const r = runs[k];
+    const first = lineStart && out === "";
+    // the mark that goes around the most runs from here; a link goes around any other
+    let mark: Mark | undefined;
+    let most = 0;
+    for (const m of marks) {
+      let n = 0;
+      while (k + n < runs.length && shares(m, r, runs[k + n])) n++;
+      if (n > 0 && mark !== "link" && n > most) [mark, most] = [m, n];
+    }
+    if (mark !== undefined && "text" in r) {
+      const inner = writeRuns(runs.slice(k, k + most), marks.filter((m) => m !== mark), first);
+      k += most;
+      if (mark === "link") {
+        out += `[${inner}](<${r.text.link!.replace(/</g, "%3C").replace(/>/g, "%3E")}>)`;
+        continue;
+      }
+      const d = mark === "strike" ? "~~" : mark === "bold" ? "**" : "*";
+      // a mark with a space just inside it doesn't read as one, so the space goes outside
+      const start = /^[ \n\t]*/.exec(inner)![0].length;
+      const end = inner.length - /[ \n\t]*$/.exec(inner)![0].length;
+      out += end <= start ? inner : inner.slice(0, start) + d + inner.slice(start, end) + d + inner.slice(end);
+      continue;
+    }
+    if ("text" in r) out += escape(r.text.value, first);
+    else if ("code" in r) out += codeSpan(r.code);
     else if ("math" in r) out += `$${r.math}$`;
     else if ("image" in r) out += `![${escape(r.image.alt, false)}](<${r.image.src}>)`;
     else if ("note" in r) out += `[^${r.note}]`;
     else out += "\\\n";
+    k++;
   }
   return out;
 }

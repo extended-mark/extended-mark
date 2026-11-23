@@ -1,4 +1,4 @@
-//! Notices: a widget that failed (the runtime's `#notice`), and one nobody supplies. Each says so
+//! Notices: a widget that failed, and one nobody supplies. Each says so
 //! where the widget would be, as an alert.
 
 use egui::accesskit::Role;
@@ -21,8 +21,9 @@ pub fn show(ui: &mut Ui, ctx: &mut Ctx<'_>, message: &str) {
     });
 }
 
-/// The runtime's notice for a widget that failed: its message.
-pub fn widget(ui: &mut Ui, props: &Props<'_>, ctx: &mut Ctx<'_>) {
-    let m = props.text("message");
+/// A widget that failed: which, and why.
+pub fn failed(ui: &mut Ui, props: &Props<'_>, ctx: &mut Ctx<'_>) {
+    let d = props.drawn();
+    let m = format!("{} failed: {}", a11y::short(&d.widget), d.failed.as_deref().unwrap_or(""));
     show(ui, ctx, &m);
 }

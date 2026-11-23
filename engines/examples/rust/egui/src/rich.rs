@@ -1,14 +1,14 @@
-//! `rich_text` drawn as one egui text layout: its segments with their marks, read as the Markdown
-//! writer reads them, so what is drawn and what is written as Markdown say the same words. Links
-//! and pictures are checked before use; nothing in a value is ever read as Markdown or HTML.
+//! A sentence drawn as one egui text layout: its calls, the marks around its words read from the
+//! widgets they are in. Links and pictures are checked before use; nothing in a value is ever read as
+//! Markdown or HTML.
 
 use std::ops::Range;
 
 use egui::text::{LayoutJob, TextFormat};
 use egui::{Align, Color32, FontFamily, FontId, Stroke};
-use xtmd_runtime::Value;
+use xtmd_runtime::Drawn;
 
-use crate::values::{case, field, flag, inner, list, tex, text};
+use crate::values::{tex, text};
 
 /// Whether a link may be followed: http, https and mailto, or a relative one. Whitespace and
 /// control characters are dropped first, as browsers do, so `java\tscript:` is caught.
@@ -68,121 +68,136 @@ pub struct Laid {
     pub links: Vec<(Range<usize>, String)>,
 }
 
-/// The words of a rich_text, as drawn: what a reader of the page sees.
-pub fn words(v: Option<&Value>) -> String {
-    let mut out = String::new();
-    for seg in list(field(v, "segments")) {
-        out.push_str(&part_words(field(Some(seg), "part")));
-    }
-    out
+/// What a run of a sentence is marked as.
+#[derive(Clone, Debug, Default)]
+struct Marks {
+    bold: bool,
+    italic: bool,
+    strike: bool,
+    link: Option<String>,
 }
 
-fn part_words(part: Option<&Value>) -> String {
-    match case(part) {
-        Some("TEXT") | Some("CODE") => text(field(part, "value")),
-        Some("MATH") => tex(field(part, "tex")),
-        Some("NOTE") => text(field(part, "mark")),
-        Some("BREAK") => "\n".into(),
-        // a picture's words are its alt text, which it is named by; a view in a sentence is
-        // drawn as a widget of its own, from its slot
-        Some("IMAGE") => text(field(part, "alt")),
-        _ => String::new(),
-    }
+#[derive(Clone, Copy, PartialEq)]
+enum Kind {
+    Words,
+    Code,
+    Math,
+    Note,
+    Image,
 }
 
-/// A rich_text cut at the views in its sentence: runs of segments, and between them the slot of
-/// the widget each view is drawn from.
+/// Words of a sentence, with every mark around them.
+pub struct Run {
+    words: String,
+    kind: Kind,
+    marks: Marks,
+}
+
+/// A sentence's calls in order: runs of words, and the other widgets among them.
 pub enum Piece<'a> {
-    Run(Vec<&'a Value>),
-    View(String),
+    Run(Vec<Run>),
+    View(&'a Drawn),
 }
 
-/// Whether a rich_text's sentence holds a view.
-pub fn has_views(v: Option<&Value>) -> bool {
-    list(field(v, "segments")).into_iter().any(|seg| case(field(Some(seg), "part")) == Some("VIEW"))
-}
-
-/// A rich_text's runs of text, and the slot of each view in its sentence, in order.
-pub fn pieces(v: Option<&Value>) -> Vec<Piece<'_>> {
-    let mut out = Vec::new();
-    let mut run = Vec::new();
-    for seg in list(field(v, "segments")) {
-        let part = field(Some(seg), "part");
-        if case(part) != Some("VIEW") {
-            run.push(seg);
-            continue;
+/// The words of a sentence, as drawn: what a reader of the page sees.
+pub fn words(nodes: &[Drawn]) -> String {
+    let mut out = String::new();
+    for p in pieces(nodes) {
+        if let Piece::Run(runs) = p {
+            runs.iter().for_each(|r| out.push_str(&r.words));
         }
-        if !run.is_empty() {
-            out.push(Piece::Run(std::mem::take(&mut run)));
-        }
-        if let Some(slot) = xtmd_runtime::inline_slot(field(part, "child")) {
-            out.push(Piece::View(slot));
-        }
-    }
-    if !run.is_empty() {
-        out.push(Piece::Run(run));
     }
     out
 }
 
-/// Lays a rich_text out for egui.
-pub fn layout(v: Option<&Value>, s: Style) -> Laid {
-    layout_run(&list(field(v, "segments")), s)
+/// Whether a sentence holds a widget that isn't words.
+pub fn has_views(nodes: &[Drawn]) -> bool {
+    pieces(nodes).iter().any(|p| matches!(p, Piece::View(_)))
 }
 
-/// Lays a run of a rich_text's segments out for egui.
-pub fn layout_run(segments: &[&Value], s: Style) -> Laid {
+/// A sentence's runs of words, and the widgets among them, in order.
+pub fn pieces(nodes: &[Drawn]) -> Vec<Piece<'_>> {
+    fn push(out: &mut Vec<Piece<'_>>, words: String, kind: Kind, marks: &Marks) {
+        if words.is_empty() {
+            return;
+        }
+        let run = Run { words, kind, marks: marks.clone() };
+        match out.last_mut() {
+            Some(Piece::Run(runs)) => runs.push(run),
+            _ => out.push(Piece::Run(vec![run])),
+        }
+    }
+    fn walk<'a>(nodes: &'a [Drawn], marks: &Marks, out: &mut Vec<Piece<'a>>) {
+        for d in nodes {
+            let p = |n: &str| text(d.props.get(n));
+            if d.failed.is_some() {
+                out.push(Piece::View(d));
+                continue;
+            }
+            match d.widget.as_str() {
+                "core/words" => push(out, p("value"), Kind::Words, marks),
+                "core/code_span" => push(out, p("src"), Kind::Code, marks),
+                "core/inline_math" => push(out, tex(d.props.get("tex")), Kind::Math, marks),
+                // a picture's words are its alt text, which it is named by
+                "core/inline_image" => push(out, p("alt"), Kind::Image, marks),
+                "core/note_mark" => push(out, p("mark"), Kind::Note, marks),
+                "core/line_break" => push(out, "\n".into(), Kind::Words, marks),
+                "core/bold" | "core/italic" | "core/strike" | "core/link" => {
+                    let mut m = marks.clone();
+                    match d.widget.as_str() {
+                        "core/bold" => m.bold = true,
+                        "core/italic" => m.italic = true,
+                        "core/strike" => m.strike = true,
+                        _ => m.link = Some(p("to")),
+                    }
+                    walk(d.slots.get("body").map_or(&[], Vec::as_slice), &m, out);
+                }
+                _ => out.push(Piece::View(d)),
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(nodes, &Marks::default(), &mut out);
+    out
+}
+
+/// Lays a run of a sentence's words out for egui.
+pub fn layout(runs: &[Run], s: Style) -> Laid {
     let mut job = LayoutJob::default();
     let mut links = Vec::new();
-    for &seg in segments {
-        let part = field(Some(seg), "part");
-        let marks = field(Some(seg), "marks");
-        let on = |n: &str| flag(field(marks, n), false);
-        let link = inner(field(marks, "link")).map(|l| text(Some(l)));
-        let words = part_words(part);
-        if words.is_empty() {
-            continue;
-        }
-        let kind = case(part).unwrap_or("TEXT");
-        let mono = s.mono || matches!(kind, "CODE" | "MATH");
-        let size = if kind == "NOTE" { s.size * 0.75 } else if mono && !s.mono { s.size * 0.9 } else { s.size };
+    for r in runs {
+        let mono = s.mono || matches!(r.kind, Kind::Code | Kind::Math);
+        let size = if r.kind == Kind::Note { s.size * 0.75 } else if mono && !s.mono { s.size * 0.9 } else { s.size };
         let family = if mono { FontFamily::Monospace } else { FontFamily::Proportional };
         let mut f = TextFormat { font_id: FontId::new(size, family), color: s.color, ..Default::default() };
         f.line_height = Some(s.size * s.line);
-        if on("bold") || s.bold {
+        if r.marks.bold || s.bold {
             // egui's default fonts have no bold face: the text is drawn darker and wider by a hair
             f.extra_letter_spacing = 0.4;
             f.color = strong(s.color);
         }
-        if on("italic") {
+        if r.marks.italic || r.kind == Kind::Image {
             f.italics = true;
         }
-        if on("strike") {
+        if r.marks.strike {
             f.strikethrough = Stroke::new(1.0, f.color);
         }
-        if kind == "CODE" {
+        if r.kind == Kind::Code {
             f.background = s.code_bg;
         }
-        if kind == "NOTE" {
+        if r.kind == Kind::Note {
             f.valign = Align::TOP;
             f.color = s.accent;
         }
-        if kind == "IMAGE" {
-            f.italics = true;
-        }
         let start = job.text.len();
-        if let Some(href) = &link {
-            let safe = safe_href(href);
-            if safe.is_some() {
-                f.color = s.accent;
-                f.underline = Stroke::new(1.0, s.accent);
-            }
-            job.append(&words, 0.0, f);
-            if let Some(url) = safe {
-                links.push((start..job.text.len(), url));
-            }
-        } else {
-            job.append(&words, 0.0, f);
+        let safe = r.marks.link.as_deref().and_then(safe_href);
+        if safe.is_some() {
+            f.color = s.accent;
+            f.underline = Stroke::new(1.0, s.accent);
+        }
+        job.append(&r.words, 0.0, f);
+        if let Some(url) = safe {
+            links.push((start..job.text.len(), url));
         }
     }
     Laid { job, links }

@@ -16,9 +16,9 @@ mounted.page.setPage({ theme: "LIGHT" }); // the page redraws itself; the DOM fo
   `Mounted`: `view(path)`, `act(path, action)`, `layout()` and `unmount()`.
 - **`run(irFile, root, opts?)`** makes the `Page` from an IR file (an object or its JSON text),
   then mounts it. `opts` takes `PageOptions` and `MountOptions` together.
-- **`widgets`** are ours, by full name (`core/press` …, and `#notice`). `MountOptions.widgets`
-  replaces any of them by name, and adds a pack's (`acme/chart`). An extern nobody supplies is
-  drawn as a notice naming it.
+- **`widgets`** are ours, by full name (`core/press` …). `MountOptions.widgets` replaces any of
+  them by name, and adds a pack's (`acme/chart`). An extern nobody supplies is drawn as a notice
+  naming it, and a widget that failed as one that says why (`MountOptions.failed` replaces it).
 - **`MountOptions.measure`** replaces the DOM's measure for the plane's layout, as the checks do
   with fixed sizes.
 - **The stylesheet** is put into the document (or the shadow root the page is in) once, on the
@@ -123,7 +123,7 @@ them by. A class `xtmd-<part>` (dots as dashes) goes with each.
 | | `plane.background` | `svg` | Its background layers, in the plane's units |
 | | `plane.items` | `div` | Its spots |
 | spot | `spot` | `div` | At its point, by its anchor and nudge; its size is its box |
-| #notice | `notice` | `div[role=alert]` | A widget that failed, one nobody supplies, or one whose drawing threw |
+| a notice | `notice` | `div[role=alert]` | A widget that failed, one nobody supplies, or one whose drawing threw |
 
 ## Tests
 

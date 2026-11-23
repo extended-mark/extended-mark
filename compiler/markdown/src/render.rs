@@ -4,10 +4,11 @@
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
+use std::sync::Arc;
 
 use xtmd_eval::interp::Outer;
-use xtmd_eval::value::ViewValue;
-use xtmd_eval::{FailKind, Host, Machine, Program, Value};
+use xtmd_eval::value::ContentOf;
+use xtmd_eval::{Binding, FailKind, Host, Machine, Program, Value};
 use xtmd_ir::ir::{self, Expr, Node};
 
 use crate::{join_runs, Align, Block, Inline, Item};
@@ -26,7 +27,7 @@ fn fail(e: xtmd_eval::Failure) -> Failure {
 #[derive(Clone, Default)]
 struct Env {
     owner: Option<u64>,
-    locals: Vec<(Rc<str>, Value)>,
+    locals: Vec<(Rc<str>, Binding)>,
 }
 
 /// One widget being written: its inputs, its own variables and its slots, with where they were
@@ -35,7 +36,8 @@ struct Env {
 struct Instance {
     inputs: HashMap<String, Value>,
     cells: HashMap<String, Value>,
-    slots: HashMap<String, (Vec<Node>, Env)>,
+    slots: HashMap<String, (Arc<Vec<Node>>, Env)>,
+    widget: String,
 }
 
 #[derive(Default)]
@@ -44,17 +46,15 @@ struct Shared {
     state: HashMap<String, Value>,
     externs: HashMap<String, Value>,
     lets: HashMap<String, Value>,
-    /// A slot read as a value: its nodes and where they were written, by the id its view holds.
-    held: Vec<(Vec<Node>, Env)>,
+    /// Each widget's slots' types, by the widget's name.
+    slot_types: HashMap<(String, String), ir::Type>,
 }
-
-const SLOT: &str = "#slot";
 
 struct Page(Rc<RefCell<Shared>>);
 
 impl Host for Page {
     fn read(&self, m: &mut Machine, what: &Outer, owner: Option<u64>) -> Result<Value, xtmd_eval::Failure> {
-        let mut sh = self.0.borrow_mut();
+        let sh = self.0.borrow();
         let missing = |what: &Outer| xtmd_eval::Failure::new(FailKind::Ir, format!("{:?} isn't known here", what));
         match what {
             Outer::State(n) => sh.state.get(&**n).cloned().ok_or_else(|| missing(what)),
@@ -66,16 +66,11 @@ impl Host for Page {
             Outer::Input(n) => owner.and_then(|o| sh.instances.get(&o)).and_then(|i| i.inputs.get(&**n)).cloned().ok_or_else(|| missing(what)),
             Outer::Cell(n) => owner.and_then(|o| sh.instances.get(&o)).and_then(|i| i.cells.get(&**n)).cloned().ok_or_else(|| missing(what)),
             Outer::Slot(n) => {
-                let held = owner.and_then(|o| sh.instances.get(&o)).and_then(|i| i.slots.get(&**n)).cloned();
+                let held = owner.and_then(|o| sh.instances.get(&o)).and_then(|i| i.slots.get(&**n).cloned().map(|s| (s, sh.slot_types.get(&(i.widget.clone(), n.to_string())).cloned())));
+                drop(sh);
                 match held {
-                    Some(h) => {
-                        sh.held.push(h);
-                        let id = sh.held.len() - 1;
-                        let mut args = BTreeMap::new();
-                        args.insert("id".to_string(), Value::Num(xtmd_eval::Num::int(id as i64)));
-                        Ok(Value::View(Rc::new(ViewValue { widget: Rc::from(SLOT), args, slots: BTreeMap::new(), events: BTreeMap::new(), exprs: BTreeMap::new(), captured: Vec::new(), owner: None })))
-                    }
-                    // a slot left empty
+                    Some(((nodes, at), ty)) => m.slot_value(&ty.unwrap_or_else(|| ir::Type::named("core/view")), &nodes, &at.locals, at.owner, (Rc::from(""), Rc::from(""))),
+                    // a slot left out
                     None => Ok(Value::none()),
                 }
             }
@@ -90,6 +85,8 @@ impl Host for Page {
 /// What one rendered node gives: blocks, or an item of the list around it.
 enum Piece {
     Block(Block),
+    /// A part of a sentence.
+    Run(Inline),
     Item(Item),
 }
 
@@ -98,7 +95,6 @@ struct Writer<'p> {
     shared: Rc<RefCell<Shared>>,
     templates: HashMap<String, ir::Template>,
     externs: HashMap<String, ir::ExternWidget>,
-    bindings: HashMap<String, Expr>,
     depth: usize,
 }
 
@@ -143,11 +139,7 @@ fn template_text(v: Option<&Value>) -> String {
 
 impl<'p> Writer<'p> {
     fn eval(&mut self, env: &Env, e: &Expr) -> R<Value> {
-        let e = match e {
-            Expr::Bind(id) => self.bindings.get(id).cloned().ok_or_else(|| Failure(format!("no binding {}", id)))?,
-            other => other.clone(),
-        };
-        self.m.eval_in(&env.locals, env.owner, &e).map_err(fail)
+        self.m.eval_with(&env.locals, env.owner, e).map_err(fail)
     }
 
     fn new_instance(&mut self, inst: Instance) -> u64 {
@@ -163,24 +155,12 @@ impl<'p> Writer<'p> {
             match n {
                 Node::Declare(d) => {
                     let v = self.eval(&env, &d.let_.value)?;
-                    env.locals.push((Rc::from(d.let_.name.as_str()), v));
+                    env.locals.push((Rc::from(d.let_.name.as_str()), Binding::Value(v)));
                 }
                 Node::For(f) => {
-                    let over = self.eval(&env, &f.over)?;
-                    let values = match &over {
-                        Value::List(l) => l.items.iter().map(|i| i.value.clone()).collect(),
-                        Value::Range(r) => self.m.walk_range(r).map_err(fail)?,
-                        // a list slot: each widget its content places is one item
-                        Value::View(v) if &*v.widget == SLOT => self.slot_items(v)?,
-                        _ => Vec::new(),
-                    };
-                    for (k, v) in values.into_iter().enumerate() {
+                    for row in self.m.loop_rows(&env.locals, env.owner, &f.over, &f.name, f.position.as_deref(), f.mutable).map_err(fail)? {
                         let mut inner = env.clone();
-                        if let Some(p) = &f.position {
-                            inner.locals.push((Rc::from(p.as_str()), Value::Num(xtmd_eval::Num::int(k as i64))));
-                        }
-                        let v = if f.mutable { Value::some(v) } else { v };
-                        inner.locals.push((Rc::from(f.name.as_str()), v));
+                        inner.locals.extend(row.bindings);
                         out.extend(self.nodes(&f.body, &inner)?);
                     }
                 }
@@ -190,16 +170,12 @@ impl<'p> Writer<'p> {
                         let mut inner = env.clone();
                         let pass = match &b.when {
                             ir::Cond::Cond(e) => matches!(self.eval(&env, e)?, Value::Bool(true)),
-                            ir::Cond::Open(o) => match self.eval(&env, &o.opt)? {
-                                Value::Opt(None) => false,
-                                Value::Opt(Some(x)) => {
-                                    inner.locals.push((Rc::from(o.name.as_str()), (*x).clone()));
+                            ir::Cond::Open(o) => match self.m.open_cond(&env.locals, env.owner, o).map_err(fail)? {
+                                Some(b) => {
+                                    inner.locals.push((Rc::from(o.name.as_str()), b));
                                     true
                                 }
-                                plain => {
-                                    inner.locals.push((Rc::from(o.name.as_str()), plain));
-                                    true
-                                }
+                                None => false,
                             },
                         };
                         if pass {
@@ -214,22 +190,21 @@ impl<'p> Writer<'p> {
                 }
                 Node::Match(mt) => {
                     let v = self.eval(&env, &mt.value)?;
-                    let mut done = false;
-                    for c in &mt.cases {
-                        let mut inner = env.clone();
-                        if c.when.iter().any(|p| self.matches(&v, p, &mut inner)) {
-                            out.extend(self.nodes(&c.then, &inner)?);
-                            done = true;
-                            break;
+                    match self.m.pick_case(mt, &v).map_err(fail)? {
+                        Some((k, binds)) => {
+                            let mut inner = env.clone();
+                            inner.locals.extend(binds);
+                            out.extend(self.nodes(&mt.cases[k].then, &inner)?);
                         }
-                    }
-                    if !done {
-                        out.extend(self.nodes(&mt.else_, &env)?);
+                        None => out.extend(self.nodes(&mt.else_, &env)?),
                     }
                 }
                 Node::Place(p) => {
                     let v = self.eval(&env, &p.view)?;
-                    out.extend(self.view(&v, &env)?);
+                    if p.sentence {
+                        check_sentence(&v)?;
+                    }
+                    out.extend(self.view(&v)?);
                 }
                 Node::Extern(x) => out.extend(self.extern_call(x, &env)?),
                 Node::Use(u) => out.extend(self.use_call(u, &env)?),
@@ -238,154 +213,34 @@ impl<'p> Writer<'p> {
         Ok(out)
     }
 
-    /// A slot's items, as `for` walks a list slot: each widget call its content makes, with the
-    /// loops and branches around it worked out, held as a view of its own.
-    fn slot_items(&mut self, slot: &ViewValue) -> R<Vec<Value>> {
-        let id = match slot.args.get("id") {
-            Some(Value::Num(n)) => n.to_i64().unwrap_or(-1),
-            _ => -1,
-        };
-        let Some((nodes, at)) = self.shared.borrow().held.get(id as usize).cloned() else { return Ok(Vec::new()) };
-        let mut calls = Vec::new();
-        self.calls_in(&nodes, &at, &mut calls)?;
-        let mut out = Vec::new();
-        for (node, env) in calls {
-            let mut sh = self.shared.borrow_mut();
-            sh.held.push((vec![node], env));
-            let mut args = BTreeMap::new();
-            args.insert("id".to_string(), Value::Num(xtmd_eval::Num::int((sh.held.len() - 1) as i64)));
-            out.push(Value::View(Rc::new(ViewValue { widget: Rc::from(SLOT), args, slots: BTreeMap::new(), events: BTreeMap::new(), exprs: BTreeMap::new(), captured: Vec::new(), owner: None })));
-        }
-        Ok(out)
-    }
-
-    /// The widget calls some nodes make, each with the locals around it.
-    fn calls_in(&mut self, nodes: &[Node], env: &Env, out: &mut Vec<(Node, Env)>) -> R<()> {
-        let mut env = env.clone();
-        for n in nodes {
-            match n {
-                Node::Declare(d) => {
-                    let v = self.eval(&env, &d.let_.value)?;
-                    env.locals.push((Rc::from(d.let_.name.as_str()), v));
-                }
-                Node::For(f) => {
-                    let over = self.eval(&env, &f.over)?;
-                    let values = match &over {
-                        Value::List(l) => l.items.iter().map(|i| i.value.clone()).collect(),
-                        Value::Range(r) => self.m.walk_range(r).map_err(fail)?,
-                        _ => Vec::new(),
-                    };
-                    for (k, v) in values.into_iter().enumerate() {
-                        let mut inner = env.clone();
-                        if let Some(p) = &f.position {
-                            inner.locals.push((Rc::from(p.as_str()), Value::Num(xtmd_eval::Num::int(k as i64))));
-                        }
-                        let v = if f.mutable { Value::some(v) } else { v };
-                        inner.locals.push((Rc::from(f.name.as_str()), v));
-                        self.calls_in(&f.body, &inner, out)?;
-                    }
-                }
-                Node::If(i) => {
-                    let mut done = false;
-                    for b in &i.branches {
-                        let mut inner = env.clone();
-                        let pass = match &b.when {
-                            ir::Cond::Cond(e) => matches!(self.eval(&env, e)?, Value::Bool(true)),
-                            ir::Cond::Open(o) => match self.eval(&env, &o.opt)? {
-                                Value::Opt(None) => false,
-                                Value::Opt(Some(x)) => {
-                                    inner.locals.push((Rc::from(o.name.as_str()), (*x).clone()));
-                                    true
-                                }
-                                plain => {
-                                    inner.locals.push((Rc::from(o.name.as_str()), plain));
-                                    true
-                                }
-                            },
-                        };
-                        if pass {
-                            self.calls_in(&b.then, &inner, out)?;
-                            done = true;
-                            break;
-                        }
-                    }
-                    if !done {
-                        self.calls_in(&i.else_, &env, out)?;
-                    }
-                }
-                Node::Match(mt) => {
-                    let v = self.eval(&env, &mt.value)?;
-                    let mut done = false;
-                    for c in &mt.cases {
-                        let mut inner = env.clone();
-                        if c.when.iter().any(|p| self.matches(&v, p, &mut inner)) {
-                            self.calls_in(&c.then, &inner, out)?;
-                            done = true;
-                            break;
-                        }
-                    }
-                    if !done {
-                        self.calls_in(&mt.else_, &env, out)?;
-                    }
-                }
-                Node::Place(_) | Node::Extern(_) | Node::Use(_) => out.push((n.clone(), env.clone())),
-            }
-        }
-        Ok(())
-    }
-
-    fn matches(&mut self, v: &Value, p: &ir::Pattern, env: &mut Env) -> bool {
-        match (p, v) {
-            (ir::Pattern::Case(pc), Value::Case(c)) if *c.name == *pc.name => {
-                for (k, b) in pc.binds.iter().enumerate() {
-                    if let Some((_, x)) = c.values.get(k) {
-                        env.locals.push((Rc::from(b.as_str()), x.clone()));
-                    }
-                }
-                true
-            }
-            (ir::Pattern::Case(pc), Value::Opt(o)) => match (pc.name.as_str(), o) {
-                ("SOME", Some(x)) => {
-                    if let Some(b) = pc.binds.first() {
-                        env.locals.push((Rc::from(b.as_str()), (**x).clone()));
-                    }
-                    true
-                }
-                ("NONE", None) => true,
-                _ => false,
-            },
-            (ir::Pattern::Num(n), Value::Num(x)) => xtmd_eval::Num::parse(n).map_or(false, |n| self.m.equal(&Value::Num(n), &Value::Num(*x)).unwrap_or(false)),
-            (ir::Pattern::Text(t), Value::Text(x)) => **x == **t,
-            (ir::Pattern::Bool(b), Value::Bool(x)) => b == x,
-            _ => false,
-        }
-    }
-
-    /// A view held in a value: a slot's content, or a call made as a value.
-    fn view(&mut self, v: &Value, env: &Env) -> R<Vec<Piece>> {
+    /// A view held in a value: a call made as one, or calls.
+    fn view(&mut self, v: &Value) -> R<Vec<Piece>> {
         match v {
-            Value::View(view) if &*view.widget == SLOT => {
-                let id = match view.args.get("id") {
-                    Some(Value::Num(n)) => n.to_i64().unwrap_or(-1),
-                    _ => -1,
-                };
-                let held = self.shared.borrow().held.get(id as usize).cloned();
-                match held {
-                    Some((nodes, at)) => self.nodes(&nodes, &at),
-                    None => Ok(Vec::new()),
-                }
-            }
             Value::View(view) => {
-                let props: BTreeMap<String, Value> = view.args.clone();
                 // its slots are read where the view was made
-                let mut at = Env { owner: view.owner.or(env.owner), locals: Vec::new() };
-                for (n, b) in &view.captured {
-                    at.locals.push((n.clone(), self.m.value_of(b).map_err(fail)?));
-                }
-                let slots: HashMap<String, (Vec<Node>, Env)> = view.slots.iter().map(|(k, n)| (k.clone(), (n.clone(), at.clone()))).collect();
-                self.widget(&view.widget, props, slots)
+                let at = Env { owner: view.owner, locals: view.captured.clone() };
+                let slots = view.slots.iter().map(|(k, n)| (k.clone(), (Arc::new(n.clone()), at.clone()))).collect();
+                self.widget(&view.widget, view.args.clone(), slots)
             }
-            Value::Opt(Some(x)) => self.view(&x.clone(), env),
+            Value::Content(c) => match &c.of {
+                ContentOf::Nodes { nodes, captured, owner, .. } => self.nodes(nodes, &Env { owner: *owner, locals: captured.clone() }),
+                ContentOf::Parts(parts) => {
+                    let mut out = Vec::new();
+                    for p in parts {
+                        out.extend(self.view(p)?);
+                    }
+                    Ok(out)
+                }
+                ContentOf::Drawn(_) => Ok(Vec::new()),
+            },
+            Value::List(l) => {
+                let mut out = Vec::new();
+                for i in &l.items {
+                    out.extend(self.view(&i.value)?);
+                }
+                Ok(out)
+            }
+            Value::Opt(Some(x)) => self.view(x),
             _ => Ok(Vec::new()),
         }
     }
@@ -398,7 +253,7 @@ impl<'p> Writer<'p> {
         for (k, p) in &x.writes {
             props.insert(k.clone(), self.eval(env, &Expr::Place(p.clone()))?);
         }
-        let slots: HashMap<String, (Vec<Node>, Env)> = x.slots.iter().map(|(k, n)| (k.clone(), (n.clone(), env.clone()))).collect();
+        let slots: HashMap<String, (Arc<Vec<Node>>, Env)> = x.slots.iter().map(|(k, n)| (k.clone(), (Arc::new(n.clone()), env.clone()))).collect();
         self.widget(&x.name, props, slots)
     }
 
@@ -407,13 +262,13 @@ impl<'p> Writer<'p> {
         for (k, e) in &u.args {
             props.insert(k.clone(), self.eval(env, e)?);
         }
-        let slots: HashMap<String, (Vec<Node>, Env)> = u.slots.iter().map(|(k, n)| (k.clone(), (n.clone(), env.clone()))).collect();
+        let slots: HashMap<String, (Arc<Vec<Node>>, Env)> = u.slots.iter().map(|(k, n)| (k.clone(), (Arc::new(n.clone()), env.clone()))).collect();
         self.widget(&u.name, props, slots)
     }
 
     /// A widget, given its inputs' values and its slots: one that is a piece of Markdown is
     /// written as it; any other writes its `markdown`.
-    fn widget(&mut self, name: &str, props: BTreeMap<String, Value>, slots: HashMap<String, (Vec<Node>, Env)>) -> R<Vec<Piece>> {
+    fn widget(&mut self, name: &str, props: BTreeMap<String, Value>, slots: HashMap<String, (Arc<Vec<Node>>, Env)>) -> R<Vec<Piece>> {
         self.depth += 1;
         if self.depth > 64 {
             self.depth -= 1;
@@ -432,7 +287,7 @@ impl<'p> Writer<'p> {
         }
     }
 
-    fn slot_blocks(&mut self, slots: &HashMap<String, (Vec<Node>, Env)>, name: &str) -> R<Vec<Piece>> {
+    fn slot_blocks(&mut self, slots: &HashMap<String, (Arc<Vec<Node>>, Env)>, name: &str) -> R<Vec<Piece>> {
         match slots.get(name) {
             Some((nodes, env)) => {
                 let (nodes, env) = (nodes.clone(), env.clone());
@@ -442,13 +297,13 @@ impl<'p> Writer<'p> {
         }
     }
 
-    fn widget_inner(&mut self, name: &str, props: BTreeMap<String, Value>, slots: HashMap<String, (Vec<Node>, Env)>) -> R<Vec<Piece>> {
+    fn widget_inner(&mut self, name: &str, props: BTreeMap<String, Value>, slots: HashMap<String, (Arc<Vec<Node>>, Env)>) -> R<Vec<Piece>> {
         let p = |k: &str| props.get(k);
         let block = |b: Block| Ok(vec![Piece::Block(b)]);
         let piece = self.externs.get(name).and_then(|w| w.piece.clone());
         match piece.as_deref().unwrap_or("") {
             "paragraph" => {
-                let runs = self.inline(p("value"))?;
+                let runs = self.sentence(p("value"))?;
                 return if runs.is_empty() { Ok(Vec::new()) } else { block(Block::Paragraph(runs)) };
             }
             "heading" => {
@@ -456,7 +311,7 @@ impl<'p> Writer<'p> {
                     Some(Value::Num(n)) => n.to_i64().unwrap_or(1).clamp(1, 6) as u8,
                     _ => 1,
                 };
-                let inline = self.inline(p("value"))?;
+                let inline = self.sentence(p("value"))?;
                 return block(Block::Heading { level, inline });
             }
             "bullets" => {
@@ -470,7 +325,7 @@ impl<'p> Writer<'p> {
                     .into_iter()
                     .map(|x| match x {
                         Piece::Item(i) => i,
-                        Piece::Block(b) => Item { done: None, blocks: vec![b] },
+                        other => Item { done: None, blocks: blocks_of(vec![other]) },
                     })
                     .collect();
                 // a list with no items writes nothing
@@ -492,6 +347,29 @@ impl<'p> Writer<'p> {
             "code" => return block(Block::Code { lang: text_of(p("lang")), src: text_of(p("src")) }),
             "math" => return block(Block::Math(template_text(p("tex").and_then(|t| get(t, "tex"))))),
             "divider" => return block(Block::Divider),
+            "text" => return Ok(vec![Piece::Run(Inline::words(text_of(p("value"))))]),
+            "bold" | "italic" | "strike" | "link" => {
+                let body = runs_of(self.slot_blocks(&slots, "body")?);
+                let to = text_of(p("to"));
+                let marked = body.into_iter().map(|r| match r {
+                    Inline::Text { value, mut bold, mut italic, mut strike, mut link } => {
+                        match piece.as_deref() {
+                            Some("bold") => bold = true,
+                            Some("italic") => italic = true,
+                            Some("strike") => strike = true,
+                            _ => link = Some(to.clone()),
+                        }
+                        Inline::Text { value, bold, italic, strike, link }
+                    }
+                    other => other,
+                });
+                return Ok(marked.map(Piece::Run).collect());
+            }
+            "code_span" => return Ok(vec![Piece::Run(Inline::Code(text_of(p("src"))))]),
+            "inline_math" => return Ok(vec![Piece::Run(Inline::Math(template_text(p("tex").and_then(|t| get(t, "tex")))))]),
+            "inline_image" => return Ok(vec![Piece::Run(Inline::Image { src: text_of(p("src")), alt: text_of(p("alt")) })]),
+            "note_mark" => return Ok(vec![Piece::Run(Inline::Note(text_of(p("mark"))))]),
+            "line_break" => return Ok(vec![Piece::Run(Inline::Break)]),
             "footnote" => {
                 let blocks = blocks_of(self.slot_blocks(&slots, "body")?);
                 return block(Block::Footnote { mark: text_of(p("mark")), blocks });
@@ -499,13 +377,13 @@ impl<'p> Writer<'p> {
             "table" => {
                 let mut head = Vec::new();
                 for c in items(p("head")) {
-                    head.push(self.inline(Some(&c))?);
+                    head.push(self.sentence(Some(&c))?);
                 }
                 let mut rows = Vec::new();
                 for r in items(p("rows")) {
                     let mut row = Vec::new();
                     for c in items(Some(&r)) {
-                        row.push(self.inline(Some(&c))?);
+                        row.push(self.sentence(Some(&c))?);
                     }
                     rows.push(row);
                 }
@@ -523,7 +401,7 @@ impl<'p> Writer<'p> {
         }
         // a widget written in Extended Mark: its markdown, with its inputs and its own variables
         if let Some(t) = self.templates.get(name).cloned() {
-            let id = self.new_instance(Instance::default());
+            let id = self.new_instance(Instance { widget: name.to_string(), ..Instance::default() });
             let env = Env { owner: Some(id), locals: Vec::new() };
             let mut inputs = HashMap::new();
             for f in &t.inputs {
@@ -553,7 +431,7 @@ impl<'p> Writer<'p> {
         }
         // an extern widget: its markdown block, with its inputs
         if let Some(w) = self.externs.get(name).cloned() {
-            let id = self.new_instance(Instance { slots, ..Instance::default() });
+            let id = self.new_instance(Instance { slots, widget: name.to_string(), ..Instance::default() });
             let env = Env { owner: Some(id), locals: Vec::new() };
             for f in &w.inputs {
                 let v = match props.get(&f.name) {
@@ -570,37 +448,50 @@ impl<'p> Writer<'p> {
         Err(Failure(format!("there is no widget `{}` to write", name)))
     }
 
-    /// A rich text's segments as runs; a view in a sentence puts its own Markdown's text there.
-    fn inline(&mut self, v: Option<&Value>) -> R<Vec<Inline>> {
+    /// A sentence's calls as runs.
+    fn sentence(&mut self, v: Option<&Value>) -> R<Vec<Inline>> {
         let Some(v) = v else { return Ok(Vec::new()) };
-        let mut out = Vec::new();
-        for seg in items(get(v, "segments")) {
-            let Some(part @ Value::Case(c)) = get(&seg, "part") else { continue };
-            let marks = get(&seg, "marks");
-            let flag = |n: &str| matches!(marks.and_then(|m| get(m, n)), Some(Value::Bool(true)));
-            let link = match marks.and_then(|m| get(m, "link")) {
-                Some(Value::Opt(Some(l))) => Some(text_of(Some(l))),
-                _ => None,
-            };
-            let text = |value: String| Inline::Text { value, bold: flag("bold"), italic: flag("italic"), strike: flag("strike"), link: link.clone() };
-            match &*c.name {
-                "TEXT" => out.push(text(text_of(get(part, "value")))),
-                "CODE" => out.push(Inline::Code(text_of(get(part, "value")))),
-                "MATH" => out.push(Inline::Math(template_text(get(part, "tex").and_then(|t| get(t, "tex"))))),
-                "IMAGE" => out.push(Inline::Image { src: text_of(get(part, "src")), alt: text_of(get(part, "alt")) }),
-                "NOTE" => out.push(Inline::Note(text_of(get(part, "mark")))),
-                "BREAK" => out.push(Inline::Break),
-                "VIEW" => {
-                    let child = get(part, "child").cloned().unwrap_or(Value::none());
-                    let blocks = blocks_of(self.view(&child, &Env::default())?);
-                    let words: Vec<String> = blocks.iter().map(plain).filter(|s| !s.is_empty()).collect();
-                    out.push(text(words.join(" ")));
-                }
-                _ => {}
+        check_sentence(v)?;
+        Ok(join_runs(runs_of(self.view(v)?)))
+    }
+}
+
+/// A sentence goes here, so a rich_text of blocks doesn't.
+fn check_sentence(v: &Value) -> R<()> {
+    match v {
+        Value::Content(c) if c.blocks => Err(Failure("a sentence goes here, and this rich_text is blocks".into())),
+        Value::Opt(Some(x)) => check_sentence(x),
+        _ => Ok(()),
+    }
+}
+
+/// What some calls write in a sentence: their runs, and the words of any blocks among them.
+fn runs_of(pieces: Vec<Piece>) -> Vec<Inline> {
+    let mut out: Vec<Inline> = Vec::new();
+    let mut blocks: Vec<Piece> = Vec::new();
+    let flush = |blocks: &mut Vec<Piece>, out: &mut Vec<Inline>| {
+        let mut bs = blocks_of(std::mem::take(blocks));
+        match bs.as_mut_slice() {
+            [] => {}
+            // a widget that is one paragraph writes its sentence
+            [Block::Paragraph(runs)] => out.append(runs),
+            bs => {
+                let words: Vec<String> = bs.iter().map(plain).filter(|s| !s.is_empty()).collect();
+                out.push(Inline::words(words.join(" ")));
             }
         }
-        Ok(join_runs(out))
+    };
+    for p in pieces {
+        match p {
+            Piece::Run(r) => {
+                flush(&mut blocks, &mut out);
+                out.push(r);
+            }
+            other => blocks.push(other),
+        }
     }
+    flush(&mut blocks, &mut out);
+    out
 }
 
 /// A block's words, for a view placed in a sentence.
@@ -625,11 +516,23 @@ fn plain(b: &Block) -> String {
 /// too, and any other block ends it (page 3).
 fn blocks_of(pieces: Vec<Piece>) -> Vec<Block> {
     let mut out: Vec<Block> = Vec::new();
+    let mut in_sentence = false;
     for p in pieces {
         let b = match p {
             Piece::Block(b) => b,
+            // a sentence among blocks is a paragraph
+            Piece::Run(r) => {
+                if let (Some(Block::Paragraph(runs)), true) = (out.last_mut(), in_sentence) {
+                    runs.push(r);
+                } else {
+                    out.push(Block::Paragraph(vec![r]));
+                }
+                in_sentence = true;
+                continue;
+            }
             Piece::Item(i) => Block::Bullets { ordered: false, start: 1, items: vec![i] },
         };
+        in_sentence = false;
         if let (Some(Block::Bullets { ordered: o1, items: i1, .. }), Block::Bullets { ordered: o2, items: i2, .. }) = (out.last_mut(), &b) {
             if *o1 == *o2 {
                 i1.extend(i2.iter().cloned());
@@ -655,9 +558,16 @@ pub fn page(m: &ir::Module) -> R<Vec<Block>> {
         shared: shared.clone(),
         templates: m.templates.iter().map(|t| (t.name.clone(), t.clone())).collect(),
         externs: HashMap::new(),
-        bindings: m.bindings.iter().map(|b| (b.id.clone(), b.value.clone())).collect(),
         depth: 0,
     };
+    for (name, slots) in m.templates.iter().map(|t| (&t.name, &t.slots)).chain(m.declarations.iter().filter_map(|d| match &d.declare {
+        ir::Decl::Extern(ir::Extern::Widget(x)) => Some((&x.name, &x.slots)),
+        _ => None,
+    })) {
+        for sl in slots {
+            shared.borrow_mut().slot_types.insert((name.clone(), sl.name.clone()), sl.ty.clone());
+        }
+    }
     let none = Env::default();
     // the page's values, $state's starting values, then lets that read them
     for d in &m.declarations {

@@ -14,6 +14,7 @@ use xtmd_syntax::{parse, Entry, Lines};
 mod externs;
 pub mod releases;
 mod slots;
+mod texts;
 pub mod step;
 pub mod v02;
 

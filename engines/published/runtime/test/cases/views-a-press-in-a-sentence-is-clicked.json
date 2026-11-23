@@ -1,6 +1,6 @@
 {
   "id": "views.a-press-in-a-sentence-is-clicked",
-  "about": "a view in a sentence is drawn as its paragraph's slot, so a press there is in the page's tree and a click on it runs its handler",
+  "about": "a view in a sentence is drawn among its paragraph's words, so a press there is in the page's tree and a click on it runs its handler",
   "source": "views-a-press-in-a-sentence-is-clicked.xtmd",
   "expect": {
     "diagnostics": [],
@@ -22,7 +22,7 @@
     {
       "do": {
         "event": {
-          "site": "m0/~0",
+          "site": "m0/value/t1",
           "name": "click"
         }
       },
@@ -35,13 +35,37 @@
         "tree": {
           "m0": {
             "widget": "core/paragraph",
-            "slots": {
-              "~0": [
-                "m0/~0"
-              ]
+            "props": {
+              "value": {
+                "list": [
+                  {
+                    "text": "m0/value/t0"
+                  },
+                  {
+                    "text": "m0/value/t1"
+                  },
+                  {
+                    "text": "m0/value/t2"
+                  },
+                  {
+                    "text": "m0/value/t3"
+                  },
+                  {
+                    "text": "m0/value/t4"
+                  }
+                ]
+              }
             }
           },
-          "m0/~0": {
+          "m0/value/t0": {
+            "widget": "core/words",
+            "props": {
+              "value": {
+                "text": "Press "
+              }
+            }
+          },
+          "m0/value/t1": {
             "widget": "core/press",
             "props": {
               "label": {

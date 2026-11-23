@@ -7,14 +7,17 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use xtmd_eval::interp::R;
+use xtmd_eval::value::ContentOf;
 use xtmd_eval::{Binding, FailKind, Failure, Machine, Value};
 use xtmd_ir::ir::{Expr, Node};
 use xtmd_markdown::{join_runs, Align, Block, Inline, Item};
 
-use crate::page::{join, Env, Rt};
+use crate::page::{check_sentence, join, Args, Env, Rt};
 
 enum Piece {
     Block(Block),
+    /// A part of a sentence.
+    Run(Inline),
     Item(Item),
 }
 
@@ -68,11 +71,23 @@ fn template_text(v: Option<&Value>) -> String {
 /// List items that follow one another make one list, across a loop's turns too (page 3).
 fn blocks_of(pieces: Vec<Piece>) -> Vec<Block> {
     let mut out: Vec<Block> = Vec::new();
+    let mut in_sentence = false;
     for p in pieces {
         let b = match p {
             Piece::Block(b) => b,
+            // a sentence among blocks is a paragraph
+            Piece::Run(r) => {
+                if let (Some(Block::Paragraph(runs)), true) = (out.last_mut(), in_sentence) {
+                    runs.push(r);
+                } else {
+                    out.push(Block::Paragraph(vec![r]));
+                }
+                in_sentence = true;
+                continue;
+            }
             Piece::Item(i) => Block::Bullets { ordered: false, start: 1, items: vec![i] },
         };
+        in_sentence = false;
         if let (Some(Block::Bullets { ordered: o1, items: i1, .. }), Block::Bullets { ordered: o2, items: i2, .. }) = (out.last_mut(), &b) {
             if *o1 == *o2 {
                 i1.extend(i2.iter().cloned());
@@ -123,7 +138,7 @@ impl Writer<'_> {
                         let mut bindings = env.bindings.clone();
                         bindings.extend(row.bindings);
                         let key = env.key.clone().unwrap_or_else(|| env.path.clone());
-                        let inner = Env { owner: env.owner, bindings, path: join(&env.path, &format!("{}[{}]", f.site, k)), key: Some(join(&key, &format!("{}[{}]", f.site, row.key))) };
+                        let inner = Env { owner: env.owner, bindings, path: join(&env.path, &format!("{}[{}]", f.site, k)), key: Some(join(&key, &format!("{}[{}]", f.site, row.key))), keep: env.keep.clone() };
                         out.extend(self.nodes(m, &f.body, &inner)?);
                     }
                 }
@@ -149,7 +164,11 @@ impl Writer<'_> {
                 }
                 Node::Place(p) => {
                     let v = self.rt.eval_in(m, &env, &p.view)?;
-                    out.extend(self.view(m, &v, &env, &join(&env.path, &p.site))?);
+                    if p.sentence {
+                        check_sentence(&v)?;
+                    }
+                    let key = join(env.key.as_deref().unwrap_or(&env.path), &p.site);
+                    out.extend(self.view(m, &v, &join(&env.path, &p.site), &key)?);
                 }
                 Node::Extern(x) => {
                     let mut props = BTreeMap::new();
@@ -160,42 +179,60 @@ impl Writer<'_> {
                         props.insert(k.clone(), m.eval_with(&env.bindings, env.owner, &Expr::Place(p.clone()))?);
                     }
                     let path = join(&env.path, &x.site);
-                    out.extend(self.widget(m, &x.name, &path, props, &BTreeMap::new(), &x.slots, &env, &path.clone(), &BTreeMap::new())?);
+                    let key = join(env.key.as_deref().unwrap_or(&env.path), &x.site);
+                    out.extend(self.widget(m, &x.name, &path, props, Args::Exprs(&BTreeMap::new()), &x.slots, &env, &key, &BTreeMap::new())?);
                 }
                 Node::Use(u) => {
                     let key = join(env.key.as_deref().unwrap_or(&env.path), &u.site);
-                    out.extend(self.widget(m, &u.name, &join(&env.path, &u.site), BTreeMap::new(), &u.args, &u.slots, &env, &key, &u.events)?);
+                    out.extend(self.widget(m, &u.name, &join(&env.path, &u.site), BTreeMap::new(), Args::Exprs(&u.args), &u.slots, &env, &key, &u.events)?);
                 }
             }
         }
         Ok(out)
     }
 
-    fn view(&mut self, m: &mut Machine, v: &Value, env: &Env, path: &str) -> R<Vec<Piece>> {
-        let view = match v {
-            Value::Opt(Some(x)) => return self.view(m, x, env, path),
+    fn view(&mut self, m: &mut Machine, v: &Value, path: &str, key: &str) -> R<Vec<Piece>> {
+        match v {
+            Value::Opt(Some(x)) => self.view(m, x, path, key),
             Value::List(l) => {
                 let mut out = Vec::new();
                 for (k, i) in l.items.iter().enumerate() {
-                    out.extend(self.view(m, &i.value, env, &format!("{}[{}]", path, k))?);
+                    out.extend(self.view(m, &i.value, &format!("{}[{}]", path, k), &format!("{}[{}]", key, i.id))?);
                 }
-                return Ok(out);
+                Ok(out)
             }
-            Value::View(view) => view.clone(),
-            _ => return Ok(Vec::new()),
-        };
-        if &*view.widget == "#slot" {
-            return match view.args.get("id").and_then(|id| self.rt.held_slot(id)) {
-                Some((nodes, at)) => self.nodes(m, &nodes, &at),
-                None => Ok(Vec::new()),
-            };
+            Value::Content(c) => match &c.of {
+                ContentOf::Nodes { nodes, captured, owner, at } => {
+                    let (path, key) = match at {
+                        Some((p, k)) => (p.to_string(), k.to_string()),
+                        None => (path.to_string(), key.to_string()),
+                    };
+                    self.nodes(m, nodes, &Env { owner: *owner, bindings: captured.clone(), path, key: Some(key), keep: None })
+                }
+                ContentOf::Parts(parts) => {
+                    let mut out = Vec::new();
+                    for (k, p) in parts.iter().enumerate() {
+                        let site = format!("j{}", k);
+                        out.extend(self.view(m, p, &join(path, &site), &join(key, &site))?);
+                    }
+                    Ok(out)
+                }
+                ContentOf::Drawn(_) => Ok(Vec::new()),
+            },
+            Value::View(view) => {
+                let who = view.at.as_deref().unwrap_or(key);
+                let made = Env { owner: view.owner, bindings: view.captured.clone(), path: path.to_string(), key: Some(who.to_string()), keep: None };
+                self.widget(m, &view.widget, path, view.args.clone(), Args::Values(&view.args), &view.slots, &made, who, &view.events)
+            }
+            _ => Ok(Vec::new()),
         }
-        let made = Env { owner: view.owner, bindings: view.captured.clone(), path: env.path.clone(), key: None };
-        // a widget written in Extended Mark is given the view's arguments, as drawing gives them: entered
-        // with none, it would be written with its inputs' defaults (and an instance the page drew
-        // at the same key would be left without its inputs until the next redraw)
-        let args: BTreeMap<String, Expr> = view.args.iter().map(|(k, x)| (k.clone(), x.to_ir())).collect();
-        self.widget(m, &view.widget, path, view.args.clone(), &args, &view.slots, &made, path, &view.events)
+    }
+
+    /// A sentence's calls as runs.
+    fn sentence(&mut self, m: &mut Machine, v: Option<&Value>, path: &str, key: &str) -> R<Vec<Inline>> {
+        let Some(v) = v else { return Ok(Vec::new()) };
+        check_sentence(v)?;
+        Ok(join_runs(runs_of(self.view(m, v, path, key)?)))
     }
 
     fn slot(&mut self, m: &mut Machine, slots: &BTreeMap<String, Vec<Node>>, name: &str, env: &Env) -> R<Vec<Piece>> {
@@ -209,7 +246,7 @@ impl Writer<'_> {
     /// markdown. `key` and `events` are the call's, as drawing gives them: entering a widget to
     /// write its Markdown finds the instance the page drew.
     #[allow(clippy::too_many_arguments)]
-    fn widget(&mut self, m: &mut Machine, name: &str, path: &str, props: BTreeMap<String, Value>, args: &BTreeMap<String, Expr>, slots: &BTreeMap<String, Vec<Node>>, env: &Env, key: &str, events: &BTreeMap<String, String>) -> R<Vec<Piece>> {
+    fn widget(&mut self, m: &mut Machine, name: &str, path: &str, props: BTreeMap<String, Value>, args: Args, slots: &BTreeMap<String, Vec<Node>>, env: &Env, key: &str, events: &BTreeMap<String, String>) -> R<Vec<Piece>> {
         self.depth += 1;
         if self.depth > 64 {
             self.depth -= 1;
@@ -232,18 +269,18 @@ impl Writer<'_> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn widget_inner(&mut self, m: &mut Machine, name: &str, path: &str, props: BTreeMap<String, Value>, args: &BTreeMap<String, Expr>, slots: &BTreeMap<String, Vec<Node>>, env: &Env, key: &str, events: &BTreeMap<String, String>) -> R<Vec<Piece>> {
+    fn widget_inner(&mut self, m: &mut Machine, name: &str, path: &str, props: BTreeMap<String, Value>, args: Args, slots: &BTreeMap<String, Vec<Node>>, env: &Env, key: &str, events: &BTreeMap<String, String>) -> R<Vec<Piece>> {
         let p = |k: &str| props.get(k);
         let block = |b: Block| Ok(vec![Piece::Block(b)]);
         let piece = self.rt.s.extern_widgets.get(name).and_then(|w| w.piece.clone());
         match piece.as_deref().unwrap_or("") {
             "paragraph" => {
-                let runs = self.inline(m, p("value"))?;
+                let runs = self.sentence(m, p("value"), &join(path, "value"), &join(key, "value"))?;
                 return if runs.is_empty() { Ok(Vec::new()) } else { block(Block::Paragraph(runs)) };
             }
             "heading" => {
                 let level = number(p("level")).map_or(1.0, |l| l.clamp(1.0, 6.0)).floor() as u8;
-                let inline = self.inline(m, p("value"))?;
+                let inline = self.sentence(m, p("value"), &join(path, "value"), &join(key, "value"))?;
                 return block(Block::Heading { level, inline });
             }
             "bullets" => {
@@ -254,7 +291,7 @@ impl Writer<'_> {
                     .into_iter()
                     .map(|x| match x {
                         Piece::Item(i) => i,
-                        Piece::Block(b) => Item { done: None, blocks: vec![b] },
+                        other => Item { done: None, blocks: blocks_of(vec![other]) },
                     })
                     .collect();
                 return if items.is_empty() { Ok(Vec::new()) } else { block(Block::Bullets { ordered, start, items }) };
@@ -275,20 +312,43 @@ impl Writer<'_> {
             "code" => return block(Block::Code { lang: text_of(p("lang")), src: text_of(p("src")) }),
             "math" => return block(Block::Math(template_text(field(p("tex"), "tex")))),
             "divider" => return block(Block::Divider),
+            "text" => return Ok(vec![Piece::Run(Inline::words(text_of(p("value"))))]),
+            "bold" | "italic" | "strike" | "link" => {
+                let body = runs_of(self.slot(m, slots, "body", env)?);
+                let to = text_of(p("to"));
+                let marked = body.into_iter().map(|r| match r {
+                    Inline::Text { value, mut bold, mut italic, mut strike, mut link } => {
+                        match piece.as_deref() {
+                            Some("bold") => bold = true,
+                            Some("italic") => italic = true,
+                            Some("strike") => strike = true,
+                            _ => link = Some(to.clone()),
+                        }
+                        Inline::Text { value, bold, italic, strike, link }
+                    }
+                    other => other,
+                });
+                return Ok(marked.map(Piece::Run).collect());
+            }
+            "code_span" => return Ok(vec![Piece::Run(Inline::Code(text_of(p("src"))))]),
+            "inline_math" => return Ok(vec![Piece::Run(Inline::Math(template_text(field(p("tex"), "tex"))))]),
+            "inline_image" => return Ok(vec![Piece::Run(Inline::Image { src: text_of(p("src")), alt: text_of(p("alt")) })]),
+            "note_mark" => return Ok(vec![Piece::Run(Inline::Note(text_of(p("mark"))))]),
+            "line_break" => return Ok(vec![Piece::Run(Inline::Break)]),
             "footnote" => {
                 let blocks = blocks_of(self.slot(m, slots, "body", env)?);
                 return block(Block::Footnote { mark: text_of(p("mark")), blocks });
             }
             "table" => {
                 let mut head = Vec::new();
-                for c in items_of(p("head")) {
-                    head.push(self.inline(m, Some(&c))?);
+                for (k, c) in items_of(p("head")).iter().enumerate() {
+                    head.push(self.sentence(m, Some(c), &format!("{}[{}]", join(path, "head"), k), &format!("{}[{}]", join(key, "head"), k))?);
                 }
                 let mut rows = Vec::new();
-                for r in items_of(p("rows")) {
+                for (j, r) in items_of(p("rows")).iter().enumerate() {
                     let mut row = Vec::new();
-                    for c in items_of(Some(&r)) {
-                        row.push(self.inline(m, Some(&c))?);
+                    for (k, c) in items_of(Some(r)).iter().enumerate() {
+                        row.push(self.sentence(m, Some(c), &format!("{}[{}][{}]", join(path, "rows"), j, k), &format!("{}[{}][{}]", join(key, "rows"), j, k))?);
                     }
                     rows.push(row);
                 }
@@ -317,38 +377,35 @@ impl Writer<'_> {
         }
         Err(Failure::ir(format!("there is no widget {} to write", name)))
     }
+}
 
-    /// A rich text's segments as runs; a view in a sentence puts its own Markdown's text there.
-    fn inline(&mut self, m: &mut Machine, v: Option<&Value>) -> R<Vec<Inline>> {
-        let mut out = Vec::new();
-        for seg in items_of(field(v, "segments")) {
-            let part = field(Some(&seg), "part");
-            let Some(Value::Case(c)) = part else { continue };
-            let marks = field(Some(&seg), "marks");
-            let flag = |n: &str| matches!(field(marks, n), Some(Value::Bool(true)));
-            let link = match field(marks, "link") {
-                Some(Value::Opt(Some(l))) => Some(text_of(Some(l))),
-                _ => None,
-            };
-            let text = |value: String| Inline::Text { value, bold: flag("bold"), italic: flag("italic"), strike: flag("strike"), link: link.clone() };
-            match &*c.name {
-                "TEXT" => out.push(text(text_of(field(part, "value")))),
-                "CODE" => out.push(Inline::Code(text_of(field(part, "value")))),
-                "MATH" => out.push(Inline::Math(template_text(field(field(part, "tex"), "tex")))),
-                "IMAGE" => out.push(Inline::Image { src: text_of(field(part, "src")), alt: text_of(field(part, "alt")) }),
-                "NOTE" => out.push(Inline::Note(text_of(field(part, "mark")))),
-                "BREAK" => out.push(Inline::Break),
-                "VIEW" => {
-                    let child = field(part, "child").cloned().unwrap_or_else(Value::none);
-                    let blocks = blocks_of(self.view(m, &child, &Env::default(), "")?);
-                    let words: Vec<String> = blocks.iter().map(plain).filter(|s| !s.is_empty()).collect();
-                    out.push(text(words.join(" ")));
-                }
-                _ => {}
+/// What some calls write in a sentence: their runs, and the words of any blocks among them.
+fn runs_of(pieces: Vec<Piece>) -> Vec<Inline> {
+    let mut out: Vec<Inline> = Vec::new();
+    let mut blocks: Vec<Piece> = Vec::new();
+    let flush = |blocks: &mut Vec<Piece>, out: &mut Vec<Inline>| {
+        let mut bs = blocks_of(std::mem::take(blocks));
+        match bs.as_mut_slice() {
+            [] => {}
+            // a widget that is one paragraph writes its sentence
+            [Block::Paragraph(runs)] => out.append(runs),
+            bs => {
+                let words: Vec<String> = bs.iter().map(plain).filter(|s| !s.is_empty()).collect();
+                out.push(Inline::words(words.join(" ")));
             }
         }
-        Ok(join_runs(out))
+    };
+    for p in pieces {
+        match p {
+            Piece::Run(r) => {
+                flush(&mut blocks, &mut out);
+                out.push(r);
+            }
+            other => blocks.push(other),
+        }
     }
+    flush(&mut blocks, &mut out);
+    out
 }
 
 /// The page's blocks, with the values it has now.

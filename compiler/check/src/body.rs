@@ -70,11 +70,13 @@ pub struct Cx {
     pub walking: Vec<(usize, String, Option<String>)>,
     /// In an exposed fn, which the host calls and reads nothing back from.
     pub exposed: bool,
+    /// In the block of a rich_text slot, where a rich_text placed is part of the sentence.
+    pub sentence: bool,
 }
 
 impl Cx {
     pub fn new(file: usize) -> Cx {
-        Cx { file, scopes: vec![Vec::new()], bounds: Vec::new(), generics: Vec::new(), ret: None, widget: None, state: None, state_rules: false, ret_ir: None, trying: false, facts: Vec::new(), action: false, fn_depth: 0, fn_id: None, walking: Vec::new(), exposed: false }
+        Cx { file, scopes: vec![Vec::new()], bounds: Vec::new(), generics: Vec::new(), ret: None, widget: None, state: None, state_rules: false, ret_ir: None, trying: false, facts: Vec::new(), action: false, fn_depth: 0, fn_id: None, walking: Vec::new(), exposed: false, sentence: false }
     }
 
     pub fn push(&mut self) {
@@ -104,6 +106,20 @@ pub struct Pending {
     pub file: usize,
     pub span: Span,
     pub ty: String,
+    /// What each hole of a rich_text holds.
+    pub holes: Vec<Hole>,
+    /// What the literal is given for, when that is a sentence.
+    pub sentence_for: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Hole {
+    /// Shown as words.
+    Words,
+    /// A widget among the words.
+    View,
+    /// A rich_text, whose own calls go there.
+    Rich,
 }
 
 pub const LITERAL_MARK: &str = "@literal";
@@ -120,7 +136,7 @@ impl Checker {
     pub(crate) fn declare_local(&mut self, cx: &mut Cx, name: &ast::Ident, ty: Ty, mutable: bool, kind: LocalKind) {
         if cx.local(&name.name).is_some() || self.visible_value(cx, &name.name) {
             self.error(cx.file, codes::SHADOWING, name.span, format!("`{}` is already a visible name: a declaration can't reuse it", name.name));
-        } else if self.is_view_type(&ty) {
+        } else if self.is_view_type(&ty) && self.vars.resolve(&ty) != Ty::Rich {
             self.check_view_name(cx.file, &name.name, name.span);
         }
         cx.scopes.last_mut().unwrap().push(Local { name: name.name.clone(), ty, mutable, kind, known: None, own_origin: false });
@@ -177,7 +193,7 @@ impl Checker {
         }
         let full = self.fns[from].full.clone();
         let id = self.pending.len();
-        self.pending.push(Pending { file: cx.file, span, ty: self.defs[*d].name.clone() });
+        self.pending.push(Pending { file: cx.file, span, ty: self.defs[*d].name.clone(), holes: Vec::new(), sentence_for: None });
         let mark = format!("{}#{}", LITERAL_MARK, id);
         Some((call(&mark, vec![call(&full, vec![x], Some(self.ir_ty(&Ty::opt(target.clone()))))], None), target))
     }
@@ -412,6 +428,9 @@ impl Checker {
             Ty::Opt(inner) => (**inner).clone(),
             other => other.clone(),
         };
+        if target == Ty::Rich {
+            return Some(target);
+        }
         let Ty::Def(d, _) = &target else { return None };
         if !matches!(self.defs[*d].kind, DefKind::Record { .. } | DefKind::ExternType) {
             return None;
@@ -426,6 +445,7 @@ impl Checker {
     fn text(&mut self, cx: &mut Cx, t: &ast::TextLit, expect: Option<&Ty>, span: Span) -> (ir::Expr, Ty) {
         let mut pieces = Vec::new();
         let mut holes = Vec::new();
+        let mut kinds = Vec::new();
         let mut piece = String::new();
         let mut opt_hole = None;
         let mut first_hole: Option<&ast::Expr> = None;
@@ -453,6 +473,7 @@ impl Checker {
                     };
                     // a text holds no view; a literal of a type that places its holes may
                     self.check_hole(cx, &ht, h.span, as_template.is_some());
+                    kinds.push(self.hole_kind(&ht));
                     let as_is = ht == Ty::Text || (as_template.is_some() && self.is_view_type(&ht));
                     // a view in a text is reported once: the hole holds nothing
                     let x = if as_template.is_none() && self.is_view_type(&ht) { ir::Expr::Text(String::new()) } else { x };
@@ -463,10 +484,18 @@ impl Checker {
         pieces.push(piece);
         // a literal where a type that fits literal<template> is wanted reaches its `from` as a template, at compile time
         if let Some(target) = as_template {
-            let name = self.defs[match &target { Ty::Def(d, _) => *d, _ => unreachable!() }].full.clone();
+            let name = match &target {
+                Ty::Def(d, _) => self.defs[*d].full.clone(),
+                _ => "core/rich_text".to_string(),
+            };
+            // a literal that is only a rich_text is that rich_text
+            if kinds == [Hole::Rich] && pieces.iter().all(|p| p.is_empty()) && opened.is_empty() {
+                return (holes.remove(0), target);
+            }
             let x = ir::Expr::Template(Box::new(ir::ExprTemplate { pieces, holes, ty: ir::Type::named(&name) }));
             let id = self.pending.len();
-            self.pending.push(Pending { file: cx.file, span, ty: format!("literal:{}", name.rsplit('/').next().unwrap_or(&name)) });
+            let sentence_for = self.sentence_for.clone();
+            self.pending.push(Pending { file: cx.file, span, ty: format!("literal:{}", name.rsplit('/').next().unwrap_or(&name)), holes: kinds, sentence_for });
             let x = ir::Expr::Call(Box::new(ir::Call { name: format!("{}#{}", crate::view::PROSE_MARK, id), args: vec![x], ty: None }));
             if opened.is_empty() {
                 return (x, target);

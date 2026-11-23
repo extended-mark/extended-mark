@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Page, Num, layout, place, keepInside, around } from "../dist/index.js";
+import { Page, Num, childrenOf, layout, place, keepInside, around } from "../dist/index.js";
 import { xtmdBinary, workdir, repo as repoRoot } from "./xtmd.mjs";
 
 const dir = workdir();
@@ -90,10 +90,10 @@ test("a loop's rows keep their widgets' variables by item, not by position", () 
   assert.deepEqual(p.observeTree()["s0/s0[0]/s2/s0"].props.label, { text: "b: 1" });
 });
 
-test("a widget that fails while drawing is a notice, and is tried again when what it reads changes", () => {
+test("a widget that fails while drawing says why in its place, and is tried again when what it reads changes", () => {
   const p = page('$state {\n    parts: int 0... = 0;\n}\n\nwidget share() {\n    view {\n        @label(value = "Each: \\{100 / $state.parts}");\n    }\n}\n@@@\n@share;\n\nAfter.\n');
   assert.deepEqual(p.takeOutcome().failures, [{ code: "failure.number", site: "s0" }]);
-  assert.equal(p.observeTree().s0.widget, "#notice");
+  assert.equal(p.observeTree().s0.failed, "a division by zero");
   p.set({ parts: p.value(num(4)) });
   assert.deepEqual(p.observeTree()["s0/s0"].props.value, { text: "Each: 25" });
 });
@@ -200,7 +200,7 @@ test("an extern widget the engine doesn't supply shows its Markdown, and is repo
   assert.equal(tree.s1.widget, "badge/badge");
   // the seal is drawn as its Markdown: a quote holding a paragraph, under its own path
   assert.equal(tree.s2, undefined);
-  assert.deepEqual(Object.values(tree).map((n) => n.widget).filter((w) => w !== "core/heading"), ["badge/badge", "core/quote", "core/paragraph"]);
+  assert.deepEqual(Object.values(tree).map((n) => n.widget).filter((w) => w !== "core/heading" && w !== "core/words"), ["badge/badge", "core/quote", "core/paragraph"]);
   assert.deepEqual(p.missing(), ["badge/seal"]);
   // its calls show their Markdown, supplied or not
   assert.equal(p.markdown(), "# Votes\n\n**Votes**: 2\n\n> Checked by nobody\n");
@@ -354,10 +354,9 @@ test("a widget in a list slot writes its Markdown with its inputs", () => {
   // as the compiler writes it, with the values it has now
   assert.equal(p.markdown(), "a has 0\n\nb has 0\n");
   const [press] = Object.entries(p.observeTree()).find(([, n]) => n.props.label?.text === "a: 0");
-  // the stack's markdown places each child at a site of its own, so the Markdown has an
-  // instance of its own for it too: its inputs, and its own variables as they start
+  // a call of a slot is who its caller wrote, wherever it is placed: in the view, and in the Markdown
   p.event(press, "click");
-  assert.equal(p.markdown(), "a has 0\n\nb has 0\n");
+  assert.equal(p.markdown(), "a has 1\n\nb has 0\n");
   p.event(press, "click");
   assert.deepEqual(p.observeTree()[press].props.label, { text: "a: 2" });
 });
@@ -369,9 +368,9 @@ const MEMO_PAGE =
 
 test("a widget whose reads didn't change is the very same node after a change", () => {
   const p = page(MEMO_PAGE);
-  const before = new Map(p.tree().flatMap(function all(d) { return [[d.path, d], ...[...d.slots.values()].flat().flatMap(all)]; }));
+  const before = new Map(p.tree().flatMap(function all(d) { return [[d.path, d], ...childrenOf(d).flat().flatMap(all)]; }));
   p.write("s1/s1", "value", p.value(num(5)));
-  const after = new Map(p.tree().flatMap(function all(d) { return [[d.path, d], ...[...d.slots.values()].flat().flatMap(all)]; }));
+  const after = new Map(p.tree().flatMap(function all(d) { return [[d.path, d], ...childrenOf(d).flat().flatMap(all)]; }));
   // what reads $state.n is drawn anew; the rows and the note are reused as they were
   assert.notEqual(after.get("s1/s0"), before.get("s1/s0"));
   assert.deepEqual(p.observeTree()["s1/s0"].props.value, { text: "n is 5" });

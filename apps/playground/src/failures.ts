@@ -17,9 +17,9 @@ export interface Failed {
 export function failedCalls(page: Page, file: ir.File, sites: Built["sites"]): Failed[] {
   const out: Failed[] = [];
   for (const [path, n] of Object.entries(page.observeTree())) {
-    if (n.widget !== "#notice") continue;
+    if (n.failed === undefined) continue;
     const written = writtenAt(path, file, sites);
-    const message = n.props.message && "text" in n.props.message ? n.props.message.text : "this widget failed";
+    const message = `${n.widget.split("/").pop()} failed: ${n.failed}`;
     if (written) out.push({ message, written });
   }
   return out;

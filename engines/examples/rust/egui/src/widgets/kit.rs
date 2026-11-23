@@ -7,6 +7,8 @@ use egui::accesskit::Role;
 use egui::text::{LayoutJob, TextFormat, TextWrapping};
 use egui::{Align, Color32, FontFamily, FontId, Galley, Id, Pos2, Rect, Response, Sense, Ui, Vec2};
 
+use xtmd_runtime::Drawn;
+
 use crate::look::Font;
 use crate::rich::{self, Style};
 use crate::{a11y, Ctx};
@@ -97,35 +99,31 @@ pub fn style(ctx: &Ctx<'_>, f: &Font, color: Color32) -> Style {
     Style { size: f.size, bold: f.bold, mono: f.mono, color, accent: ctx.core_color("ACCENT"), code_bg, line: f.line }
 }
 
-/// A rich text: one leaf, or, when its sentence holds views, flowed with them ([`rich_flow`]).
-pub fn rich(ui: &mut Ui, ctx: &mut Ctx<'_>, id: Id, v: Option<&xtmd_runtime::Value>, s: Style, lay: Lay) {
-    if rich::has_views(v) {
-        rich_flow(ui, ctx, id, v, s);
+/// A sentence: one leaf, or, when it holds widgets that aren't words, flowed with them ([`rich_flow`]).
+pub fn rich(ui: &mut Ui, ctx: &mut Ctx<'_>, id: Id, nodes: &[Drawn], s: Style, lay: Lay) {
+    if rich::has_views(nodes) {
+        rich_flow(ui, ctx, id, nodes, s);
     } else {
-        rich_leaf(ui, id, v, s, lay);
+        ctx.keep_nodes(nodes);
+        let runs: Vec<rich::Run> = rich::pieces(nodes).into_iter().flat_map(|p| if let rich::Piece::Run(r) = p { r } else { Vec::new() }).collect();
+        let laid = rich::layout(&runs, s);
+        let words = rich::words(nodes);
+        let text = laid.job.text.clone();
+        let l = leaf(ui, id, laid.job, &words, lay);
+        follow_links(ui, id, &l, &text, &laid.links);
     }
 }
 
-/// A rich text leaf; a click on a link in it opens the link.
-pub fn rich_leaf(ui: &mut Ui, id: Id, v: Option<&xtmd_runtime::Value>, s: Style, lay: Lay) -> Leaf {
-    let laid = rich::layout(v, s);
-    let words = rich::words(v);
-    let text = laid.job.text.clone();
-    let l = leaf(ui, id, laid.job, &words, lay);
-    follow_links(ui, id, &l, &text, &laid.links);
-    l
-}
-
-/// A rich text whose sentence holds views: its runs of text in one wrapped line, each starting
-/// where the last thing on the line ended, and each view drawn from the widget's slot where its
-/// part is, as a widget of the page. A click on a link opens it.
-pub fn rich_flow(ui: &mut Ui, ctx: &mut Ctx<'_>, id: Id, v: Option<&xtmd_runtime::Value>, s: Style) {
+/// A sentence that holds widgets: its runs of words in one wrapped line, each starting where the
+/// last thing on the line ended, and each widget drawn where its call is. A click on a link opens it.
+pub fn rich_flow(ui: &mut Ui, ctx: &mut Ctx<'_>, id: Id, nodes: &[Drawn], s: Style) {
+    ctx.keep_words(nodes);
     ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing.x = 0.0;
-        for (k, piece) in rich::pieces(v).into_iter().enumerate() {
+        for (k, piece) in rich::pieces(nodes).into_iter().enumerate() {
             match piece {
-                rich::Piece::Run(segments) => {
-                    let laid = rich::layout_run(&segments, s);
+                rich::Piece::Run(runs) => {
+                    let laid = rich::layout(&runs, s);
                     let text = laid.job.text.clone();
                     let (pos, galley, response) = egui::Label::new(laid.job).selectable(false).wrap().layout_in_ui(ui);
                     if ui.is_rect_visible(response.rect) {
@@ -139,7 +137,7 @@ pub fn rich_flow(ui: &mut Ui, ctx: &mut Ctx<'_>, id: Id, v: Option<&xtmd_runtime
                     let l = Leaf { response, galley, pos };
                     follow_links(ui, id.with(k), &l, &text, &laid.links);
                 }
-                rich::Piece::View(slot) => ctx.slot(ui, &slot),
+                rich::Piece::View(d) => ctx.child(ui, d),
             }
         }
     });

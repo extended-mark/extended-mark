@@ -5,31 +5,24 @@
 import type { Drawn } from "@extended-mark/runtime";
 import type { Widget, WidgetContext, WidgetView } from "../api.js";
 import { attr, css, h, kit, text } from "../kit.js";
-import { drawRich, noteId, texOf } from "../rich.js";
+import { noteId, texOf } from "../rich.js";
 import { drawTex } from "../tex.js";
-import { flag, inner, kase, list, num, sig, str } from "../values.js";
+import { flag, inner, kase, list, nodes, num, str } from "../values.js";
 
 const ALIGN: Record<string, string> = { START: "start", CENTER: "center", END: "end", STRETCH: "justify", BASELINE: "start" };
 
-/** Rich text kept in an element: redrawn only when the value changes, so a selection survives. */
-function richKeeper(el: Element, ctx: WidgetContext) {
-  let was = "\u0000";
-  return (d: Drawn, input = "value") => {
-    const v = d.props.get(input);
-    const now = sig(v);
-    if (now === was) return;
-    was = now;
-    drawRich(el, v, ctx, d);
-  };
+/** An element that holds a sentence. */
+function sentence<E extends HTMLElement>(el: E): E {
+  el.classList.add("xtmd-sentence");
+  return el;
 }
 
 export const paragraph: Widget = (d, ctx) => {
-  const el = h("p", "paragraph");
-  const rich = richKeeper(el, ctx);
+  const el = sentence(h("p", "paragraph"));
   const view: WidgetView = {
     el,
     update(d) {
-      rich(d);
+      ctx.children(el, nodes(d.props.get("value")));
       css(el, "color", kit(ctx).tokens.color(d.props.get("tone")));
       const a = kase(d.props.get("align")) ?? "START";
       css(el, "text-align", a === "START" ? undefined : ALIGN[a]);
@@ -42,8 +35,7 @@ export const paragraph: Widget = (d, ctx) => {
 export const heading: Widget = (d, ctx) => {
   const level = () => Math.min(6, Math.max(1, Math.round(num(d.props.get("level")) ?? 1)));
   let at = level();
-  let el: HTMLElement = h(`h${at}` as "h1", "heading");
-  let rich = richKeeper(el, ctx);
+  let el: HTMLElement = sentence(h(`h${at}` as "h1", "heading"));
   const view = {
     get el() {
       return el;
@@ -54,11 +46,10 @@ export const heading: Widget = (d, ctx) => {
       if (l !== at) {
         // another level is another element: the mount puts the new one in the old one's place
         kit(ctx).release(el);
-        el = h(`h${l}` as "h1", "heading");
+        el = sentence(h(`h${l}` as "h1", "heading"));
         at = l;
-        rich = richKeeper(el, ctx);
       }
-      rich(d);
+      ctx.children(el, nodes(d.props.get("value")));
     },
   };
   view.update(d);
@@ -171,40 +162,36 @@ export const table: Widget = (d, ctx) => {
   const el = h("div", "table", { tabindex: "0" });
   const t = h("table", "table.grid");
   el.append(t);
-  let was = "";
+  let shape = "";
+  let cells: HTMLElement[][] = [];
   const view: WidgetView = {
     el,
     update(d) {
-      const now = [sig(d.props.get("head")), sig(d.props.get("rows")), sig(d.props.get("align"))].join("|");
-      if (now === was) return;
-      was = now;
-      kit(ctx).release(t);
+      const rows = [list(d.props.get("head")), ...list(d.props.get("rows")).map((r) => list(r))];
       const align = list(d.props.get("align")).map((a) => kase(a));
-      const place = (cell: HTMLElement, k: number) => {
-        const a = align[k];
-        if (a === "CENTER" || a === "END") cell.style.textAlign = a === "CENTER" ? "center" : "end";
-      };
-      const head = h("thead");
-      const hr = h("tr");
-      list(d.props.get("head")).forEach((c, k) => {
-        const th = h("th", "table.header", { scope: "col" });
-        drawRich(th, c, ctx, d);
-        place(th, k);
-        hr.append(th);
-      });
-      head.append(hr);
-      const tbody = h("tbody");
-      for (const r of list(d.props.get("rows"))) {
-        const tr = h("tr");
-        list(r).forEach((c, k) => {
-          const td = h("td", "table.cell");
-          drawRich(td, c, ctx, d);
-          place(td, k);
-          tr.append(td);
+      // the same rows and columns keep their cells, and what is in each follows the page
+      const now = JSON.stringify([rows.map((r) => r.length), align]);
+      if (now !== shape) {
+        shape = now;
+        kit(ctx).release(t);
+        cells = rows.map((r, j) =>
+          r.map((_, k) => {
+            const cell = sentence(j === 0 ? h("th", "table.header", { scope: "col" }) : h("td", "table.cell"));
+            const a = align[k];
+            if (a === "CENTER" || a === "END") cell.style.textAlign = a === "CENTER" ? "center" : "end";
+            return cell;
+          }),
+        );
+        const head = h("thead");
+        const body = h("tbody");
+        cells.forEach((r, j) => {
+          const tr = h("tr");
+          tr.append(...r);
+          (j === 0 ? head : body).append(tr);
         });
-        tbody.append(tr);
+        t.replaceChildren(head, body);
       }
-      t.replaceChildren(head, tbody);
+      rows.forEach((r, j) => r.forEach((c, k) => ctx.children(cells[j][k], nodes(c))));
     },
   };
   view.update(d);

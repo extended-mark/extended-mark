@@ -1280,7 +1280,20 @@
             "rich"
           ],
           "additionalProperties": false,
-          "description": "Inline Markdown, already parsed: a `core/rich_text`."
+          "description": "A `core/rich_text`, its Markdown already read."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "sentence": {
+              "$ref": "#/$defs/expr"
+            }
+          },
+          "required": [
+            "sentence"
+          ],
+          "additionalProperties": false,
+          "description": "Whether a rich_text is a sentence, and not blocks."
         },
         {
           "type": "object",
@@ -1854,78 +1867,21 @@
     },
     "rich": {
       "type": "object",
+      "description": "A rich_text: calls, as a value. A sentence's are drawn among words; `blocks` says they are blocks instead.",
       "properties": {
-        "segments": {
+        "nodes": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/segment"
+            "$ref": "#/$defs/node"
           }
+        },
+        "blocks": {
+          "type": "boolean"
         }
       },
       "required": [
-        "segments"
+        "nodes"
       ],
-      "additionalProperties": false
-    },
-    "segment": {
-      "type": "object",
-      "properties": {
-        "segment": {
-          "type": "object",
-          "properties": {
-            "part": {
-              "type": "string",
-              "enum": [
-                "TEXT",
-                "CODE",
-                "MATH",
-                "IMAGE",
-                "NOTE",
-                "BREAK",
-                "VIEW"
-              ]
-            },
-            "value": {
-              "$ref": "#/$defs/expr",
-              "description": "TEXT and CODE: the text; MATH: the `core/latex`; NOTE: the mark; VIEW: the view."
-            },
-            "src": {
-              "$ref": "#/$defs/expr"
-            },
-            "alt": {
-              "$ref": "#/$defs/expr"
-            },
-            "marks": {
-              "$ref": "#/$defs/marks"
-            }
-          },
-          "required": [
-            "part"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "required": [
-        "segment"
-      ],
-      "additionalProperties": false
-    },
-    "marks": {
-      "type": "object",
-      "properties": {
-        "bold": {
-          "type": "boolean"
-        },
-        "italic": {
-          "type": "boolean"
-        },
-        "strike": {
-          "type": "boolean"
-        },
-        "link": {
-          "$ref": "#/$defs/expr"
-        }
-      },
       "additionalProperties": false
     },
     "view_value": {
@@ -2788,6 +2744,10 @@
                 },
                 "view": {
                   "$ref": "#/$defs/expr"
+                },
+                "sentence": {
+                  "type": "boolean",
+                  "description": "It goes in a sentence, so a rich_text placed here is one: blocks are a failure."
                 }
               },
               "required": [

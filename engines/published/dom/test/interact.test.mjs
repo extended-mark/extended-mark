@@ -224,7 +224,7 @@ test("a widget that fails is a notice with its message, and is drawn again once 
   const alert = page.getByRole("alert");
   assert.equal(await alert.count(), 1);
   assert.match(await alert.textContent(), /share failed/);
-  assert.equal(await alert.getAttribute("data-xtmd-widget"), "#notice");
+  assert.equal(await alert.getAttribute("data-xtmd-widget"), "doc/share");
   assert.equal(await page.locator("p", { hasText: "After." }).count(), 1);
   await xtmd(page, "set", { parts: num(4) });
   assert.equal(await page.getByRole("alert").count(), 0);

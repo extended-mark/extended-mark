@@ -5,13 +5,16 @@
     "module": "doc",
     "needs": {
       "core": [
+        "core/bold",
         "core/flex",
         "core/heading",
+        "core/inline_math",
         "core/label",
         "core/paragraph",
         "core/press",
         "core/slider",
-        "core/table"
+        "core/table",
+        "core/words"
       ],
       "packs": [],
       "host": [
@@ -687,24 +690,27 @@
                                         "props": {
                                           "value": {
                                             "rich": {
-                                              "segments": [
+                                              "nodes": [
                                                 {
-                                                  "segment": {
-                                                    "part": "TEXT",
-                                                    "value": {
-                                                      "show": {
-                                                        "value": {
-                                                          "field": {
-                                                            "value": {
-                                                              "get": {
-                                                                "input": "t"
-                                                              }
-                                                            },
-                                                            "name": "title"
+                                                  "extern": {
+                                                    "name": "core/words",
+                                                    "props": {
+                                                      "value": {
+                                                        "show": {
+                                                          "value": {
+                                                            "field": {
+                                                              "value": {
+                                                                "get": {
+                                                                  "input": "t"
+                                                                }
+                                                              },
+                                                              "name": "title"
+                                                            }
                                                           }
                                                         }
                                                       }
-                                                    }
+                                                    },
+                                                    "site": "t0"
                                                   }
                                                 }
                                               ]
@@ -883,35 +889,44 @@
         "id": "b1",
         "value": {
           "rich": {
-            "segments": [
+            "nodes": [
               {
-                "segment": {
-                  "part": "TEXT",
-                  "value": {
-                    "text": "Sprint: "
-                  }
+                "extern": {
+                  "name": "core/words",
+                  "props": {
+                    "value": {
+                      "text": "Sprint: "
+                    }
+                  },
+                  "site": "t1"
                 }
               },
               {
-                "segment": {
-                  "part": "TEXT",
-                  "value": {
-                    "show": {
-                      "value": {
-                        "get": {
-                          "let": "doc/open"
+                "extern": {
+                  "name": "core/words",
+                  "props": {
+                    "value": {
+                      "show": {
+                        "value": {
+                          "get": {
+                            "let": "doc/open"
+                          }
                         }
                       }
                     }
-                  }
+                  },
+                  "site": "t2"
                 }
               },
               {
-                "segment": {
-                  "part": "TEXT",
-                  "value": {
-                    "text": " open"
-                  }
+                "extern": {
+                  "name": "core/words",
+                  "props": {
+                    "value": {
+                      "text": " open"
+                    }
+                  },
+                  "site": "t3"
                 }
               }
             ]
@@ -925,84 +940,107 @@
         "id": "b2",
         "value": {
           "rich": {
-            "segments": [
+            "nodes": [
               {
-                "segment": {
-                  "part": "TEXT",
-                  "value": {
-                    "text": "Spent "
-                  }
+                "extern": {
+                  "name": "core/words",
+                  "props": {
+                    "value": {
+                      "text": "Spent "
+                    }
+                  },
+                  "site": "t4"
                 }
               },
               {
-                "segment": {
-                  "part": "MATH",
-                  "value": {
-                    "record": {
-                      "type": "core/latex",
-                      "fields": {
-                        "tex": {
-                          "template": {
-                            "pieces": [
-                              "\\frac{",
-                              "}{",
-                              "}"
-                            ],
-                            "holes": [
-                              {
-                                "show": {
-                                  "value": {
-                                    "get": {
-                                      "$state": "spent"
+                "extern": {
+                  "name": "core/inline_math",
+                  "props": {
+                    "tex": {
+                      "record": {
+                        "type": "core/latex",
+                        "fields": {
+                          "tex": {
+                            "template": {
+                              "pieces": [
+                                "\\frac{",
+                                "}{",
+                                "}"
+                              ],
+                              "holes": [
+                                {
+                                  "show": {
+                                    "value": {
+                                      "get": {
+                                        "$state": "spent"
+                                      }
+                                    }
+                                  }
+                                },
+                                {
+                                  "show": {
+                                    "value": {
+                                      "get": {
+                                        "$state": "budget"
+                                      }
                                     }
                                   }
                                 }
-                              },
-                              {
-                                "show": {
-                                  "value": {
-                                    "get": {
-                                      "$state": "budget"
-                                    }
-                                  }
-                                }
+                              ],
+                              "type": {
+                                "name": "core/template"
                               }
-                            ],
-                            "type": {
-                              "name": "core/template"
                             }
                           }
                         }
                       }
                     }
-                  }
-                }
-              },
-              {
-                "segment": {
-                  "part": "TEXT",
-                  "value": {
-                    "text": " of the budget, in "
-                  }
-                }
-              },
-              {
-                "segment": {
-                  "part": "TEXT",
-                  "value": {
-                    "text": "points"
                   },
-                  "marks": {
-                    "bold": true
+                  "site": "t5"
+                }
+              },
+              {
+                "extern": {
+                  "name": "core/words",
+                  "props": {
+                    "value": {
+                      "text": " of the budget, in "
+                    }
+                  },
+                  "site": "t6"
+                }
+              },
+              {
+                "extern": {
+                  "name": "core/bold",
+                  "props": {},
+                  "site": "t7",
+                  "slots": {
+                    "body": [
+                      {
+                        "extern": {
+                          "name": "core/words",
+                          "props": {
+                            "value": {
+                              "text": "points"
+                            }
+                          },
+                          "site": "t8"
+                        }
+                      }
+                    ]
                   }
                 }
               },
               {
-                "segment": {
-                  "part": "TEXT",
-                  "value": {
-                    "text": "."
-                  }
+                "extern": {
+                  "name": "core/words",
+                  "props": {
+                    "value": {
+                      "text": "."
+                    }
+                  },
+                  "site": "t9"
                 }
               }
             ]

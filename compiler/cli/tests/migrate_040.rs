@@ -285,3 +285,70 @@ fn a_name_spelled_warn_is_renamed_and_an_extern_says_what_it_is_as_markdown() {
     let (_, again) = xtmd(&dir, &["migrate", "."]);
     assert!(again.contains("0 to migrate"), "{again}");
 }
+
+const MD: &str = r##"record note {
+    body: md;
+    all: list<md>;
+}
+
+$state {
+    draft: text = "a **b**";
+}
+
+fn read(t: text): opt<md> {
+    return md.from(template.of(t));
+}
+
+let intro: md = "# Hi\n\nwords, (and more";
+
+widget box(body: md) {
+    view {
+        @blocks(value = body);
+        @blocks(value = read($state.draft).or("**bad**"));
+    }
+    markdown {
+        @blocks(value = body);
+    }
+}
+@@@
+@box(body = "a");
+
+The md in prose stays, and @blocks too.
+
+@blocks(value = intro);
+
+@blocks(value = md.from(template.of($state.draft)).or("**bad**"));
+"##;
+
+#[test]
+fn md_is_rich_text_and_is_placed() {
+    let dir = tree("md", &[("xtmd.toml", "xtmd = \"0.3.2\"\n"), ("doc.xtmd", MD)]);
+    let (code, out) = xtmd(&dir, &["migrate", ".", "--yes"]);
+    assert_eq!(code, 0, "{out}");
+    let (code, after) = xtmd(&dir, &["check", "."]);
+    assert_eq!(code, 0, "{after}");
+    let doc = std::fs::read_to_string(dir.join("doc.xtmd")).unwrap();
+    for want in [
+        "    body: rich_text;\n    all: list<rich_text>;\n",
+        "fn read(t: text): opt<rich_text> {\n    return rich_text.from(template.of(t));\n}",
+        "let intro: rich_text = \"# Hi\\n\\nwords, (and more\";",
+        "        @body;\n        let held_2: rich_text = read($state.draft).or(\"**bad**\");\n        @held_2;\n",
+        "    markdown {\n        \\{body}\n    }",
+        "The md in prose stays, and @blocks too.",
+        "\n\\{intro}\n\n\\{rich_text.from(template.of($state.draft)).or(\"**bad**\")}\n",
+    ] {
+        assert!(doc.contains(want), "{want}\nin\n{doc}");
+    }
+    let (_, again) = xtmd(&dir, &["migrate", "."]);
+    assert!(again.contains("0 to migrate"), "{again}");
+}
+
+#[test]
+fn what_reads_a_rich_texts_parts_is_left_for_a_person() {
+    let doc = "fn first(a: rich_text): int {\n    return a.segments.len();\n}\n\nfn same_words(a: rich_text, b: rich_text): bool {\n    return a == b;\n}\n@@@\nhi\n";
+    let dir = tree("parts", &[("xtmd.toml", "xtmd = \"0.3.2\"\n"), ("doc.xtmd", doc)]);
+    let (code, out) = xtmd(&dir, &["migrate", ".", "--yes"]);
+    assert_eq!(code, 1, "{out}");
+    assert!(out.contains("line 2: a rich_text is a view in 0.4") && out.contains("line 6: a rich_text is a view in 0.4, and isn't compared"), "{out}");
+    assert_eq!(std::fs::read_to_string(dir.join("doc.xtmd")).unwrap(), doc);
+}

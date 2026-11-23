@@ -53,7 +53,7 @@ class Externs(val widgets: Map<String, Widget> = emptyMap()) {
     }
 }
 
-/** Our default widgets, by full name: every core extern widget, and the runtime's notice. */
+/** Our default widgets, by full name: every core extern widget. */
 val registry: Map<String, Widget> = mapOf(
     // blocks
     "core/paragraph" to Widget { p, c -> XtmdParagraph(p, c) },
@@ -89,9 +89,8 @@ val registry: Map<String, Widget> = mapOf(
     "core/place" to Widget { p, c -> XtmdPlace(p, c) },
     "core/handle" to Widget { p, c -> XtmdHandle(p, c) },
     "core/shade" to Widget { p, c -> XtmdShade(p, c) },
-    // the runtime's notice for a widget that failed
-    "#notice" to Widget { p, c -> XtmdNotice(p, c) },
-)
+) + listOf("words", "bold", "italic", "strike", "link", "code_span", "inline_math", "inline_image", "note_mark", "line_break")
+    .associate { "core/$it" to Widget { p, c -> XtmdWords(p, c) } }
 
 /** A drawn widget's props, as the page worked them out. */
 class Props(val node: Node) {
@@ -103,6 +102,8 @@ class Props(val node: Node) {
 
     /** A slot's widgets, in order. */
     fun slot(name: String): List<Node> = node.slots.firstOrNull { it.name == name }?.nodes ?: emptyList()
+    /** The widgets an input holds, a rich_text's or a view's, in order. */
+    fun nodes(v: Val?): List<Node> = (v.inner() as? Val.Nodes)?.let { slot(it.slot) } ?: emptyList()
     val path: String get() = node.path
     val widget: String get() = node.widget
 }
@@ -190,7 +191,7 @@ fun rememberAssetPage(name: String, options: PageOptions = PageOptions()): Compi
     return androidx.compose.runtime.produceState<CompiledPage?>(null, name, options) { value = CompiledPage.loadAsset(context, name, options) }.value
 }
 
-/** One drawn widget: its composable from the registry, or a notice when nobody supplies it. */
+/** One drawn widget: its composable from the registry, or a notice when it failed or nobody supplies it. */
 @Composable
 fun DrawNode(node: Node) {
     val scope = LocalXtmd.current ?: error("DrawNode outside XtmdPage")
@@ -202,7 +203,9 @@ fun DrawNode(node: Node) {
         onDispose { scope.page.left(node.path) }
     }
     val w = scope.widgets[node.widget]
-    if (w == null) Notice("Nothing draws ${node.widget} here: its widget isn't supplied.", ctx) else w.Draw(Props(node), ctx)
+    val failed = node.failed
+    if (failed != null) Notice("${node.widget.substringAfterLast('/')} failed: $failed", ctx)
+    else if (w == null) Notice("Nothing draws ${node.widget} here: its widget isn't supplied.", ctx) else w.Draw(Props(node), ctx)
 }
 
 @Composable
@@ -217,9 +220,6 @@ internal fun Notice(message: String, ctx: WidgetContext) {
         style = MaterialTheme.typography.bodyMedium,
     )
 }
-
-@Composable
-fun XtmdNotice(props: Props, ctx: WidgetContext) = Notice(props.text("message"), ctx)
 
 /** Each spot's child's size as Compose measured it, in dp, and each plane's width: the plane's
  * layout reads them. [version] moves when one changes, so the layout runs again. */

@@ -24,7 +24,18 @@ pub fn paragraph(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
     let lay = Lay { align: align_of(p.case("align")), ..Lay::default() };
     ctx.root(ui, UiBuilder::new().accessibility_role(Role::Paragraph), |ui, ctx| {
         let id = ctx.sub_id("text");
-        kit::rich(ui, ctx, id, p.get("value"), s, lay);
+        kit::rich(ui, ctx, id, p.nodes("value"), s, lay);
+    });
+}
+
+/// Words of a sentence on their own, as a paragraph's are drawn: in one, its paragraph draws them.
+pub fn words(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
+    let font = ctx.look().font(ctx.page(), "BODY");
+    let s = kit::style(ctx, &font, ctx.core_color("INK"));
+    let nodes = std::slice::from_ref(p.drawn());
+    ctx.root(ui, UiBuilder::new(), |ui, ctx| {
+        let id = ctx.sub_id("text");
+        kit::rich(ui, ctx, id, nodes, s, Lay::default());
     });
 }
 
@@ -44,14 +55,14 @@ pub fn heading(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
     font.bold = true;
     let color = if level == 6 { ctx.core_color("MUTED") } else { ctx.core_color("INK") };
     let s = kit::style(ctx, &font, color);
-    let words = crate::rich::words(p.get("value"));
+    let words = crate::rich::words(p.nodes("value"));
     ctx.root(ui, UiBuilder::new().accessibility_role(Role::Heading).accessibility_label(words), |ui, ctx| {
         a11y::edit(ui, ui.unique_id(), |n| {
             n.set_level(level);
             n.set_class_name(format!("h{}", level));
         });
         let id = ctx.sub_id("text");
-        kit::rich(ui, ctx, id, p.get("value"), s, Lay::default());
+        kit::rich(ui, ctx, id, p.nodes("value"), s, Lay::default());
     });
 }
 
@@ -157,7 +168,7 @@ pub fn code(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
     });
 }
 
-/// Maths, shown as its TeX: egui has no maths renderer (target.yaml's `cannot`). It is still named
+/// Maths, shown as its TeX: egui has no maths renderer. It is still named
 /// by its TeX, as on every engine.
 pub fn math(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
     let font = ctx.look().font(ctx.page(), "MONO");
@@ -190,7 +201,7 @@ pub fn table(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
                         let a = align.get(k).copied().unwrap_or(Align::Min);
                         let r = ui.scope_builder(UiBuilder::new().scope_id(id).accessibility_role(role), |ui| {
                             ctx.part(ui, ui.unique_id(), part);
-                            kit::rich(ui, ctx, id.with("text"), Some(v), s, Lay { align: a, wrap: false, ..Lay::default() });
+                            kit::rich(ui, ctx, id.with("text"), p.drawn().nodes(v).unwrap_or(&[]), s, Lay { align: a, wrap: false, ..Lay::default() });
                         });
                         a11y::bounds(ui, id, r.response.rect);
                     };

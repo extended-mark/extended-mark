@@ -7,7 +7,7 @@
 use crate::natives;
 use crate::num::{Num, NumError};
 use crate::value::*;
-use xtmd_ir::ir::{self, Cond, Expr, OpName, Stmt};
+use xtmd_ir::ir::{self, Cond, Expr, Node, OpName, Stmt};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -182,6 +182,8 @@ pub struct Program {
     pub interfaces: HashMap<String, Rc<ir::Interface>>,
     /// Constant lets, already worked out.
     pub lets: HashMap<String, Value>,
+    /// A lowered page's bindings: what a call's input is worked out from.
+    pub bindings: HashMap<String, Rc<Expr>>,
 }
 
 impl Program {
@@ -223,6 +225,9 @@ impl Program {
         let mut p = Program::default();
         for d in &m.declarations {
             p.add(&d.declare);
+        }
+        for b in &m.bindings {
+            p.bindings.insert(b.id.clone(), Rc::new(b.value.clone()));
         }
         p
     }
@@ -311,6 +316,164 @@ impl<'p> Machine<'p> {
     /// [`Machine::eval_in`], with locals that may be references.
     pub fn eval_with(&mut self, bindings: &[(Rc<str>, Binding)], owner: Option<u64>, e: &Expr) -> R<Value> {
         self.with_frame(bindings, owner, |m| m.eval(e))
+    }
+
+    /// The case of a view's `match` a value takes, and what its pattern opens.
+    pub fn pick_case(&mut self, mt: &ir::NodeMatch, v: &Value) -> R<Option<(usize, Vec<(Rc<str>, Binding)>)>> {
+        for (k, c) in mt.cases.iter().enumerate() {
+            let hit = self.with_frame(&[], None, |m| Ok(if m.patterns(&c.when, v)? { Some(m.frame().vars.clone()) } else { None }))?;
+            if let Some(binds) = hit {
+                return Ok(Some((k, binds)));
+            }
+        }
+        Ok(None)
+    }
+
+    /// The calls some nodes make, through their loops and branches, each a view of its own: what a
+    /// list slot is when it is read. `key` is who the widget around them is: each call is who it is
+    /// there.
+    pub fn calls(&mut self, nodes: &[Node], bindings: &[(Rc<str>, Binding)], owner: Option<u64>, key: &str) -> R<Vec<Value>> {
+        self.with_frame(bindings, owner, |m| {
+            let mut out = Vec::new();
+            m.calls_into(nodes, key, &mut out)?;
+            Ok(out)
+        })
+    }
+
+    fn calls_into(&mut self, nodes: &[Node], key: &str, out: &mut Vec<Value>) -> R<()> {
+        let at = |site: &str| if key.is_empty() { site.to_string() } else { format!("{}/{}", key, site) };
+        let depth = self.frame().vars.len();
+        for n in nodes {
+            let here = self.frame().vars.len();
+            match n {
+                Node::Extern(_) | Node::Use(_) => {
+                    let (name, given, slots, events, site) = match n {
+                        Node::Extern(x) => (&x.name, &x.props, &x.slots, &x.events, &x.site),
+                        Node::Use(u) => (&u.name, &u.args, &u.slots, &u.events, &u.site),
+                        _ => unreachable!(),
+                    };
+                    let mut args = std::collections::BTreeMap::new();
+                    for (k, e) in given {
+                        args.insert(k.clone(), self.eval(e)?);
+                    }
+                    let captured = self.frame().vars.clone();
+                    out.push(Value::View(Rc::new(ViewValue { widget: Rc::from(name.as_str()), args, slots: slots.clone(), events: events.clone(), exprs: given.clone(), captured, owner: self.owner(), at: Some(Rc::from(at(site))) })));
+                }
+                Node::For(f) => {
+                    let (vars, owner) = (self.frame().vars.clone(), self.owner());
+                    for row in self.loop_rows(&vars, owner, &f.over, &f.name, f.position.as_deref(), f.mutable)? {
+                        self.frames.last_mut().unwrap().vars.extend(row.bindings);
+                        self.calls_into(&f.body, &at(&format!("{}[{}]", f.site, row.key)), out)?;
+                        self.frames.last_mut().unwrap().vars.truncate(here);
+                    }
+                }
+                Node::If(i) => {
+                    let mut done = false;
+                    for b in &i.branches {
+                        let pass = match &b.when {
+                            ir::Cond::Cond(e) => self.eval(e)?.as_bool().unwrap_or(false),
+                            ir::Cond::Open(o) => self.open(o)?,
+                        };
+                        if pass {
+                            self.calls_into(&b.then, key, out)?;
+                            done = true;
+                        }
+                        self.frames.last_mut().unwrap().vars.truncate(here);
+                        if done {
+                            break;
+                        }
+                    }
+                    if !done {
+                        self.calls_into(&i.else_, key, out)?;
+                    }
+                }
+                Node::Match(mt) => {
+                    let v = self.eval(&mt.value)?;
+                    let mut done = false;
+                    for c in &mt.cases {
+                        if self.patterns(&c.when, &v)? {
+                            self.calls_into(&c.then, key, out)?;
+                            done = true;
+                        }
+                        self.frames.last_mut().unwrap().vars.truncate(here);
+                        if done {
+                            break;
+                        }
+                    }
+                    if !done {
+                        self.calls_into(&mt.else_, key, out)?;
+                    }
+                }
+                // a `let` is seen by the nodes after it
+                Node::Declare(d) => {
+                    let v = self.eval(&d.let_.value)?;
+                    self.bind(&d.let_.name, Binding::Value(v));
+                }
+                Node::Place(p) => {
+                    let v = self.eval(&p.view)?;
+                    self.calls_of(&v, &at(&p.site), out)?;
+                }
+            }
+        }
+        self.frames.last_mut().unwrap().vars.truncate(depth);
+        Ok(())
+    }
+
+    fn calls_of(&mut self, v: &Value, key: &str, out: &mut Vec<Value>) -> R<()> {
+        match v {
+            Value::Opt(Some(x)) => self.calls_of(x, key, out)?,
+            Value::List(l) => {
+                for (k, i) in l.items.iter().enumerate() {
+                    self.calls_of(&i.value, &format!("{}[{}]", key, k), out)?;
+                }
+            }
+            Value::View(x) if x.at.is_some() => out.push(v.clone()),
+            Value::View(x) => out.push(Value::View(Rc::new(ViewValue {
+                widget: x.widget.clone(),
+                args: x.args.clone(),
+                slots: x.slots.clone(),
+                events: x.events.clone(),
+                exprs: x.exprs.clone(),
+                captured: x.captured.clone(),
+                owner: x.owner,
+                at: Some(Rc::from(key)),
+            }))),
+            Value::Content(c) => match &c.of {
+                ContentOf::Nodes { nodes, captured, owner, at } => {
+                    let key = at.as_ref().map_or(key, |a| &a.1);
+                    out.extend(self.calls(nodes, captured, *owner, key)?)
+                }
+                ContentOf::Parts(parts) => {
+                    for (k, p) in parts.iter().enumerate() {
+                        self.calls_of(p, &format!("{}/j{}", key, k), out)?;
+                    }
+                }
+                ContentOf::Drawn(_) => {}
+            },
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// A slot read as a value: a list slot is its calls, a widget's the one call it holds, and any
+    /// other what it was filled with. `at` is the path and the key of the caller it was filled by.
+    pub fn slot_value(&mut self, ty: &ir::Type, nodes: &std::sync::Arc<Vec<Node>>, bindings: &[(Rc<str>, Binding)], owner: Option<u64>, at: (Rc<str>, Rc<str>)) -> R<Value> {
+        // a filled `opt` slot is what it holds, as a plain value where an opt is wanted is
+        let ty = if ty.name == "core/opt" { ty.args.first().unwrap_or(ty) } else { ty };
+        match ty.name.as_str() {
+            "core/list" => {
+                let calls = self.calls(nodes, bindings, owner, &at.1)?;
+                self.make_list(calls)
+            }
+            "core/view" | "core/rich_text" => Ok(Value::Content(Rc::new(Content { of: ContentOf::Nodes { nodes: nodes.clone(), captured: bindings.to_vec(), owner, at: Some(at) }, blocks: false }))),
+            _ => {
+                let mut calls = self.calls(nodes, bindings, owner, &at.1)?;
+                if calls.is_empty() {
+                    return Ok(Value::none());
+                }
+                Ok(calls.remove(0))
+            }
+        }
     }
 
     /// Writes `value` where an IR place says, its locals and positions read with these bindings.
@@ -822,7 +985,11 @@ impl<'p> Machine<'p> {
                 let field = self.case_fields(&t.ty, &t.name).into_iter().next().unwrap_or_else(|| "value".into());
                 Value::Case(Rc::new(Case { ty: Rc::from(t.ty.as_str()), name: Rc::from(t.name.as_str()), values: vec![(Rc::from(field.as_str()), v)] }))
             }
-            Expr::Rich(r) => self.rich(r)?,
+            Expr::Rich(r) => {
+                let captured = self.frame().vars.clone();
+                Value::Content(Rc::new(Content { of: ContentOf::Nodes { nodes: r.nodes.clone(), captured, owner: self.owner(), at: None }, blocks: r.blocks }))
+            }
+            Expr::Sentence(x) => Value::Bool(!matches!(self.eval(x)?, Value::Content(c) if c.blocks)),
             Expr::Template(t) => self.template(t)?,
             Expr::View(v) => {
                 let mut args = std::collections::BTreeMap::new();
@@ -830,10 +997,13 @@ impl<'p> Machine<'p> {
                     args.insert(k.clone(), self.eval(x)?);
                 }
                 let captured = self.frame().vars.clone();
-                Value::View(Rc::new(ViewValue { widget: Rc::from(v.widget.as_str()), args, slots: v.slots.clone(), events: v.events.clone(), exprs: v.args.clone(), captured, owner: self.owner() }))
+                Value::View(Rc::new(ViewValue { widget: Rc::from(v.widget.as_str()), args, slots: v.slots.clone(), events: v.events.clone(), exprs: v.args.clone(), captured, owner: self.owner(), at: None }))
             }
             Expr::Get(g) => self.get(g)?,
-            Expr::Bind(id) => return Err(Failure::new(FailKind::NotConstant, format!("binding {} is worked out when the page runs", id))),
+            Expr::Bind(id) => {
+                let x = self.prog.bindings.get(id).cloned().ok_or_else(|| Failure::ir(format!("no binding {}", id)))?;
+                self.eval(&x)?
+            }
             Expr::Field(f) => {
                 let v = self.eval(&f.value)?;
                 self.field(&v, &f.name)?
@@ -1164,8 +1334,57 @@ impl<'p> Machine<'p> {
                 }
                 true
             }
+            // the same calls, made in the same place with the same values around them
+            (Value::Content(x), Value::Content(y)) => Rc::ptr_eq(x, y) || self.same_content(x, y)?,
+            (Value::View(x), Value::View(y)) => Rc::ptr_eq(x, y) || self.same_view(x, y)?,
             _ => false,
         })
+    }
+
+    fn same_content(&mut self, x: &Content, y: &Content) -> R<bool> {
+        if x.blocks != y.blocks {
+            return Ok(false);
+        }
+        match (&x.of, &y.of) {
+            (ContentOf::Nodes { nodes, captured, owner, at }, ContentOf::Nodes { nodes: n, captured: c, owner: o, at: p }) => Ok(std::sync::Arc::ptr_eq(nodes, n) && owner == o && at == p && self.same_captured(captured, c)?),
+            (ContentOf::Parts(a), ContentOf::Parts(b)) if a.len() == b.len() => {
+                for (p, q) in a.iter().zip(b) {
+                    if !self.equal(p, q)? {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
+            _ => Ok(false),
+        }
+    }
+
+    fn same_view(&mut self, x: &ViewValue, y: &ViewValue) -> R<bool> {
+        if x.widget != y.widget || x.owner != y.owner || x.args.len() != y.args.len() || x.events != y.events || x.slots != y.slots {
+            return Ok(false);
+        }
+        for ((k, p), (l, q)) in x.args.iter().zip(&y.args) {
+            if k != l || !self.equal(p, q)? {
+                return Ok(false);
+            }
+        }
+        self.same_captured(&x.captured, &y.captured)
+    }
+
+    fn same_captured(&mut self, a: &[(Rc<str>, Binding)], b: &[(Rc<str>, Binding)]) -> R<bool> {
+        if a.len() != b.len() {
+            return Ok(false);
+        }
+        for ((n, x), (k, y)) in a.iter().zip(b) {
+            let same = match (x, y) {
+                (Binding::Value(p), Binding::Value(q)) => self.equal(p, q)?,
+                _ => false,
+            };
+            if n != k || !same {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 
     /// `<`: numbers and texts by value, enums in the order written, anything else by `before`.
@@ -1457,60 +1676,6 @@ impl<'p> Machine<'p> {
 
     // ---- prose values
 
-    fn rich(&mut self, r: &ir::Rich) -> R<Value> {
-        let mut segments = Vec::new();
-        for s in &r.segments {
-            let s = &s.segment;
-            let part = |name: &str, values: Vec<(&str, Value)>| {
-                Value::Case(Rc::new(Case {
-                    ty: Rc::from("core/part"),
-                    name: Rc::from(name),
-                    values: values.into_iter().map(|(k, v)| (Rc::from(k), v)).collect(),
-                }))
-            };
-            let value = match &s.value {
-                Some(v) => Some(self.eval(v)?),
-                None => None,
-            };
-            let name = format!("{:?}", s.part).to_uppercase();
-            let p = match name.as_str() {
-                "TEXT" | "CODE" => part(&name, vec![("value", value.unwrap_or_else(|| Value::text("")))]),
-                "MATH" => part("MATH", vec![("tex", value.ok_or_else(|| Failure::ir("maths with no TeX"))?)]),
-                "NOTE" => part("NOTE", vec![("mark", value.unwrap_or_else(|| Value::text("")))]),
-                "VIEW" => part("VIEW", vec![("child", value.ok_or_else(|| Failure::ir("a view segment with no view"))?)]),
-                "IMAGE" => {
-                    let src = match &s.src {
-                        Some(x) => self.eval(x)?,
-                        None => Value::text(""),
-                    };
-                    let alt = match &s.alt {
-                        Some(x) => self.eval(x)?,
-                        None => Value::text(""),
-                    };
-                    part("IMAGE", vec![("src", src), ("alt", alt)])
-                }
-                _ => part("BREAK", vec![]),
-            };
-            let m = s.marks.clone().unwrap_or(ir::Marks { bold: false, italic: false, strike: false, link: None });
-            let link = match &m.link {
-                Some(l) => Value::some(self.eval(l)?),
-                None => Value::none(),
-            };
-            let marks = Value::Record(Rc::new(Record {
-                ty: Rc::from("core/marks"),
-                fields: vec![
-                    (Rc::from("bold"), Value::Bool(m.bold)),
-                    (Rc::from("italic"), Value::Bool(m.italic)),
-                    (Rc::from("strike"), Value::Bool(m.strike)),
-                    (Rc::from("link"), link),
-                ],
-            }));
-            segments.push(Value::Record(Rc::new(Record { ty: Rc::from("core/segment"), fields: vec![(Rc::from("part"), p), (Rc::from("marks"), marks)] })));
-        }
-        let list = self.make_list(segments)?;
-        Ok(Value::Record(Rc::new(Record { ty: Rc::from("core/rich_text"), fields: vec![(Rc::from("segments"), list)] })))
-    }
-
     fn template(&mut self, t: &ir::ExprTemplate) -> R<Value> {
         if t.ty.name == "core/text" {
             let mut out = String::new();
@@ -1528,7 +1693,7 @@ impl<'p> Machine<'p> {
         let mut holes = Vec::new();
         for h in &t.holes {
             let v = self.eval(h)?;
-            let (name, field) = if matches!(v, Value::View(_)) { ("VIEW", "child") } else { ("TEXT", "value") };
+            let (name, field) = if matches!(v, Value::View(_) | Value::Content(_)) { ("VIEW", "child") } else { ("TEXT", "value") };
             let v = if name == "TEXT" { Value::text(&self.show(&v)?) } else { v };
             holes.push(Value::Case(Rc::new(Case { ty: Rc::from("core/hole"), name: Rc::from(name), values: vec![(Rc::from(field), v)] })));
         }

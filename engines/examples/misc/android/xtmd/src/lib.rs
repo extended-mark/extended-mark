@@ -81,6 +81,8 @@ pub struct Node {
     pub events: Vec<String>,
     /// Its `mut` inputs given a variable: what it writes back to.
     pub writes: Vec<String>,
+    /// A widget that failed, and why: shown in its place.
+    pub failed: Option<String>,
     /// From [`NativePage::tree_update`]: this widget and everything in its slots are as they were
     /// when the tree was last read, so this node is a stub (its props and slots left out) for the
     /// node with this key that the reader holds.
@@ -200,7 +202,7 @@ impl Inner {
         fn walk(page: &Page, nodes: &[Drawn], out: &mut HashMap<String, Vec<String>>) {
             for d in nodes {
                 out.insert(d.key.clone(), d.events.keys().filter(|e| page.listens(d, e)).cloned().collect());
-                for kids in d.slots.values() {
+                for kids in d.slots.values().chain(&d.held) {
                     walk(page, kids, out);
                 }
             }
@@ -291,14 +293,20 @@ pub(crate) fn node_shallow(page: &Page, d: &Drawn) -> Node {
         listens: d.events.keys().filter(|e| page.listens(d, e)).cloned().collect(),
         events: d.events.keys().cloned().collect(),
         writes: d.writes.keys().cloned().collect(),
+        failed: d.failed.clone(),
         same: false,
     }
+}
+
+/// A drawn widget's slots, and the calls its inputs hold as slots of their own ([`Val::Nodes`]).
+pub(crate) fn slots_of(d: &Drawn) -> impl Iterator<Item = (String, &Vec<Drawn>)> {
+    d.slots.iter().map(|(n, kids)| (n.clone(), kids)).chain(d.held.iter().enumerate().map(|(k, kids)| (convert::held_slot(k), kids)))
 }
 
 /// A drawn widget as Kotlin reads it, with everything in its slots.
 fn node(page: &Page, d: &Drawn) -> Node {
     let mut n = node_shallow(page, d);
-    n.slots = d.slots.iter().map(|(name, kids)| Slot { name: name.clone(), nodes: kids.iter().map(|k| node(page, k)).collect() }).collect();
+    n.slots = slots_of(d).map(|(name, kids)| Slot { name, nodes: kids.iter().map(|k| node(page, k)).collect() }).collect();
     n
 }
 

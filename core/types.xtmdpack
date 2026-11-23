@@ -281,91 +281,9 @@ extern fn can_draw_tex(tex: template): bool {
     return true;
 }
 
-//@about Markdown blocks, parsed by core when the value is made. @blocks draws them.
-record md implements literal<template> {
-    blocks: list<block>;
-}
-
-//@about One Markdown block, as md holds it. Each case is drawn by the extern block of its kind.
-enum block {
-    PARAGRAPH(value: rich_text),
-    HEADING(level: int 1..6, value: rich_text),
-    BULLETS(ordered: bool, start: int 0..., items: list<list_item>[1...]),
-    QUOTE(body: list<block>),
-    CODE(src: text, lang: text),
-    MATH(tex: latex),
-    TABLE(head: list<rich_text>[1...], rows: list<list<rich_text>>, align: list<cell_align>),
-    FOOTNOTE(mark: text, body: list<block>),
-    DIVIDER,
-}
-
-//@about One item of a list in md. done is a task box: ticked, not ticked, or none for an ordinary item.
-record list_item {
-    done: opt<bool> = opt.NONE;
-    body: list<block>;
-}
-
-//@about Inline Markdown as segments, parsed by core's rich_text.from: from prose, or from a text literal where rich_text is wanted.
-record rich_text implements literal<template>, shown {
-    segments: list<segment>;
-}
-
-//@about A part of a sentence and how it is marked.
-record segment {
-    part: part;
-    marks: marks = marks { };
-}
-
-//@about What a segment holds. A hole's value is TEXT, or VIEW for a widget, so a value never becomes formatting.
-enum part {
-    TEXT(value: text),
-    CODE(value: text),                          // a code span
-    MATH(tex: latex),                           // $x^2$
-    IMAGE(src: text, alt: text),                // ![alt](src)
-    NOTE(mark: text),                           // [^1], the mark of a footnote
-    BREAK,                                      // a hard line break
-    VIEW(child: view),                          // \{@icon(…)} in a sentence
-}
-
-//@about How a segment is marked. A link is a mark, so bold words inside a link are one segment.
-record marks {
-    bold: bool = false;
-    italic: bool = false;
-    strike: bool = false;
-    link: opt<text> = opt.NONE;
-}
-
-//@about Text from a value, as one plain segment: nothing in it is read as Markdown.
+//@about Text from a value, as one plain sentence: nothing in it is read as Markdown.
 fn rich_text.plain(value: text): rich_text {
-    return rich_text { segments = [segment { part = part.TEXT(value) }] };
-}
-
-//@about The words, without their marks.
-fn rich_text.show(self): text {
-    return self.segments.map(fn(s) { return s.part.words(); }).join("");
-}
-
-fn part.words(self): text {
-    match (self) {
-        case part.TEXT(v) {
-            return v;
-        }
-        case part.CODE(v) {
-            return v;
-        }
-        case part.MATH(m) {
-            return m.show();
-        }
-        case part.IMAGE(src, alt) {
-            return alt;
-        }
-        case part.BREAK {
-            return " ";
-        }
-        case else {
-            return "";
-        }
-    }
+    return "\{value}";
 }
 
 // TeX as tokens: a command (\frac, \{, \\), one character, or a hole, which is the one token "hole".

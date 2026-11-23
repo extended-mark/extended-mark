@@ -20,6 +20,9 @@ const CORE = [
   "flex", "grid", "cell", "sizing", "plane", "spot",
 ];
 
+// what a sentence is made of: words are text, and the rest inline elements
+const SENTENCE = ["words", "bold", "italic", "strike", "link", "code_span", "inline_math", "inline_image", "note_mark", "line_break"];
+
 export const ALL = `$state {
     n: number 0..10 = 3;
     name: text = "Ada";
@@ -158,16 +161,17 @@ test("every core widget is drawn, and every node of the tree has its element wit
   const drawn = new Set(paths.map((p) => p.widget));
   for (const w of CORE) assert.ok(drawn.has(`core/${w}`), `the sample draws core/${w}`);
   for (const { path, widget } of paths) {
+    if (widget === "core/words") continue;
     const el = await page.evaluate(([p]) => {
       const el = document.querySelector(`[data-xtmd-site="${CSS.escape(p)}"]`);
       return el && { widget: el.getAttribute("data-xtmd-widget"), part: el.getAttribute("data-part") };
     }, [path]);
     assert.ok(el, `${path} (${widget}) is on the page`);
     assert.equal(el.widget, widget);
-    assert.ok(el.part, `${path} has its data-part`);
+    if (!SENTENCE.includes(widget.slice(5))) assert.ok(el.part, `${path} has its data-part`);
   }
-  // our registry has every core extern, and the runtime's notice
-  assert.deepEqual((await xtmd(page, "widgets")).sort(), [...CORE.map((w) => `core/${w}`), "#notice"].sort());
+  // our registry has every core extern
+  assert.deepEqual((await xtmd(page, "widgets")).sort(), [...CORE, ...SENTENCE].map((w) => `core/${w}`).sort());
   assert.deepEqual(page.errors, []);
   await page.close();
 });
@@ -196,7 +200,7 @@ test("Markdown's blocks are their own elements: headings, lists with task boxes,
   assert.equal(await page.locator("ol > li").count(), 2);
   assert.equal(await page.locator("blockquote").textContent(), "quoted");
   // a view in a sentence is drawn where it stands
-  assert.equal(await page.locator("p .xtmd-inline").getByRole("img", { name: "a star" }).count(), 1);
+  assert.equal(await page.locator("p.xtmd-sentence").getByRole("img", { name: "a star" }).count(), 1);
   assert.equal(await page.locator("pre > code.language-js").textContent(), "let x = 1;\n");
   // maths: TeX is its accessible text, MathML is what is seen
   const math = await describe(page, "div.xtmd-math");

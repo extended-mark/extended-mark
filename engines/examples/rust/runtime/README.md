@@ -11,7 +11,8 @@ An example engine (engines/README.md): CI builds it and runs its tests, and it i
   against contracts and `$state`'s rules, undone whole when it fails, then drawn once.
 - **Identity.** A widget written in Extended Mark keeps its own variables across redraws by its key: a loop
   row's widgets follow their item, not their position.
-- **Failures** are contained (page 6): a widget that fails while drawing becomes a `#notice`, a
+- **Failures** are contained (page 6): a widget that fails while drawing stays a node that
+  says why (`failed`), a
   handler that fails is undone, a host's write that breaks a rule is refused. Each is reported in
   `take_outcome()`.
 - **Markdown out**: `markdown()` writes the live page, the same text @extended-mark/runtime writes.
@@ -38,6 +39,9 @@ let mut page = Page::from_json(&json, PageOptions::default()).unwrap();
 // every frame: read the tree, its props already worked out
 fn draw(page: &Page, nodes: &[Drawn]) {
     for d in nodes {
+        if let Some(_why) = &d.failed {
+            continue; // a widget that failed: say so in its place
+        }
         match d.widget.as_str() {
             "core/press" => {
                 let _label = d.prop("label");
@@ -48,7 +52,6 @@ fn draw(page: &Page, nodes: &[Drawn]) {
             "core/slider" => {
                 let _range = page.write_type(d, "value").and_then(|t| t.contract);
             }
-            "#notice" => { /* a widget that failed: show d.prop("message") */ }
             _ => {}
         }
         for kids in d.slots.values() {

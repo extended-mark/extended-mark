@@ -9,6 +9,19 @@ pub enum Conv {
     Same,
     /// A plain value where an `opt` is wanted, wrapped this many times.
     Wrap(usize),
+    /// A rich_text where a view is wanted, wrapped this many times: placed on its own, a sentence
+    /// is a paragraph.
+    Alone(usize),
+}
+
+impl Conv {
+    fn wrapped(self) -> Conv {
+        match self {
+            Conv::Same => Conv::Wrap(1),
+            Conv::Wrap(n) => Conv::Wrap(n + 1),
+            Conv::Alone(n) => Conv::Alone(n + 1),
+        }
+    }
 }
 
 impl Checker {
@@ -23,6 +36,7 @@ impl Checker {
             Ty::Opt(_) => Recv::Builtin("opt"),
             Ty::Range(_) => Recv::Builtin("range"),
             Ty::View => Recv::Builtin("view"),
+            Ty::Rich => Recv::Builtin("rich_text"),
             Ty::Def(d, _) => Recv::Def(d),
             Ty::Any(d, _) => Recv::Iface(d),
             _ => return None,
@@ -245,21 +259,19 @@ impl Checker {
         match (&want, &got) {
             (Ty::Opt(w), Ty::Opt(g)) => {
                 // opt<opt<T>> from opt<T>: the inner one is wrapped
-                if let Some(c) = self.accepts(w, g, bounds) {
+                // what is inside an opt that is there is not converted
+                match self.accepts(w, g, bounds) {
+                    Some(Conv::Alone(_)) => return None,
+                    Some(c) => return Some(c),
+                    None => {}
+                }
+                if let Some(c @ Conv::Wrap(_)) = self.accepts(w, &got, bounds) {
                     return Some(c);
                 }
-                if let Some(Conv::Wrap(n)) = self.accepts(w, &got, bounds) {
-                    return Some(Conv::Wrap(n));
-                }
-                self.accepts(w, &got, bounds).map(|c| match c {
-                    Conv::Same => Conv::Wrap(1),
-                    Conv::Wrap(n) => Conv::Wrap(n + 1),
-                })
+                self.accepts(w, &got, bounds).map(Conv::wrapped)
             }
-            (Ty::Opt(w), _) => self.accepts(w, &got, bounds).map(|c| match c {
-                Conv::Same => Conv::Wrap(1),
-                Conv::Wrap(n) => Conv::Wrap(n + 1),
-            }),
+            (Ty::Opt(w), _) => self.accepts(w, &got, bounds).map(Conv::wrapped),
+            (Ty::View, Ty::Rich) => Some(Conv::Alone(0)),
             (Ty::View, Ty::Def(d, _)) if matches!(self.defs[*d].kind, DefKind::Widget { .. }) => Some(Conv::Same),
             (Ty::View, Ty::Any(d, _)) if matches!(self.defs[*d].kind, DefKind::Interface { widget: true, .. }) => Some(Conv::Same),
             (Ty::View, Ty::Param(p)) => {
@@ -304,8 +316,12 @@ impl Checker {
     pub fn coerce(&mut self, file: usize, x: ir::Expr, got: &Ty, want: &Ty, span: Span, bounds: &[TParam]) -> ir::Expr {
         match self.accepts(want, got, bounds) {
             Some(Conv::Same) => x,
-            Some(Conv::Wrap(n)) => {
-                let mut x = x;
+            Some(conv) => {
+                let (n, mut x) = match conv {
+                    Conv::Alone(n) => (n, self.alone_value(x)),
+                    Conv::Wrap(n) => (n, x),
+                    Conv::Same => (0, x),
+                };
                 for _ in 0..n {
                     x = ir::Expr::Some(Box::new(x));
                 }

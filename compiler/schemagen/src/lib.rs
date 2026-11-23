@@ -290,7 +290,11 @@ impl<'a> Gen<'a> {
                         if rname != f.key {
                             attrs.push(format!("rename = \"{}\"", f.key));
                         }
-                        let base = self.rust_ty(&f.ty, name);
+                        let mut base = self.rust_ty(&f.ty, name);
+                        // a rich_text's calls are shared by every value made from them
+                        if name == "Rich" && f.key == "nodes" {
+                            base = format!("std::sync::Arc<{}>", base);
+                        }
                         let ty = if f.required {
                             base
                         } else {
