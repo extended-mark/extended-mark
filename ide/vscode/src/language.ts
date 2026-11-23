@@ -8,7 +8,7 @@ const CODE_FIRST = /^\s*(?:package|import|\$state|widget|record|enum|fn|let|exte
 export function languageFor(path: string, text: string): "xtmd" | "xtmd-prose" | "xtmd-pack" {
   if (path.endsWith(".xtmdpack")) return "xtmd-pack";
   if (!path.endsWith(".xtmd")) return "xtmd";
-  if (/^@@@\s*$/m.test(text)) return "xtmd";
+  if (hasDivider(text)) return "xtmd";
   let lines = text.split("\n");
   // front matter is neither
   if (lines[0]?.trim() === "---") {
@@ -17,4 +17,18 @@ export function languageFor(path: string, text: string): "xtmd" | "xtmd-prose" |
   }
   const first = lines.find((l) => l.trim() !== "" && !l.trim().startsWith("//"));
   return first !== undefined && CODE_FIRST.test(first) ? "xtmd" : "xtmd-prose";
+}
+
+/** Whether a document has its `@@@` line, outside any fenced code block that is closed. */
+function hasDivider(text: string): boolean {
+  const lines = text.split("\n");
+  for (let k = 0; k < lines.length; k++) {
+    if (/^ {0,3}@@@\s*$/.test(lines[k])) return true;
+    const open = /^ {0,3}(`{3,}(?=[^`]*$)|~{3,})/.exec(lines[k]);
+    if (!open) continue;
+    const closes = new RegExp(`^ {0,3}${open[1][0]}{${open[1].length},}\\s*$`);
+    const end = lines.findIndex((l, j) => j > k && closes.test(l));
+    if (end > 0) k = end;
+  }
+  return false;
 }

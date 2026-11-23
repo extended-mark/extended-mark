@@ -32,7 +32,7 @@ A text with holes is a template literal: its pieces, the text between the holes,
 file      = "package" name [ "@" number ] ";" { import } { decl }   a pack's file; with a version, a surface
 document  = [ frontmatter ] [ definitions divider ] prose
 definitions = { import } { decl | state | expose }       no package and no pack; at most one state
-divider   = a line that holds only "@@@"
+divider   = a line that holds only "@@@", outside a fence that is closed
 frontmatter = a line "---", YAML lines, a line "---", at the very top
 import    = "import" name [ "." name ] [ "as" name ] ";"
 

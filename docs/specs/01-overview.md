@@ -134,7 +134,7 @@ It has been retried \{$state.tries} times.
 \@ops is the team that gets the alert.
 ````
 
-- **The `@@@` line**: The first line that holds only `@@@` ends the definitions. It can never be valid code, because an `@` needs a name after it, so the definitions never need escaping. To show `@@@` as text in the document, write `\@@@`. A second unescaped `@@@` line is a compile error.
+- **The `@@@` line**: The first line that holds only `@@@`, outside a fenced code block, ends the definitions, so a document can show Extended Mark in a fence. It can never be valid code, because an `@` needs a name after it, so the definitions never need escaping. To show `@@@` as text in the document, write `\@@@`. A second unescaped `@@@` line is a compile error.
 - **No `@@@` line**: The whole file is the document, with only core imported.
 - **Below the line**: Everything is Markdown. A fenced code block marked `xtmd` is shown as code, like any other.
 - **A widget declared in a document may leave out `markdown`**: Extended Mark builds it from the view, with the starting values. A branch that depends on a variable, a `$state` field or the widget's own, gets a warning naming the line, and writing a `markdown` block replaces the built one. In a .xtmdpack file the block is required.

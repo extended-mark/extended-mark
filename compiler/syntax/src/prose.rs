@@ -58,6 +58,47 @@ fn spaces(s: &str) -> usize {
     s.bytes().take_while(|c| *c == b' ').count()
 }
 
+/// The line that ends a document's definitions, searched for from `from`: the first that holds only
+/// `@@@` and isn't in a fenced code block, as its three characters. A fence that is never closed
+/// isn't a fence here, so it hides no divider below it.
+pub(crate) fn divider(src: &str, from: usize) -> Option<Span> {
+    let mut off = from;
+    // the lines not yet looked at, where a fence would end
+    while off < src.len() {
+        let end = src[off..].find('\n').map_or(src.len(), |k| off + k);
+        let line = &src[off..end];
+        let lead = spaces(line);
+        if lead <= 3 {
+            if line.trim() == "@@@" {
+                return Some(Span::new(off + lead, off + lead + 3));
+            }
+            if let Some((c, n)) = fence_open(&line[lead..]) {
+                if let Some(after) = fence_end(src, (end + 1).min(src.len()), c, n) {
+                    off = after;
+                    continue;
+                }
+            }
+        }
+        off = end + 1;
+    }
+    None
+}
+
+/// Where the line after a fence's closing line starts: `None` when no line closes it.
+fn fence_end(src: &str, from: usize, c: u8, n: usize) -> Option<usize> {
+    let mut off = from;
+    while off < src.len() {
+        let end = src[off..].find('\n').map_or(src.len(), |k| off + k);
+        let line = &src[off..end];
+        let s = line.trim();
+        if spaces(line) <= 3 && s.len() >= n && s.bytes().all(|b| b == c) {
+            return Some((end + 1).min(src.len()));
+        }
+        off = end + 1;
+    }
+    None
+}
+
 /// What follows the quote and list-item markers that start a line, or `None` when it has none.
 fn inside_quote_or_item(s: &str) -> Option<&str> {
     let mut inner = s;
@@ -157,7 +198,8 @@ impl<'a> Parser<'a> {
         self.rest_empty(from, codes::BRACE_LINE, "an opening brace ends its line: the block's prose starts on the next line")
     }
 
-    /// A whole document: front matter, definitions up to the first `@@@` line, then prose.
+    /// A whole document: front matter, definitions up to the first `@@@` line outside a fenced code
+    /// block, then prose.
     pub fn document(&mut self) -> R<File> {
         let src = self.src;
         let mut pos = 0;
@@ -187,17 +229,7 @@ impl<'a> Parser<'a> {
                 }
             }
         }
-        let mut divider = None;
-        let mut off = pos;
-        while off < src.len() {
-            let end = src[off..].find('\n').map(|k| off + k).unwrap_or(src.len());
-            let line = &src[off..end];
-            if spaces(line) <= 3 && line.trim() == "@@@" {
-                divider = Some(Span::new(off + spaces(line), off + spaces(line) + 3));
-                break;
-            }
-            off = end + 1;
-        }
+        let divider = divider(src, pos);
         let mut file = File {
             kind: FileKind::Document,
             front_matter,

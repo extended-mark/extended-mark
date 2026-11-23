@@ -215,7 +215,7 @@ fn migrate_02_doc(base: &xtmd_check::Checker, packs: &[Pack], sources: &[Source]
     let compiles = |world: &[Source], text: &str| xtmd_check::compile_on(base, &[world.to_vec()], &[Source { path: doc_path.clone(), text: text.to_string() }], "doc");
     let stamped = crate::v02::stamped(text);
     // 0.3's: a `@@@` line, or 0.3 in its prose; Markdown alone reads the same in both
-    if !stamped && (text.lines().any(|l| l.trim_end() == "@@@") || crate::v02::speaks_03(text)) {
+    if !stamped && (xtmd_syntax::has_divider(text) || crate::v02::speaks_03(text)) {
         return None;
     }
     let mut o = Outcome { text: text.to_string(), moved: vec!["mkp 0.2 → 0.3".to_string()], ..Outcome::default() };

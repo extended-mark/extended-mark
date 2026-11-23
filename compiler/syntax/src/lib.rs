@@ -48,6 +48,12 @@ pub fn entry_for(path: &str) -> Option<Entry> {
     }
 }
 
+/// Whether a document's text has the `@@@` line that ends its definitions, outside any fenced code
+/// block.
+pub fn has_divider(src: &str) -> bool {
+    prose::divider(src, 0).is_some()
+}
+
 /// Reads a source. A syntax error stops the reading and is the last diagnostic.
 pub fn parse(src: &str, entry: Entry) -> Parsed {
     let mut p = parser::Parser::new(src, entry);
