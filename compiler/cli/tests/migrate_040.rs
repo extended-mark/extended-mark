@@ -204,3 +204,84 @@ fn a_tree_already_written_for_this_release_is_left_alone() {
     let (_, out) = xtmd(&dir, &["migrate", "."]);
     assert!(out.contains("0 to migrate"), "{out}");
 }
+
+const WARNED: &str = r#"import kit;
+
+record alert {
+    warn: text;
+}
+
+$state {
+    warn: bool = false;
+}
+
+fn warn(warn: alert): text {
+    return "\{warn.warn}!";
+}
+
+widget tell(warn: text) {
+    view {
+        @label(value = warn);
+    }
+    markdown {
+        \{warn}, and the word warn stays
+    }
+}
+@@@
+I warn you: \{warn(alert { warn = "\{$state.warn}" })}
+
+@tell(warn = "warn in a text stays");
+
+@mark(warn = "kit");
+"#;
+
+const PLAIN_EXTERNS: &str = r#"package kit;
+
+pack kit@1 {
+    uses core@1;
+    provides mark, box, gap;
+}
+
+// says nothing as Markdown yet
+extern widget mark(warn: text);
+
+extern widget box() {
+    slot body: view;      // what it holds
+}
+
+extern widget gap() {
+}
+"#;
+
+#[test]
+fn a_name_spelled_warn_is_renamed_and_an_extern_says_what_it_is_as_markdown() {
+    let dir = tree("warn", &[("xtmd.toml", TOML), ("kit/kit.xtmdpack", PLAIN_EXTERNS), ("doc.xtmd", WARNED)]);
+    assert_eq!(xtmd(&dir, &["check", "."]).0, 1);
+    let (code, out) = xtmd(&dir, &["migrate", ".", "--yes"]);
+    assert_eq!(code, 0, "{out}");
+    assert!(out.contains("`warn` is a keyword"), "{out}");
+    let (code, after) = xtmd(&dir, &["check", "."]);
+    assert_eq!(code, 0, "{after}");
+    let doc = std::fs::read_to_string(dir.join("doc.xtmd")).unwrap();
+    for want in [
+        "    warn_: text;\n",
+        "    warn_: bool = false;\n",
+        "fn warn_(warn_: alert): text {\n    return \"\\{warn_.warn_}!\";\n",
+        "\\{warn_}, and the word warn stays",
+        "I warn you: \\{warn_(alert { warn_ = \"\\{$state.warn_}\" })}",
+        "@tell(warn_ = \"warn in a text stays\");",
+        "@mark(warn_ = \"kit\");",
+    ] {
+        assert!(doc.contains(want), "{want}\nin\n{doc}");
+    }
+    let kit = std::fs::read_to_string(dir.join("kit/kit.xtmdpack")).unwrap();
+    for want in [
+        "// says nothing as Markdown yet\nextern widget mark(warn_: text) {\n    markdown { }\n}\n",
+        "    slot body: view;      // what it holds\n\n    markdown { }\n}\n",
+        "extern widget gap() {\n    markdown { }\n}\n",
+    ] {
+        assert!(kit.contains(want), "{want}\nin\n{kit}");
+    }
+    let (_, again) = xtmd(&dir, &["migrate", "."]);
+    assert!(again.contains("0 to migrate"), "{again}");
+}

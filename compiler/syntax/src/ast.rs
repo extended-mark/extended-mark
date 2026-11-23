@@ -330,6 +330,24 @@ pub enum WidgetMember {
     Fn(FnDecl),
     View(Block),
     Markdown(MarkdownBlock),
+    /// An extern's `tokens color.LINE, …;`: the tokens its look comes from.
+    Tokens(Vec<TokenRef>),
+    /// An extern's `uses core.gfx;`: what drawing it needs.
+    Uses(Vec<UsesRef>),
+}
+
+/// A token's case, or the whole token: `color.LINE`, `color`.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct TokenRef {
+    pub token: Ident,
+    pub case: Option<Ident>,
+}
+
+/// A level of a pack: `core.gfx`.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct UsesRef {
+    pub pack: Ident,
+    pub level: Ident,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -346,6 +364,8 @@ pub struct EventDecl {
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Require {
+    /// `warn "…" {`: a rule that is only told, and refuses nothing.
+    pub warn: bool,
     pub message: TextLit,
     pub body: Block,
 }
@@ -363,6 +383,8 @@ pub struct Var {
 pub struct MarkdownBlock {
     /// `markdown { }`: the widget writes nothing.
     pub empty: bool,
+    /// `markdown #quote;`: a built-in piece of Markdown, in place of a block.
+    pub piece: Option<Ident>,
     pub prose: Prose,
     pub span: Span,
 }
@@ -377,6 +399,7 @@ pub struct ExternBlock {
 pub enum ExternMember {
     Field(Field),
     Fn(FnSig),
+    Tokens(Vec<TokenRef>),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]

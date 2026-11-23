@@ -41,6 +41,10 @@ pub struct Parser<'a> {
     pub orphans: Vec<Comment>,
     pub entry: Entry,
     has_state: bool,
+    /// Whether the file is an earlier version's surface, which holds signatures only.
+    surface: bool,
+    /// Where [`Lexer::name_again`]'s word is a name.
+    pub(crate) names: Vec<Span>,
 }
 
 #[derive(Clone)]
@@ -70,7 +74,14 @@ impl<'a> Parser<'a> {
             orphans: Vec::new(),
             entry,
             has_state: false,
+            surface: false,
+            names: Vec::new(),
         }
+    }
+
+    pub(crate) fn reading_as_name(mut self, word: &'static str) -> Parser<'a> {
+        self.lx.name_again = Some(word);
+        self
     }
 
     pub(crate) fn in_pack(&self) -> bool {
@@ -80,7 +91,9 @@ impl<'a> Parser<'a> {
     // ---- tokens
 
     pub(crate) fn seek(&mut self, pos: usize, limit: usize) {
+        let name_again = self.lx.name_again;
         self.lx = Lexer::new(self.src, pos, limit);
+        self.lx.name_again = name_again;
         self.buf.clear();
         self.prev_end = pos;
     }
@@ -94,7 +107,9 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn restore(&mut self, s: Saved) {
+        let name_again = self.lx.name_again;
         self.lx = Lexer::new(self.src, s.pos, s.limit);
+        self.lx.name_again = name_again;
         self.buf = s.buf;
         self.prev_end = s.prev_end;
     }
@@ -144,6 +159,9 @@ impl<'a> Parser<'a> {
         }
         if t.kind != Tok::Eof {
             self.prev_end = t.span.end as usize;
+        }
+        if t.kind == Tok::Name && self.lx.name_again == Some(&self.src[t.span.range()]) {
+            self.names.push(t.span);
         }
         Ok(t)
     }
@@ -417,6 +435,7 @@ impl<'a> Parser<'a> {
         let name = self.ident("a package name")?;
         // `package kit@1;`: an earlier version's surface
         let surface = if self.at(P::At)? { Some(self.version()?) } else { None };
+        self.surface = surface.is_some();
         self.semi()?;
         let trailing = self.take_trailing()?;
         Ok((Some(Node { leading, item: name, trailing, newline: true }), surface))
@@ -552,7 +571,7 @@ impl<'a> Parser<'a> {
         self.bump()?;
         let open = self.expect(P::LBrace)?;
         let members = self.body(open, |p| {
-            if p.at_kw(Kw::Require)? {
+            if p.at_rule()? {
                 return Ok(Member::Require(p.require()?));
             }
             if p.at_kw(Kw::Mut)? {
@@ -723,7 +742,7 @@ impl<'a> Parser<'a> {
         let implements = self.implements()?;
         let open = self.expect(P::LBrace)?;
         let members = self.body(open, |p| {
-            if p.at_kw(Kw::Require)? {
+            if p.at_rule()? {
                 return Ok(Member::Require(p.require()?));
             }
             let f = p.field(false)?;
@@ -754,14 +773,20 @@ impl<'a> Parser<'a> {
         Ok(InterfaceDecl { widget, name, generics, members })
     }
 
+    fn at_rule(&mut self) -> R<bool> {
+        Ok(self.at_kw(Kw::Require)? || self.at_kw(Kw::Warn)?)
+    }
+
+    /// `require "…" {` or `warn "…" {`
     pub(crate) fn require(&mut self) -> R<Require> {
-        self.expect_kw(Kw::Require)?;
+        let warn = self.at_kw(Kw::Warn)?;
+        self.expect_kw(if warn { Kw::Warn } else { Kw::Require })?;
         if self.kind()? != Tok::Text {
-            return Err(self.unexpected("the rule's message, as a text: `require \"…\" {`"));
+            return Err(self.unexpected(if warn { "the warning's message, as a text: `warn \"…\" {`" } else { "the rule's message, as a text: `require \"…\" {`" }));
         }
         let message = self.text_lit()?;
         let body = self.block(BlockKind::Code)?;
-        Ok(Require { message, body })
+        Ok(Require { warn, message, body })
     }
 
     fn event_decl(&mut self) -> R<EventDecl> {
@@ -862,6 +887,9 @@ impl<'a> Parser<'a> {
         let inputs = self.group(open, P::RParen, |p| p.field(false))?;
         let implements = self.implements()?;
         if external && self.eat(P::Semi)? {
+            if !self.surface {
+                self.diags.push(no_markdown(&name));
+            }
             return Ok(WidgetDecl { name, generics, inputs, implements, body: None });
         }
         let open = self.expect(P::LBrace)?;
@@ -884,7 +912,11 @@ impl<'a> Parser<'a> {
             self.diags.push(Diagnostic::error(
                 codes::WIDGET_ORDER,
                 at,
-                "a widget's body is, in order: param inputs, slots, events, require blocks, its own mut and let variables, its fns, view, and markdown",
+                if external {
+                    "an extern widget's body is, in order: slots, events, tokens and uses, require and warn blocks, and markdown"
+                } else {
+                    "a widget's body is, in order: param inputs, slots, events, require and warn blocks, its own mut and let variables, its fns, view, and markdown"
+                },
             ));
         }
         if !external && !has_view {
@@ -897,6 +929,9 @@ impl<'a> Parser<'a> {
                 format!("widget `{}` has no markdown block: in a .xtmdpack file every widget says what it is as Markdown (`markdown {{ }}` writes nothing)", name.name),
             ));
         }
+        if external && !has_markdown && !self.surface {
+            self.diags.push(no_markdown(&name));
+        }
         Ok(WidgetDecl { name, generics, inputs, implements, body: Some(body) })
     }
 
@@ -907,7 +942,7 @@ impl<'a> Parser<'a> {
                 return Err(Diagnostic::error(
                     codes::EXPECTED,
                     t.span,
-                    format!("an extern widget's body holds only slots, events and a markdown block, not {}", what),
+                    format!("an extern widget's body holds slots, events, `tokens`, `uses`, `require`, `warn` and its markdown, not {}", what),
                 ));
             }
             let _ = p;
@@ -930,30 +965,40 @@ impl<'a> Parser<'a> {
                 (1, WidgetMember::Slot(SlotDecl { name, ty }))
             }
             Tok::Kw(Kw::Event) => (2, WidgetMember::Event(self.event_decl()?)),
-            Tok::Kw(Kw::Require) => {
-                allowed(self, "require")?;
-                (3, WidgetMember::Require(self.require()?))
+            Tok::Kw(Kw::Tokens) if external => {
+                (3, WidgetMember::Tokens(self.tokens_line()?))
             }
+            // `uses` is a word only here and in a pack block
+            Tok::Name if external && self.text_of(t.span) == "uses" => {
+                self.bump()?;
+                let mut refs = vec![self.uses_ref()?];
+                while self.eat(P::Comma)? {
+                    refs.push(self.uses_ref()?);
+                }
+                self.semi()?;
+                (3, WidgetMember::Uses(refs))
+            }
+            Tok::Kw(Kw::Require | Kw::Warn) => (4, WidgetMember::Require(self.require()?)),
             Tok::Kw(Kw::Mut) => {
                 allowed(self, "mut")?;
                 self.bump()?;
-                (4, WidgetMember::Own(self.var_rest()?))
+                (5, WidgetMember::Own(self.var_rest()?))
             }
             Tok::Kw(Kw::Let) => {
                 allowed(self, "let")?;
                 self.bump()?;
-                (4, WidgetMember::Let(self.var_rest()?))
+                (5, WidgetMember::Let(self.var_rest()?))
             }
             Tok::Kw(Kw::Fn) => {
                 allowed(self, "fn")?;
-                (5, WidgetMember::Fn(self.fn_decl(false)?))
+                (6, WidgetMember::Fn(self.fn_decl(false)?))
             }
             Tok::Kw(Kw::View) => {
                 allowed(self, "view")?;
                 self.bump()?;
-                (6, WidgetMember::View(self.block(BlockKind::View)?))
+                (7, WidgetMember::View(self.block(BlockKind::View)?))
             }
-            Tok::Kw(Kw::Markdown) => (7, WidgetMember::Markdown(self.markdown_block()?)),
+            Tok::Kw(Kw::Markdown) => (8, WidgetMember::Markdown(self.markdown_block()?)),
             Tok::Kw(Kw::Expose) => {
                 return Err(Diagnostic::error(
                     codes::EXPOSE_IN_WIDGET,
@@ -962,11 +1007,38 @@ impl<'a> Parser<'a> {
                 ))
             }
             _ => {
-                return Err(self.unexpected(
-                    "a widget's body: param, slot, event, require, mut, let, fn, view or markdown",
-                ))
+                return Err(self.unexpected(if external {
+                    "an extern widget's body: slot, event, tokens, uses, require, warn or markdown"
+                } else {
+                    "a widget's body: param, slot, event, require, warn, mut, let, fn, view or markdown"
+                }))
             }
         })
+    }
+
+    /// `tokens color.LINE, …;` in an extern
+    fn tokens_line(&mut self) -> R<Vec<TokenRef>> {
+        self.expect_kw(Kw::Tokens)?;
+        let mut refs = vec![self.token_ref()?];
+        while self.eat(P::Comma)? {
+            refs.push(self.token_ref()?);
+        }
+        self.semi()?;
+        Ok(refs)
+    }
+
+    /// `color.LINE`, or `color` for every case of it.
+    fn token_ref(&mut self) -> R<TokenRef> {
+        let token = self.ident("a token")?;
+        let case = if self.eat(P::Dot)? { Some(self.caps("a token's case")?) } else { None };
+        Ok(TokenRef { token, case })
+    }
+
+    fn uses_ref(&mut self) -> R<UsesRef> {
+        let pack = self.ident("a pack's name")?;
+        self.expect(P::Dot)?;
+        let level = self.ident("a level")?;
+        Ok(UsesRef { pack, level })
     }
 
     /// `name: type = value;` after `let` or `mut`.
@@ -1008,6 +1080,9 @@ impl<'a> Parser<'a> {
                         let sig = p.fn_sig(true)?;
                         p.semi()?;
                         return Ok(ExternMember::Fn(sig));
+                    }
+                    if p.at_kw(Kw::Tokens)? {
+                        return Ok(ExternMember::Tokens(p.tokens_line()?));
                     }
                     let f = p.field(false)?;
                     p.semi()?;
@@ -2254,4 +2329,13 @@ fn is_place(e: &Expr) -> bool {
 pub(crate) fn column0(src: &str, offset: usize) -> usize {
     let start = src[..offset].rfind('\n').map(|k| k + 1).unwrap_or(0);
     src[start..offset].chars().count()
+}
+
+/// An extern's Markdown is part of what it is, so every one says it.
+fn no_markdown(name: &Ident) -> Diagnostic {
+    Diagnostic::error(
+        codes::WIDGET_MARKDOWN,
+        name.span,
+        format!("extern widget `{}` doesn't say what it is as Markdown: end its body with a `markdown {{ … }}` block, with one of Markdown's own pieces (`markdown #quote;`), or with `markdown {{ }}`, which writes nothing", name.name),
+    )
 }

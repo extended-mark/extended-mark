@@ -161,16 +161,11 @@ pub fn plane_writes(page: &Page, plane: &Drawn, measure: &mut dyn Measure, start
     let mut writes = Vec::new();
     let mut boxes = Vec::new();
     let zero = Pt { x: Num::zero(), y: Num::zero() };
-    let given = region_of(plane.props.get("bounds"));
     for s in plane.slots.get("items").into_iter().flatten() {
         if s.widget != "core/spot" {
             continue;
         }
         let at = pt_of(s.props.get("at")).unwrap_or(zero);
-        // a spot outside bounds the caller gave is a warning, and is clipped where it is drawn
-        if let Some(g) = given {
-            page.spot_inside(&s.path, at.x >= g.from.x && at.x <= g.to.x && at.y >= g.from.y && at.y <= g.to.y);
-        }
         let anchor = match s.props.get("anchor") {
             Some(Value::Case(c)) => c.name.to_string(),
             _ => "CENTER".to_string(),

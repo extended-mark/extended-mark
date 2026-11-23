@@ -10,6 +10,7 @@ extern widget canvas(
 ) {
     slot layers: list<layer>[1...];
     event click(at: point);                     // a click on empty space, in the canvas's units
+    uses core.gfx;
 
     markdown {
         \{label}
@@ -19,6 +20,7 @@ extern widget canvas(
 //@about Shapes drawn together, in the order written. Later layers are drawn on top.
 extern widget layer(opacity: number 0..1 = 1, clip: opt<region> = opt.NONE) {
     slot shapes: list<any shape>;
+    uses core.gfx;
 
     // writes nothing: the canvas or plane around it writes what the picture shows
     markdown { }
@@ -43,6 +45,7 @@ extern widget circle(
     event click();
     event enter();
     event leave();
+    uses core.gfx;
 
     markdown { }
 }
@@ -62,6 +65,7 @@ extern widget path(
     event click();
     event enter();
     event leave();
+    uses core.gfx;
 
     markdown { }
 }
@@ -75,12 +79,16 @@ extern widget place(
     label: text = "",
 ) implements shape {
     slot child: view;
+    uses core.gfx;
 
     markdown { }
 }
 
 //@about A point the reader drags. It writes where it is to the variable it is given.
 extern widget handle(mut at: point, tone: opt<color> = opt.NONE, opacity: number 0..1 = 1, label: text) implements shape {
+    tokens color.ACCENT, color.SURFACE;
+    uses core.gfx;
+
     markdown { }
 }
 
@@ -101,6 +109,8 @@ extern widget shade<A>(
     opacity: number 0..1 = 1,
     label: text,
 ) implements shape {
+    uses core.gfx;
+
     markdown { }
 }
 

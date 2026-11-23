@@ -160,7 +160,7 @@ class Writer {
     return slots[name] ? this.nodes(slots[name], env) : [];
   }
 
-  /** A widget: Markdown's own blocks are written directly; any other widget writes its markdown. */
+  /** A widget: one that is a piece of Markdown is written as it; any other writes its markdown. */
   /** `key` and `events` are the call's, as drawing gives them: entering a widget to write its
    * Markdown must find the instance the page drew and leave it as it was. */
   widget(name: string, path: string, props: Map<string, V>, args: Record<string, ir.Expr>, slots: Record<string, ir.Node[]>, env: Env, key: string = path, events: Record<string, string> = {}): Piece[] {
@@ -171,7 +171,7 @@ class Writer {
     try {
       return this.widgetInner(name, path, props, args, slots, env, key, events);
     } catch (f) {
-      if (name.startsWith("core/") && !this.page.templateOf(name)) throw f;
+      if (this.page.externWidget(name)?.piece) throw f;
       // a widget that fails is a notice in its place, a quote in Markdown (page 6)
       const msg = f instanceof Error ? f.message : String(f);
       return [{ block: { quote: [{ paragraph: [{ text: { value: `${name.split("/").pop()} failed: ${msg}` } }] }] } }];
@@ -182,17 +182,17 @@ class Writer {
 
   private widgetInner(name: string, path: string, props: Map<string, V>, args: Record<string, ir.Expr>, slots: Record<string, ir.Node[]>, env: Env, key: string, events: Record<string, string>): Piece[] {
     const p = (k: string) => props.get(k);
-    switch (name) {
-      case "core/paragraph": {
+    switch (this.page.externWidget(name)?.piece) {
+      case "paragraph": {
         const runs = this.inline(p("value"));
         return runs.length ? [{ block: { paragraph: runs } }] : [];
       }
-      case "core/heading": {
+      case "heading": {
         const l = p("level");
         const level = l && l.kind === "num" ? Math.min(6, Math.max(1, Number(l.n.show()))) : 1;
         return [{ block: { heading: { level, inline: this.inline(p("value")) } } }];
       }
-      case "core/bullets": {
+      case "bullets": {
         const o = p("ordered");
         const ordered = !!o && o.kind === "bool" && o.b;
         const s = p("start");
@@ -201,24 +201,24 @@ class Writer {
         if (!items.length) return [];
         return [{ block: { bullets: ordered ? { ordered, start, items } : { ordered, items } } }];
       }
-      case "core/item": {
+      case "item": {
         const d = p("done");
         const done = d && d.kind === "opt" && d.value && d.value.kind === "bool" ? d.value.b : d && d.kind === "bool" ? d.b : undefined;
         const item: Item = { blocks: blocksOf(this.slot(slots, "body", env)) };
         if (done !== undefined) item.done = done;
         return [{ item }];
       }
-      case "core/quote":
+      case "quote":
         return [{ block: { quote: blocksOf(this.slot(slots, "body", env)) } }];
-      case "core/code":
+      case "code":
         return [{ block: { code: { lang: textOf(p("lang")), src: textOf(p("src")) } } }];
-      case "core/math":
+      case "math":
         return [{ block: { math: templateText(field(p("tex"), "tex")) } }];
-      case "core/divider":
+      case "divider":
         return [{ block: { divider: {} } }];
-      case "core/footnote":
+      case "footnote":
         return [{ block: { footnote: { mark: textOf(p("mark")), blocks: blocksOf(this.slot(slots, "body", env)) } } }];
-      case "core/table": {
+      case "table": {
         const head = itemsOf(p("head")).map((c) => this.inline(c));
         const rows = itemsOf(p("rows")).map((r) => itemsOf(r).map((c) => this.inline(c)));
         const align = itemsOf(p("align")).map((a) => (a.kind === "case" && (a.name === "CENTER" || a.name === "END") ? a.name : "START")) as ("START" | "CENTER" | "END")[];

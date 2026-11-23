@@ -19,6 +19,10 @@ pub struct Out {
     pub templates: Vec<(DefId, ir::Template)>,
     /// Extern widgets' markdown, as nodes.
     pub extern_markdown: HashMap<DefId, Vec<ir::Node>>,
+    /// The piece of Markdown an extern widget is.
+    pub extern_piece: HashMap<DefId, String>,
+    pub extern_tokens: HashMap<DefId, Vec<String>>,
+    pub extern_uses: HashMap<DefId, Vec<ir::Level>>,
     pub doc: Option<ir::Template>,
 }
 
@@ -136,6 +140,7 @@ impl Checker {
                     }
                     let mut values: Vec<ast::Field> = Vec::new();
                     let mut fns = Vec::new();
+                    let mut tokens = Vec::new();
                     for m in b.members.iter() {
                         match m {
                             ast::ExternMember::Field(f) => values.push(f.clone()),
@@ -147,11 +152,13 @@ impl Checker {
                                 };
                                 fns.push((sig.name.name.clone(), ps, ret, ret_ir));
                             }
+                            ast::ExternMember::Tokens(refs) => tokens.extend(refs.iter().cloned()),
                         }
                     }
                     let values: Vec<&ast::Field> = values.iter().collect();
                     self.channels[c].values = self.fields(file, &values, &[]);
                     self.channels[c].fns = fns;
+                    self.channels[c].token_refs = tokens;
                 }
             }
         }
@@ -448,7 +455,7 @@ impl Checker {
         if pack == "core" {
             ir::Supplier::Core
         } else if pack == self.module && !self.packs.get(pack).map_or(false, |p| p.provides.is_some()) {
-            ir::Supplier::App
+            ir::Supplier::Host
         } else {
             ir::Supplier::Pack
         }
@@ -508,14 +515,16 @@ impl Checker {
                     })));
                 }
                 DefKind::Widget { external: true, inputs, slots, events } => {
-                    // page 6: core.gfx draws the canvas and what goes on one; every other widget is core.draw's
-                    let levels = if def.pack == "core" && ["canvas", "layer", "circle", "path", "place", "handle", "shade"].contains(&def.name.as_str()) { vec![ir::Level::CoreGfx] } else { vec![ir::Level::CoreDraw] };
+                    let levels = out.extern_uses.get(&d).filter(|l| !l.is_empty()).cloned().unwrap_or_else(|| vec![ir::Level::CoreDraw]);
                     decls.push(decl(ir::Decl::Extern(ir::Extern::Widget(ir::ExternWidget {
                         name: def.full.clone(),
                         generics: self.ir_generics(&def.generics),
                         inputs: self.ir_fields(inputs, |n| out.defaults.get(&(d, n.to_string())).cloned()),
                         slots: slots.iter().map(|s| ir::Slot { name: s.name.clone(), ty: s.ir.clone() }).collect(),
                         events: events.iter().map(|e| ir::Event { name: e.name.clone(), params: self.ir_params(&e.params) }).collect(),
+                        tokens: out.extern_tokens.get(&d).cloned().unwrap_or_default(),
+                        requires: out.requires.get(&d).cloned().unwrap_or_default(),
+                        piece: out.extern_piece.get(&d).cloned(),
                         markdown: out.extern_markdown.get(&d).cloned().unwrap_or_default(),
                         levels,
                         supplier: self.supplier(&def.pack),
@@ -564,6 +573,7 @@ impl Checker {
                 name: c.full.clone(),
                 values: self.ir_fields(&c.values, |n| out.channel_defaults.get(&(k, n.to_string())).cloned()),
                 fns: c.fns.iter().map(|(n, ps, _, r)| ir::ExternChannelFns { name: n.clone(), params: self.ir_params(ps), returns: r.clone() }).collect(),
+                tokens: c.tokens.clone(),
                 supplier: self.supplier(&c.pack),
             }))));
         }
@@ -572,7 +582,7 @@ impl Checker {
                 continue;
             }
             if let Some(v) = out.let_values.get(&k) {
-                decls.push(decl(ir::Decl::Let(ir::LetDecl { name: l.full.clone(), ty: l.ir.clone(), value: v.clone(), reads: Vec::new() })));
+                decls.push(decl(ir::Decl::Let(ir::LetDecl { name: l.full.clone(), ty: l.ir.clone(), value: v.clone() })));
             }
         }
         if let Some(s) = out.state {
@@ -586,14 +596,14 @@ impl Checker {
             templates.push(doc);
         }
         let core_needs: Vec<String> = self.defs.iter().filter(|d| d.pack == "core" && matches!(d.kind, DefKind::Widget { external: true, .. })).map(|d| d.full.clone()).collect();
-        let app_needs: Vec<String> = self.channels.iter().filter(|c| c.pack == self.module).flat_map(|c| c.fns.iter().map(move |f| format!("{}.{}", c.full, f.0))).collect();
+        let host_needs: Vec<String> = self.channels.iter().filter(|c| c.pack == self.module).flat_map(|c| c.fns.iter().map(move |f| format!("{}.{}", c.full, f.0))).collect();
         let mut m = ir::Module {
-            version: 3,
+            version: 4,
             xtmd: env!("CARGO_PKG_VERSION").to_string(),
             module: self.module.clone(),
             levels: Vec::new(),
             front_matter: self.front_matter(),
-            needs: ir::Needs { core: core_needs, packs: self.pack_needs(), app: app_needs },
+            needs: ir::Needs { core: core_needs, packs: self.pack_needs(), host: host_needs },
             declarations: decls,
             templates,
             bindings: Vec::new(),

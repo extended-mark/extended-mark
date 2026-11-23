@@ -89,9 +89,19 @@ extern widget plane(
     width: opt<size> = opt.NONE,                    // left out, the width it is given, like a column
     aspect: number 0.1..10 = 1.5,                   // the drawn area's width over its height
 ) {
-    slot background: opt<list<layer>>;              // core.gfx: drawn under the spots, in the plane's units
+    slot background: opt<list<layer>>;              // drawn under the spots, in the plane's units
     slot items: opt<list<spot>>;
     event click(at: point);                         // a click on empty space, in the plane's units
+    tokens color.LINE, color.SURFACE, radius.CARD;
+
+    warn "a spot is outside the plane's bounds: it is clipped, and the reader can't pan to it" {
+        if (let b: region = bounds) {
+            if (let spots: list<spot> = items) {
+                return spots.all(fn(s) { return b.overlaps(region { from = s.at, to = s.at }); });
+            }
+        }
+        return true;
+    }
 
     markdown {
         \{label}

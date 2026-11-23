@@ -237,11 +237,13 @@ pub struct Machine<'p> {
     host: Rc<dyn Host + 'p>,
     /// The message of the last rule a `try` turned into `none`, for a literal's error.
     pub last_rule: Option<String>,
+    /// The messages of the `warn` rules found false since someone last took them.
+    pub warned: Vec<String>,
 }
 
 impl<'p> Machine<'p> {
     pub fn new(prog: &'p Program, host: Box<dyn Host + 'p>) -> Machine<'p> {
-        Machine { prog, steps: 0, depth: 0, next_id: 0, frames: vec![Frame { vars: Vec::new(), owner: None }], host: Rc::from(host), last_rule: None }
+        Machine { prog, steps: 0, depth: 0, next_id: 0, frames: vec![Frame { vars: Vec::new(), owner: None }], host: Rc::from(host), last_rule: None, warned: Vec::new() }
     }
 
     /// Starts counting steps again, for one redraw, one event or one constant.
@@ -1274,6 +1276,7 @@ impl<'p> Machine<'p> {
             let params: Vec<ir::Param> = r.fields.iter().map(|(n, _)| ir::Param { name: n.to_string(), ty: ir::Type::named("core/any"), mutable: false }).collect();
             match self.run_fn(&params, &rule.body, args, None)? {
                 Some(Value::Bool(true)) => {}
+                _ if rule.warn => self.warned.push(rule.message.clone()),
                 _ => return Err(Failure::rule(&rule.message)),
             }
         }

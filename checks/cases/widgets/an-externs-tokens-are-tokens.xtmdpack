@@ -1,0 +1,8 @@
+package t;
+
+//@about A rule.
+extern widget bar() {
+    tokens color.LINE, colour.INK, color.LIME, space;
+
+    markdown { }
+}

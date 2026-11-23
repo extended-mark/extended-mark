@@ -61,7 +61,20 @@ pub fn divider_at(src: &str) -> Option<usize> {
 
 /// Reads a source. A syntax error stops the reading and is the last diagnostic.
 pub fn parse(src: &str, entry: Entry) -> Parsed {
-    let mut p = parser::Parser::new(src, entry);
+    read(parser::Parser::new(src, entry), src, entry).0
+}
+
+/// Where `word`, which a release made a keyword, is a name in a source written before it; `None`
+/// when the source doesn't read that way.
+pub fn names_before(src: &str, entry: Entry, word: &'static str) -> Option<Vec<Span>> {
+    let (parsed, mut names) = read(parser::Parser::new(src, entry).reading_as_name(word), src, entry);
+    parsed.file?;
+    names.sort_by_key(|s| s.start);
+    names.dedup();
+    Some(names)
+}
+
+fn read<'a>(mut p: parser::Parser<'a>, src: &'a str, entry: Entry) -> (Parsed, Vec<Span>) {
     let result = (|| -> parser::R<File> {
         match entry {
             Entry::Document => p.document(),
@@ -86,7 +99,7 @@ pub fn parse(src: &str, entry: Entry) -> Parsed {
         }
     };
     diagnostics.sort_by_key(|d| (d.span.start, d.span.end));
-    Parsed { file, diagnostics, orphans: std::mem::take(&mut p.orphans) }
+    (Parsed { file, diagnostics, orphans: std::mem::take(&mut p.orphans) }, std::mem::take(&mut p.names))
 }
 
 /// `xtmd fmt`: the source printed back in the canonical layout. It refuses a source it can't read,

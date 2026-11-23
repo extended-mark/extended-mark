@@ -105,7 +105,7 @@ fn surface_writes_what_a_version_provides_and_then_holds_the_pack_to_it() {
 }
 
 const KIT1_SURFACE: &str = "package kit@1;\n\nrecord stat {\n    label: text;\n    value: text;\n}\n\nenum state { DONE, LATE }\n\nextern widget chart(values: list<number>, color: color = color.ACCENT);\nextern widget badge(label: text, shadow: bool = false);\nextern widget sparkline(values: list<number>);\nextern widget stats(items: list<stat>);\n";
-const KIT2: &str = "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides plot, badge, stat, state, stats;\n}\n\nrecord stat {\n    title: text;\n    value: text;\n    unit: text;\n}\n\nenum state { DONE, OVERDUE }\n\nextern widget plot(values: list<number>, tone: color = color.ACCENT);\nextern widget badge(label: text, size: size = size.M);\nextern widget stats(items: list<stat>);\n";
+const KIT2: &str = "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides plot, badge, stat, state, stats;\n}\n\nrecord stat {\n    title: text;\n    value: text;\n    unit: text;\n}\n\nenum state { DONE, OVERDUE }\n\nextern widget plot(values: list<number>, tone: color = color.ACCENT) {\n    markdown { }\n}\nextern widget badge(label: text, size: size = size.M) {\n    markdown { }\n}\nextern widget stats(items: list<stat>) {\n    markdown { }\n}\n";
 const MIGRATION: &str = "package kit;\n\nmigration kit@1 to kit@2 {\n    widget chart {\n        rename(to = plot);\n        rename(input = color, to = tone);\n    }\n\n    widget badge {\n        drop(input = shadow, why = \"badges have no shadow\");\n        set(input = size, value = size.S, when = !given(size), why = \"kit@1's badges were small\");\n    }\n\n    widget sparkline {\n        drop(why = \"use plot\");\n    }\n\n    record stat {\n        rename(field = label, to = title);\n        add(field = unit, value = \"\", why = \"a stat names its unit\");\n    }\n\n    enum state {\n        rename(from = state.LATE, to = state.OVERDUE);\n    }\n}\n";
 const OLD_DOC: &str = "import kit;\n\n$state {\n    s: state = state.LATE;\n}\n@@@\n# Report\n\n@chart(values = [1, 2], color = color.OK);\n\n@badge(label = \"Beta\", shadow = true);\n\n@sparkline(values = [3]);\n\n@stats(items = [stat { label = \"Deploys\", value = \"42\" }]);\n";
 
@@ -164,7 +164,7 @@ fn migrate_finds_the_version_a_document_compiles_against_and_writes_nothing_brok
 #[test]
 fn migrate_runs_execute_move_wrap_and_migration_fns_over_each_use() {
     let surface = "package kit@1;\n\nextern widget status(label: text, kind: text = \"info\");\nextern widget callout(text: text);\nextern widget card(title: text) {\n    slot body: view;\n}\nextern widget chart(values: list<number>, color: color = color.ACCENT, width: number = 2);\n";
-    let pack = "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides status, tone, callout, card, holder, chart, chart_style;\n}\n\nenum tone { INFO, WARN }\n\nrecord chart_style {\n    color: color = color.ACCENT;\n    width: number = 2;\n}\n\nextern widget status(label: text, tone: tone = tone.INFO);\nextern widget callout() {\n    slot body: view;\n}\nextern widget holder(title: text) {\n    slot body: view;\n}\nextern widget card() {\n    slot body: view;\n}\nextern widget chart(values: list<number>, style: chart_style = chart_style {});\n";
+    let pack = "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides status, tone, callout, card, holder, chart, chart_style;\n}\n\nenum tone { INFO, WARN }\n\nrecord chart_style {\n    color: color = color.ACCENT;\n    width: number = 2;\n}\n\nextern widget status(label: text, tone: tone = tone.INFO) {\n    markdown { }\n}\nextern widget callout() {\n    slot body: view;\n\n    markdown { }\n}\nextern widget holder(title: text) {\n    slot body: view;\n\n    markdown { }\n}\nextern widget card() {\n    slot body: view;\n\n    markdown { }\n}\nextern widget chart(values: list<number>, style: chart_style = chart_style {}) {\n    markdown { }\n}\n";
     let migration = "package kit;\n\nmigration fn into_style(inputs: list<input>) {\n    nest(inputs = inputs, into = style, why = \"a chart's look is one record now\");\n}\n\nmigration kit@1 to kit@2 {\n    widget status {\n        execute {\n            match (kind) {\n                case \"warn\" {\n                    return @status(label = label, tone = tone.WARN);\n                }\n                case else {\n                    return @status(label = label);\n                }\n            }\n        }\n    }\n\n    widget callout {\n        move(from = text, to = body, why = \"the text is the callout's children now\");\n    }\n\n    widget card {\n        wrap(parent = holder, why = \"a holder keeps the title now\");\n        move(from = title, to = holder.title, why = \"the title is the holder's\");\n    }\n\n    widget chart {\n        into_style(inputs = [color, width]);\n    }\n}\n";
     let doc = "import kit;\n@@@\n# Ops\n\n@status(label = \"Deploys\", kind = \"warn\");\n@status(label = \"Builds\");\n\n@callout(text = \"Deploys pause on Friday.\");\n\n@card(title = \"Q3\") {\nRevenue grew.\n}\n\n@chart(values = [1, 2], color = color.OK);\n";
     let dir = scratch("migrate-execute", &[("kit/kit.xtmdpack", pack), ("kit/surfaces/kit@1.xtmdpack", surface), ("kit/migrations/kit@2.xtmdpack", migration), ("xtmd.toml", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n"), ("docs/ops.xtmd", doc)]);
@@ -181,7 +181,7 @@ fn migrate_runs_execute_move_wrap_and_migration_fns_over_each_use() {
 #[test]
 fn migrate_renames_fn_calls_and_changes_handlers_for_an_events_new_arguments() {
     let surface = "package kit@1;\n\nextern fn text.slug(self): text;\n\nextern widget button(label: text) {\n    event click();\n}\n";
-    let pack = "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides button;\n}\n\nextern fn text.slugify(self, sep: text): text;\n\nextern widget button(label: text) {\n    event press(at: point);\n}\n";
+    let pack = "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides button;\n}\n\nextern fn text.slugify(self, sep: text): text;\n\nextern widget button(label: text) {\n    event press(at: point);\n\n    markdown { }\n}\n";
     let migration = "package kit;\n\nmigration kit@1 to kit@2 {\n    fn text.slug {\n        rename(to = slugify);\n        add(arg = sep, value = \"-\");\n    }\n\n    widget button {\n        event click {\n            rename(to = press);\n            add(arg = at);\n        }\n    }\n}\n";
     let doc = "import kit;\n\n$state {\n    n: number = 0;\n}\n\nfn id_of(t: text): text {\n    return t.slug();\n}\n@@@\n@button(label = \"Add\", click = fn() { $state.n = $state.n + 1; });\n";
     let dir = scratch("migrate-fns", &[("kit/kit.xtmdpack", pack), ("kit/surfaces/kit@1.xtmdpack", surface), ("kit/migrations/kit@2.xtmdpack", migration), ("xtmd.toml", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n"), ("docs/a.xtmd", doc)]);
@@ -211,7 +211,7 @@ fn migrate_moves_a_pack_that_uses_a_migrated_pack_and_its_uses_line() {
 fn migrate_keeps_a_change_inside_a_use_it_also_changes() {
     // the outer widget's block comes first in the migration, the inner record's after it
     let surface = "package kit@1;\n\nrecord stat {\n    label: text;\n    value: text;\n}\n\nextern widget stats(items: list<stat>);\n";
-    let pack = "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides board, stat;\n}\n\nrecord stat {\n    title: text;\n    value: text;\n}\n\nextern widget board(rows: list<stat>);\n";
+    let pack = "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides board, stat;\n}\n\nrecord stat {\n    title: text;\n    value: text;\n}\n\nextern widget board(rows: list<stat>) {\n    markdown { }\n}\n";
     let migration = "package kit;\n\nmigration kit@1 to kit@2 {\n    widget stats {\n        rename(to = board);\n        rename(input = items, to = rows);\n    }\n\n    record stat {\n        rename(field = label, to = title);\n    }\n}\n";
     let doc = "import kit;\n@@@\n@stats(items = [stat { label = \"A\", value = \"1\" }, stat { label = \"B\", value = \"2\" }]);\n";
     let dir = scratch("migrate-nested", &[("kit/kit.xtmdpack", pack), ("kit/surfaces/kit@1.xtmdpack", surface), ("kit/migrations/kit@2.xtmdpack", migration), ("xtmd.toml", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n"), ("docs/a.xtmd", doc)]);
@@ -245,7 +245,7 @@ fn a_long_line_of_inline_markdown_reads_within_the_step_limit() {
 #[test]
 fn migrate_keeps_a_rewritten_uses_lines_and_comments() {
     let surface = "package kit@1;\n\nextern widget chart(values: list<number>, color: color = color.ACCENT, title: text = \"\");\n";
-    let pack = "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides plot;\n}\n\nextern widget plot(values: list<number>, tone: color = color.ACCENT, title: text = \"\");\n";
+    let pack = "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides plot;\n}\n\nextern widget plot(values: list<number>, tone: color = color.ACCENT, title: text = \"\") {\n    markdown { }\n}\n";
     let migration = "package kit;\n\nmigration kit@1 to kit@2 {\n    widget chart {\n        rename(to = plot);\n        rename(input = color, to = tone);\n    }\n}\n";
     let doc = "import kit;\n\nwidget panel() {\n    view {\n        @chart(\n            // the week's numbers\n            values = [1, 2, 3],\n            color = color.OK,   // green for good\n            title = \"Sales\",\n        );\n    }\n}\n@@@\n@panel;\n\n@chart(values = [4], color = color.BAD);\n";
     let dir = scratch("migrate-comments", &[("kit/kit.xtmdpack", pack), ("kit/surfaces/kit@1.xtmdpack", surface), ("kit/migrations/kit@2.xtmdpack", migration), ("xtmd.toml", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n"), ("docs/a.xtmd", doc)]);
@@ -307,7 +307,7 @@ fn migrate_leaves_a_todo_with_todo_and_writes_errors_only_with_allow_errors() {
 #[test]
 fn migrate_takes_a_prose_calls_block_from_the_parser_fences_and_all() {
     let surface = "package kit@1;\n\nextern widget card(title: text) {\n    slot body: view;\n}\n";
-    let pack = "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides card, holder;\n}\n\nextern widget holder(title: text) {\n    slot body: view;\n}\nextern widget card() {\n    slot body: view;\n}\n";
+    let pack = "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides card, holder;\n}\n\nextern widget holder(title: text) {\n    slot body: view;\n\n    markdown { }\n}\nextern widget card() {\n    slot body: view;\n\n    markdown { }\n}\n";
     let migration = "package kit;\n\nmigration kit@1 to kit@2 {\n    widget card {\n        wrap(parent = holder, why = \"a holder keeps the title now\");\n        move(from = title, to = holder.title, why = \"the title is the holder's\");\n    }\n}\n";
     // a fence in the block holds a line that is only `}`: the block doesn't end there
     let doc = "import kit;\n@@@\n# Code\n\n@card(title = \"Q3\") {\n```js\nif (x) {\n}\n```\n}\n\nAfter.\n";
@@ -362,7 +362,7 @@ fn migrate_moves_a_0_2_document_with_0_2_10s_own_compiler() {
 
 #[test]
 fn migrate_uses_a_packs_own_0_3_release_and_checks_the_0_2_step_it_runs() {
-    let units3 = "package units;\n\npack units@1 {\n    uses core@1;\n    provides distance;\n}\n\nextern widget distance(km: number, label: text = \"\", summary: text = \"\");\n";
+    let units3 = "package units;\n\npack units@1 {\n    uses core@1;\n    provides distance;\n}\n\nextern widget distance(km: number, label: text = \"\", summary: text = \"\") {\n    markdown { }\n}\n";
     let dir = scratch("migrate-02-own", &[("docs/runs.mkp.md", RUNS_02), ("old/units/manifest.mkp", UNITS_02_MANIFEST), ("old/units/distance.mkp", UNITS_02_DISTANCE), ("units/units.xtmdpack", units3)]);
     let docs = dir.join("docs");
     let packs = format!("{},{}", dir.join("old/units").display(), dir.join("units").display());
@@ -624,7 +624,7 @@ fn every_command_takes_format_json_and_out() {
     assert!(std::fs::read_to_string(&report).unwrap().contains("error[names.unknown-field]"));
     let ir = dir.join("counter.ir.json");
     assert_eq!(xtmd(&["build", c, "--out", ir.to_str().unwrap()]).0, 0);
-    assert!(std::fs::read_to_string(&ir).unwrap().contains("\"version\": 3"));
+    assert!(std::fs::read_to_string(&ir).unwrap().contains("\"version\": 4"));
     let (code, out, _) = xtmd(&["migrate", dir.join("docs").to_str().unwrap(), "--dry-run", "--format", "json", "--out", dir.join("plan.jsonl").to_str().unwrap()]);
     assert_eq!((code, out.as_str()), (0, ""));
     assert_eq!(lines(&std::fs::read_to_string(dir.join("plan.jsonl")).unwrap()).last().unwrap()["type"], "summary");

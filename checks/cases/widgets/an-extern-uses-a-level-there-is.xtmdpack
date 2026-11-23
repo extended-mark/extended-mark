@@ -1,0 +1,8 @@
+package t;
+
+//@about A dial.
+extern widget dial() {
+    uses core.gfx, core.motion;
+
+    markdown { }
+}

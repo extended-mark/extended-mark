@@ -11,6 +11,7 @@ use xtmd_check::Source;
 use xtmd_syntax::ast::{self, DeclKind, Item};
 use xtmd_syntax::{parse, Entry, Lines};
 
+mod externs;
 pub mod releases;
 mod slots;
 pub mod step;
@@ -606,6 +607,8 @@ pub fn world_at(sources: &[Source], pack: &Pack, v: u32) -> Vec<Source> {
         // a pack block, so the surface provides what it lists
         let names = provided(&text);
         let text = text.replacen(&format!("package {};", pack.name), &format!("package {};\n\npack {}@{} {{\n    provides {};\n}}\n", pack.name, pack.name, v, names.join(", ")), 1);
+        // a surface's externs are signatures, and a pack's say what they are as Markdown
+        let text = step::apply(&text, &externs::markdown(&text, Entry::Xtmd).unwrap_or_default());
         out.push(Source { path: s.path.clone(), text });
     }
     out

@@ -51,11 +51,11 @@ pub struct Changes {
 }
 
 /// Every release's steps, oldest first. 0.3.0 is the first release of 0.3.
-pub static STEPS: &[ReleaseStep] = &[ReleaseStep {
-    release: "0.4.0",
-    why: "a slot is filled by every call unless it is `opt`, and a plain block goes to a widget with one slot",
-    by: By::Compiled(crate::slots::step),
-}];
+pub static STEPS: &[ReleaseStep] = &[
+    ReleaseStep { release: "0.4.0", why: "`warn` is a keyword, so a name spelled so is `warn_`; a host that reads it or sets it reads the new name", by: By::Text(crate::externs::names) },
+    ReleaseStep { release: "0.4.0", why: "every extern widget says what it is as Markdown, and one that said nothing is `markdown { }`", by: By::Text(crate::externs::markdown) },
+    ReleaseStep { release: "0.4.0", why: "a slot is filled by every call unless it is `opt`, and a plain block goes to a widget with one slot", by: By::Compiled(crate::slots::step) },
+];
 
 /// The steps of the releases after `from`, up to `to` and including it, oldest first.
 pub fn between<'s>(from: &str, to: &str, steps: &'s [ReleaseStep]) -> Vec<&'s ReleaseStep> {

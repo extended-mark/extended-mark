@@ -1256,6 +1256,9 @@ extern page {
     theme: theme = theme.LIGHT;
     today: date = "1970-01-01";
     now: moment = "1970-01-01T00:00+00:00";      // the host's clock
+
+    // what the page itself is drawn with: its background, its words, what has the focus and a widget that failed
+    tokens color.SURFACE, color.INK, color.ACCENT, color.BAD, font.BODY, radius.CARD;
 }
 ```
 
@@ -1388,9 +1391,19 @@ extern widget plane(
     width: opt<size> = opt.NONE,                    // left out, the width it is given, like a column
     aspect: number 0.1..10 = 1.5,                   // the drawn area's width over its height
 ) {
-    slot background: opt<list<layer>>;              // core.gfx: drawn under the spots, in the plane's units
+    slot background: opt<list<layer>>;              // drawn under the spots, in the plane's units
     slot items: opt<list<spot>>;
     event click(at: point);                         // a click on empty space, in the plane's units
+    tokens color.LINE, color.SURFACE, radius.CARD;
+
+    warn "a spot is outside the plane's bounds: it is clipped, and the reader can't pan to it" {
+        if (let b: region = bounds) {
+            if (let spots: list<spot> = items) {
+                return spots.all(fn(s) { return b.overlaps(region { from = s.at, to = s.at }); });
+            }
+        }
+        return true;
+    }
 
     markdown {
         \{label}
@@ -1420,7 +1433,7 @@ extern widget spot(
 ```
 
 - **The plane's unit.** At zoom 1, one unit of a plane is one of the page's own lengths (a CSS pixel, an Android dp), so a widget on a plane is the size it is anywhere else, and its box never depends on the plane's size. `fit` starts the plane zoomed so the whole of `bounds` fits.
-- **Bounds.** A region; left out, the region around every spot's box, worked out after layout. Nothing outside it is drawn, and the reader can't pan past it. A spot outside the bounds is a warning: at compile time when both are constants, and otherwise reported to the host when the page runs, not as a failure, and clipped.
+- **Bounds.** A region; left out, the region around every spot's box, worked out after layout. Nothing outside it is drawn, and the reader can't pan past it. A spot outside the bounds is a warning, which the plane's `warn` gives, and is clipped.
 - **The centre** is kept where the drawn area stays inside the bounds, and is their middle where they are smaller than it. A centre that had to be moved is written back to the caller's variable.
 - **Moving around** needs `core.live`: dragging pans, and pinching or scrolling zooms, within `zoom_range`, whose default `1..1` doesn't zoom. Without `core.live`, the plane is drawn where its centre puts it and doesn't move.
 - **What is reported.** Each spot's `box`, in the plane's units, so panning and zooming never change it: it changes only when the widget's own size does. And the plane's `drawn` region, written as the reader moves, as `center` is. What is in view is worked out in Extended Mark: `box.overlaps(drawn)`. The boxes of one layout are written as one change, and writing the value a variable already has is no change. A layout that keeps changing is stopped after a fixed number of passes, and is a failure of the plane.
@@ -1433,48 +1446,96 @@ extern widget spot(
 package core;
 
 //@about A paragraph of inline Markdown, parsed by core.
-extern widget paragraph(value: rich_text, tone: opt<color> = opt.NONE, align: align = align.START);
+extern widget paragraph(value: rich_text, tone: opt<color> = opt.NONE, align: align = align.START) {
+    markdown #paragraph;
+}
 
 //@about A heading, level 1 to 6.
-extern widget heading(level: int 1..6, value: rich_text);
+extern widget heading(level: int 1..6, value: rich_text) {
+    tokens font.HEADING, color.MUTED;
+
+    markdown #heading;
+}
 
 //@about A list: bulleted, or numbered from start.
 extern widget bullets(ordered: bool = false, start: int 0... = 1) {
     slot items: list<item>[1...];
+
+    markdown #bullets;
 }
 
 //@about One item of a list. done is a task box: ticked, not ticked, or none for an ordinary item.
 extern widget item(done: opt<bool> = opt.NONE) {
     slot body: view;
+    tokens color.ACCENT;
+
+    markdown #item;
 }
 
 //@about A quotation.
 extern widget quote() {
     slot body: view;
+    tokens color.LINE, color.MUTED;
+
+    markdown #quote;
 }
 
 //@about A block of literal text, such as code, in the mono font.
-extern widget code(src: text, lang: text = "");
+extern widget code(src: text, lang: text = "") {
+    tokens font.MONO, color.LINE, color.SURFACE, radius.CARD;
+
+    markdown #code;
+}
 
 //@about Maths on a line of its own, drawn from TeX.
-extern widget math(tex: latex);
+extern widget math(tex: latex) {
+    tokens font.MONO;
+
+    markdown #math;
+}
 
 //@about A table: a header row, rows of cells, and how each column is aligned.
-extern widget table(head: list<rich_text>[1...], rows: list<list<rich_text>>, align: list<cell_align> = []);
+extern widget table(head: list<rich_text>[1...], rows: list<list<rich_text>>, align: list<cell_align> = []) {
+    tokens color.LINE;
+
+    markdown #table;
+}
 
 //@about A note at the foot of the page, with its mark.
 extern widget footnote(mark: text) {
     slot body: view;
+    tokens color.MUTED;
+
+    markdown #footnote;
 }
 
 //@about A line across the page.
-extern widget divider();
+extern widget divider() {
+    tokens color.LINE;
+
+    markdown #divider;
+}
 
 //@about How a table column is aligned. A column the list doesn't reach starts.
 enum cell_align { START, CENTER, END }
 ```
 
 - **Markdown's own blocks are extern.** Every implementer draws them natively, which is what makes Extended Mark a superset of Markdown: a document is Markdown first, and Extended Mark lowers onto the same blocks. They have no `markdown` block, because they are Markdown blocks themselves. Every implementer, a Markdown-only one included, writes each out as the block it stands for, with the spellings page 1 gives.
+- **Pieces of Markdown.** `markdown #quote;` says that an extern is one of Markdown's own pieces, and its Markdown is then that piece's. Core's blocks are written so, and so may any pack's extern be: a pack's own way to draw a quotation is an extern with `markdown #quote;`. A piece is made of inputs and slots by their names and types, and the compiler checks that the extern has them.
+
+| Piece | Made of |
+|---|---|
+| `#paragraph` | `value: rich_text` |
+| `#heading` | `level: int`, `value: rich_text` |
+| `#bullets` | the slot `items`, and `ordered: bool` and `start: int`, which may be left out |
+| `#item` | the slot `body`, and `done: opt<bool>`, which may be left out |
+| `#quote` | the slot `body` |
+| `#code` | `src: text`, and `lang: text`, which may be left out |
+| `#math` | `tex: latex` |
+| `#table` | `head: list<rich_text>`, `rows: list<list<rich_text>>`, and `align: list<cell_align>`, which may be left out |
+| `#footnote` | `mark: text`, the slot `body` |
+| `#divider` | nothing |
+
 - **Inline Markdown arrives parsed.** A paragraph, a heading and a table cell take `rich_text`: segments of text, code spans, maths, pictures, footnote marks and line breaks, each with its marks. Core parses it, in Extended Mark, with `rich_text.from`, so an implementer draws the segments and never parses Markdown. A hole's value is a `TEXT` segment, so it can never turn into formatting.
 - **From code**, a text literal where `rich_text` is wanted goes to `rich_text.from` as a template, holes included: `@paragraph(value = "Read **this**, \{name}.");`. A value from a variable goes through `rich_text.plain(entry)`, which keeps it as plain text, or through `rich_text.from(template.of(entry))`, which reads it as Markdown and gives an `opt`.
 - **Blocks from code** are an `md` value, drawn with `@blocks(value = note);` (below). Each block is drawn by the extern block of its kind.
@@ -1496,6 +1557,8 @@ extern widget label(
     clip: bool = false,
     halo: bool = false,                         // an outline in the surface colour, so it reads over lines
 ) {
+    tokens color.SURFACE;
+
     markdown {
         \{value}
     }
@@ -1530,6 +1593,7 @@ extern widget press(
 ) {
     slot content: opt<view>;
     event click();
+    tokens color.INK, color.SURFACE, color.LINE, color.ACCENT, color.MUTED, radius.CARD, radius.PILL;
 
     markdown {
         \{label}
@@ -1544,6 +1608,7 @@ extern widget field(
     lines: int 1..20 = 1,
 ) {
     event submit();
+    tokens color.INK, color.SURFACE, color.LINE, color.ACCENT, color.MUTED, radius.CARD;
 
     markdown {
         \{label}: \{value}
@@ -1552,6 +1617,8 @@ extern widget field(
 
 //@about A number picked by dragging. Its ends come from range when it is given, and otherwise, with its step, from the variable it is given.
 extern widget slider(mut value: number, label: text, range: opt<range<number>> = opt.NONE, disabled: bool = false) {
+    tokens color.ACCENT, color.LINE, color.MUTED;
+
     markdown {
         \{label}: \{value}
     }
@@ -1562,6 +1629,7 @@ extern widget overlay(label: text, mode: overlay_mode = overlay_mode.POPOVER, mu
     slot anchor: view;
     slot body: view;
     event open_changed();
+    tokens color.INK, color.SURFACE, color.LINE, radius.CARD, shadow.RAISED;
 
     markdown {
         \{anchor}
@@ -1590,6 +1658,7 @@ extern widget canvas(
 ) {
     slot layers: list<layer>[1...];
     event click(at: point);                     // a click on empty space, in the canvas's units
+    uses core.gfx;
 
     markdown {
         \{label}
@@ -1599,6 +1668,7 @@ extern widget canvas(
 //@about Shapes drawn together, in the order written. Later layers are drawn on top.
 extern widget layer(opacity: number 0..1 = 1, clip: opt<region> = opt.NONE) {
     slot shapes: list<any shape>;
+    uses core.gfx;
 
     // writes nothing: the canvas or plane around it writes what the picture shows
     markdown { }
@@ -1623,6 +1693,7 @@ extern widget circle(
     event click();
     event enter();
     event leave();
+    uses core.gfx;
 
     markdown { }
 }
@@ -1642,6 +1713,7 @@ extern widget path(
     event click();
     event enter();
     event leave();
+    uses core.gfx;
 
     markdown { }
 }
@@ -1655,12 +1727,16 @@ extern widget place(
     label: text = "",
 ) implements shape {
     slot child: view;
+    uses core.gfx;
 
     markdown { }
 }
 
 //@about A point the reader drags. It writes where it is to the variable it is given.
 extern widget handle(mut at: point, tone: opt<color> = opt.NONE, opacity: number 0..1 = 1, label: text) implements shape {
+    tokens color.ACCENT, color.SURFACE;
+    uses core.gfx;
+
     markdown { }
 }
 
@@ -1681,6 +1757,8 @@ extern widget shade<A>(
     opacity: number 0..1 = 1,
     label: text,
 ) implements shape {
+    uses core.gfx;
+
     markdown { }
 }
 
@@ -1695,7 +1773,7 @@ fn rect(x0: number, y0: number, x1: number, y1: number): list<point>[4] {
 - **A shader** is an extern fn with a return type (page 6). Declared in a document's `extern` block, the host supplies it; declared in a pack, the pack does, for each engine it supports. The engine runs it for every pixel of `area`, natively.
 - **`args`** is given once and handed to the shader as uniforms: numbers, points, colours (a colour token goes in as the theme's current value) and bools.
 - **`pixel`'s colours are its own**, like an `image`'s. The page's colours still take tokens only.
-- **An Extended Mark fn fits the type too.** The runtime calls it for each pixel within the step limit, so only small areas fit, and the compiler warns.
+- **An Extended Mark fn fits the type too.** The runtime calls it for each pixel within the step limit, so only small areas fit, and the compiler warns, as it does for any fn with a return type given to an extern widget.
 - **A shader nobody supplies** draws nothing, and is reported when the page is mounted.
 
 #### widgets: written in Extended Mark
@@ -1995,7 +2073,7 @@ widget blocks(value: md) {
 }
 ```
 
-- **Sizing wrappers nest in any order and mean the same.** A chain of `sizing` around one child is folded into one set of properties on that child, so `@grow { @min_size(…) { … } }` and the other way round are equal. Setting one property twice in a chain is a compile error. A child with no wrapper doesn't grow, shrinks by 1, and starts from its own size, as in CSS.
+- **Each sizing wrapper is a box.** A wrapper inside another is a box in a box, so `@grow { @min_size(…) { … } }` grows a box that holds one with a least size, and the other way round gives a least size to a box that holds one that grows. `@sizing` sets several properties on one box. A child with no wrapper doesn't grow, shrinks by 1, and starts from its own size, as in CSS.
 - **Built in**: The eight types the syntax makes, and the syntax itself: literals, operators, holes, prose and `@`.
 - **core, declared extern with no body**: the 61 native fns: list storage, Unicode text, exact numbers with their maths, the interface fns of `number`, `duration`, `text` and `bool`, a range's ends and step, a duration in milliseconds, and `clamp`.
 - **core, written in Extended Mark**: the six interfaces, `int`, point, region, map, date, moment, template, latex, md, rich_text, the tokens and options, the thirteen widgets above, and 30 fns built from the native ones: or, min, max, some, all, count, find, filter, map, remove_where, first, last, reversed, has, position, unique, sorted, join, sum, starts, ends, like, replace, the range helpers negate, shift, scale, widen, overlap and span, and `rect` for canvas paths.

@@ -1,42 +1,75 @@
 package core;
 
 //@about A paragraph of inline Markdown, parsed by core.
-extern widget paragraph(value: rich_text, tone: opt<color> = opt.NONE, align: align = align.START);
+extern widget paragraph(value: rich_text, tone: opt<color> = opt.NONE, align: align = align.START) {
+    markdown #paragraph;
+}
 
 //@about A heading, level 1 to 6.
-extern widget heading(level: int 1..6, value: rich_text);
+extern widget heading(level: int 1..6, value: rich_text) {
+    tokens font.HEADING, color.MUTED;
+
+    markdown #heading;
+}
 
 //@about A list: bulleted, or numbered from start.
 extern widget bullets(ordered: bool = false, start: int 0... = 1) {
     slot items: list<item>[1...];
+
+    markdown #bullets;
 }
 
 //@about One item of a list. done is a task box: ticked, not ticked, or none for an ordinary item.
 extern widget item(done: opt<bool> = opt.NONE) {
     slot body: view;
+    tokens color.ACCENT;
+
+    markdown #item;
 }
 
 //@about A quotation.
 extern widget quote() {
     slot body: view;
+    tokens color.LINE, color.MUTED;
+
+    markdown #quote;
 }
 
 //@about A block of literal text, such as code, in the mono font.
-extern widget code(src: text, lang: text = "");
+extern widget code(src: text, lang: text = "") {
+    tokens font.MONO, color.LINE, color.SURFACE, radius.CARD;
+
+    markdown #code;
+}
 
 //@about Maths on a line of its own, drawn from TeX.
-extern widget math(tex: latex);
+extern widget math(tex: latex) {
+    tokens font.MONO;
+
+    markdown #math;
+}
 
 //@about A table: a header row, rows of cells, and how each column is aligned.
-extern widget table(head: list<rich_text>[1...], rows: list<list<rich_text>>, align: list<cell_align> = []);
+extern widget table(head: list<rich_text>[1...], rows: list<list<rich_text>>, align: list<cell_align> = []) {
+    tokens color.LINE;
+
+    markdown #table;
+}
 
 //@about A note at the foot of the page, with its mark.
 extern widget footnote(mark: text) {
     slot body: view;
+    tokens color.MUTED;
+
+    markdown #footnote;
 }
 
 //@about A line across the page.
-extern widget divider();
+extern widget divider() {
+    tokens color.LINE;
+
+    markdown #divider;
+}
 
 //@about How a table column is aligned. A column the list doesn't reach starts.
 enum cell_align { START, CENTER, END }

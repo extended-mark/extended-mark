@@ -234,7 +234,7 @@
     },
     "keyword-storage": {
       "name": "storage.type.xtmd",
-      "match": "\\b(?:package|import|enum|record|type|interface|implements|widget|extern|expose|fn|pack|tokens|token|mut|let|event|view|markdown|require|param|slot|as|migration|uses|provides)\\b"
+      "match": "\\b(?:package|import|enum|record|type|interface|implements|widget|extern|expose|fn|pack|tokens|token|mut|let|event|view|markdown|require|warn|param|slot|as|migration|uses|provides)\\b"
     },
     "constant-language": {
       "name": "constant.language.xtmd",

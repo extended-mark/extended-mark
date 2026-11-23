@@ -283,6 +283,8 @@ export class Machine {
   nextId = 0;
   /** The message of the last rule a `try` turned into `none`, for a literal's error. */
   lastRule: string | undefined = undefined;
+  /** The messages of the records' `warn` rules found false since someone last took them. */
+  warned: string[] = [];
   private frames: Frame[] = [{ vars: [], owner: undefined }];
 
   constructor(prog: Program, host: Host) {
@@ -1537,6 +1539,10 @@ export class Machine {
       const params: ir.Param[] = record.fields.map(([n]) => ({ name: n, type: { name: "core/any" } }));
       const out = this.runFn(params, rule.body, args, undefined);
       if (!(out !== undefined && out.kind === "bool" && out.b)) {
+        if (rule.warn) {
+          this.warned.push(rule.message);
+          continue;
+        }
         throw Failure.rule(rule.message);
       }
     }

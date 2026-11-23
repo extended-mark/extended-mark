@@ -1,6 +1,6 @@
 {
   "ir": {
-    "version": 3,
+    "version": 4,
     "xtmd": "0.4.0",
     "module": "doc",
     "needs": {
@@ -14,7 +14,7 @@
         "core/table"
       ],
       "packs": [],
-      "app": [
+      "host": [
         "doc/tracker.saved"
       ]
     },
@@ -91,7 +91,7 @@
                   ]
                 }
               ],
-              "supplier": "app"
+              "supplier": "host"
             }
           }
         }
@@ -215,10 +215,6 @@
             "requires": [
               {
                 "message": "the spent part stays within the budget",
-                "reads": [
-                  "spent",
-                  "budget"
-                ],
                 "body": [
                   {
                     "return": {
@@ -395,10 +391,7 @@
                   "name": "core/int"
                 }
               }
-            },
-            "reads": [
-              "$state:tasks"
-            ]
+            }
           }
         }
       },

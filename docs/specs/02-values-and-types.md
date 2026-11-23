@@ -321,7 +321,8 @@ fn entered(a: number, b: number): opt<span> {
 - **Contracts first.** A limit on one field is best written as that field's contract, which is proved at compile time, as `date`'s `month: int 1..12` is (page 5). A `require` is for rules across fields, such as a span's end coming after its start, or a day fitting its month.
 - **Every change is checked.** Whenever a value changes, every contract and `require` block that reads it is checked, wherever it lives: in a record, a widget or `$state`. A rule that fails is handled where the change happened: in an event handler it is a failure, and the event is undone; under `try` the answer is `opt.NONE`; a write from the host is refused and reported. Values that have to move together change in one step, so the rules see only the result: `$state = $state with { low = a, high = b };`.
 - **Mut fields.** So a record with `require` blocks may have `mut` fields: every change to one checks its rules again.
-- **In a widget**, a `require` reads inputs only. With constant inputs it is checked by the compiler. Otherwise it is checked when the widget is made and when an input changes, and a `false` is a failure of that widget.
+- **In a widget**, written in Extended Mark or extern, a `require` reads inputs and slots only. With constants it is checked by the compiler. Otherwise it is checked when the widget is made and when something it reads changes, and a `false` is a failure of that widget.
+- **`warn` is a `require` that only tells.** It is written where a `require` is, in a record, a widget, an extern widget or `$state`, and it refuses, undoes and replaces nothing. A `false` is a compile warning when everything it reads is constant. When the page runs, the host is told, with the message and the widget it is about, once each time it becomes false.
 
 ### What a fn may change
 

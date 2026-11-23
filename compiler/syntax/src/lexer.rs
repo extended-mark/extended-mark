@@ -30,6 +30,7 @@ pub enum Kw {
     View,
     Markdown,
     Require,
+    Warn,
     If,
     Else,
     For,
@@ -74,6 +75,7 @@ pub const KEYWORDS: &[(&str, Kw)] = &[
     ("view", Kw::View),
     ("markdown", Kw::Markdown),
     ("require", Kw::Require),
+    ("warn", Kw::Warn),
     ("if", Kw::If),
     ("else", Kw::Else),
     ("for", Kw::For),
@@ -241,6 +243,8 @@ pub struct Lexer<'a> {
     pub src: &'a str,
     pub pos: usize,
     pub limit: usize,
+    /// A word that was a name until a release made it a keyword, read as the name it was.
+    pub name_again: Option<&'static str>,
 }
 
 fn is_small(c: u8) -> bool {
@@ -253,7 +257,7 @@ fn word_char(c: u8) -> bool {
 
 impl<'a> Lexer<'a> {
     pub fn new(src: &'a str, pos: usize, limit: usize) -> Lexer<'a> {
-        Lexer { src, pos, limit }
+        Lexer { src, pos, limit, name_again: None }
     }
 
     fn byte(&self, i: usize) -> Option<u8> {
@@ -411,8 +415,8 @@ impl<'a> Lexer<'a> {
         let b = w.as_bytes();
         if is_small(b[0]) && b.iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'_') {
             return Ok(match Kw::from_word(w) {
-                Some(k) => Tok::Kw(k),
-                None => Tok::Name,
+                Some(k) if self.name_again != Some(w) => Tok::Kw(k),
+                _ => Tok::Name,
             });
         }
         if b[0].is_ascii_uppercase() && b.iter().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || *c == b'_') {

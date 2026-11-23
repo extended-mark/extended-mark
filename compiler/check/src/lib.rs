@@ -15,6 +15,7 @@ mod passes;
 pub mod proof;
 pub mod ty;
 mod migrations;
+pub mod pieces;
 mod rir;
 pub use rir::{compile_rir, compile_rir_with, sha256_hex, RirOptions};
 mod versions;
@@ -98,8 +99,11 @@ pub mod codes {
     pub const VIEW_NAMED_LIKE_WIDGET: &str = "names.view-named-like-a-widget";
     pub const DEPRECATED: &str = "names.deprecated";
     pub const BARE_STATE: &str = "prose.bare-state";
-    pub const SHADE_XTMD_FN: &str = "views.shade-given-an-xtmd-fn";
-    pub const SPOT_OUTSIDE: &str = "views.spot-outside-bounds";
+    pub const ENGINE_XTMD_FN: &str = "views.engine-given-an-xtmd-fn";
+    pub const WARN: &str = "views.warn-false";
+    pub const MARKDOWN_PIECE: &str = "widget.markdown-piece";
+    pub const EXTERN_TOKENS: &str = "widget.extern-tokens";
+    pub const EXTERN_USES: &str = "widget.extern-uses";
     pub const HTML_COMMENT: &str = "prose.html-comment";
     pub const SURFACE: &str = "pack.surface";
     pub const VERSION_BREAK: &str = "pack.version-break";
@@ -107,7 +111,6 @@ pub mod codes {
     pub const MIGRATION_INCOMPLETE: &str = "pack.migration-incomplete";
     pub const MIGRATION_WHY: &str = "pack.migration-why";
     pub const REMOVED_USED: &str = "effects.removed-item-used";
-    pub const SIZING_TWICE: &str = "views.sizing-set-twice";
     pub const FN_CLASH: &str = "names.fn-clash";
     pub const WIDGET_REQUIRE: &str = "views.widget-require-false";
     pub const INLINE_REFUSED: &str = "prose.inline-refused";
@@ -315,6 +318,9 @@ pub struct ChannelSym {
     pub file: usize,
     pub values: Vec<FieldSym>,
     pub fns: Vec<(String, Vec<ParamSym>, Option<Ty>, Option<ir::Type>)>,
+    /// Its `tokens` line, as written and by their full names.
+    pub token_refs: Vec<ast::TokenRef>,
+    pub tokens: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -439,15 +445,9 @@ pub struct Checker {
     pub type_rules: Vec<declared::TypeRule>,
     /// `//@deprecated` declarations, by their file and where their name starts: the message.
     pub deprecated: HashMap<(usize, u32), String>,
-    /// The bounds of each plane being checked, innermost last, for its spots.
-    pub planes: Vec<Option<ir::Expr>>,
-    /// A spot's point and its plane's bounds, compared once the constants are known.
-    pub spot_checks: Vec<(usize, Span, ir::Expr, ir::Expr)>,
-    /// Sizing properties already reported as set twice, by file and where.
-    pub sizing_reported: std::collections::HashSet<(usize, u32)>,
     /// Calls of widgets that have `require` blocks, with their arguments: run at compile time
     /// when the inputs are constants.
-    pub require_checks: Vec<(usize, Span, DefId, BTreeMap<String, ir::Expr>)>,
+    pub require_checks: Vec<(usize, Span, DefId, BTreeMap<String, ir::Expr>, BTreeMap<String, Vec<ir::Node>>)>,
     /// Lets whose checking reported an error: not reported again when worked out.
     pub failed_lets: std::collections::HashSet<usize>,
     /// The declared fn type the lambda being checked is given to, contracts and all: what its
@@ -493,9 +493,6 @@ impl Checker {
             effects: effects::Effects::default(),
             type_rules: Vec::new(),
             deprecated: HashMap::new(),
-            planes: Vec::new(),
-            spot_checks: Vec::new(),
-            sizing_reported: Default::default(),
             require_checks: Vec::new(),
             lambda_want: None,
             failed_lets: Default::default(),
@@ -773,7 +770,7 @@ impl Checker {
             }
             K::ExternBlock(b) => {
                 let id = self.channels.len();
-                self.channels.push(ChannelSym { full: format!("{}/{}", pack, b.name.name), name: b.name.name.clone(), pack: pack.to_string(), file, values: Vec::new(), fns: Vec::new() });
+                self.channels.push(ChannelSym { full: format!("{}/{}", pack, b.name.name), name: b.name.name.clone(), pack: pack.to_string(), file, values: Vec::new(), fns: Vec::new(), token_refs: Vec::new(), tokens: Vec::new() });
                 self.declare_value(file, pack, &b.name, ValueSym::Channel(id));
             }
             K::Pack(p) => {

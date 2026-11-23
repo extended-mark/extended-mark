@@ -260,15 +260,27 @@ impl<'a> Parser<'a> {
     /// `markdown { … }` in a widget, read as prose with its common indent taken off.
     pub(crate) fn markdown_block(&mut self) -> R<MarkdownBlock> {
         let start = self.expect_kw(Kw::Markdown)?;
-        let open = self.expect(P::LBrace)?;
         let limit = self.lexer_limit();
         let src = self.src;
+        // `#` is a token only here: `markdown #quote;` names one of Markdown's own pieces
+        let hash = start.end as usize + spaces(&src[start.end as usize..limit]);
+        if src[hash..limit].starts_with('#') {
+            self.seek(hash + 1, limit);
+            let name = self.ident("one of Markdown's pieces, as in `markdown #quote;`")?;
+            if name.span.start as usize != hash + 1 {
+                return Err(Diagnostic::error(codes::EXPECTED, name.span, "a piece of Markdown follows its `#` at once: `markdown #quote;`"));
+            }
+            self.semi()?;
+            let end = Span::at(self.prev_end);
+            return Ok(MarkdownBlock { empty: false, piece: Some(name), prose: Prose { nodes: Vec::new() }, span: start.to(end) });
+        }
+        let open = self.expect(P::LBrace)?;
         let after = open.end as usize;
         let line_end = src[after..limit].find('\n').map(|k| after + k).unwrap_or(limit);
         if src[after..line_end].trim() == "}" {
             let close = after + src[after..line_end].find('}').unwrap() + 1;
             self.seek(close, limit);
-            return Ok(MarkdownBlock { empty: true, prose: Prose { nodes: Vec::new() }, span: start.to(Span::at(close)) });
+            return Ok(MarkdownBlock { empty: true, piece: None, prose: Prose { nodes: Vec::new() }, span: start.to(Span::at(close)) });
         }
         let first = self.brace_line(open.end as usize)?;
         let base = self.common_indent(first, limit, start.start as usize);
@@ -279,7 +291,7 @@ impl<'a> Parser<'a> {
                 let close_end = self.src[..next].trim_end_matches('\n').len();
                 // from the end of the `}` line, so the next token knows it starts a line
                 self.seek(close_end.min(limit), limit);
-                Ok(MarkdownBlock { empty: false, prose, span: start.to(Span::at(close_end)) })
+                Ok(MarkdownBlock { empty: false, piece: None, prose, span: start.to(Span::at(close_end)) })
             }
             _ => Err(Diagnostic::error(codes::BLOCK_UNCLOSED, start, "this markdown block is not closed by a line that holds only `}`")),
         }

@@ -4,7 +4,7 @@
   "source": "an-xtmd-fn-given-to-shade-warns.xtmd",
   "expect": {
     "diagnostics": [
-      {"code": "views.shade-given-an-xtmd-fn", "line": 9, "column": 111}
+      {"code": "views.engine-given-an-xtmd-fn", "line": 9, "column": 111}
     ]
   }
 }

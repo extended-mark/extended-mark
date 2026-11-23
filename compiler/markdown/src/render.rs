@@ -411,8 +411,8 @@ impl<'p> Writer<'p> {
         self.widget(&u.name, props, slots)
     }
 
-    /// A widget, given its inputs' values and its slots: Markdown's own blocks are written
-    /// directly; any other widget writes its `markdown`.
+    /// A widget, given its inputs' values and its slots: one that is a piece of Markdown is
+    /// written as it; any other writes its `markdown`.
     fn widget(&mut self, name: &str, props: BTreeMap<String, Value>, slots: HashMap<String, (Vec<Node>, Env)>) -> R<Vec<Piece>> {
         self.depth += 1;
         if self.depth > 64 {
@@ -423,7 +423,7 @@ impl<'p> Writer<'p> {
         self.depth -= 1;
         // a widget that fails is a notice in its place, a quote in Markdown; the page carries on (page 6)
         match out {
-            Err(f) if !name.starts_with("core/") || self.templates.contains_key(name) => {
+            Err(f) if self.externs.get(name).map_or(true, |w| w.piece.is_none()) => {
                 let short = name.rsplit('/').next().unwrap_or(name);
                 let notice = Inline::Text { value: format!("{} failed: {}", short, f.0), bold: false, italic: false, strike: false, link: None };
                 Ok(vec![Piece::Block(Block::Quote(vec![Block::Paragraph(vec![notice])]))])
@@ -445,12 +445,13 @@ impl<'p> Writer<'p> {
     fn widget_inner(&mut self, name: &str, props: BTreeMap<String, Value>, slots: HashMap<String, (Vec<Node>, Env)>) -> R<Vec<Piece>> {
         let p = |k: &str| props.get(k);
         let block = |b: Block| Ok(vec![Piece::Block(b)]);
-        match name {
-            "core/paragraph" => {
+        let piece = self.externs.get(name).and_then(|w| w.piece.clone());
+        match piece.as_deref().unwrap_or("") {
+            "paragraph" => {
                 let runs = self.inline(p("value"))?;
                 return if runs.is_empty() { Ok(Vec::new()) } else { block(Block::Paragraph(runs)) };
             }
-            "core/heading" => {
+            "heading" => {
                 let level = match p("level") {
                     Some(Value::Num(n)) => n.to_i64().unwrap_or(1).clamp(1, 6) as u8,
                     _ => 1,
@@ -458,7 +459,7 @@ impl<'p> Writer<'p> {
                 let inline = self.inline(p("value"))?;
                 return block(Block::Heading { level, inline });
             }
-            "core/bullets" => {
+            "bullets" => {
                 let ordered = matches!(p("ordered"), Some(Value::Bool(true)));
                 let start = match p("start") {
                     Some(Value::Num(n)) => n.to_i64().unwrap_or(1),
@@ -475,7 +476,7 @@ impl<'p> Writer<'p> {
                 // a list with no items writes nothing
                 return if items.is_empty() { Ok(Vec::new()) } else { block(Block::Bullets { ordered, start, items }) };
             }
-            "core/item" => {
+            "item" => {
                 let done = match p("done") {
                     Some(Value::Opt(Some(d))) => d.as_bool(),
                     Some(Value::Bool(b)) => Some(*b),
@@ -484,18 +485,18 @@ impl<'p> Writer<'p> {
                 let blocks = blocks_of(self.slot_blocks(&slots, "body")?);
                 return Ok(vec![Piece::Item(Item { done, blocks })]);
             }
-            "core/quote" => {
+            "quote" => {
                 let blocks = blocks_of(self.slot_blocks(&slots, "body")?);
                 return block(Block::Quote(blocks));
             }
-            "core/code" => return block(Block::Code { lang: text_of(p("lang")), src: text_of(p("src")) }),
-            "core/math" => return block(Block::Math(template_text(p("tex").and_then(|t| get(t, "tex"))))),
-            "core/divider" => return block(Block::Divider),
-            "core/footnote" => {
+            "code" => return block(Block::Code { lang: text_of(p("lang")), src: text_of(p("src")) }),
+            "math" => return block(Block::Math(template_text(p("tex").and_then(|t| get(t, "tex"))))),
+            "divider" => return block(Block::Divider),
+            "footnote" => {
                 let blocks = blocks_of(self.slot_blocks(&slots, "body")?);
                 return block(Block::Footnote { mark: text_of(p("mark")), blocks });
             }
-            "core/table" => {
+            "table" => {
                 let mut head = Vec::new();
                 for c in items(p("head")) {
                     head.push(self.inline(Some(&c))?);

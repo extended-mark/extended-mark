@@ -357,6 +357,9 @@ pub struct ExternChannel {
     /// A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`).
     pub name: String,
     pub supplier: Supplier,
+    /// The tokens the page itself is drawn with, from the block's `tokens` line.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tokens: Vec<String>,
     pub values: Vec<Field>,
 }
 
@@ -392,15 +395,24 @@ pub struct ExternWidget {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub generics: Vec<TypeParam>,
     pub inputs: Vec<Field>,
-    /// The levels drawing this widget needs: core.draw, or core.gfx for the canvas widgets.
+    /// The levels drawing this widget needs: core.draw, and those its `uses` names.
     pub levels: Vec<Level>,
-    /// What it writes as Markdown when nobody supplies it, or when the engine only writes Markdown. Left out for Markdown's own blocks, which write themselves.
+    /// What it writes as Markdown, from its markdown block. Left out when it writes nothing, or when it is a piece of Markdown.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub markdown: Vec<Node>,
     /// A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`).
     pub name: String,
+    /// The piece of Markdown it is, from `markdown #quote;`: `quote`. Its Markdown is that piece's, and `markdown` is left out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub piece: Option<String>,
+    /// What it expects of its inputs and slots: its `require` and `warn` blocks.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requires: Vec<Require>,
     pub slots: Vec<Slot>,
     pub supplier: Supplier,
+    /// The tokens its look comes from: a case by its full name (`core/color.LINE`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tokens: Vec<String>,
 }
 
 /// A record's field, a widget's input or own variable, or a `$state` field.
@@ -504,8 +516,6 @@ pub struct Lambda {
 pub struct LetDecl {
     /// A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`).
     pub name: String,
-    /// What it reads, as in a binding; empty for a constant.
-    pub reads: Vec<String>,
     #[serde(rename = "type")]
     pub ty: Type,
     pub value: Expr,
@@ -560,7 +570,7 @@ pub struct Module {
     pub module: String,
     pub needs: Needs,
     pub templates: Vec<Template>,
-    /// The IR's version. 0.3 writes 3.
+    /// The IR's version: a whole number of its own, apart from xtmd's version. 0.4 writes 4.
     pub version: i64,
     /// The version of the compiler that wrote it.
     pub xtmd: String,
@@ -578,10 +588,10 @@ pub struct NeedsPacks {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Needs {
-    /// The document's own channels' fns and values, supplied by the host when it mounts the page.
-    pub app: Vec<String>,
     /// core's externs, supplied by the engine: widgets, fns and channels.
     pub core: Vec<String>,
+    /// The document's own channels' fns and values, supplied by the host when it mounts the page.
+    pub host: Vec<String>,
     pub packs: Vec<NeedsPacks>,
 }
 
@@ -804,13 +814,15 @@ pub struct Record {
     pub same: Option<String>,
 }
 
-/// A rule, checked whenever a value it reads changes.
+/// A rule, checked whenever a value it reads changes: `require` refuses, `warn` only tells the host.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Require {
     pub body: Vec<Stmt>,
     pub message: String,
-    pub reads: Vec<String>,
+    /// A `warn` block: false is told, and refuses nothing.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub warn: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -1022,8 +1034,8 @@ pub enum Supplier {
     Core,
     #[serde(rename = "pack")]
     Pack,
-    #[serde(rename = "app")]
-    App,
+    #[serde(rename = "host")]
+    Host,
 }
 
 /// A widget written in Extended Mark, lowered: its view as nodes. The document's own view is the template `doc`.

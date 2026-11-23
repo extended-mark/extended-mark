@@ -268,14 +268,19 @@ impl<'c> Writer<'c> {
             DeclKind::ExternType(_) => "extern_type",
             DeclKind::ExternBlock(b) => {
                 let (mut values, mut fns) = (Vec::new(), Vec::new());
+                let mut tokens: Vec<String> = Vec::new();
                 for m in &b.members.items {
                     match &m.item {
                         ast::ExternMember::Field(fl) => values.push(self.field(f, &id, fl, Some(m.leading.as_slice()), m.trailing.as_slice())),
                         ast::ExternMember::Fn(sig) => fns.push(self.signature(f, &id, sig)),
+                        ast::ExternMember::Tokens(refs) => tokens.extend(refs.iter().map(token_text)),
                     }
                 }
                 o.insert("values".into(), json!(values));
                 o.insert("fns".into(), json!(fns));
+                if !tokens.is_empty() {
+                    o.insert("tokens".into(), json!(tokens));
+                }
                 "extern"
             }
             DeclKind::Let(v) => {
@@ -394,7 +399,19 @@ impl<'c> Writer<'c> {
                     fns.push(Value::Object(fo));
                 }
                 ast::WidgetMember::View(b) => view = self.stmts(f, b),
-                ast::WidgetMember::Markdown(md) => markdown = self.prose(f, &md.prose),
+                ast::WidgetMember::Tokens(refs) => {
+                    let names: Vec<String> = refs.iter().map(token_text).collect();
+                    o.insert("tokens".into(), json!(names));
+                }
+                ast::WidgetMember::Uses(refs) => {
+                    o.insert("uses".into(), json!(refs.iter().map(|u| format!("{}.{}", u.pack.name, u.level.name)).collect::<Vec<_>>()));
+                }
+                ast::WidgetMember::Markdown(md) => {
+                    if let Some(p) = &md.piece {
+                        o.insert("piece".into(), json!(p.name));
+                    }
+                    markdown = self.prose(f, &md.prose)
+                }
             }
         }
         for (k, v) in [("slots", slots), ("events", events), ("requires", requires), ("own", own), ("lets", lets), ("fns", fns), ("view", view), ("markdown", markdown)] {
@@ -490,7 +507,11 @@ impl<'c> Writer<'c> {
     }
 
     fn require(&mut self, f: usize, q: &ast::Require) -> Value {
-        json!({ "message": text_of(&q.message), "body": self.stmts(f, &q.body), "span": span(q.message.span.to(q.body.span)) })
+        let mut v = json!({ "message": text_of(&q.message), "body": self.stmts(f, &q.body), "span": span(q.message.span.to(q.body.span)) });
+        if q.warn {
+            v["warn"] = json!(true);
+        }
+        v
     }
 
     fn var(&mut self, f: usize, v: &ast::Var, mutable: bool, n: Option<&ast::Node<ast::WidgetMember>>) -> Value {
@@ -1270,4 +1291,9 @@ pub fn sha256_hex(data: &[u8]) -> String {
         }
     }
     h.iter().map(|x| format!("{:08x}", x)).collect()
+}
+
+/// A token as a `tokens` line writes it.
+fn token_text(t: &ast::TokenRef) -> String {
+    t.case.as_ref().map_or(t.token.name.clone(), |c| format!("{}.{}", t.token.name, c.name))
 }

@@ -205,7 +205,7 @@ impl Writer<'_> {
         }
     }
 
-    /// A widget: Markdown's own blocks are written directly; any other widget writes its
+    /// A widget: one that is a piece of Markdown is written as it; any other writes its
     /// markdown. `key` and `events` are the call's, as drawing gives them: entering a widget to
     /// write its Markdown finds the instance the page drew.
     #[allow(clippy::too_many_arguments)]
@@ -220,7 +220,7 @@ impl Writer<'_> {
         match out {
             Ok(out) => Ok(out),
             Err(f) => {
-                if name.starts_with("core/") && !self.rt.s.templates.contains_key(name) {
+                if self.rt.s.extern_widgets.get(name).map_or(false, |w| w.piece.is_some()) {
                     return Err(f);
                 }
                 // a widget that fails is a notice in its place, a quote in Markdown (page 6)
@@ -235,17 +235,18 @@ impl Writer<'_> {
     fn widget_inner(&mut self, m: &mut Machine, name: &str, path: &str, props: BTreeMap<String, Value>, args: &BTreeMap<String, Expr>, slots: &BTreeMap<String, Vec<Node>>, env: &Env, key: &str, events: &BTreeMap<String, String>) -> R<Vec<Piece>> {
         let p = |k: &str| props.get(k);
         let block = |b: Block| Ok(vec![Piece::Block(b)]);
-        match name {
-            "core/paragraph" => {
+        let piece = self.rt.s.extern_widgets.get(name).and_then(|w| w.piece.clone());
+        match piece.as_deref().unwrap_or("") {
+            "paragraph" => {
                 let runs = self.inline(m, p("value"))?;
                 return if runs.is_empty() { Ok(Vec::new()) } else { block(Block::Paragraph(runs)) };
             }
-            "core/heading" => {
+            "heading" => {
                 let level = number(p("level")).map_or(1.0, |l| l.clamp(1.0, 6.0)).floor() as u8;
                 let inline = self.inline(m, p("value"))?;
                 return block(Block::Heading { level, inline });
             }
-            "core/bullets" => {
+            "bullets" => {
                 let ordered = matches!(p("ordered"), Some(Value::Bool(true)));
                 let start = number(p("start")).map_or(1, |s| s as i64);
                 let items: Vec<Item> = self
@@ -258,7 +259,7 @@ impl Writer<'_> {
                     .collect();
                 return if items.is_empty() { Ok(Vec::new()) } else { block(Block::Bullets { ordered, start, items }) };
             }
-            "core/item" => {
+            "item" => {
                 let done = match p("done") {
                     Some(Value::Opt(Some(d))) => d.as_bool(),
                     Some(Value::Bool(b)) => Some(*b),
@@ -267,18 +268,18 @@ impl Writer<'_> {
                 let blocks = blocks_of(self.slot(m, slots, "body", env)?);
                 return Ok(vec![Piece::Item(Item { done, blocks })]);
             }
-            "core/quote" => {
+            "quote" => {
                 let blocks = blocks_of(self.slot(m, slots, "body", env)?);
                 return block(Block::Quote(blocks));
             }
-            "core/code" => return block(Block::Code { lang: text_of(p("lang")), src: text_of(p("src")) }),
-            "core/math" => return block(Block::Math(template_text(field(p("tex"), "tex")))),
-            "core/divider" => return block(Block::Divider),
-            "core/footnote" => {
+            "code" => return block(Block::Code { lang: text_of(p("lang")), src: text_of(p("src")) }),
+            "math" => return block(Block::Math(template_text(field(p("tex"), "tex")))),
+            "divider" => return block(Block::Divider),
+            "footnote" => {
                 let blocks = blocks_of(self.slot(m, slots, "body", env)?);
                 return block(Block::Footnote { mark: text_of(p("mark")), blocks });
             }
-            "core/table" => {
+            "table" => {
                 let mut head = Vec::new();
                 for c in items_of(p("head")) {
                     head.push(self.inline(m, Some(&c))?);

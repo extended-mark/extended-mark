@@ -66,7 +66,7 @@ impl Checker {
                                 cx.scopes.last_mut().unwrap().push(Local { name: fl.name.clone(), ty: fl.ty.clone(), mutable: false, kind: LocalKind::Plain, known: Some(crate::proof::Known::of(&fl.ir)), own_origin: false });
                             }
                             let b = self.block(&mut cx, &req.body);
-                            rules.push(ir::Require { message: text_of(&req.message), reads: Vec::new(), body: b });
+                            rules.push(ir::Require { warn: req.warn, message: text_of(&req.message), body: b });
                         }
                     }
                     self.out.requires.insert(d, rules);
@@ -97,6 +97,8 @@ impl Checker {
                     self.out.channel_defaults.insert((c, v.name.clone()), x);
                 }
             }
+            let refs = self.channels[c].token_refs.clone();
+            self.channels[c].tokens = self.extern_tokens(file, &refs);
         }
         // lets
         for l in self.from.lets..self.lets.len() {
@@ -179,7 +181,7 @@ impl Checker {
                         cx.state_rules = true;
                         cx.ret = Some(Some(Ty::Bool));
                         let b = self.block(&mut cx, &r.body);
-                        rules.push(ir::Require { message: text_of(&r.message), reads: Vec::new(), body: b });
+                        rules.push(ir::Require { warn: r.warn, message: text_of(&r.message), body: b });
                     }
                 }
             }
@@ -239,6 +241,8 @@ impl Checker {
         let prog = self.program();
         // literals: `"2026-11-20"` where a date is wanted is date.from("2026-11-20"), now
         let mut errors: Vec<(usize, Span, String)> = Vec::new();
+        // records' `warn` rules that constants break
+        let mut warned: Vec<(usize, Span, String)> = Vec::new();
         let pending = std::mem::take(&mut self.pending);
         {
             let mut patch = |e: &mut ir::Expr| {
@@ -247,7 +251,11 @@ impl Checker {
                 let inner = c.args[0].clone();
                 let mut m = Machine::new(&prog, Box::new(Constants));
                 match m.eval(&inner) {
-                    Ok(xtmd_eval::Value::Opt(Some(v))) => *e = v.to_ir(),
+                    Ok(xtmd_eval::Value::Opt(Some(v))) => {
+                        let p = &pending[id];
+                        warned.extend(m.warned.iter().map(|w| (p.file, p.span, w.clone())));
+                        *e = v.to_ir()
+                    }
                     Ok(_) => {
                         let p = &pending[id];
                         let why = m.last_rule.clone().map(|r| format!(": {}", r)).unwrap_or_default();
@@ -339,12 +347,14 @@ impl Checker {
             let mut still = Vec::new();
             for l in left {
                 let Some(value) = self.out.let_values.get(&l).cloned() else { continue };
-                let out = {
+                let (out, told) = {
                     let mut m = Machine::new(&prog, Box::new(Constants));
-                    m.eval(&value)
+                    (m.eval(&value), m.warned)
                 };
                 match out {
                     Ok(v) => {
+                        let (file, span) = (self.lets[l].file, self.lets[l].span);
+                        warned.extend(told.into_iter().map(|w| (file, span, w)));
                         let full = self.lets[l].full.clone();
                         prog.lets.insert(full.clone(), v.clone());
                         self.constants.insert(full, v.clone());
@@ -370,6 +380,7 @@ impl Checker {
             let mut m = Machine::new(&prog, Box::new(Constants));
             match m.eval(&x) {
                 Ok(v) => {
+                    warned.extend(m.warned.iter().map(|w| (file, src.span, w.clone())));
                     self.out.token_values.insert((d, case), v.to_ir());
                 }
                 Err(f) if f.kind == FailKind::NotConstant => {}
@@ -383,6 +394,8 @@ impl Checker {
             let mut m = Machine::new(&prog, Box::new(Constants));
             match m.eval(&x) {
                 Ok(v) if !matches!(v, xtmd_eval::Value::Fn(_) | xtmd_eval::Value::View(_)) => {
+                    let (file, span) = self.field_span(k.0, &k.1);
+                    warned.extend(m.warned.iter().map(|w| (file, span, w.clone())));
                     self.out.defaults.insert(k, v.to_ir());
                 }
                 Err(f) if !matches!(f.kind, FailKind::NotConstant | FailKind::Ir) => {
@@ -402,8 +415,12 @@ impl Checker {
         }
         // contracts: every proof, now that the constants are known
         self.settle_proofs(&prog);
-        self.settle_spots(&prog);
         self.settle_widget_requires(&prog);
+        warned.sort_by(|a, b| (a.0, a.1.start, &a.2).cmp(&(b.0, b.1.start, &b.2)));
+        warned.dedup();
+        for (file, span, message) in warned {
+            self.warning(file, codes::WARN, span, format!("this warns: {}", message));
+        }
         self.known_at.clear();
     }
 

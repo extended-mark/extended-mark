@@ -213,22 +213,122 @@ test("a spot outside its plane's bounds is a warning for the host when the page 
   const p = page(
     '$state {\n    x: number = 5;\n}\n\nwidget map() {\n    view {\n        @plane(label = "Map", bounds = region { from = point { x = 0, y = 0 }, to = point { x = 10, y = 10 } }) {\n            items {\n                @spot(at = point { x = $state.x, y = 5 }) {\n                    @label(value = "here");\n                }\n            }\n        }\n    }\n}\n@@@\n@map;\n',
   );
-  const measure = { spot: () => ({ width: N(8), height: N(8) }), planeWidth: () => N(100) };
-  layout(p, measure);
+  const outside = [{ rule: "a spot is outside the plane's bounds: it is clipped, and the reader can't pan to it", site: "s0/s0" }];
   assert.deepEqual(p.takeWarnings(), []);
   p.set({ x: p.value(num(20)) });
-  layout(p, measure);
-  assert.deepEqual(p.takeWarnings(), [{ code: "views.spot-outside-bounds", site: "s0/s1" }]);
-  // still outside: not reported again; back inside and out again: reported again
+  assert.deepEqual(p.takeWarnings(), outside);
+  // still outside: not told again; back inside and out again: told again
   p.set({ x: p.value(num(30)) });
-  layout(p, measure);
   assert.deepEqual(p.takeWarnings(), []);
   p.set({ x: p.value(num(3)) });
-  layout(p, measure);
   p.set({ x: p.value(num(-1)) });
-  layout(p, measure);
-  assert.deepEqual(p.takeWarnings(), [{ code: "views.spot-outside-bounds", site: "s0/s1" }]);
+  assert.deepEqual(p.takeWarnings(), outside);
   assert.deepEqual(p.takeOutcome().failures, []);
+});
+
+test("warn tells the host and refuses nothing: in a widget, in $state and in a record", () => {
+  const p = page(`record span {
+    low: number;
+    high: number;
+
+    warn "the span is wide" {
+        return high - low < 10;
+    }
+}
+
+widget gauge(high: number) {
+    warn "the gauge is high" {
+        return high < 50;
+    }
+    view {
+        @label(value = "\\{high}");
+    }
+    markdown {
+        \\{high}
+    }
+}
+
+$state {
+    n: number = 1;
+
+    warn "n is big" {
+        return $state.n < 100;
+    }
+}
+
+fn wide(n: number): span {
+    return span { low = 0, high = n };
+}
+@@@
+@gauge(high = $state.n);
+
+Wide: \\{wide($state.n).high}
+`);
+  assert.deepEqual(p.takeWarnings(), []);
+  p.set({ n: p.value(num(60)) });
+  assert.deepEqual(p.takeWarnings().map((w) => [w.rule, w.site]).sort(), [["the gauge is high", "s0"], ["the span is wide", undefined]]);
+  p.set({ n: p.value(num(200)) });
+  assert.deepEqual(p.takeWarnings(), [{ rule: "n is big", site: "$state" }]);
+  assert.deepEqual(p.observeState(), { n: num(200) });
+  assert.deepEqual(p.takeOutcome(), { refused: [], failures: [] });
+  assert.equal(p.markdown(), "200\n\nWide: 200\n");
+});
+
+test("an extern's require has to hold, and one a pack says is a piece of Markdown is written as it", () => {
+  writeFileSync(join(dir, "ext.xtmdpack"), `package ext;
+
+pack ext@1 {
+    uses core@1;
+    provides said, bars;
+}
+
+//@about A quotation of a pack's own.
+extern widget said(by: text) {
+    slot body: view;
+
+    markdown #quote;
+}
+
+//@about Bars.
+extern widget bars(points: list<number>) {
+    tokens color.C1;
+
+    require "bars have points" {
+        return points.len() > 0;
+    }
+
+    markdown {
+        \\{points.len()} bars
+    }
+}
+`);
+  const file = join(dir, "ext.xtmd");
+  writeFileSync(file, `import ext;
+
+$state {
+    points: list<number> = [1];
+}
+
+widget chart() {
+    view {
+        @bars(points = $state.points);
+    }
+    markdown {
+        @bars(points = $state.points);
+    }
+}
+@@@
+@said(by = "Ada") {
+    Hello
+}
+
+@chart;
+`);
+  execFileSync(xtmdBinary(), ["build", file, "--pack", join(dir, "ext.xtmdpack"), "--out", join(dir, "ext.ir.json")], { stdio: ["ignore", "pipe", "pipe"] });
+  const p = new Page(JSON.parse(readFileSync(join(dir, "ext.ir.json"), "utf8")), { supplies: () => true });
+  assert.equal(p.markdown(), "> Hello\n\n1 bars\n");
+  p.set({ points: p.value({ list: [] }) });
+  assert.deepEqual(p.takeOutcome().failures, [{ rule: "bars have points", site: "s2" }]);
 });
 
 test("a widget of another kind at a key keeps its own variables", () => {

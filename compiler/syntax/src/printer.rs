@@ -371,6 +371,7 @@ impl<'a> Printer<'a> {
                     match m {
                         ExternMember::Field(f) => p.field(f),
                         ExternMember::Fn(s) => p.fn_sig(s),
+                        ExternMember::Tokens(refs) => return p.tokens_line(refs),
                     }
                     p.w(";");
                 });
@@ -445,7 +446,7 @@ impl<'a> Printer<'a> {
     }
 
     fn require(&mut self, r: &Require) {
-        self.w("require ");
+        self.w(if r.warn { "warn " } else { "require " });
         self.text(&r.message);
         self.w(" ");
         self.block(&r.body);
@@ -587,7 +588,26 @@ impl<'a> Printer<'a> {
                 self.w("view ");
                 self.block(b);
             }
+            WidgetMember::Tokens(refs) => self.tokens_line(refs),
+            WidgetMember::Uses(refs) => {
+                self.w("uses ");
+                for (k, u) in refs.iter().enumerate() {
+                    if k > 0 {
+                        self.w(", ");
+                    }
+                    self.w(&u.pack.name);
+                    self.w(".");
+                    self.w(&u.level.name);
+                }
+                self.w(";");
+            }
             WidgetMember::Markdown(md) => {
+                if let Some(p) = &md.piece {
+                    self.w("markdown #");
+                    self.w(&p.name);
+                    self.w(";");
+                    return;
+                }
                 if md.empty {
                     self.w("markdown { }");
                     return;
@@ -600,6 +620,21 @@ impl<'a> Printer<'a> {
                 self.w("}");
             }
         }
+    }
+
+    fn tokens_line(&mut self, refs: &[TokenRef]) {
+        self.w("tokens ");
+        for (k, t) in refs.iter().enumerate() {
+            if k > 0 {
+                self.w(", ");
+            }
+            self.w(&t.token.name);
+            if let Some(c) = &t.case {
+                self.w(".");
+                self.w(&c.name);
+            }
+        }
+        self.w(";");
     }
 
     fn generics(&mut self, g: &Option<Generics>) {

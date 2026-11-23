@@ -524,91 +524,74 @@ impl Checker {
         self.defs.iter().any(|d| d.full == t.name && matches!(&d.kind, crate::DefKind::Alias { target: Some((_, ir)) } if self.has_length(ir)))
     }
 
-    /// A widget's `require` blocks, run by the compiler for a call whose inputs are all
-    /// constants: a `false` is a compile error on the call (page 2).
+    /// A widget's `require` and `warn` blocks, run by the compiler for a call where everything they
+    /// read is constant: a `false` is a compile error on the call, or a warning (page 2).
     pub(crate) fn settle_widget_requires(&mut self, prog: &Program) {
-        struct Inputs(HashMap<String, Value>);
-        impl xtmd_eval::Host for Inputs {
+        struct Given {
+            inputs: HashMap<String, Value>,
+            slots: HashMap<String, Value>,
+        }
+        impl xtmd_eval::Host for Given {
             fn read(&self, m: &mut Machine, what: &xtmd_eval::interp::Outer, owner: Option<u64>) -> Result<Value, xtmd_eval::Failure> {
+                use xtmd_eval::interp::Outer;
                 match what {
-                    xtmd_eval::interp::Outer::Input(n) => self.0.get(&**n).cloned().ok_or_else(|| xtmd_eval::Failure::new(xtmd_eval::FailKind::NotConstant, "an input with no value")),
-                    _ => Constants.read(m, what, owner),
+                    Outer::Input(n) => self.inputs.get(&**n).cloned(),
+                    Outer::Slot(n) => self.slots.get(&**n).cloned(),
+                    _ => return Constants.read(m, what, owner),
                 }
+                .ok_or_else(|| xtmd_eval::Failure::new(xtmd_eval::FailKind::NotConstant, "a value only known when the page runs"))
             }
             fn write(&self, m: &mut Machine, what: &xtmd_eval::interp::Outer, owner: Option<u64>, v: Value) -> Result<(), xtmd_eval::Failure> {
                 Constants.write(m, what, owner, v)
             }
         }
-        for (file, span, d, args) in std::mem::take(&mut self.require_checks) {
-            let full = self.defs[d].full.clone();
-            let Some((_, t)) = self.out.templates.iter().find(|(e, _)| *e == d).cloned() else { continue };
-            if t.requires.is_empty() {
+        for (file, span, d, args, filled) in std::mem::take(&mut self.require_checks) {
+            let DefKind::Widget { external, inputs: declared, slots, .. } = self.defs[d].kind.clone() else { continue };
+            let rules = if external {
+                self.out.requires.get(&d).cloned().unwrap_or_default()
+            } else {
+                self.out.templates.iter().find(|(e, _)| *e == d).map(|(_, t)| t.requires.clone()).unwrap_or_default()
+            };
+            if rules.is_empty() {
                 continue;
             }
-            // every input a constant: given, or its default
-            let mut inputs = HashMap::new();
-            let mut constant = true;
-            for f in &t.inputs {
-                let x = args.get(&f.name).cloned().or_else(|| f.default.clone());
-                let Some(x) = x else { continue };
-                let mut m = Machine::new(prog, Box::new(Constants));
-                match m.eval(&x) {
-                    Ok(v) => {
-                        inputs.insert(f.name.clone(), v);
-                    }
-                    Err(_) => {
-                        constant = false;
-                        break;
-                    }
+            let mut given = Given { inputs: HashMap::new(), slots: HashMap::new() };
+            for f in &declared {
+                let Some(x) = args.get(&f.name).cloned().or_else(|| self.out.defaults.get(&(d, f.name.clone())).cloned()) else { continue };
+                if let Ok(v) = Machine::new(prog, Box::new(Constants)).eval(&x) {
+                    given.inputs.insert(f.name.clone(), v);
                 }
             }
-            if !constant {
-                continue;
+            for s in &slots {
+                let opt = s.ir.name == "core/opt";
+                let held = if opt { s.ir.args.first().unwrap_or(&s.ir) } else { &s.ir };
+                let v = match filled.get(&s.name) {
+                    None if opt => Some(Value::Opt(None)),
+                    // a list slot written out one by one is its calls
+                    Some(nodes) if held.name == "core/list" => constant_calls(prog, nodes).map(|calls| {
+                        let mut ids = 0;
+                        Value::list(calls, &mut ids)
+                    }),
+                    _ => None,
+                };
+                if let Some(v) = v {
+                    given.slots.insert(s.name.clone(), v);
+                }
             }
-            for (k, r) in t.requires.iter().enumerate() {
-                let mut p = prog.clone();
-                let name = format!("{}@require#{}", full, k);
+            let name = format!("{}@rule", self.defs[d].full);
+            let short = self.defs[d].name.clone();
+            let mut p = prog.clone();
+            let given = std::rc::Rc::new(given);
+            for r in &rules {
                 p.fns.insert(name.clone(), std::rc::Rc::new(ir::FnDecl { name: name.clone(), generics: Vec::new(), params: Vec::new(), returns: Some(ir::Type::named("core/bool")), body: r.body.clone() }));
-                let mut m = Machine::new(&p, Box::new(Inputs(inputs.clone())));
+                let mut m = Machine::new(&p, Box::new(Given { inputs: given.inputs.clone(), slots: given.slots.clone() }));
                 if let Ok(Some(Value::Bool(false))) = m.call(&name, Vec::new()) {
-                    let short = full.rsplit('/').next().unwrap_or(&full).to_string();
-                    self.error(file, codes::WIDGET_REQUIRE, span, format!("`{}`'s rule is broken by these inputs: {}", short, r.message));
+                    if r.warn {
+                        self.warning(file, codes::WARN, span, format!("`{}` warns: {}", short, r.message));
+                    } else {
+                        self.error(file, codes::WIDGET_REQUIRE, span, format!("`{}`'s rule is broken by these inputs: {}", short, r.message));
+                    }
                 }
-            }
-        }
-    }
-
-    /// A spot outside its plane's bounds warns, when both are constants (page 5).
-    pub(crate) fn settle_spots(&mut self, prog: &Program) {
-        for (file, span, at, bounds) in std::mem::take(&mut self.spot_checks) {
-            let mut m = Machine::new(prog, Box::new(Constants));
-            let (Ok(p), Ok(b)) = (m.eval(&at), m.eval(&bounds)) else { continue };
-            let b = match b {
-                Value::Opt(Some(x)) => (*x).clone(),
-                Value::Opt(None) => continue,
-                other => other,
-            };
-            let num = |v: Option<&Value>, f: &str| -> Option<Num> {
-                match v? {
-                    Value::Record(r) => r.get(f).and_then(|x| x.as_num()),
-                    _ => None,
-                }
-            };
-            let field = |v: &Value, f: &str| -> Option<Value> {
-                match v {
-                    Value::Record(r) => r.get(f).cloned(),
-                    _ => None,
-                }
-            };
-            let (from, to) = (field(&b, "from"), field(&b, "to"));
-            let coords = [num(Some(&p), "x"), num(Some(&p), "y"), num(from.as_ref(), "x"), num(from.as_ref(), "y"), num(to.as_ref(), "x"), num(to.as_ref(), "y")];
-            let [Some(x), Some(y), Some(x0), Some(y0), Some(x1), Some(y1)] = coords else { continue };
-            let inside = |v: Num, a: Num, c: Num| {
-                let (lo, hi) = if a.sub(c).map_or(false, |d| d.is_negative()) { (a, c) } else { (c, a) };
-                !v.sub(lo).map_or(true, |d| d.is_negative()) && !hi.sub(v).map_or(true, |d| d.is_negative())
-            };
-            if !(inside(x, x0, x1) && inside(y, y0, y1)) {
-                self.warning(file, codes::SPOT_OUTSIDE, span, format!("this spot, at ({}, {}), is outside its plane's bounds: it is clipped and the reader can't pan to it", x.show(), y.show()));
             }
         }
     }
@@ -1026,4 +1009,21 @@ impl Checker {
             _ => None,
         }
     }
+}
+
+/// A slot's calls as values, when they are written out one by one.
+fn constant_calls(prog: &Program, nodes: &[ir::Node]) -> Option<Vec<Value>> {
+    let mut out = Vec::new();
+    for n in nodes {
+        let (name, given, slots, events) = match n {
+            ir::Node::Extern(e) => (&e.name, &e.props, &e.slots, &e.events),
+            ir::Node::Use(u) => (&u.name, &u.args, &u.slots, &u.events),
+            _ => return None,
+        };
+        // an input only known when the page runs is left out: a rule that reads it isn't decided
+        let known = given.iter().filter(|(_, x)| Machine::new(prog, Box::new(Constants)).eval(x).is_ok()).map(|(k, x)| (k.clone(), x.clone())).collect();
+        let x = ir::Expr::View(ir::ViewValue { widget: name.clone(), args: known, slots: slots.clone(), events: events.clone() });
+        out.push(Machine::new(prog, Box::new(Constants)).eval(&x).ok()?);
+    }
+    Some(out)
 }

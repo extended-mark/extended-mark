@@ -2,7 +2,7 @@
 
 Page 3 of 9. Writing and calling widgets, events, blocks, loops, variables, slots, pointing at a widget, and Markdown.
 
-A widget body is, in this order: `param` inputs, `slot`s, `event`s, `require` blocks, its own `mut` and `let` variables, its fns, `view`, and `markdown` last. Only `view` and `markdown` are required. Inputs can be declared in the parentheses, in the body with `param`, or some in each.
+A widget body is, in this order: `param` inputs, `slot`s, `event`s, `require` and `warn` blocks, its own `mut` and `let` variables, its fns, `view`, and `markdown` last. Only `view` and `markdown` are required. Inputs can be declared in the parentheses, in the body with `param`, or some in each.
 
 ```java
 package quiz;

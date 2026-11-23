@@ -136,7 +136,7 @@ export class Page {
   private readonly externWidgets = new Map<string, ir.ExternWidget>();
   private readonly handlers = new Map<string, ir.Handler>();
   private readonly bindings = new Map<string, ir.Expr>();
-  private readonly appFns: Set<string>;
+  private readonly hostFns: Set<string>;
   private readonly stateDecl: ir.State | undefined;
   private readonly instances = new Map<number, Instance>();
   /** Instances by identity: rows follow their items, so a row's widget keeps its variables. */
@@ -169,8 +169,8 @@ export class Page {
   changes = 0;
   /** Warnings for the host, since it last took them: not failures, the page carries on. */
   private warnings: Broken[] = [];
-  /** The spots outside their plane's bounds now, so each is reported once as it moves out. */
-  private outside = new Set<string>();
+  /** The `warn` rules that don't hold now, so each is told once as it becomes false. */
+  private warns = new Set<string>();
   /** Every failure caught, with its message and stack, for a host's log. */
   readonly errors: unknown[] = [];
   /** Defects switched on, for the test target: each must be caught by a check. */
@@ -193,7 +193,7 @@ export class Page {
     }
     for (const h of this.module.handlers) this.handlers.set(h.id, h);
     for (const b of this.module.bindings) this.bindings.set(b.id, b.value);
-    this.appFns = new Set(this.module.needs.app);
+    this.hostFns = new Set(this.module.needs.host);
     let state: ir.State | undefined;
     for (const d of this.module.declarations) {
       const decl = d.declare as Record<string, unknown>;
@@ -424,21 +424,37 @@ export class Page {
     return shared;
   }
 
-  /** The warnings since the host last took them: a spot outside its plane's bounds (page 5,
-   * plane), reported when the page runs as it can't be known when it is compiled. */
+  /** The warnings since the host last took them: `warn` rules found false (page 2). */
   takeWarnings(): Broken[] {
+    // a record's `warn` has no place of its own on the page: told once
+    for (const message of this.machine.warned.splice(0)) {
+      if (this.warns.has(message)) continue;
+      this.warns.add(message);
+      this.warnings.push({ rule: message });
+    }
     const w = this.warnings;
     this.warnings = [];
     return w;
   }
 
-  /** Where a spot is, against its plane's bounds: a warning when it moves outside them. */
-  spotInside(path: string, inside: boolean): void {
-    if (inside) {
-      this.outside.delete(path);
-    } else if (!this.outside.has(path)) {
-      this.outside.add(path);
-      this.warnings.push({ code: "views.spot-outside-bounds", site: path });
+  /** A `warn` rule, worked out: told once as it becomes false. */
+  private warned(site: string, message: string, holds: boolean): void {
+    const at = `${site}\n${message}`;
+    if (holds) {
+      this.warns.delete(at);
+    } else if (!this.warns.has(at)) {
+      this.warns.add(at);
+      this.warnings.push({ rule: message, site });
+    }
+  }
+
+  /** A widget's rules, with everything they read: a `require` has to hold, and a `warn` is told. */
+  private checkRules(rules: ir.Require[], own: Env, site: string): void {
+    for (const r of rules) {
+      const ok = this.runBody([], r.body, own, []);
+      const holds = !(ok && ok.kind === "bool" && !ok.b);
+      if (r.warn) this.warned(site, r.message, holds);
+      else if (!holds) throw new Failure("Rule", r.message, r.message);
     }
   }
 
@@ -742,7 +758,7 @@ export class Page {
       callExtern(_m: Machine, name: string, args: V[]): V | null | undefined {
         const own = page.engineFns[name];
         if (own) return own(args);
-        if (!page.appFns.has(name)) return undefined;
+        if (!page.hostFns.has(name)) return undefined;
         for (const f of page.frames) f.dirty = true;
         page.calls.push({ call: { name, args: args.map(toIr) } });
         return null;
@@ -836,6 +852,7 @@ export class Page {
   /** The message of the first of `$state`'s rules that no longer holds. */
   private stateRuleBroken(): string | undefined {
     for (const r of this.stateDecl?.requires ?? []) {
+      if (r.warn) continue;
       const ok = this.runBody([], r.body, { owner: undefined, bindings: [], path: "" }, []);
       if (ok && ok.kind === "bool" && !ok.b) return r.message;
     }
@@ -916,6 +933,7 @@ export class Page {
     this.atPath = new Map();
     this.ownSeen = new Set();
     this.externSeen = new Set();
+    this.checkRules((this.stateDecl?.requires ?? []).filter((r) => r.warn), { owner: undefined, bindings: [], path: "" }, "$state");
     const doc = this.templates.get("doc");
     this.drawn = doc ? this.drawNodes(doc.view, { owner: undefined, bindings: [], path: "" }) : [];
     // a widget that left the page leaves with its variables
@@ -1085,6 +1103,14 @@ export class Page {
     const slots = new Map<string, Drawn[]>();
     for (const [s, nodes] of Object.entries(x.slots ?? {})) slots.set(s, this.drawNodes(nodes, env));
     this.inlineViews(props, slots, path, key);
+    if (w?.requires?.length) {
+      const inst = this.enterExtern(w, path, props, x.slots ?? {}, env);
+      try {
+        this.checkRules(w.requires, inst, path);
+      } finally {
+        this.leave(inst);
+      }
+    }
     const events = new Map<string, { handler: string; env: Env }>();
     for (const [e, h] of Object.entries(x.events ?? {})) events.set(e, { handler: h, env });
     return [{ path, key, widget: x.name, props, slots, events, writes, levels: x.levels ?? [] }];
@@ -1272,10 +1298,7 @@ export class Page {
     it.events.clear();
     for (const [e, h] of Object.entries(events)) it.events.set(e, { handler: h, env });
     if (fresh) for (const c of t.cells) it.cells.set(c.name, c.default ? this.evalIn(own, c.default) : none());
-    for (const r of t.requires) {
-      const ok = this.runBody([], r.body, own, []);
-      if (ok && ok.kind === "bool" && !ok.b) throw new Failure("Rule", r.message, r.message);
-    }
+    this.checkRules(t.requires, own, path);
     return own;
   }
 

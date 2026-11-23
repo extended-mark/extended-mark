@@ -54,7 +54,7 @@ MIG_BAD_EXAMPLE = C["MIGRATION"].replace(
 )
 MIGRATED = 'import kit;\n\n$state {\n    s: state = state.OVERDUE;\n}\n@@@\n# Report\n\n@plot(values = [1, 2], tone = color.OK);\n\n@badge(label = "Beta", size = size.S);\n\n@// kit@2 dropped sparkline: use plot\n@// @sparkline(values = [3]);\n\n@stats(items = [stat { title = "Deploys", value = "42", unit = "" }]);\n'
 DASH = 'package dash;\n\nimport kit;\n\npack dash@1 {\n    uses core@1, kit@1;\n    provides summary;\n}\n\nwidget summary(n: number) {\n    view {\n        @chart(values = [n], color = color.OK);\n    }\n    markdown {\n        A summary.\n    }\n}\n'
-UNITS_03 = 'package units;\n\npack units@1 {\n    uses core@1;\n    provides distance;\n}\n\nextern widget distance(km: number, label: text = "", summary: text = "");\n'
+UNITS_03 = 'package units;\n\npack units@1 {\n    uses core@1;\n    provides distance;\n}\n\nextern widget distance(km: number, label: text = "", summary: text = "") {\n    markdown { }\n}\n'
 SHELF_CHANGED = C["SHELF"].replace("widget row_of_books(title: text)", "widget row_of_books(name: text)").replace("@label(value = title);", "@label(value = name);").replace("\\{title}", "\\{name}")
 
 

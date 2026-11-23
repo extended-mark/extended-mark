@@ -1,0 +1,19 @@
+{
+  "id": "widgets.an-extern-says-what-it-is-as-markdown",
+  "about": "every extern widget has Markdown, its body empty or not",
+  "source": "an-extern-says-what-it-is-as-markdown.xtmdpack",
+  "expect": {
+    "diagnostics": [
+      {
+        "code": "widget.markdown-required",
+        "line": 4,
+        "column": 15
+      },
+      {
+        "code": "widget.markdown-required",
+        "line": 7,
+        "column": 15
+      }
+    ]
+  }
+}

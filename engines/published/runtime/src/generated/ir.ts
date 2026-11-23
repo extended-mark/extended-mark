@@ -206,6 +206,8 @@ export interface ExternChannel {
   /** A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`). */
   name: string;
   supplier: Supplier;
+  /** The tokens the page itself is drawn with, from the block's `tokens` line. */
+  tokens?: string[];
   values: Field[];
 }
 
@@ -227,14 +229,20 @@ export interface ExternWidget {
   events: Event[];
   generics?: TypeParam[];
   inputs: Field[];
-  /** The levels drawing this widget needs: core.draw, or core.gfx for the canvas widgets. */
+  /** The levels drawing this widget needs: core.draw, and those its `uses` names. */
   levels: Level[];
-  /** What it writes as Markdown when nobody supplies it, or when the engine only writes Markdown. Left out for Markdown's own blocks, which write themselves. */
+  /** What it writes as Markdown, from its markdown block. Left out when it writes nothing, or when it is a piece of Markdown. */
   markdown?: Node[];
   /** A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`). */
   name: string;
+  /** The piece of Markdown it is, from `markdown #quote;`: `quote`. Its Markdown is that piece's, and `markdown` is left out. */
+  piece?: string;
+  /** What it expects of its inputs and slots: its `require` and `warn` blocks. */
+  requires?: Require[];
   slots: Slot[];
   supplier: Supplier;
+  /** The tokens its look comes from: a case by its full name (`core/color.LINE`). */
+  tokens?: string[];
 }
 
 /** A record's field, a widget's input or own variable, or a `$state` field. */
@@ -298,8 +306,6 @@ export interface Lambda {
 export interface LetDecl {
   /** A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`). */
   name: string;
-  /** What it reads, as in a binding; empty for a constant. */
-  reads: string[];
   type: Type;
   value: Expr;
 }
@@ -333,7 +339,7 @@ export interface Module {
   module: string;
   needs: Needs;
   templates: Template[];
-  /** The IR's version. 0.3 writes 3. */
+  /** The IR's version: a whole number of its own, apart from xtmd's version. 0.4 writes 4. */
   version: number;
   /** The version of the compiler that wrote it. */
   xtmd: string;
@@ -347,10 +353,10 @@ export interface NeedsPacks {
 
 /** Every extern the page uses, by who supplies it. An engine checks the list when it mounts the page. */
 export interface Needs {
-  /** The document's own channels' fns and values, supplied by the host when it mounts the page. */
-  app: string[];
   /** core's externs, supplied by the engine: widgets, fns and channels. */
   core: string[];
+  /** The document's own channels' fns and values, supplied by the host when it mounts the page. */
+  host: string[];
   packs: NeedsPacks[];
 }
 
@@ -475,11 +481,12 @@ export interface Record {
   same?: string;
 }
 
-/** A rule, checked whenever a value it reads changes. */
+/** A rule, checked whenever a value it reads changes: `require` refuses, `warn` only tells the host. */
 export interface Require {
   body: Stmt[];
   message: string;
-  reads: string[];
+  /** A `warn` block: false is told, and refuses nothing. */
+  warn?: boolean;
 }
 
 export interface Rich {
@@ -596,7 +603,7 @@ export type Stmt =
   | { apply: StmtApply };
 
 /** Who supplies an extern: the engine (core's), the pack that declares it, or the host (a document's channels). */
-export type Supplier = "core" | "pack" | "app";
+export type Supplier = "core" | "pack" | "host";
 
 /** A widget written in Extended Mark, lowered: its view as nodes. The document's own view is the template `doc`. */
 export interface Template {

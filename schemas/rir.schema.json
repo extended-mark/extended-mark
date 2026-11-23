@@ -765,6 +765,24 @@
                   "items": {
                     "$ref": "#/$defs/block"
                   }
+                },
+                "tokens": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "An extern's `tokens` line, as written."
+                },
+                "uses": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "An extern's `uses` line, as written."
+                },
+                "piece": {
+                  "type": "string",
+                  "description": "The piece of Markdown an extern is, from `markdown #quote;`."
                 }
               },
               "required": [
@@ -971,6 +989,13 @@
                   "items": {
                     "$ref": "#/$defs/signature"
                   }
+                },
+                "tokens": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "An extern's `tokens` line, as written."
                 }
               },
               "required": [
@@ -1427,8 +1452,12 @@
     },
     "require": {
       "type": "object",
-      "description": "A `require` block: its message and its body.",
+      "description": "A `require` or a `warn` block: its message and its body.",
       "properties": {
+        "warn": {
+          "type": "boolean",
+          "description": "A `warn` block."
+        },
         "message": {
           "type": "string"
         },

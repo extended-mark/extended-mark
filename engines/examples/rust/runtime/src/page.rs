@@ -242,7 +242,12 @@ pub(crate) type Nodes = Rc<Vec<Node>>;
 type Body = Rc<Vec<Stmt>>;
 
 /// A rule: its body and its message.
-type Rules = Rc<Vec<(Body, String)>>;
+/// A widget's or `$state`'s rules: each body, its message, and whether it only warns.
+type Rules = Rc<Vec<(Body, String, bool)>>;
+
+fn rules_of<'a>(rules: impl Iterator<Item = &'a ir::Require>) -> Rules {
+    Rc::new(rules.map(|r| (Rc::new(r.body.clone()), r.message.clone(), r.warn)).collect())
+}
 
 struct HandlerFn {
     params: Vec<ir::Param>,
@@ -262,7 +267,7 @@ pub(crate) struct Shared {
     extern_templates: HashMap<String, Rc<ir::Template>>,
     handlers: HashMap<String, HandlerFn>,
     bindings: HashMap<String, Expr>,
-    app_fns: HashSet<String>,
+    host_fns: HashSet<String>,
     state_decl: Option<ir::State>,
     state_rules: Rules,
     lets: HashMap<String, Expr>,
@@ -478,8 +483,8 @@ pub(crate) struct World {
     errors: Vec<Failure>,
     /// Warnings for the host, since it last took them: not failures, the page carries on.
     warnings: Vec<Broken>,
-    /// The spots outside their plane's bounds now, so each is reported once as it moves out.
-    outside: HashSet<String>,
+    /// The `warn` rules that don't hold now, so each is told once as it becomes false.
+    warns: HashSet<String>,
     /// The machine's step count and its last identity, kept between the machines a page makes.
     steps: u64,
     next_id: u64,
@@ -511,6 +516,25 @@ impl World {
         for f in self.frames.iter_mut() {
             if !f.deps.contains_key(&k) {
                 f.deps.insert(k.clone(), v);
+            }
+        }
+    }
+
+    /// A `warn` rule, worked out: told once as it becomes false.
+    fn warned(&mut self, site: &str, message: &str, holds: bool) {
+        let at = format!("{}\n{}", site, message);
+        if holds {
+            self.warns.remove(&at);
+        } else if self.warns.insert(at) {
+            self.warnings.push(Broken { code: None, rule: Some(message.to_string()), site: Some(site.to_string()) });
+        }
+    }
+
+    /// A record's `warn` rules have no place of their own on the page: each is told once.
+    fn records_warned(&mut self, messages: Vec<String>) {
+        for message in messages {
+            if self.warns.insert(message.clone()) {
+                self.warnings.push(Broken { code: None, rule: Some(message), site: None });
             }
         }
     }
@@ -556,7 +580,7 @@ impl Host for PageHost {
         if let Some(f) = rt.s.engine_fns.get(name).cloned() {
             return f(m, args).map(Some);
         }
-        if !rt.s.app_fns.contains(name) {
+        if !rt.s.host_fns.contains(name) {
             return Ok(None);
         }
         // a widget that asks the host is drawn anew every time
@@ -846,7 +870,10 @@ impl Rt {
 
     /// The message of the first of `$state`'s rules that no longer holds.
     fn state_rule_broken(&self, m: &mut Machine) -> R<Option<String>> {
-        for (body, message) in self.s.state_rules.iter() {
+        for (body, message, warn) in self.s.state_rules.iter() {
+            if *warn {
+                continue;
+            }
             let ok = self.run_body(m, &[], body.clone(), &Env::default(), Vec::new())?;
             if let Some(Value::Bool(false)) = ok {
                 return Ok(Some(message.clone()));
@@ -1195,6 +1222,12 @@ impl Rt {
             drawn_slots.insert(s.clone(), self.draw_nodes(m, nodes, env)?);
         }
         self.inline_views(m, &mut props, &mut drawn_slots, &path, &key)?;
+        if let Some(w) = w.as_ref().filter(|w| !w.requires.is_empty()) {
+            let inst = self.enter_extern(m, w, &path, &props, slots, env)?;
+            let held = self.check_rules(m, &w.name, &inst, &path);
+            self.leave(&inst);
+            held?;
+        }
         let events = events.iter().map(|(e, h)| (e.clone(), Handle { handler: h.clone(), env: env.clone() })).collect();
         Ok(vec![Drawn::new(DrawnNode { path, key, widget: name.to_string(), props, slots: drawn_slots, events, writes: written, levels: levels.to_vec() })])
     }
@@ -1439,14 +1472,22 @@ impl Rt {
                 self.with_instance(id, |i| i.cells.insert(c.name.clone(), v));
             }
         }
-        if let Some(rules) = self.s.template_rules.get(&t.name).cloned() {
-            for (body, message) in rules.iter() {
-                if let Some(Value::Bool(false)) = self.run_body(m, &[], body.clone(), &own, Vec::new())? {
-                    return Err(Failure { kind: FailKind::Rule, message: message.clone(), rule: Some(message.clone()) });
-                }
+        self.check_rules(m, &t.name, &own, path)?;
+        Ok(own)
+    }
+
+    /// A widget's rules, with everything they read: a `require` has to hold, and a `warn` is told.
+    fn check_rules(&self, m: &mut Machine, name: &str, own: &Env, site: &str) -> R<()> {
+        let Some(rules) = self.s.template_rules.get(name).cloned() else { return Ok(()) };
+        for (body, message, warn) in rules.iter() {
+            let holds = !matches!(self.run_body(m, &[], body.clone(), own, Vec::new())?, Some(Value::Bool(false)));
+            if *warn {
+                self.w().warned(site, message, holds);
+            } else if !holds {
+                return Err(Failure { kind: FailKind::Rule, message: message.clone(), rule: Some(message.clone()) });
             }
         }
-        Ok(own)
+        Ok(())
     }
 
     fn with_instance<T>(&self, id: u64, f: impl FnOnce(&mut Instance) -> T) -> Option<T> {
@@ -1603,7 +1644,7 @@ impl Page {
             let t = Rc::new(t.clone());
             nodes.link(&t.view, &t.view);
             nodes.link(&t.markdown, &t.markdown);
-            template_rules.insert(t.name.clone(), Rc::new(t.requires.iter().map(|r| (Rc::new(r.body.clone()), r.message.clone())).collect::<Vec<_>>()));
+            template_rules.insert(t.name.clone(), rules_of(t.requires.iter()));
             templates.insert(t.name.clone(), t);
         }
         let handlers = module
@@ -1618,7 +1659,7 @@ impl Page {
             })
             .collect();
         let bindings = module.bindings.iter().map(|b| (b.id.clone(), b.value.clone())).collect();
-        let app_fns = module.needs.app.iter().cloned().collect();
+        let host_fns = module.needs.host.iter().cloned().collect();
         let mut state_decl = None;
         let mut extern_widgets = HashMap::new();
         let mut extern_templates = HashMap::new();
@@ -1629,6 +1670,9 @@ impl Page {
                 ir::Decl::Extern(ir::Extern::Widget(w)) => {
                     let w = Rc::new(w.clone());
                     nodes.link(&w.markdown, &w.markdown);
+                    if !w.requires.is_empty() {
+                        template_rules.insert(w.name.clone(), rules_of(w.requires.iter()));
+                    }
                     extern_templates.insert(
                         w.name.clone(),
                         Rc::new(ir::Template {
@@ -1653,7 +1697,7 @@ impl Page {
                 _ => {}
             }
         }
-        let state_rules = Rc::new(state_decl.iter().flat_map(|s: &ir::State| s.requires.iter()).map(|r| (Rc::new(r.body.clone()), r.message.clone())).collect::<Vec<_>>());
+        let state_rules = rules_of(state_decl.iter().flat_map(|s: &ir::State| s.requires.iter()));
         let shared = Shared {
             program,
             templates,
@@ -1662,7 +1706,7 @@ impl Page {
             extern_templates,
             handlers,
             bindings,
-            app_fns,
+            host_fns,
             state_decl,
             state_rules,
             lets,
@@ -1729,6 +1773,7 @@ impl Page {
         let mut w = rt.w.borrow_mut();
         w.steps = m.steps;
         w.next_id = m.next_id;
+        w.records_warned(std::mem::take(&mut m.warned));
         out
     }
 
@@ -1736,9 +1781,6 @@ impl Page {
         self.rt.w().steps = 0;
     }
 
-    pub(crate) fn rt(&self) -> &Rt {
-        &self.rt
-    }
 
     // ---- reading the page
 
@@ -2057,21 +2099,9 @@ impl Page {
         Ok(shared)
     }
 
-    /// The warnings since the host last took them: a spot outside its plane's bounds (page 5,
-    /// plane), reported when the page runs as it can't be known when it is compiled.
+    /// The warnings since the host last took them: `warn` rules found false (page 2).
     pub fn take_warnings(&mut self) -> Vec<Broken> {
         std::mem::take(&mut self.rt.w().warnings)
-    }
-
-    /// Where a spot is, against its plane's bounds: a warning when it moves outside them.
-    pub fn spot_inside(&self, path: &str, inside: bool) {
-        let mut w = self.rt.w();
-        if inside {
-            w.outside.remove(path);
-        } else if !w.outside.contains(path) {
-            w.outside.insert(path.to_string());
-            w.warnings.push(broken_code("views.spot-outside-bounds", path));
-        }
     }
 
     /// A plane whose layout didn't settle (page 6, failures).
@@ -2425,6 +2455,10 @@ impl Page {
                 w.own_seen.clear();
                 w.extern_seen.clear();
                 w.frames.clear();
+            }
+            for (body, message, _) in rt.s.state_rules.iter().filter(|r| r.2) {
+                let ok = rt.run_body(m, &[], body.clone(), &Env::default(), Vec::new())?;
+                rt.w().warned("$state", message, !matches!(ok, Some(Value::Bool(false))));
             }
             let drawn = match rt.s.templates.get("doc") {
                 Some(doc) => rt.draw_nodes(m, &doc.view, &Env::default())?,

@@ -356,13 +356,10 @@ fn a_layout_that_never_settles_fails_its_plane_and_is_held_until_an_outside_chan
 #[test]
 fn a_spot_outside_its_planes_bounds_is_a_warning_once_as_it_moves_out() {
     let mut p = page("$state {\n    x: number = 5;\n}\n\nwidget map() {\n    view {\n        @plane(label = \"Map\", bounds = region { from = point { x = 0, y = 0 }, to = point { x = 10, y = 10 } }) {\n            items {\n                @spot(at = point { x = $state.x, y = 5 }) {\n                    @label(value = \"here\");\n                }\n            }\n        }\n    }\n}\n@@@\n@map;\n");
-    let mut measure = Fixed { width: n("100"), measured: Rc::new(Cell::new(0)), grow: 0 };
-    let outside = || vec![refused_code("views.spot-outside-bounds", "s0/s1")];
-    p.layout(&mut measure).unwrap();
+    let outside = || vec![Broken { code: None, rule: Some("a spot is outside the plane's bounds: it is clipped, and the reader can't pan to it".into()), site: Some("s0/s0".into()) }];
     assert_eq!(p.take_warnings(), vec![]);
     for (x, warned) in [("20", outside()), ("30", vec![]), ("3", vec![]), ("-1", outside())] {
         p.set(vec![("x".into(), v(&p, num(x)))]).unwrap();
-        p.layout(&mut measure).unwrap();
         assert_eq!(p.take_warnings(), warned, "x = {}", x);
     }
     assert_eq!(p.take_outcome().failures, vec![]);

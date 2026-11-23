@@ -36,12 +36,12 @@ Extended Mark (called MKP, Markdown Markup, up to 0.2) is a statically typed lan
 
 ```txt
 package import enum record type interface implements widget extern expose fn pack tokens
-mut let event invoke view markdown require if else for in match case return only step
+mut let event invoke view markdown require warn if else for in match case return only step
 void any param slot try with self true false
 as token $state
 ```
 
-A keyword can never be a name, after a dot included. `$state` is one word: `$` is not a prefix, so `$` on its own and `$abc` are neither keywords nor names, and in code each is a compile error whose message names `$state`. No name starts with `$`, so `$state` never meets a variable, an input or a field, and `state` stays free as a name: `$state.state` reads a field called `state`. `uses` and `provides` are words only inside a `pack` block, and `migration` and `execute` only where a migration is written, so all four stay free as ordinary names.
+A keyword can never be a name, after a dot included. `$state` is one word: `$` is not a prefix, so `$` on its own and `$abc` are neither keywords nor names, and in code each is a compile error whose message names `$state`. No name starts with `$`, so `$state` never meets a variable, an input or a field, and `state` stays free as a name: `$state.state` reads a field called `state`. `provides` is a word only inside a `pack` block, `uses` only there and in an extern widget's body, and `migration` and `execute` only where a migration is written, so all four stay free as ordinary names.
 
 ### Names
 

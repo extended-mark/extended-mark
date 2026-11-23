@@ -12,6 +12,8 @@ extern widget label(
     clip: bool = false,
     halo: bool = false,                         // an outline in the surface colour, so it reads over lines
 ) {
+    tokens color.SURFACE;
+
     markdown {
         \{value}
     }
@@ -46,6 +48,7 @@ extern widget press(
 ) {
     slot content: opt<view>;
     event click();
+    tokens color.INK, color.SURFACE, color.LINE, color.ACCENT, color.MUTED, radius.CARD, radius.PILL;
 
     markdown {
         \{label}
@@ -60,6 +63,7 @@ extern widget field(
     lines: int 1..20 = 1,
 ) {
     event submit();
+    tokens color.INK, color.SURFACE, color.LINE, color.ACCENT, color.MUTED, radius.CARD;
 
     markdown {
         \{label}: \{value}
@@ -68,6 +72,8 @@ extern widget field(
 
 //@about A number picked by dragging. Its ends come from range when it is given, and otherwise, with its step, from the variable it is given.
 extern widget slider(mut value: number, label: text, range: opt<range<number>> = opt.NONE, disabled: bool = false) {
+    tokens color.ACCENT, color.LINE, color.MUTED;
+
     markdown {
         \{label}: \{value}
     }
@@ -78,6 +84,7 @@ extern widget overlay(label: text, mode: overlay_mode = overlay_mode.POPOVER, mu
     slot anchor: view;
     slot body: view;
     event open_changed();
+    tokens color.INK, color.SURFACE, color.LINE, radius.CARD, shadow.RAISED;
 
     markdown {
         \{anchor}

@@ -2,7 +2,7 @@
 //!
 //! Every call needs `core.draw`. A call needs `core.live` when it has variables of its own,
 //! gives a variable to a `mut` input, or sets an event to a handler that can change something,
-//! or places one that does. The canvas widgets, and a plane with a background, need `core.gfx`.
+//! or places one that does. An extern widget needs what its `uses` names.
 
 use std::collections::{HashMap, HashSet};
 
@@ -137,9 +137,6 @@ impl<'m> Levels<'m> {
                 let mut s = self.externs.get(e.name.as_str()).copied().unwrap_or(Set::DRAW);
                 if !e.writes.is_empty() || self.handler_live(&e.events) {
                     s = s.or(Set::LIVE);
-                }
-                if e.name == "core/plane" && e.slots.get("background").map_or(false, |b| !b.is_empty()) {
-                    s = s.or(Set::GFX);
                 }
                 for body in e.slots.values() {
                     s = s.or(self.nodes(body));

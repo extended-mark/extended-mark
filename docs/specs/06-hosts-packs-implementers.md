@@ -203,6 +203,11 @@ widget tally(mut points: int) {
 | A pack | The pack, for each engine it supports. Any pack may declare extern widgets and fns of its own |
 | A document's `extern` block | The host, when it mounts the page |
 
+- **Its declaration is all of it.** What an extern widget takes in, what comes back, what it needs and what it looks like as Markdown are in its declaration, for core's externs and any pack's alike, and nothing may depend on anything else about it.
+- **`tokens color.LINE, radius.CARD;`**, in an extern widget's body or an extern block's, lists the tokens its look comes from, a token on its own standing for every case that carries no value. A page holds the tokens it names itself and those its externs list, and no others. An extern block's are the page's own: core's `page` lists what the page's background and words are drawn with.
+- **`uses core.gfx;`** says which level drawing it needs (below).
+- **`require` and `warn`** say what it expects of its inputs and slots (page 2).
+- **Its Markdown** is required. It is a block, as any widget's (page 3), or `markdown { }`, which writes nothing, or one of Markdown's own pieces: `markdown #quote;` (page 5).
 - **Nobody supplies it.** An extern widget nobody supplies shows its Markdown instead, whether it is core's or a pack's. A shader nobody supplies draws nothing, and is reported when the page is mounted.
 - **A default.** Only an `extern fn` may have a body, which is its default: it runs when its supplier gives none, and a supplier may replace it.
 
@@ -243,14 +248,14 @@ extern widget jump(to: opt<view>, label: text) {
 }
 ```
 
-`core.draw`, `core.live` and `core.gfx` are levels, fixed by this spec. They are not interfaces and are not declared in any file.
+`core.draw`, `core.live` and `core.gfx` are levels, fixed by this spec. They are not interfaces and are not declared in any file. An extern widget says the levels it needs beside `core.draw` with `uses`.
 
 | Level | What the engine can do | What needs it |
 |---|---|---|
 | Markdown only | Compile, and write every widget's Markdown | Nothing more. Every widget has a markdown block, perhaps an empty one, or is a Markdown block, so this always works |
 | `core.draw` | Draw the 23 extern widgets of `core.draw`, Markdown's own blocks, `plane` and `spot` among them, glyphs, tokens and page values. The other base widgets are written in Extended Mark on top of them | Every widget |
 | `core.live` | Hold variables and change `$state`, run events and redraw, and move a plane as the reader drags, pinches or scrolls | A call that has variables of its own, gives a variable to a `mut` input, or sets an event to a handler that can change something (one that assigns a variable, calls an extern action, or invokes an event its own caller set), or that places one that does. An event that is declared but never set needs nothing. Without `core.live`, `$state` keeps its starting values and never changes, and a plane is drawn where its centre puts it and doesn't move |
-| `core.gfx` | Draw its 7 widgets: a `canvas`, and the `layer`s of `circle`s, `path`s, `place`d widgets, `handle`s and `shade`s that go on a canvas or on a plane's background | Those widgets, and a plane with a background |
+| `core.gfx` | Draw its 7 widgets: a `canvas`, and the `layer`s of `circle`s, `path`s, `place`d widgets, `handle`s and `shade`s that go on a canvas or on a plane's background | Those widgets, so a plane with a background too, and any pack's extern widget that `uses core.gfx` |
 | `core.motion` | A reserved name for timed controls | Nothing in this spec. See page 8 |
 
 The compiler works out the level each call needs from the table. A call in a document that needs a level the engine doesn't have shows its Markdown instead.
@@ -291,7 +296,7 @@ A warning never stops a page from compiling.
 | Warning | When |
 |---|---|
 | An empty `markdown { }` | Where the widget is declared, so it shows whenever that file is compiled, a pack's included |
-| A spot outside its plane's bounds | At compile time when both are constants. When the page runs, it is reported to the host, not as a failure, and the spot is clipped |
+| A `warn` that is false | At compile time when what it reads is constant. When the page runs, it is told to the host, not as a failure: nothing is refused |
 | An Extended Mark fn given to `shade` | At compile time: the runtime calls it for every pixel within the step limit, so only small areas fit |
 | A bare `$state.name` in a sentence of prose | At compile time: it is shown as text; put it in a hole (page 1) |
 | A document widget whose built Markdown depends on a variable | At compile time, on the branch that depends on it (page 1) |

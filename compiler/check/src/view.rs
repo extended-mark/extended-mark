@@ -244,7 +244,6 @@ impl Checker {
             return Vec::new();
         };
         self.warn_deprecated(cx.file, self.defs[d].file, self.defs[d].span, call.name.span);
-        self.check_sizing_chain(cx, call);
         let site = self.site("s");
         self.sites.push(crate::SiteRec { template: self.template_now.clone(), site: site.clone(), file: cx.file, span: call.span });
         let parts = self.call_parts(cx, d, call, prose);
@@ -337,15 +336,15 @@ impl Checker {
                 } else {
                     let (x, _) = self.expr(cx, value, Some(&it));
                     self.want(cx, value, &x, &input.ir, format!("`{}`'s `{}`", wname, n.name));
-                    // a shader written in Extended Mark runs for every pixel within the step limit (page 5)
-                    if self.defs[d].full == "core/shade" && n.name == "shader" {
+                    // the engine runs it, as often as it draws, within the step limit (page 5)
+                    if matches!(self.defs[d].kind, DefKind::Widget { external: true, .. }) && matches!(&input.ty, Ty::Fn(_, Some(_))) {
                         let xtmd_fn = match &value.kind {
                             E::Lambda(_) => true,
                             E::Name(fname) => matches!(self.lookup_value(file, &fname.name), Some(crate::ValueSym::Fn(f)) if !self.fns[f].external),
                             _ => false,
                         };
                         if xtmd_fn {
-                            self.warning(file, codes::SHADE_XTMD_FN, value.span, "this shader is an Extended Mark fn: the runtime calls it for each pixel within the step limit, so only a small area fits. An extern fn runs natively");
+                            self.warning(file, codes::ENGINE_XTMD_FN, value.span, format!("`{}`'s `{}` is an Extended Mark fn here, which an engine runs within the step limit, for each pixel of a shader: an extern fn runs natively", wname, n.name));
                         }
                     }
                     parts.props.insert(n.name.clone(), x);
@@ -367,21 +366,6 @@ impl Checker {
             if i.default.is_none() && !given.contains(&i.name) && !positional {
                 self.error(file, codes::MISSING_INPUT, call.name.span, format!("`{}` needs its input `{}`", wname, i.name));
             }
-        }
-        // a widget's require blocks, run by the compiler when its inputs are constants
-        if matches!(self.defs[d].kind, DefKind::Widget { external: false, .. }) {
-            self.require_checks.push((file, call.name.span, d, parts.props.clone()));
-        }
-        // a spot's point is checked against its plane's bounds
-        let full = self.defs[d].full.clone();
-        if full == "core/spot" {
-            if let (Some(Some(bounds)), Some(at)) = (self.planes.last().cloned(), parts.props.get("at").cloned()) {
-                self.spot_checks.push((file, call.name.span, at, bounds));
-            }
-        }
-        if full == "core/plane" {
-            let bounds = parts.props.get("bounds").cloned();
-            self.planes.push(bounds);
         }
         let mut filled: Vec<(String, Vec<ir::Node>, Span)> = Vec::new();
         for (name, block, at) in slot_blocks {
@@ -427,9 +411,8 @@ impl Checker {
         for (name, nodes, _) in filled {
             parts.slots.insert(name, nodes);
         }
-        if full == "core/plane" {
-            self.planes.pop();
-        }
+        // its rules, run by the compiler when what they read is constant
+        self.require_checks.push((file, call.name.span, d, parts.props.clone(), parts.slots.clone()));
         parts
     }
 
@@ -553,7 +536,7 @@ impl Checker {
                     c.ret = Some(Some(Ty::Bool));
                     let b = self.block(&mut c, &r.body);
                     let message = r.message.parts.iter().map(|p| if let ast::TextPart::Piece { raw, .. } = p { xtmd_syntax::lexer::decode_piece(raw) } else { String::new() }).collect();
-                    requires.push(ir::Require { message, reads: Vec::new(), body: b });
+                    requires.push(ir::Require { warn: r.warn, message, body: b });
                 }
                 ast::WidgetMember::Fn(f) => {
                     let id = wcx.fns[&f.sig.name.name];
@@ -583,8 +566,20 @@ impl Checker {
                     view = self.view_nodes(&mut c, b);
                     view_ast = Some((c, b.clone()));
                 }
+                ast::WidgetMember::Tokens(refs) => {
+                    let tokens = self.extern_tokens(file, refs);
+                    self.out.extern_tokens.entry(d).or_default().extend(tokens);
+                }
+                ast::WidgetMember::Uses(refs) => {
+                    let levels = self.extern_uses(file, refs);
+                    self.out.extern_uses.entry(d).or_default().extend(levels);
+                }
                 ast::WidgetMember::Markdown(md) => {
-                    if md.empty {
+                    if let Some(p) = &md.piece {
+                        if let Some(piece) = self.check_piece(d, p) {
+                            self.out.extern_piece.insert(d, piece);
+                        }
+                    } else if md.empty {
                         self.warning(file, codes::EMPTY_MARKDOWN, w.name.span, format!("`{}` writes no Markdown (`markdown {{ }}`): the widget around it says what it shows", w.name.name));
                         markdown = Some(Vec::new());
                     } else {
@@ -599,6 +594,7 @@ impl Checker {
             if let Some(md) = markdown {
                 self.out.extern_markdown.insert(d, md);
             }
+            self.out.requires.insert(d, requires);
             return;
         }
         // a document's widget may leave its markdown out: it is built from the view (page 1)
@@ -1173,51 +1169,4 @@ fn bare_state(text: &str) -> bool {
         }
     }
     false
-}
-
-impl Checker {
-    /// The properties a core sizing wrapper sets, as `sizing` names them; `None` for any other widget.
-    fn sizing_props(&self, cx: &Cx, call: &ast::ViewCall) -> Option<Vec<(String, Span)>> {
-        let d = self.widget_of(cx, &call.name.name)?;
-        let full = self.defs[d].full.as_str();
-        let given: Vec<(String, Span)> = call.args.as_ref().map(|a| a.iter().filter_map(|x| x.name.as_ref().map(|n| (n.name.clone(), n.span))).collect()).unwrap_or_default();
-        let at = call.name.span;
-        Some(match full {
-            "core/grow" => vec![("grow".into(), at)],
-            "core/shrink" => vec![("shrink".into(), at)],
-            "core/basis" => vec![("basis".into(), at)],
-            "core/aspect" => vec![("aspect".into(), at)],
-            "core/min_size" => given.into_iter().map(|(n, s)| (format!("min_{}", n), s)).collect(),
-            "core/max_size" => given.into_iter().map(|(n, s)| (format!("max_{}", n), s)).collect(),
-            "core/sizing" => given,
-            _ => return None,
-        })
-    }
-
-    /// A chain of sizing wrappers around one child is one set of properties, so setting one
-    /// property twice in it is an error (page 5).
-    fn check_sizing_chain(&mut self, cx: &Cx, call: &ast::ViewCall) {
-        let Some(mut props) = self.sizing_props(cx, call) else { return };
-        let mut seen: Vec<String> = props.drain(..).map(|(n, _)| n).collect();
-        let mut at = call.clone();
-        loop {
-            // the wrapper's one child, when it is another sizing wrapper
-            let Some(ast::CallBlock::Children(b)) = &at.block else { return };
-            if b.stmts.len() != 1 {
-                return;
-            }
-            let ast::Stmt::Expr(ast::Expr { kind: E::View(inner), .. }) = &b.stmts[0].item else { return };
-            let Some(more) = self.sizing_props(cx, inner) else { return };
-            for (name, span) in more {
-                if seen.contains(&name) {
-                    if self.sizing_reported.insert((cx.file, span.start)) {
-                        self.error(cx.file, codes::SIZING_TWICE, span, format!("`{}` is set twice in this chain of sizing wrappers, which is one set of properties on its child: keep one", name));
-                    }
-                } else {
-                    seen.push(name);
-                }
-            }
-            at = inner.clone();
-        }
-    }
 }
