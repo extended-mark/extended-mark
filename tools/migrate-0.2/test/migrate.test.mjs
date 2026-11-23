@@ -98,3 +98,44 @@ test('with the 0.2 source beside the IR, every comment and link definition is ke
   const c = check03(r);
   if (c) assert.deepEqual([c.fmt, c.check], [0, 0], c.out);
 });
+
+test('records: two of one name with other fields stay two, and every rename is said', async () => {
+  const { Migration } = await import('../src/context.mjs');
+  const { Decls } = await import('../src/decls.mjs');
+  const m = new Migration({ defs: {}, types: {} });
+  const d = new Decls(m, 'devbench');
+  // gantt's `record task {name, start, end}` and checklist's `record task {text, done}`, as XTMD
+  // Integration's devbench@1 pack has them
+  const gantt = d.recordFor('task', [['name', { t: 'text' }], ['start', { t: 'num' }], ['end', { t: 'num' }]], {}, { line: 3, owner: 'gantt' });
+  const checklist = d.recordFor('task', [['text', { t: 'text' }], ['done', { t: 'bool' }]], {}, { line: 9, owner: 'checklist' });
+  assert.equal(gantt, 'task');
+  assert.equal(checklist, 'checklist_task');
+  // a value of either is the same record again
+  assert.equal(d.recordFor('task', [['text', { t: 'text' }], ['done', { t: 'bool' }]], {}, { line: 20 }), 'checklist_task');
+  assert.equal(d.recordFor('task', [['name', { t: 'text' }], ['start', { t: 'num' }], ['end', { t: 'num' }]], {}, { line: 21 }), 'task');
+  const fields = (name) => d.decls().find((x) => x.k === 'record' && x.name === name).fields.map((f) => f.name);
+  assert.deepEqual(fields('task'), ['name', 'start', 'end']);
+  assert.deepEqual(fields('checklist_task'), ['text', 'done']);
+  // a keyword can't be a name: `step` is `step_`, and the migration says so
+  assert.equal(d.recordFor('step', [['title', { t: 'text' }]], {}, { line: 30 }), 'step_');
+  const said = m.notes.map((n) => n.what);
+  assert.ok(said.some((w) => w.includes('`checklist`') && w.includes('`checklist_task`')), said.join('\n'));
+  assert.ok(said.some((w) => w.includes('`step` is `step_`') && w.includes('is a keyword')), said.join('\n'));
+  // a name kept as it was says nothing
+  assert.ok(!said.some((w) => w.includes('`task` is')), said.join('\n'));
+});
+
+test("a stand-in's markdown reads each list's own record, not another of the same name", async () => {
+  const { Migration } = await import('../src/context.mjs');
+  const { PackShim } = await import('../src/packs.mjs');
+  const m = new Migration({ defs: {}, types: {} });
+  const shim = new PackShim(m, 'devbench', 1);
+  const ganttT = { t: 'records', kind: 'task', fields: [['name', { t: 'text' }], ['start', { t: 'num' }], ['end', { t: 'num' }]] };
+  const checklistT = { t: 'records', kind: 'task', fields: [['text', { t: 'text' }], ['done', { t: 'bool' }]] };
+  shim.recordFor(ganttT.kind, ganttT.fields, {}, { line: 3, owner: 'gantt' });
+  shim.recordFor(checklistT.kind, checklistT.fields, {}, { line: 9, owner: 'checklist' });
+  const shown = (t) => JSON.stringify(shim.markdown({ slots: [] }, [['tasks', t]]));
+  assert.match(shown(checklistT), /x\.text/);
+  assert.doesNotMatch(shown(checklistT), /x\.name|x\.start/);
+  assert.match(shown(ganttT), /x\.name/);
+});

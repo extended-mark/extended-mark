@@ -1,17 +1,19 @@
 # The frozen 0.2 → 0.3 step
 
-`migrate-0.2.cjs` is what `mkp migrate` runs on a document written for MKP 0.2: MKP 0.2.10's own
+`migrate-0.2.cjs` is what `xtmd migrate` runs on a document written for MKP 0.2: MKP 0.2.10's own
 compiler reads it into its IR, and the migrator (`../src`) writes it as 0.3, with a stand-in for each
-0.2 pack it uses that has no 0.3 release in the build. It is one file for Node 20 or later, built once
-from 0.2.10 and never again; `migrate-0.2.lock` records what went in and its SHA-256, and `mkp` is
-built with that hash and runs no other file.
+0.2 pack it uses that has no 0.3 release in the build. It is one file for Node 20 or later, built from
+0.2.10 for Extended Mark 0.3.0, and again for 0.3.3 when the migrator was fixed (two 0.2 records of one
+name with other fields stay two, and every name that has to change is said); it is built again only
+when the migrator changes. `migrate-0.2.lock` records what went in and its SHA-256, and `xtmd` is built
+with that hash and runs no other file.
 
-- **Where mkp finds it:** `MKP_MIGRATE_02`, else beside the `mkp` binary (each platform package of
-  `@mkp/cli` 0.3.0 carries it there), else here, for a build from this repository.
-- **Node:** `MKP_NODE`, else `node`; `npx mkp` passes the Node it runs with.
-- **Only MKP 0.3.0 carries it.** Once 0.3.0 is released, this folder's `migrate-0.2.cjs` and
-  `migrate-0.2.lock` are deleted; a later `mkp` meets a 0.2 document with "run `npx mkp@0.3.0 migrate`
-  on it first".
+- **Where xtmd finds it:** `XTMD_MIGRATE_02`, else beside the `xtmd` binary (each
+  `@extended-mark/cli-<os>-<cpu>` package and each release tarball carries it there), else here, for a
+  build from this repository. `cargo install xtmd` has none, and says to run `npx extended-mark@0.3 migrate`.
+- **Node:** `XTMD_NODE`, else `node`; `npx xtmd` passes the Node it runs with.
+- **Extended Mark 0.3 carries it.** A later version that drops it meets a 0.2 document with "run
+  `npx extended-mark@0.3 migrate` on it first".
 
 Built with:
 

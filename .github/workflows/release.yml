@@ -63,8 +63,8 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       new: ${{ steps.v.outputs.new }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - id: v
@@ -100,7 +100,7 @@ jobs:
           - { target: aarch64-apple-darwin, platform: darwin-arm64, exe: xtmd }
           - { target: x86_64-pc-windows-gnu, platform: win32-x64, exe: xtmd.exe }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Rust, for ${{ matrix.target }}
         run: rustup toolchain install stable --profile minimal --target ${{ matrix.target }} && rustup default stable
       - name: zig and cargo-zigbuild
@@ -113,7 +113,7 @@ jobs:
       - name: Runs where it was built for
         if: matrix.platform == 'linux-x64'
         run: compiler/npm/extended-mark/platforms/linux-x64/bin/xtmd --version
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: xtmd-${{ matrix.platform }}
           path: compiler/npm/extended-mark/platforms/${{ matrix.platform }}/bin/
@@ -126,14 +126,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Rust, for wasm32-wasip1
         run: rustup toolchain install stable --profile minimal --target wasm32-wasip1 && rustup default stable
       - name: zig
         run: pip install "ziglang==$ZIGLANG"
       - name: Build
         run: XTMD_ZIG="python3 -m ziglang" compiler/wasm/build.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: xtmd-wasm
           path: compiler/npm/wasm/xtmd.wasm
@@ -156,14 +156,14 @@ jobs:
       # trusted publishing: npm, crates.io, the VS Code Marketplace and Open VSX take the run's OIDC token in place of a secret
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
       - name: Rust
         run: rustup toolchain install stable --profile minimal && rustup default stable
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
       - name: Each binary in its platform package, xtmd.wasm in @extended-mark/wasm

@@ -56,7 +56,7 @@ export class PackShim extends Decls {
         continue;
       }
       try {
-        const f = this.field(inp.name, inp.type, inp.default, { ...at, hint: `${name}_${inp.name}` });
+        const f = this.field(inp.name, inp.type, inp.default, { ...at, hint: `${name}_${inp.name}`, owner: name });
         if (inp.about) f.about = inp.about;
         if (inp.comment?.length) f.comments = inp.comment;
         w.params.push(f);
@@ -118,7 +118,8 @@ export class PackShim extends Decls {
   markdown(w, lists) {
     const out = [P.md('\\{summary}')];
     for (const [pname, t] of lists) {
-      const rec = this.records.get(this.names.get(`record:${t.kind}`));
+      // the record by its name and fields: two widgets' records of one name are two records (decls.mjs)
+      const rec = this.records.get(this.names.get(`record:${t.kind}:${JSON.stringify(t.fields)}`) ?? this.names.get(`record:${t.kind}`));
       const shown = (rec?.fields ?? []).filter((f) => /^(rich_)?text$|^(int|number)\b/.test(f.type)).slice(0, 3);
       if (!shown.length) continue;
       const v = 'x';
