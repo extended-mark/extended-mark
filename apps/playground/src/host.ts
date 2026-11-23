@@ -1,4 +1,4 @@
-// What the playground, as the app, gives a page: where it is read (width and theme), the clock
+// What the playground, as the host, gives a page: where it is read (width and theme), the clock
 // (`core/page.today` and `core/page.now`), and `core/moment.local` from the browser's time zone.
 
 import { Num, type Page, type PageOptions, type PageValues, type Value, type ir } from "@extended-mark/runtime";
@@ -34,8 +34,8 @@ export function clockExterns(now = new Date()): Record<string, Record<string, ir
   return { "core/page": { today, now: moment } };
 }
 
-/** The value fns a target supplies: `core/moment.local`, by the browser's zone rules. */
-export function targetFns(getPage: () => Page): NonNullable<PageOptions["fns"]> {
+/** The value fns an engine supplies: `core/moment.local`, by the browser's zone rules. */
+export function engineFns(getPage: () => Page): NonNullable<PageOptions["fns"]> {
   return {
     "core/moment.local": ([m]) => {
       const machine = getPage().machine;

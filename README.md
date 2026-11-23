@@ -34,8 +34,8 @@ branch [`legacy-0.2.x`](https://github.com/extended-mark/extended-mark/tree/lega
 
 - `docs/specs`: the language, below. Every rule in it is held to a case in `checks/`.
 - `compiler/`: `xtmd`, the compiler, in Rust, and its npm packages (`extended-mark`, with the `xtmd` command, and `@extended-mark/wasm`).
-- `targets/published`: the targets on npm, for the web, React, Vue, Svelte, Solid and Angular. Each comes in two kinds: run time, which draws an IR built ahead, and real time, which compiles in place.
-- `targets/examples`: targets that show how one is made (egui, Android's Compose, a native runtime). They are never published.
+- `engines/published`: the engines on npm, for the web, React, Vue, Svelte, Solid and Angular. Each comes in two kinds: run time, which draws an IR built ahead, and real time, which compiles in place.
+- `engines/examples`: engines that show how one is made (egui, Android's Compose, a native runtime). They are never published.
 - `ide/`: `xtmd lsp`, the language server, and the VS Code extension.
 - `apps/playground`: the playground. `brand/`: the logo and icons.
 
@@ -48,7 +48,7 @@ branch [`legacy-0.2.x`](https://github.com/extended-mark/extended-mark/tree/lega
 | [3 Widgets](docs/specs/03-widgets.md) | Declaring and calling widgets, slots, events, views, loops and where variables live |
 | [4 Interfaces](docs/specs/04-interfaces.md) | Structural interfaces, the standard ones, literals for your own types, and generics |
 | [5 Standard library](docs/specs/05-standard-library.md) | What is built in, and all of `core`: types, text, dates, maths, Markdown, tokens and widgets |
-| [6 Apps, packs and implementers](docs/specs/06-apps-packs-implementers.md) | Packs and imports, tokens, talking to the app, levels, failures and limits |
+| [6 Hosts, packs and implementers](docs/specs/06-hosts-packs-implementers.md) | Packs and imports, tokens, talking to the host, levels, failures and limits |
 | [7 Examples](docs/specs/07-examples.md) | Whole widgets and a whole document |
 | [8 Open questions](docs/specs/08-open-questions.md) | What this version decided, and what was left for later |
 | [9 Grammar](docs/specs/09-grammar.md) | The grammar of files, documents and prose |

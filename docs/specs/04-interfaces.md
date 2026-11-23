@@ -351,7 +351,7 @@ widget compare<T: chart>() {
 }
 ```
 
-The parent can read what the interface promises: `c.title` works for every chart. The app finds widgets the same way, by interface and never by a widget's name.
+The parent can read what the interface promises: `c.title` works for every chart. The host finds widgets the same way, by interface and never by a widget's name.
 
 ### One kind, or any kind
 

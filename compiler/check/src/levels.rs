@@ -1,4 +1,4 @@
-//! Levels (page 6): what a target has to do to run each call, each widget and the page.
+//! Levels (page 6): what an engine has to do to run each call, each widget and the page.
 //!
 //! Every call needs `core.draw`. A call needs `core.live` when it has variables of its own,
 //! gives a variable to a `mut` input, or sets an event to a handler that can change something,
@@ -51,7 +51,7 @@ impl Set {
 struct Levels<'m> {
     externs: HashMap<&'m str, Set>,
     templates: HashMap<&'m str, &'m ir::Template>,
-    /// Fns that return nothing: actions, an app channel's among them.
+    /// Fns that return nothing: actions, a host channel's among them.
     actions: HashSet<String>,
     handlers: HashMap<&'m str, &'m [Stmt]>,
     done: HashMap<String, Set>,

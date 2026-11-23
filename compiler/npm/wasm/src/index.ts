@@ -1,6 +1,6 @@
 // The Extended Mark compiler in the browser: xtmd-wasm, built for wasm32-wasip1 (compiler/wasm), and the
-// little it asks of its host. A real-time target compiles a document's text as it is edited with
-// `Compiler.build`, and draws the IR it gives as a run-time target draws one it was given: the
+// little it asks of its host. A live engine compiles a document's text as it is edited with
+// `Compiler.build`, and draws the IR it gives as a static engine draws one it was given: the
 // same IR `xtmd build` writes. An editor gets what `xtmd md` and `xtmd migrate` do from it too
 // (`Compiler.markdown`, `Compiler.migrate`), on the texts it has, with no xtmd binary.
 //

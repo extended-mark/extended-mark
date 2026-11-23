@@ -214,7 +214,7 @@ pub fn write_inline(runs: &[Inline]) -> String {
 /// Each line of `text` behind a prefix: `first` on the first line, `rest` on the others. Lines
 /// are split at `\n` only, the empty one after a final `\n` dropped, and it always ends with a
 /// line break, as @extended-mark/runtime writes it: the live page's Markdown is the same text on every
-/// target.
+/// engine.
 fn indent(text: &str, first: &str, rest: &str) -> String {
     let mut lines: Vec<&str> = text.split('\n').collect();
     if lines.last() == Some(&"") {

@@ -1,6 +1,6 @@
 // The badge pack's externs for the Android target: a composable for xtmd-android's registry, as a
-// pack ships one per target it supports (web.mjs is the web's). xtmd-android's check adapters
-// compile this file with their own sources (targets/examples/misc/android/compose/xtmd-android/build.gradle.kts).
+// pack ships one per engine it supports (web.mjs is the web's). xtmd-android's check adapters
+// compile this file with their own sources (engines/examples/misc/android/compose/xtmd-android/build.gradle.kts).
 package badge
 
 import androidx.compose.foundation.border

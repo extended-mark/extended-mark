@@ -18,7 +18,7 @@ What it does, in order:
 1. **Binaries.** `xtmd` for Linux on x64 and arm64 (static, musl), macOS on Intel and Apple
    silicon, and Windows on x64, each cross-built with `cargo zigbuild` and put in its
    `@extended-mark/cli-<os>-<cpu>` package (`compiler/npm/extended-mark/scripts/copy-binary.mjs --target <triple>`).
-2. **xtmd.wasm**, for `@extended-mark/wasm` and the real-time targets (`compiler/wasm/build.sh`).
+2. **xtmd.wasm**, for `@extended-mark/wasm` and the live engines (`compiler/wasm/build.sh`).
 3. **Tests:** the same checks every pull request runs (ci.yml): the Rust workspace, every npm
    package's and the playground's tests.
 4. **Publishing.** The GitHub release `v<VERSION>`, titled and described by its note; then the npm
@@ -61,8 +61,8 @@ packed.
 
 ## What it publishes
 
-Exactly these. Nothing in `targets/examples` (Android, egui, the native runtime, the web and test
-targets) is published: CI builds and checks them, and no release puts them out.
+Exactly these. Nothing in `engines/examples` (Android, egui, the native runtime, the web and test
+engines) is published: CI builds and checks them, and no release puts them out.
 
 - **The GitHub release** `v<VERSION>`: each platform's binary, `xtmd-<VERSION>-<platform>.tar.gz`
   for `linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64` and `win32-x64` (what `install.sh`
@@ -73,7 +73,7 @@ targets) is published: CI builds and checks them, and no release puts them out.
     `@extended-mark/wasm`, and the binary for each platform,
     `@extended-mark/cli-linux-x64`, `@extended-mark/cli-linux-arm64`, `@extended-mark/cli-darwin-x64`,
     `@extended-mark/cli-darwin-arm64` and `@extended-mark/cli-win32-x64`;
-  - from targets/published: `@extended-mark/runtime`, `@extended-mark/dom`, and the bindings,
+  - from engines/published: `@extended-mark/runtime`, `@extended-mark/dom`, and the bindings,
     `@extended-mark/embed`, `@extended-mark/embed-live`, `@extended-mark/view`, `@extended-mark/live`,
     `@extended-mark/react`, `@extended-mark/react-live`, `@extended-mark/next`, `@extended-mark/vue`,
     `@extended-mark/vue-live`, `@extended-mark/svelte`, `@extended-mark/svelte-live`,
@@ -126,7 +126,7 @@ permissions: read and write).
   `cargo publish --workspace`, leaving out each crate crates.io has at its version already and every
   crate with `publish = false`. When crates.io's limit on new crates answers 429, it waits until the
   time it gives (up to 15 minutes) and goes on with the crates left. It leaves out xtmd-schemagen
-  (a tool here), xtmd-wasm (xtmd.wasm ships another way) and the example targets' crates.
+  (a tool here), xtmd-wasm (xtmd.wasm ships another way) and the example engines' crates.
 - `bump.mjs <version> | --check`: sets the release's version everywhere it is written (`VERSION`, every
   crate and its path dependencies, `Cargo.lock`'s own crates, every package.json of ours and its
   `@extended-mark` pins, the lock files' own entries, the Android example's Gradle versions, the schemas'

@@ -8,7 +8,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repo = resolve(fileURLToPath(new URL("../..", import.meta.url)));
-const published = join(repo, "targets/published");
+const published = join(repo, "engines/published");
 
 function run(cmd, args, cwd, env = {}) {
   console.log(`\n$ (${cwd.slice(repo.length + 1) || "."}) ${cmd} ${args.join(" ")}`);

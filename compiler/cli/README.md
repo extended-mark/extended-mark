@@ -28,5 +28,5 @@ xtmd lsp                      # the language server, for an editor
 xtmd help <command>           # each command's flags and an example
 ```
 
-The language, its spec and the targets that draw a page are at
+The language, its spec and the engines that draw a page are at
 [extended-mark/extended-mark](https://github.com/extended-mark/extended-mark).

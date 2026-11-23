@@ -1,0 +1,32 @@
+[package]
+name = "xtmd-egui-live"
+workspace = "../../../../compiler"
+description = "Extended Mark's live desktop target: a document's text compiled in the host as it is edited (xtmd-live's compiler, core compiled once), and drawn by xtmd-egui's XtmdDoc. The static target, xtmd-egui, carries no compiler; this one does."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# an example engine (engines/README.md): built and checked by CI, never published
+publish = false
+
+[lib]
+name = "xtmd_egui_live"
+
+# Both kinds in one window, driving itself, for a video (examples/engines.rs).
+[[example]]
+name = "engines"
+required-features = ["app"]
+
+[features]
+default = ["check"]
+check = ["xtmd-egui/check"]
+app = ["xtmd-egui/app", "dep:eframe"]
+
+[dependencies]
+xtmd-egui = { path = "../egui", version = "0.4.0", default-features = false, features = ["fonts"] }
+xtmd-live = { path = "../../../../compiler/live", version = "0.4.0" }
+egui = "0.37"
+eframe = { version = "0.37", optional = true, default-features = false, features = ["accesskit", "default_fonts", "glow", "wayland", "x11"] }
+
+[dev-dependencies]
+serde_json.workspace = true

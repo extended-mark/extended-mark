@@ -1,9 +1,9 @@
 package core;
 
-//@about What the app tells Extended Mark about the page being read.
+//@about What the host tells Extended Mark about the page being read.
 extern page {
     width: width = width.WIDE;
     theme: theme = theme.LIGHT;
     today: date = "1970-01-01";
-    now: moment = "1970-01-01T00:00+00:00";      // the app's clock
+    now: moment = "1970-01-01T00:00+00:00";      // the host's clock
 }

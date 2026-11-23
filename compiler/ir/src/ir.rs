@@ -158,7 +158,7 @@ pub struct ExposeFns {
     pub params: Vec<Param>,
 }
 
-/// Fns the app may call, answering the extern channel of the same name.
+/// Fns the host may call, answering the extern channel of the same name.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Expose {
@@ -283,7 +283,7 @@ pub enum Expr {
     None(Empty),
     #[serde(rename = "range")]
     Range(Box<ExprRange>),
-    /// A token, by its name. A target draws it with its own value.
+    /// A token, by its name. An engine draws it with its own value.
     #[serde(rename = "token")]
     Token(String),
     /// A token made from a plain value, through its case that carries one: `stroke.PX(2.5)`.
@@ -373,12 +373,12 @@ pub struct ExternType {
 /// Something supplied from outside Extended Mark.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Extern {
-    /// An extern fn: native to every target (core's), a pack's, or the app's.
+    /// An extern fn: native to every engine (core's), a pack's, or the host's.
     #[serde(rename = "fn")]
     Fn(ExternFn),
     #[serde(rename = "widget")]
     Widget(ExternWidget),
-    /// An extern block: values the app gives and fns Extended Mark calls.
+    /// An extern block: values the host gives and fns Extended Mark calls.
     #[serde(rename = "channel")]
     Channel(ExternChannel),
     #[serde(rename = "type")]
@@ -394,7 +394,7 @@ pub struct ExternWidget {
     pub inputs: Vec<Field>,
     /// The levels drawing this widget needs: core.draw, or core.gfx for the canvas widgets.
     pub levels: Vec<Level>,
-    /// What it writes as Markdown when nobody supplies it, or when the target only writes Markdown. Left out for Markdown's own blocks, which write themselves.
+    /// What it writes as Markdown when nobody supplies it, or when the engine only writes Markdown. Left out for Markdown's own blocks, which write themselves.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub markdown: Vec<Node>,
     /// A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`).
@@ -511,7 +511,7 @@ pub struct LetDecl {
     pub value: Expr,
 }
 
-/// A level a target has (page 6): core.draw draws the extern widgets, core.live holds variables and runs events, core.gfx draws the canvas widgets. A target lists the ones it has, and a call, a widget or a page lists the ones it needs: none means its Markdown is enough.
+/// A level an engine has (page 6): core.draw draws the extern widgets, core.live holds variables and runs events, core.gfx draws the canvas widgets. An engine lists the ones it has, and a call, a widget or a page lists the ones it needs: none means its Markdown is enough.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Level {
     #[serde(rename = "core.draw")]
@@ -550,7 +550,7 @@ pub struct Marks {
 pub struct Module {
     pub bindings: Vec<Binding>,
     pub declarations: Vec<Declaration>,
-    /// A document's YAML front matter, without its --- lines, passed to the app untouched (page 1).
+    /// A document's YAML front matter, without its --- lines, passed to the host untouched (page 1).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub front_matter: Option<String>,
     pub handlers: Vec<Handler>,
@@ -574,18 +574,18 @@ pub struct NeedsPacks {
     pub version: i64,
 }
 
-/// Every extern the page uses, by who supplies it. A target checks the list when it mounts the page.
+/// Every extern the page uses, by who supplies it. An engine checks the list when it mounts the page.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Needs {
-    /// The document's own channels' fns and values, supplied by the app when it mounts the page.
+    /// The document's own channels' fns and values, supplied by the host when it mounts the page.
     pub app: Vec<String>,
     /// core's externs, supplied by the target: widgets, fns and channels.
     pub core: Vec<String>,
     pub packs: Vec<NeedsPacks>,
 }
 
-/// An extern widget, drawn by the target.
+/// An extern widget, drawn by the engine.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NodeExtern {
@@ -1015,7 +1015,7 @@ pub enum Stmt {
     Apply(StmtApply),
 }
 
-/// Who supplies an extern: the target (core's), the pack that declares it, or the app (a document's channels).
+/// Who supplies an extern: the engine (core's), the pack that declares it, or the host (a document's channels).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Supplier {
     #[serde(rename = "core")]
@@ -1057,7 +1057,7 @@ pub struct Token {
     pub name: String,
     /// The type of the value each case stands for.
     pub value: Type,
-    /// Each named case's value, from the tokens blocks of the build. A target may give its own.
+    /// Each named case's value, from the tokens blocks of the build. An engine may give its own.
     pub values: BTreeMap<String, Expr>,
 }
 

@@ -9,5 +9,5 @@ xtmd check --pack examples/graphs examples/graphs/release-flow.xtmd
 xtmd md --pack examples/graphs examples/graphs/release-flow.xtmd
 ```
 
-It needs `core.live` for the boxes and `core.gfx` for its lines; on a target without them, the
+It needs `core.live` for the boxes and `core.gfx` for its lines; on an engine without them, the
 graph shows its Markdown: the nodes, then the links.

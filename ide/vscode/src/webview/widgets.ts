@@ -1,9 +1,9 @@
-// The vscode target's widgets: core's 30 extern widgets, drawn as VS Code draws its own UI. The
+// The vscode engine's widgets: core's 30 extern widgets, drawn as VS Code draws its own UI. The
 // controls are VS Code's components: its buttons, checkboxes, switches, toggles, tabs and radio
 // lists, its input boxes, a slider drawn from its switch, and its hover and dialog widgets, in the
 // editor's theme colours and with its focus ring, and `icon` is a codicon. They keep the web
-// target's behaviour (its events, keyboard, roles and the checks' `act`), since that is what the
-// checks hold every target to; the look is VS Code's. Markdown's blocks are drawn as VS Code's
+// engine's behaviour (its events, keyboard, roles and the checks' `act`), since that is what the
+// checks hold every engine to; the look is VS Code's. Markdown's blocks are drawn as VS Code's
 // Markdown preview draws them, and the plane, the layout and the graphics in the editor's colours.
 
 import { widgets as web, type Widget, type WidgetView } from "@extended-mark/dom";
@@ -11,7 +11,7 @@ import { kase, str, Tokens } from "@extended-mark/dom/shared";
 import type { Drawn } from "@extended-mark/runtime";
 import { CODICONS } from "./codicons.js";
 
-/** A web widget, with VS Code's look: its element gets the target's classes, and `decorate` adds
+/** A web widget, with VS Code's look: its element gets the engine's classes, and `decorate` adds
  * what VS Code's component has that the web one doesn't, each redraw. */
 function look(name: string, classes: string[], decorate?: (el: HTMLElement, d: Drawn) => void): Widget {
   const base = web[`core/${name}`];
@@ -102,7 +102,7 @@ const icon: Widget = (d, ctx) => {
   return view;
 };
 
-/** Every widget the vscode target supplies, by full name. */
+/** Every widget the vscode engine supplies, by full name. */
 export const widgets: Record<string, Widget> = {
   ...web,
   "core/press": look("press", ["vsc-press"], pressLook),

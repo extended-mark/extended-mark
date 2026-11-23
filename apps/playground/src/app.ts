@@ -7,7 +7,7 @@ import { Num, Page, type Broken, type Outcome, type ir } from "@extended-mark/ru
 import { mount } from "@extended-mark/dom";
 import { Editor, type Diagnostic } from "./editor.js";
 import { escapeHtml, proseLines } from "./highlight.js";
-import { clockExterns, targetFns, themeNow, widthOf } from "./host.js";
+import { clockExterns, engineFns, themeNow, widthOf } from "./host.js";
 import { plainCases, shapeError, stateDecl, typeSignature, typeText, valueHtml, valueText } from "./values.js";
 import type { Built, PackFile } from "@extended-mark/wasm";
 import type { Answer, Request } from "./compiler.worker.js";
@@ -308,7 +308,7 @@ function makePage(file: ir.File, state: Record<string, ir.Expr>): Page {
     state,
     page: { width, theme },
     externs: clockExterns(),
-    fns: targetFns(() => page!),
+    fns: engineFns(() => page!),
   });
   return page;
 }
@@ -407,7 +407,7 @@ function showPage(file: ir.File, fresh: boolean): { ok: true } | { ok: false; er
   return { ok: true };
 }
 
-// every change to the page, from the reader or the app, redraws these once
+// every change to the page, from the reader or the host, redraws these once
 
 let liveQueued = false;
 function liveChanged(): void {
@@ -675,7 +675,7 @@ class StateView {
     }
   }
 
-  /** An app write to `$state`: checked by the page, and refused with the rule it would break. */
+  /** A host write to `$state`: checked by the page, and refused with the rule it would break. */
   private apply(f: ir.Field, x: ir.Expr): string | undefined {
     const page = mounted?.page;
     if (!page || !this.file) return "There is no page running.";

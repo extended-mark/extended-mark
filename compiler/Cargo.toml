@@ -13,11 +13,11 @@ members = [
     "wasm",
     "schemagen",
     "../ide/lsp",
-    "../targets/examples/rust/runtime",
-    "../targets/examples/rust/egui",
-    "../targets/examples/rust/egui-live",
-    "../targets/examples/misc/android/xtmd",
-    "../targets/examples/misc/android/xtmd-live",
+    "../engines/examples/rust/runtime",
+    "../engines/examples/rust/egui",
+    "../engines/examples/rust/egui-live",
+    "../engines/examples/misc/android/xtmd",
+    "../engines/examples/misc/android/xtmd-live",
 ]
 
 [workspace.package]

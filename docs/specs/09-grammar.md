@@ -87,7 +87,7 @@ tokens    = "tokens" name "{" { name "." CAPS "=" expr ";" } "}"
 
 There are no variables at the top of a file or a document. A document's shared values are the fields of its `$state` block, written once, above the `@@@` line, each with a starting value, and read and written as `$state.name` anywhere in the document. A `mut` at the top of a document is a compile error that points to `$state`. A pack keeps no state, so a pack's files have no `$state` block, never read `$state`, and have no `expose`. A widget's own variables live in its body, one set for each use of the widget.
 
-`expose` declares no name of its own: it answers the `extern` block of its name, or starts that channel when there is none, and only the app calls its fns.
+`expose` declares no name of its own: it answers the `extern` block of its name, or starts that channel when there is none, and only the host calls its fns.
 
 A token is an enum whose cases stand for values of the type after its colon. A case that carries values is written as an enum's is, such as `PX(px: number 0.25..16)`, and one that carries a single value of the token's type needs no line in a `tokens` block. A line in a `tokens` block gives a named case its value, and a line for a name the token doesn't declare adds a case, which is why a `match` on a token needs `case else`.
 

@@ -402,7 +402,7 @@ fn hole.words(self): text {
     }
 }
 
-//@about Maths, written in TeX. Core checks how it is written; the target may also refuse what it can't draw.
+//@about Maths, written in TeX. Core checks how it is written; the engine may also refuse what it can't draw.
 //@about Its holes stay values: each counts as one token in the checks, and show escapes it for TeX.
 record latex implements literal<template>, shown {
     tex: template;
@@ -435,7 +435,7 @@ record latex implements literal<template>, shown {
         return tex_values(tex);
     }
 
-    require "the target can draw this TeX" {
+    require "the engine can draw this TeX" {
         return can_draw_tex(tex);
     }
 }
@@ -444,7 +444,7 @@ fn latex.from(value: template): opt<latex> {
     return try latex { tex = value };
 }
 
-//@about The TeX, with each hole's characters escaped so that TeX reads them as themselves. A target draws this.
+//@about The TeX, with each hole's characters escaped so that TeX reads them as themselves. An engine draws this.
 fn latex.show(self): text {
     mut out: text = "";
     for (k, piece in self.tex.pieces) {
@@ -456,7 +456,7 @@ fn latex.show(self): text {
     return out;
 }
 
-//@about Whether the target can draw this TeX, for example whether it knows every command in it. A target may supply its own; without one, all TeX that core accepts is drawn.
+//@about Whether the engine can draw this TeX, for example whether it knows every command in it. An engine may supply its own; without one, all TeX that core accepts is drawn.
 extern fn can_draw_tex(tex: template): bool {
     return true;
 }
@@ -775,10 +775,10 @@ fn ordered.max(self, other: self): self {
 `map`, `date`, `moment`, `template`, `latex`, `md` and `rich_text` are ordinary records written in Extended Mark, not extern: nothing about them needs the implementer.
 
 - **Dates and moments** fit `literal<text>`, like `email` on page 4, so `"2026-11-10"` is checked where it is written. Their fields mirror the text, so each simple limit is a field contract, proved like any other, and only a rule across fields, that the day fits its month, is a `require`. `from` only cuts the text and checks its separators, and a reader's text goes through it by name: `date.from(entry)` is an `opt<date>`. A date literal with a hole is a compile error that says to build the record: `date { year = 2026, month = month, day = 1 }`. `plus` stops at the ends of the calendar, 0001-01-01 and 9999-12-31.
-- **Offsets, not zones.** `moment` always carries its offset; named zones and daylight saving are left out, and authors write offsets. The current time is `page.now`, which the app updates, because drawing can't ask what time it is. `local()` is an extern fn: it shows a moment in the reader's own zone, with the offset that zone uses on that date, from the platform's zone rules. Two moments are equal when they are the same instant, because `moment`'s own `same` replaces the field-by-field one.
+- **Offsets, not zones.** `moment` always carries its offset; named zones and daylight saving are left out, and authors write offsets. The current time is `page.now`, which the host updates, because drawing can't ask what time it is. `local()` is an extern fn: it shows a moment in the reader's own zone, with the offset that zone uses on that date, from the platform's zone rules. Two moments are equal when they are the same instant, because `moment`'s own `same` replaces the field-by-field one.
 - **Holes stay values.** `rich_text`, `md` and `latex` fit `literal<template>`: a literal, holes and all, reaches their `from` as a `template`, and each hole is placed as a value, never read, so it can't become formatting or TeX.
 - **Markdown is parsed by core**, in Extended Mark, as any pack could: CommonMark, with GitHub's tables, task lists, strikethrough, footnotes and bare links. No implementer parses it. The parser is long and follows those two specs, so this page gives its two entry points as signatures, below. `md.from` may also be called by name: `md.from(template.of(entry))` reads what a reader typed as Markdown, and `@blocks(value = …)` draws it.
-- **TeX** is checked by `latex`'s seven `require` blocks, written in Extended Mark, each counting a hole as one token. An eighth asks `can_draw_tex`, an extern fn whose body is the default and which a target may replace with its own, such as one that refuses a command it can't draw. `show` gives the whole TeX with each hole's characters escaped, which is what a target draws.
+- **TeX** is checked by `latex`'s seven `require` blocks, written in Extended Mark, each counting a hole as one token. An eighth asks `can_draw_tex`, an extern fn whose body is the default and which an engine may replace with its own, such as one that refuses a command it can't draw. `show` gives the whole TeX with each hole's characters escaped, which is what an engine draws.
 
 ```java
 // inline Markdown as segments: CommonMark's emphasis, GitHub's strikethrough, links and bare links, code spans,
@@ -1250,16 +1250,16 @@ These are ordinary enums, so `match` on any of them has to cover every case. Tok
 ```java
 package core;
 
-//@about What the app tells Extended Mark about the page being read.
+//@about What the host tells Extended Mark about the page being read.
 extern page {
     width: width = width.WIDE;
     theme: theme = theme.LIGHT;
     today: date = "1970-01-01";
-    now: moment = "1970-01-01T00:00+00:00";      // the app's clock
+    now: moment = "1970-01-01T00:00+00:00";      // the host's clock
 }
 ```
 
-`page` is an `extern` block like the ones on page 6. The defaults are what a target that supplies nothing gets.
+`page` is an `extern` block like the ones on page 6. The defaults are what an engine that supplies nothing gets.
 
 #### migrations
 
@@ -1384,7 +1384,7 @@ extern widget plane(
     mut zoom: number 0.1..10 = 1,                   // at 1, one unit is one of the page's own lengths; the caller may keep it
     zoom_range: range<number> = 1..1,               // how far the reader may zoom; 1..1 means not at all
     fit: bool = false,                              // start zoomed so the whole of bounds fits; zoom_range counts from there
-    mut drawn: opt<region> = opt.NONE,              // written by the target: the part of the plane being drawn
+    mut drawn: opt<region> = opt.NONE,              // written by the engine: the part of the plane being drawn
     width: opt<size> = opt.NONE,                    // left out, the width it is given, like a column
     aspect: number 0.1..10 = 1.5,                   // the drawn area's width over its height
 ) {
@@ -1409,7 +1409,7 @@ extern widget spot(
     at: point,
     anchor: anchor = anchor.CENTER,
     nudge: point = point { x = 0, y = 0 },          // by the page's own lengths, y up
-    mut box: opt<region> = opt.NONE,                // written by the target: from the bottom-left corner to the top-right one
+    mut box: opt<region> = opt.NONE,                // written by the engine: from the bottom-left corner to the top-right one
 ) {
     slot child: view;
 
@@ -1420,7 +1420,7 @@ extern widget spot(
 ```
 
 - **The plane's unit.** At zoom 1, one unit of a plane is one of the page's own lengths (a CSS pixel, an Android dp), so a widget on a plane is the size it is anywhere else, and its box never depends on the plane's size. `fit` starts the plane zoomed so the whole of `bounds` fits.
-- **Bounds.** A region; left out, the region around every spot's box, worked out after layout. Nothing outside it is drawn, and the reader can't pan past it. A spot outside the bounds is a warning: at compile time when both are constants, and otherwise reported to the app when the page runs, not as a failure, and clipped.
+- **Bounds.** A region; left out, the region around every spot's box, worked out after layout. Nothing outside it is drawn, and the reader can't pan past it. A spot outside the bounds is a warning: at compile time when both are constants, and otherwise reported to the host when the page runs, not as a failure, and clipped.
 - **The centre** is kept where the drawn area stays inside the bounds, and is their middle where they are smaller than it. A centre that had to be moved is written back to the caller's variable.
 - **Moving around** needs `core.live`: dragging pans, and pinching or scrolling zooms, within `zoom_range`, whose default `1..1` doesn't zoom. Without `core.live`, the plane is drawn where its centre puts it and doesn't move.
 - **What is reported.** Each spot's `box`, in the plane's units, so panning and zooming never change it: it changes only when the widget's own size does. And the plane's `drawn` region, written as the reader moves, as `center` is. What is in view is worked out in Extended Mark: `box.overlaps(drawn)`. The boxes of one layout are written as one change, and writing the value a variable already has is no change. A layout that keeps changing is stopped after a fixed number of passes, and is a failure of the plane.
@@ -1571,9 +1571,9 @@ extern widget overlay(label: text, mode: overlay_mode = overlay_mode.POPOVER, mu
 }
 ```
 
-**Shared values at the edge.** A `mut` input of an `extern` widget, such as `slider`'s `value`, accepts a variable with any contract of the declared type. The implementer may read that contract, which is where a slider gets its step, and its ends when no `range` is given, and the runtime refuses any value the widget writes that is outside it. Given a `range`, the slider's ends come from it and a drag outside it is refused, so its ends can follow another value: `range = 0..($state.high)`. A variable with no range and no `range` gives a slider from 0 to 1. This is the one case where a wider contract is accepted, and it is allowed because the app boundary is checked at run time anyway.
+**Shared values at the edge.** A `mut` input of an `extern` widget, such as `slider`'s `value`, accepts a variable with any contract of the declared type. The implementer may read that contract, which is where a slider gets its step, and its ends when no `range` is given, and the runtime refuses any value the widget writes that is outside it. Given a `range`, the slider's ends come from it and a drag outside it is refused, so its ends can follow another value: `range = 0..($state.high)`. A variable with no range and no `range` gives a slider from 0 to 1. This is the one case where a wider contract is accepted, and it is allowed because the host boundary is checked at run time anyway.
 
-**Inputs a caller may keep.** `overlay`'s `open`, and `plane`'s `center` and `zoom`, are `mut` inputs with a default: given a variable, the caller keeps the value; left out, the widget keeps it itself. In a loop, rows follow their items, so a widget's own value stays with its item (page 3). `plane`'s `drawn` and `spot`'s `box` are written by the target, so a caller gives them a variable to read.
+**Inputs a caller may keep.** `overlay`'s `open`, and `plane`'s `center` and `zoom`, are `mut` inputs with a default: given a variable, the caller keeps the value; left out, the widget keeps it itself. In a loop, rows follow their items, so a widget's own value stays with its item (page 3). `plane`'s `drawn` and `spot`'s `box` are written by the engine, so a caller gives them a variable to read.
 
 #### widgets: core.gfx
 
@@ -1692,7 +1692,7 @@ fn rect(x0: number, y0: number, x1: number, y1: number): list<point>[4] {
 
 - **Shapes write no Markdown of their own.** `layer`, `circle`, `path`, `place`, `handle` and `shade` have an empty `markdown { }`, and the canvas, or the plane, around them writes what the picture shows.
 - **Positions, radii and nudges are plain numbers**, on a canvas and on a plane: they say where things are drawn, not how the page looks, so they take no tokens. A stroke's `width` takes a `stroke`: a named one by convention, or a plain number.
-- **A shader** is an extern fn with a return type (page 6). Declared in a document's `extern` block, the app supplies it; declared in a pack, the pack does, for each target it supports. The target runs it for every pixel of `area`, natively.
+- **A shader** is an extern fn with a return type (page 6). Declared in a document's `extern` block, the host supplies it; declared in a pack, the pack does, for each engine it supports. The engine runs it for every pixel of `area`, natively.
 - **`args`** is given once and handed to the shader as uniforms: numbers, points, colours (a colour token goes in as the theme's current value) and bools.
 - **`pixel`'s colours are its own**, like an `image`'s. The page's colours still take tokens only.
 - **An Extended Mark fn fits the type too.** The runtime calls it for each pixel within the step limit, so only small areas fit, and the compiler warns.

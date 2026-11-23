@@ -1,5 +1,5 @@
 // core's glyphs as VS Code's own icons, the codicons: each glyph by the codicon VS Code draws for
-// the same idea. One with none here is drawn as the web target draws it.
+// the same idea. One with none here is drawn as the web engine draws it.
 
 export const CODICONS: Record<string, string> = {
   PLAY: "play",

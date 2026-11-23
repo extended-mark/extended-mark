@@ -68,7 +68,7 @@ pub struct Cx {
     pub fn_id: Option<usize>,
     /// The plain `for` loops around: their depth, variable, and the list they walk.
     pub walking: Vec<(usize, String, Option<String>)>,
-    /// In an exposed fn, which the app calls and reads nothing back from.
+    /// In an exposed fn, which the host calls and reads nothing back from.
     pub exposed: bool,
 }
 

@@ -1,5 +1,5 @@
-// The badge pack's externs for the targets drawn from @extended-mark/view (React, Vue, Svelte, Solid,
-// Angular): a widget as an element, as a pack ships one per target it supports.
+// The badge pack's externs for the engines drawn from @extended-mark/view (React, Vue, Svelte, Solid,
+// Angular): a widget as an element, as a pack ships one per engine it supports.
 
 function text(v) {
   return v?.kind === "text" ? v.s : v?.kind === "num" ? v.n.show() : "";

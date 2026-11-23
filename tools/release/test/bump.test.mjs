@@ -22,9 +22,9 @@ const tree = {
   "compiler/npm/extended-mark/package.json": json({ name: "extended-mark", version: "0.3.1", optionalDependencies: { "@extended-mark/wasm": "file:../wasm", "@extended-mark/cli-linux-x64": "0.3.1" }, devDependencies: { typescript: "0.3.1" } }),
   "compiler/npm/extended-mark/package-lock.json": json({ name: "extended-mark", version: "0.3.1", lockfileVersion: 3, packages: { "": { name: "extended-mark", version: "0.3.1" }, "../wasm": { version: "0.3.1" }, "../gone": { version: "0.3.0" }, "node_modules/typescript": { version: "0.3.1", resolved: "https://registry.npmjs.org/typescript/-/typescript-0.3.1.tgz" } } }),
   "compiler/npm/wasm/package.json": json({ name: "@extended-mark/wasm", version: "0.3.1" }),
-  "targets/published/runtime/package.json": json({ name: "@extended-mark/runtime", version: "0.3.1" }),
-  "targets/published/bindings/embed/src/snapshot.ts": 'export const RELEASE = "0.3.1";\n',
-  "targets/somebody-else/package.json": json({ name: "left-pad", version: "0.3.1" }),
+  "engines/published/runtime/package.json": json({ name: "@extended-mark/runtime", version: "0.3.1" }),
+  "engines/published/bindings/embed/src/snapshot.ts": 'export const RELEASE = "0.3.1";\n',
+  "engines/somebody-else/package.json": json({ name: "left-pad", version: "0.3.1" }),
   "examples/web/package.json": json({ name: "@extended-mark/example-web", version: "0.3.1", private: true }),
   "ide/vscode/package.json": json({ name: "xtmd", publisher: "extended-mark", version: "0.3.1" }),
   "ide/vscode/README.md": "npm run package       # xtmd-0.3.1.vsix\n",
@@ -63,9 +63,9 @@ test("bump raises every place it owns, and nothing else", () => {
   assert.equal(lock.packages["../wasm"].version, "0.4.0");
   assert.equal(lock.packages["../gone"].version, "0.3.0", "an entry for a folder that is no more");
   assert.equal(lock.packages["node_modules/typescript"].version, "0.3.1", "the registry's");
-  assert.equal(JSON.parse(read("targets/published/runtime/package.json")).version, "0.4.0");
-  assert.equal(read("targets/published/bindings/embed/src/snapshot.ts"), 'export const RELEASE = "0.4.0";\n');
-  assert.equal(JSON.parse(read("targets/somebody-else/package.json")).version, "0.3.1", "not ours");
+  assert.equal(JSON.parse(read("engines/published/runtime/package.json")).version, "0.4.0");
+  assert.equal(read("engines/published/bindings/embed/src/snapshot.ts"), 'export const RELEASE = "0.4.0";\n');
+  assert.equal(JSON.parse(read("engines/somebody-else/package.json")).version, "0.3.1", "not ours");
   assert.equal(JSON.parse(read("examples/web/package.json")).version, "0.4.0");
   assert.equal(JSON.parse(read("ide/vscode/package.json")).version, "0.4.0");
   assert.equal(read("ide/vscode/README.md"), "npm run package       # xtmd-0.4.0.vsix\n");
@@ -79,8 +79,8 @@ test("bump raises every place it owns, and nothing else", () => {
 });
 
 test("--check's drift names each file that disagrees, and what it says", () => {
-  writeFileSync(join(scratch, "targets/published/runtime/package.json"), json({ name: "@extended-mark/runtime", version: "0.3.9" }));
-  assert.deepEqual(drift(scratch, "0.4.0"), [{ file: "targets/published/runtime/package.json", says: ["0.3.9"] }]);
+  writeFileSync(join(scratch, "engines/published/runtime/package.json"), json({ name: "@extended-mark/runtime", version: "0.3.9" }));
+  assert.deepEqual(drift(scratch, "0.4.0"), [{ file: "engines/published/runtime/package.json", says: ["0.3.9"] }]);
 });
 
 test("the repository says VERSION everywhere", () => {

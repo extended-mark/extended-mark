@@ -40,18 +40,18 @@ pub(crate) fn writes(cmd: &str, args: &[String]) -> bool {
 /// drops one adds it here. A release of `""` is a flag xtmd never had but is asked for, and why it has
 /// none.
 const DROPPED: &[(&str, &str, &str, &str)] = &[
-    ("build", "--target", "0.3.0", "xtmd build writes the IR and xtmd md the Markdown; drawing HTML is a target's"),
+    ("build", "--target", "0.3.0", "xtmd build writes the IR and xtmd md the Markdown; drawing HTML is an engine's"),
     ("build", "--md", "0.3.0", "xtmd md writes CommonMark with GitHub's tables, and has no switches"),
     ("build", "--lock", "0.3.0", "the version of each pack is xtmd.toml's [uses]"),
     ("build", "--relock", "0.3.0", "the version of each pack is xtmd.toml's [uses], which xtmd migrate moves"),
     ("build", "--no-lock", "0.3.0", "there is no lock: the version of each pack is xtmd.toml's [uses]"),
     ("build", "--diagnostics", "0.3.0", "use --format json"),
-    ("build", "--styles", "0.3.0", "the look is a target's to draw, and xtmd writes no HTML"),
+    ("build", "--styles", "0.3.0", "the look is an engine's to draw, and xtmd writes no HTML"),
     ("build", "--profile", "0.3.0", "nothing: a pack has one surface per version"),
     ("build", "--name", "0.3.0", "nothing: xtmd build reads a file, named by its path"),
     ("build", "--compact", "0.3.0", "nothing: the IR is written one way"),
-    ("build", "--no-maths", "0.3.0", "nothing: maths is TeX passed to the target, which draws it"),
-    ("build", "--no-speech", "0.3.0", "nothing: maths is TeX passed to the target, which draws it"),
+    ("build", "--no-maths", "0.3.0", "nothing: maths is TeX passed to the engine, which draws it"),
+    ("build", "--no-speech", "0.3.0", "nothing: maths is TeX passed to the engine, which draws it"),
     ("build", "--no-answers", "0.3.0", "nothing: xtmd md writes a page with its starting values"),
     ("check", "--diagnostics", "0.3.0", "use --format json"),
     ("fmt", "--write", "0.3.0", "xtmd fmt writes each file in place; --check only checks"),

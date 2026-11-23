@@ -13,7 +13,7 @@ enum check {
     WRONG,
 }
 
-//@about What the quiz widgets tell the app.
+//@about What the quiz widgets tell the host.
 extern quizzes {
     fn answered(correct: bool, value: text);
 }
@@ -250,12 +250,12 @@ for (k, t in todos) {
 
 #### Where variables live
 
-- **The document's `$state`**: A document's shared variables are the fields of its one `$state` block, written above its `@@@` line. Every widget and fn in the document uses them as `$state.name`, and only actions assign them. They last while the page is open, and the app can read and write them (page 6). There are no other shared variables: a `mut` at the top of a file is a compile error that points to `$state`.
+- **The document's `$state`**: A document's shared variables are the fields of its one `$state` block, written above its `@@@` line. Every widget and fn in the document uses them as `$state.name`, and only actions assign them. They last while the page is open, and the host can read and write them (page 6). There are no other shared variables: a `mut` at the top of a file is a compile error that points to `$state`.
 - **No state in packs**: A pack's widgets share what the document passes to their `mut` inputs, such as `@tally(points = $state.points);`, so every shared value is in the document's `$state`.
 - **A widget's own variables**: A `mut` in a widget body, or a `mut` input with a default that the caller didn't give. There is one per use of the widget, so two tab sets on a page each remember their own open tab.
 - **Starting values run once.** `mut ticked: list<number> = ticked_first(items);` is worked out when the widget is made, with the inputs as they are then. A later change to `items` does not run it again. A value that should follow an input is a `let`.
 - **A widget is the same widget while its call is the same call.** A widget on the page is identified by where its call is written: the chain of calls, loop items and branches that leads to it. Its own variables last as long as that call keeps being reached. When an `if` or `match` takes another branch, the widgets in the old branch are gone, and coming back makes new ones.
-- **Rows follow their items.** The runtime knows which item of a list is which, as `mut for` does, and a widget in a loop keeps its own variables with its item: delete the first item, and the second item's row keeps its own open tab. An item it doesn't know gets a new widget, starting from its defaults. That is every item of a list built anew, by `filter`, `sorted` or `reversed`, or replaced by the app, so its rows are made again. A row's memory can be lost that way, but it never moves to another item. Focus, the caret and scrolling are the implementer's, and stay with their rows.
+- **Rows follow their items.** The runtime knows which item of a list is which, as `mut for` does, and a widget in a loop keeps its own variables with its item: delete the first item, and the second item's row keeps its own open tab. An item it doesn't know gets a new widget, starting from its defaults. That is every item of a list built anew, by `filter`, `sorted` or `reversed`, or replaced by the host, so its rows are made again. A row's memory can be lost that way, but it never moves to another item. Focus, the caret and scrolling are the implementer's, and stay with their rows.
 - **Where a view is placed does not matter.** Children are made by the caller, so they keep their variables however the widget that receives them shows, hides or reorders them. A view value placed twice is two widgets with separate variables.
 - **One redraw per event.** When an event handler ends, everything that reads what it changed is worked out again, once.
 
@@ -401,7 +401,7 @@ let orders_box: label = @label(value = "Orders");
 ```
 
 - **A held widget is a description until it is placed.** Placed twice, it is two widgets. What `jump` does with a view that is placed twice, or isn't on the page at all (a branch that wasn't taken, or a `find` that found nothing), is up to whoever supplies `jump`. The compiler checks neither: it knows nothing about what a widget does with a view it is given.
-- **Any pack can do the same.** A pack may declare an extern widget that takes a view, and the pack supplies it for each target it supports. One that nobody supplies shows its Markdown (page 6).
+- **Any pack can do the same.** A pack may declare an extern widget that takes a view, and the pack supplies it for each engine it supports. One that nobody supplies shows its Markdown (page 6).
 - **For data**, keep the widgets in a list, place them in a loop, and find them with list fns. The `opt` that `find` gives goes straight into an input such as `to: opt<view>`.
 
 ### Markdown

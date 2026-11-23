@@ -181,7 +181,7 @@ impl Checker {
         }
     }
 
-    /// A channel's fn with no return type is an action sent to the app (page 6): called only
+    /// A channel's fn with no return type is an action sent to the host (page 6): called only
     /// where things may change, and it changes the world.
     pub(crate) fn check_channel_action(&mut self, cx: &Cx, name: &str, span: Span) {
         if !cx.action {

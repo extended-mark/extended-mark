@@ -1,5 +1,5 @@
 //! Every `extern fn` core declares with no body is implemented by the evaluator, or is on the
-//! written list of target-only fns (plan tab 14): no target can be left without one.
+//! written list of engine-only fns (plan tab 14): no engine can be left without one.
 
 use std::process::Command;
 

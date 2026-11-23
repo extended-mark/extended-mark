@@ -25,7 +25,7 @@ pub const NATIVES: &[&str] = &[
     "core/text.of_code",
 ];
 
-/// core's bodyless `extern fn`s that only a target can supply, from what it runs on (page 5,
+/// core's bodyless `extern fn`s that only an engine can supply, from what it runs on (page 5,
 /// plan tab 14): every other bodyless one is a native.
 pub const TARGET_ONLY: &[&str] = &["core/moment.local"];
 

@@ -4,7 +4,7 @@ record item {
     price: int 0...;
 }
 
-//@about What the page tells the app.
+//@about What the page tells the host.
 extern shop {
     fn checkout(total: number, count: number);
 }

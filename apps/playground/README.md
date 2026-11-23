@@ -7,7 +7,7 @@ Edit an Extended Mark page on the left and see it drawn on the right, with its M
 - **Page**: drawn by `@extended-mark/dom` from `@extended-mark/runtime`. `$state` is kept across recompiles for every field that still exists with the same type. While the source has errors, the last page that compiled stays, greyed and marked stale.
 - **Markdown**: `page.markdown()`, redrawn after every change; "As compiled" shows `xtmd md`'s, with the starting values: the Markdown of a page just started from the IR.
 - **Diagnostics**: each with its line, column and code. Click one to put the caret there.
-- **$state**: the live values. Change one to write it as an app would (`page.set`); a refused write shows the rule it broke. **Reset** goes back to the starting values.
+- **$state**: the live values. Change one to write it as a host would (`page.set`); a refused write shows the rule it broke. **Reset** goes back to the starting values.
 
 ## Run it
 
@@ -18,12 +18,12 @@ It needs Node 20 or later and `xtmd.wasm`.
 compiler/wasm/build.sh
 
 # the packages it uses, once
-(cd targets/published/runtime && npm ci && npm run build)
-(cd targets/published/dom && npm ci && npm run build)
+(cd engines/published/runtime && npm ci && npm run build)
+(cd engines/published/dom && npm ci && npm run build)
 (cd compiler/npm/wasm && npm install && npm run build)
-(cd targets/published/bindings/embed && npm install && npm run build)       # the Targets page's two targets
-(cd targets/published/bindings/live && npm install && npm run build)
-(cd targets/published/bindings/embed-live && npm install && npm run build)
+(cd engines/published/bindings/embed && npm install && npm run build)       # the Engines page's two engines
+(cd engines/published/bindings/live && npm install && npm run build)
+(cd engines/published/bindings/embed-live && npm install && npm run build)
 
 # the playground
 cd apps/playground
@@ -35,13 +35,13 @@ npm start            # http://localhost:8080
 
 `?example=slider` in the URL opens an example directly.
 
-**`/targets`** (linked from the top bar) draws one page with the plain web's two kinds of target side
+**`/engines`** (linked from the top bar) draws one page with the plain web's two kinds of engine side
 by side: run time, @extended-mark/embed's `XtmdDoc`, from an IR `build.mjs` builds ahead with xtmd.wasm
-(`dist/targets-counter.ir.json`); and real time, @extended-mark/embed-live's `XtmdLiveDoc`, from the text in a
+(`dist/engines-counter.ir.json`); and real time, @extended-mark/embed-live's `XtmdLiveDoc`, from the text in a
 box, compiled in the browser as it changes. It shows `$state` under each, and a snapshot taken and
-restored. The video's take is `devbench/takes/targets.py`.
+restored. The video's take is `devbench/takes/engines.py`.
 
-The bundle, in `dist/`: `app.js` (the playground, @extended-mark/runtime, @extended-mark/dom and Monaco's editor API: about 3.1 MB, 0.8 MB gzipped), `app.css` (with Monaco's), Monaco's codicon font, `editor.worker.js`, Monaco's web worker, built as an entry of its own and found through `MonacoEnvironment.getWorkerUrl`, `compiler.worker.js` and `xtmd.wasm` (about 3.2 MB, 1 MB gzipped), and the Targets page's `targets.js` and `targets-counter.ir.json`. The server serves every file there with an ETag and a gzip it keeps; the font, whose name has a hash, is cached for good.
+The bundle, in `dist/`: `app.js` (the playground, @extended-mark/runtime, @extended-mark/dom and Monaco's editor API: about 3.1 MB, 0.8 MB gzipped), `app.css` (with Monaco's), Monaco's codicon font, `editor.worker.js`, Monaco's web worker, built as an entry of its own and found through `MonacoEnvironment.getWorkerUrl`, `compiler.worker.js` and `xtmd.wasm` (about 3.2 MB, 1 MB gzipped), and the Engines page's `engines.js` and `engines-counter.ir.json`. The server serves every file there with an ETag and a gzip it keeps; the font, whose name has a hash, is cached for good.
 
 For tests and takes, `window.playground` reads the editor without touching it: `source()`, `caret()`, `markers()`, `failures()` (the marks of widgets that failed), `tokens(line)`, `language()`, `visibleLines()`, `hasFocus()`, `compiles()` (how many builds were asked for), and `select(text)`, which only moves the selection.
 

@@ -1,4 +1,4 @@
-//! Embeds core's Extended Mark sources in the library, as cli/build.rs embeds them in the binary: an app (or
+//! Embeds core's Extended Mark sources in the library, as cli/build.rs embeds them in the binary: a host (or
 //! a browser, through xtmd-wasm) compiles core itself, once, with no files around it. Packs come
 //! with each build, as text.
 

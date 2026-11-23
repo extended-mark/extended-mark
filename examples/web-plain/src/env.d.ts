@@ -5,7 +5,7 @@ declare global {
   interface Window {
     /** The mounted page, for the same-page test. */
     __xtmd: Mounted;
-    /** Every extern fn call the app heard, for the same-page test. */
+    /** Every extern fn call the host heard, for the same-page test. */
     __calls: Call[];
   }
 }

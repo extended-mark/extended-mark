@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds xtmd.wasm, the compiler a real-time target runs in the browser, into @extended-mark/wasm (or the
+# Builds xtmd.wasm, the compiler a live engine runs in the browser, into @extended-mark/wasm (or the
 # path given). Needs Rust's wasm32-wasip1 target (rustup target add wasm32-wasip1) and zig for
 # decNumber's C (see zig/cc).
 set -euo pipefail

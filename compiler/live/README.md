@@ -1,9 +1,9 @@
 # xtmd-live
 
-What a real-time Extended Mark target embeds: the compiler, with core compiled once when it is made, which
+What a live Extended Mark engine embeds: the compiler, with core compiled once when it is made, which
 builds a document's text (and its packs' files, as text) into the IR `xtmd build` writes; and
 `Live`, a text followed as it is edited, which keeps the last IR that compiled while a draft has
-errors. The run-time targets don't depend on it.
+errors. The static engines don't depend on it.
 
 - `Compiler::new()` compiles core (the slow part); `build(path, text, packs)` gives a `Built`:
   the IR or none, the diagnostics as `xtmd check --format json` writes them, and the error count.
@@ -12,5 +12,5 @@ errors. The run-time targets don't depend on it.
   `ir()`, `revision()` moved) or `Broken` (the last `ir()` stays; `diagnostics()` and `why()`
   say why).
 
-Used by [xtmd-wasm](../wasm) (the browser's, through @extended-mark/wasm), [xtmd-egui-live](../../targets/examples/rust/egui-live)
+Used by [xtmd-wasm](../wasm) (the browser's, through @extended-mark/wasm), [xtmd-egui-live](../../engines/examples/rust/egui-live)
 and xtmd-android-live. `cargo test -p xtmd-live` runs `tests/live.rs`.

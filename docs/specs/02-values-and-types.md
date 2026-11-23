@@ -319,7 +319,7 @@ fn entered(a: number, b: number): opt<span> {
 - **Made anywhere.** A record that has `require` blocks can be made anywhere. Its rules run when it is made: at compile time for constants, where a `false` is a compile error, and when the page runs for anything else, where a `false` is a failure. Write `try` in front to get an `opt` instead, for values that may be wrong.
 - **`try`** in front of a record literal, a `with`, or a case that carries values, such as `try stroke.PX(value)`, gives an `opt`: the value when every contract and every `require` holds, and `opt.NONE` when one does not. So a value under `try` needs no proof. Without `try`, each field's contract still needs its proof.
 - **Contracts first.** A limit on one field is best written as that field's contract, which is proved at compile time, as `date`'s `month: int 1..12` is (page 5). A `require` is for rules across fields, such as a span's end coming after its start, or a day fitting its month.
-- **Every change is checked.** Whenever a value changes, every contract and `require` block that reads it is checked, wherever it lives: in a record, a widget or `$state`. A rule that fails is handled where the change happened: in an event handler it is a failure, and the event is undone; under `try` the answer is `opt.NONE`; a write from the app is refused and reported. Values that have to move together change in one step, so the rules see only the result: `$state = $state with { low = a, high = b };`.
+- **Every change is checked.** Whenever a value changes, every contract and `require` block that reads it is checked, wherever it lives: in a record, a widget or `$state`. A rule that fails is handled where the change happened: in an event handler it is a failure, and the event is undone; under `try` the answer is `opt.NONE`; a write from the host is refused and reported. Values that have to move together change in one step, so the rules see only the result: `$state = $state with { low = a, high = b };`.
 - **Mut fields.** So a record with `require` blocks may have `mut` fields: every change to one checks its rules again.
 - **In a widget**, a `require` reads inputs only. With constant inputs it is checked by the compiler. Otherwise it is checked when the widget is made and when an input changes, and a `false` is a failure of that widget.
 
@@ -339,7 +339,7 @@ fn counted(): text {
 }
 ```
 
-The number shown would depend on how often the implementer happened to redraw: once on a desktop, several times on a phone that resized, and once more every time someone exported Markdown. With the rule, every change starts in an action: an event handler, or a call or a write from the app. What the page shows doesn't depend on how often it is drawn, an implementer can redraw only what changed, exporting Markdown or previewing can't change anything, and "why did this change?" always has one answer: the action that ran.
+The number shown would depend on how often the implementer happened to redraw: once on a desktop, several times on a phone that resized, and once more every time someone exported Markdown. With the rule, every change starts in an action: an event handler, or a call or a write from the host. What the page shows doesn't depend on how often it is drawn, an implementer can redraw only what changed, exporting Markdown or previewing can't change anything, and "why did this change?" always has one answer: the action that ran.
 
 The return type tells the two kinds apart without a new keyword. A fn with a return type answers a question. A fn with none is an action.
 

@@ -1,4 +1,4 @@
-// react-dom's client entry, as the Targets page uses it: its types (@types/react-dom) aren't needed
+// react-dom's client entry, as the Engines page uses it: its types (@types/react-dom) aren't needed
 // for one function.
 declare module "react-dom/client" {
   import type { ReactNode } from "react";

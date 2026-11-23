@@ -252,7 +252,7 @@ pub enum PageWidth {
     Wide,
 }
 
-/// What the app tells the page about where it is read.
+/// What the host tells the page about where it is read.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Page {

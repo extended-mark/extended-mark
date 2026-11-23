@@ -3,7 +3,7 @@
 Extended Mark in VS Code, and in vscode.dev and github.dev: highlighting, errors as you type,
 hover, go to definition, references, the outline, completion and formatting, from xtmd's own
 language server (ide/lsp), built in as WebAssembly so there is nothing to install; and a live
-preview, the `vscode` target, that draws the page with VS Code's own components in the editor's
+preview, the `vscode` engine, that draws the page with VS Code's own components in the editor's
 theme.
 
 - **Highlighting** for `.xtmd` and `.xtmdpack`: the code above a document's `@@@` line, and the
@@ -38,14 +38,14 @@ theme.
 What it does is logged in its output channel (Extended Mark: Show the Log); nothing is sent
 anywhere.
 
-## The vscode target
+## The vscode engine
 
-The preview is a target like any other (`checks/target.yaml`): core's 30 extern widgets, drawn by
+The preview is an engine like any other: core's 30 extern widgets, drawn by
 `src/webview/widgets.ts` as VS Code draws its own UI. press is VS Code's button, checkbox, radio,
 toggle, tab or list option; field its input box; slider, overlay and label in its colours; icon a
 codicon. Markdown's blocks look as VS Code's Markdown preview draws them. The widgets keep the web
-target's behaviour (events, keyboard, roles), which the checks hold every target to, and the
-target is checked as every target is:
+engine's behaviour (events, keyboard, roles), which the checks hold every engine to, and the
+engine is checked as every engine is:
 
 ```sh
 ```

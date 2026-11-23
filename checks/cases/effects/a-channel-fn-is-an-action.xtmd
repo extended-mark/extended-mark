@@ -2,7 +2,7 @@ extern scores {
     fn saved(total: int);
 }
 
-// a channel's fn with no return type is an action sent to the app: never called where nothing
+// a channel's fn with no return type is an action sent to the host: never called where nothing
 // changes, directly or through a fn that calls it
 fn loud(): number {
     scores.saved(1);

@@ -86,7 +86,7 @@
     },
     "page": {
       "type": "object",
-      "description": "What the app tells the page about where it is read.",
+      "description": "What the host tells the page about where it is read.",
       "properties": {
         "width": {
           "type": "string",

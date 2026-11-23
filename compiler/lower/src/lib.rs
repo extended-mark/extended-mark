@@ -274,7 +274,7 @@ const BUILDS_ON: &[(&str, &[&str])] = &[("core/moment.local", &["core/moment.utc
 /// they reach, and what those reach in turn. The IR names everything it refers to in full
 /// (`core/press`, `core/list.some`, a binding's `b4`), so a string that is one, or a member of one
 /// (`core/page.width`), is a use of it; and a type kept keeps the fns a runtime finds by its name.
-/// `needs` then lists only what is kept. Every token type is kept, as a target styles a page from
+/// `needs` then lists only what is kept. Every token type is kept, as an engine styles a page from
 /// its tokens by name, and so is a declaration with no name of its own.
 pub fn prune(m: &mut ir::Module) {
     // every part that can be left out, as JSON, with what it is called
@@ -301,7 +301,7 @@ pub fn prune(m: &mut ir::Module) {
     let mut todo: Vec<usize> = Vec::new();
     let own = format!("{}/", m.module);
     for (k, (n, _)) in parts.iter().enumerate() {
-        // a target styles a page from its tokens by name (`--xtmd-color-ok`), whether the page names one or not
+        // an engine styles a page from its tokens by name (`--xtmd-color-ok`), whether the page names one or not
         let token = k < decl_count && matches!(m.declarations[k].declare, ir::Decl::Token(_));
         let root = if k < decl_count { token || n.is_empty() || n.starts_with(&own) } else { n == &m.module };
         if root {

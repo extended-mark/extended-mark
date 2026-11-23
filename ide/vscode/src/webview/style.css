@@ -1,4 +1,4 @@
-/* The vscode target's look: core's tokens as the editor's theme colours and fonts, and core's
+/* The vscode engine's look: core's tokens as the editor's theme colours and fonts, and core's
    controls as VS Code's own components. VS Code gives a webview its theme as --vscode-* properties
    and the body's vscode-light, vscode-dark or vscode-high-contrast class. */
 

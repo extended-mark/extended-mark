@@ -10,8 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@extended-mark/dom": "file:../../targets/published/dom",
-    "@extended-mark/runtime": "file:../../targets/published/runtime"
+    "@extended-mark/dom": "file:../../engines/published/dom",
+    "@extended-mark/runtime": "file:../../engines/published/runtime"
   },
   "devDependencies": {
     "extended-mark": "file:../../compiler/npm/extended-mark",

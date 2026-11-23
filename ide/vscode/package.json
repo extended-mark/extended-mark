@@ -269,10 +269,10 @@
     "package": "node build.mjs && vsce package --no-dependencies --skip-license"
   },
   "devDependencies": {
-    "@extended-mark/dom": "file:../../targets/published/dom",
-    "@extended-mark/embed-live": "file:../../targets/published/bindings/embed-live",
-    "@extended-mark/live": "file:../../targets/published/bindings/live",
-    "@extended-mark/runtime": "file:../../targets/published/runtime",
+    "@extended-mark/dom": "file:../../engines/published/dom",
+    "@extended-mark/embed-live": "file:../../engines/published/bindings/embed-live",
+    "@extended-mark/live": "file:../../engines/published/bindings/live",
+    "@extended-mark/runtime": "file:../../engines/published/runtime",
     "@extended-mark/wasm": "file:../../compiler/npm/wasm",
     "@types/node": "20.19.43",
     "@types/vscode": "1.91.0",

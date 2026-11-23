@@ -1,10 +1,10 @@
-//! What a real-time Extended Mark target embeds: the compiler, with core compiled once when it is made, which
+//! What a live Extended Mark engine embeds: the compiler, with core compiled once when it is made, which
 //! builds a document's text (and the packs it uses, as text) into the IR `xtmd build` writes; and
 //! [`Live`], a text followed as it is edited, which keeps the last IR that compiled while a draft
-//! has errors. The run-time targets don't depend on this crate: an app that only draws pages it was
+//! has errors. The static engines don't depend on this crate: a host that only draws pages it was
 //! given carries no compiler.
 //!
-//! xtmd-egui-live and xtmd-android-live link it into the app; xtmd-wasm wraps it for the browser.
+//! xtmd-egui-live and xtmd-android-live link it into the host; xtmd-wasm wraps it for the browser.
 
 use std::collections::BTreeMap;
 
@@ -57,7 +57,7 @@ impl Diagnostic {
         self.severity == Severity::Error
     }
 
-    /// `file:line:column: message`, as a target shows a draft's first error.
+    /// `file:line:column: message`, as an engine shows a draft's first error.
     pub fn located(&self) -> String {
         format!("{}:{}:{}: {}", self.file, self.line, self.column, self.message)
     }
@@ -236,7 +236,7 @@ pub enum Followed {
 
 /// A document's text, followed as it is edited: a text that compiles replaces the IR, one that
 /// doesn't leaves the last that did. When to give it a text (each key, a pause, a save) is the
-/// app's.
+/// host's.
 #[derive(Clone, Debug)]
 pub struct Live {
     path: String,
@@ -294,7 +294,7 @@ impl Live {
         self.ir.as_ref()
     }
 
-    /// Bumped at each text that compiled: a target starts its page again when it moves.
+    /// Bumped at each text that compiled: an engine starts its page again when it moves.
     pub fn revision(&self) -> u64 {
         self.revision
     }
@@ -309,7 +309,7 @@ impl Live {
         self.errors
     }
 
-    /// The latest text's errors as one line, as a target tells an app: `page.xtmd doesn't
+    /// The latest text's errors as one line, as an engine tells a host: `page.xtmd doesn't
     /// compile (1 error): page.xtmd:5:3: …`; none when it compiled.
     pub fn why(&self) -> Option<String> {
         if self.errors == 0 {

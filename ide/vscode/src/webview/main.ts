@@ -1,6 +1,6 @@
-// The preview's page: the vscode target, a real-time target in VS Code's webview. The extension
+// The preview's page: the vscode engine, a live engine in VS Code's webview. The extension
 // gives it the document's text and its packs as they are edited; it compiles them here with
-// xtmd.wasm (@extended-mark/embed-live) and draws the page with the vscode target's widgets, in the
+// xtmd.wasm (@extended-mark/embed-live) and draws the page with the vscode engine's widgets, in the
 // editor's theme. A text that doesn't compile leaves the last page that did, and says why. A widget
 // that fails while drawn is told to the extension, which marks its call in the editor.
 

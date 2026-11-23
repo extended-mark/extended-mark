@@ -1,5 +1,5 @@
 // Builds the extension into dist/: the desktop's and the browser's extension, the language
-// server's two hosts (a Node process, a web worker), the preview's page (the vscode target), and
+// server's two hosts (a Node process, a web worker), the preview's page (the vscode engine), and
 // beside them xtmd.wasm, the IR schemas, VS Code's codicons and, where this tree has it, MKP 0.2's
 // frozen step (checked against its lock, as the xtmd binary checks it). The types are checked first.
 //

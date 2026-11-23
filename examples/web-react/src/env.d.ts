@@ -4,7 +4,7 @@ declare global {
   interface Window {
     /** The running page, for the same-page test. */
     __xtmd: { page: Page };
-    /** Every extern fn call the app heard, for the same-page test. */
+    /** Every extern fn call the host heard, for the same-page test. */
     __calls: Call[];
   }
 }

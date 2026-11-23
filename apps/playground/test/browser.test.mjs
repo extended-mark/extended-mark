@@ -15,7 +15,7 @@ const chromiumPath = process.env.XTMD_CHROMIUM ?? "/usr/bin/chromium";
 const domBuilt = existsSync(join(app, "node_modules/@extended-mark/dom/dist/index.js"));
 
 const skip = !domBuilt
-  ? "@extended-mark/dom is not built: run npm run build in targets/published/dom"
+  ? "@extended-mark/dom is not built: run npm run build in engines/published/dom"
   : !existsSync(chromiumPath)
     ? `no Chromium at ${chromiumPath}: set XTMD_CHROMIUM`
     : !existsSync(join(app, "node_modules/@extended-mark/wasm/xtmd.wasm"))
@@ -427,12 +427,12 @@ describe("the playground in Chromium", { skip }, () => {
     }
   });
 
-  test("the Targets page: one page from an IR built ahead, and the same compiled as it is typed, on the plain web and in React", async () => {
+  test("the Engines page: one page from an IR built ahead, and the same compiled as it is typed, on the plain web and in React", async () => {
     const t = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     const errors = [];
     t.on("pageerror", (e) => errors.push(String(e)));
     try {
-      await t.goto(`${server.url}/targets`);
+      await t.goto(`${server.url}/engines`);
       const run = t.getByTestId("run-page");
       const live = t.getByTestId("live-page");
       // run time: the page from its IR, a press, and a snapshot that brings it back

@@ -1,5 +1,5 @@
 // A Vite plugin: `import page from "./sprint.xtmd"` gives the page's IR, compiled by xtmd
-// when the app is built or served.
+// when the host is built or served.
 
 import type { Plugin } from "vite";
 import { build, XtmdError, type Options } from "./index.js";

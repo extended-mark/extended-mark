@@ -192,7 +192,7 @@ impl Checker {
             };
             let mut fns = Vec::new();
             for f in e.fns.iter() {
-                // the app calls it with values of its own and reads nothing back (page 6)
+                // the host calls it with values of its own and reads nothing back (page 6)
                 if let Some(ast::RetType::Type(t)) = &f.sig.ret {
                     self.error(file, codes::RETURN, t.span, format!("`{}.{}` is called by the app, which reads nothing back: an exposed fn returns nothing, so leave out its return type", e.name.name, f.sig.name.name));
                 }
@@ -203,7 +203,7 @@ impl Checker {
                 cx.state = fields.clone();
                 // a return type written is reported above, once: its `return`s aren't again
                 cx.ret = Some(if matches!(f.sig.ret, Some(ast::RetType::Type(_))) { Some(Ty::Err) } else { None });
-                // the app calls an exposed fn: an action
+                // the host calls an exposed fn: an action
                 cx.action = true;
                 cx.exposed = true;
                 cx.fn_depth = cx.scopes.len();

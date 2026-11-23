@@ -1,6 +1,6 @@
 //! The Extended Mark compiler for the browser: what `xtmd build` does, on a core compiled once when the
-//! compiler is made. A real-time target compiles a document's text as it is edited, and draws the
-//! IR as a run-time target draws one it was given; the IR is the binary's (@extended-mark/wasm's tests hold
+//! compiler is made. A live engine compiles a document's text as it is edited, and draws the
+//! IR as a static engine draws one it was given; the IR is the binary's (@extended-mark/wasm's tests hold
 //! it to that on every case). The compiler itself is xtmd-live's.
 //!
 //! For an editor it does what `xtmd md` and `xtmd migrate` do too, on the texts the editor gives, so

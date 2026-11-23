@@ -31,7 +31,7 @@ pub fn generate(repo: &Path) -> Vec<(PathBuf, String)> {
         let mut g = Gen::new(s);
         g.run();
         out.push((PathBuf::from(format!("compiler/ir/src/{}.rs", s.module)), g.rust()));
-        out.push((PathBuf::from(format!("targets/published/runtime/src/generated/{}.ts", s.module)), g.ts()));
+        out.push((PathBuf::from(format!("engines/published/runtime/src/generated/{}.ts", s.module)), g.ts()));
     }
     out
 }

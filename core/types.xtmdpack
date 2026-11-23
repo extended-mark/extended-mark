@@ -222,7 +222,7 @@ fn hole.words(self): text {
     }
 }
 
-//@about Maths, written in TeX. Core checks how it is written; the target may also refuse what it can't draw.
+//@about Maths, written in TeX. Core checks how it is written; the engine may also refuse what it can't draw.
 //@about Its holes stay values: each counts as one token in the checks, and show escapes it for TeX.
 record latex implements literal<template>, shown {
     tex: template;
@@ -264,7 +264,7 @@ fn latex.from(value: template): opt<latex> {
     return try latex { tex = value };
 }
 
-//@about The TeX, with each hole's characters escaped so that TeX reads them as themselves. A target draws this.
+//@about The TeX, with each hole's characters escaped so that TeX reads them as themselves. An engine draws this.
 fn latex.show(self): text {
     mut out: text = "";
     for (k, piece in self.tex.pieces) {
@@ -276,7 +276,7 @@ fn latex.show(self): text {
     return out;
 }
 
-//@about Whether the target can draw this TeX, for example whether it knows every command in it. A target may supply its own; without one, all TeX that core accepts is drawn.
+//@about Whether the engine can draw this TeX, for example whether it knows every command in it. An engine may supply its own; without one, all TeX that core accepts is drawn.
 extern fn can_draw_tex(tex: template): bool {
     return true;
 }

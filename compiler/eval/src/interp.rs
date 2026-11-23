@@ -2,7 +2,7 @@
 //!
 //! The compiler uses it to work out constants (a literal's `from`, a `require` on constants,
 //! a constant `let`); the native runtime will use it when a page runs. What lives outside a
-//! fn (a widget's cells and inputs, `$state`, the app's channels) is reached through [`Host`].
+//! fn (a widget's cells and inputs, `$state`, the host's channels) is reached through [`Host`].
 
 use crate::natives;
 use crate::num::{Num, NumError};
@@ -81,7 +81,7 @@ pub enum Outer {
     Slot(Rc<str>),
 }
 
-/// Everything outside a fn: a widget instance, the document, the app, the target.
+/// Everything outside a fn: a widget instance, the document, the host, the engine.
 ///
 /// A host is called back from inside the machine and may call the machine again (a runtime reads
 /// a `mut` input by working out its caller's place), so its methods take `&self`: one with
@@ -89,14 +89,14 @@ pub enum Outer {
 pub trait Host {
     fn read(&self, m: &mut Machine, what: &Outer, owner: Option<u64>) -> R<Value>;
     fn write(&self, m: &mut Machine, what: &Outer, owner: Option<u64>, value: Value) -> R<()>;
-    /// An extern fn of a pack or of the app. `None` when nobody supplies it.
+    /// An extern fn of a pack or of the host. `None` when nobody supplies it.
     fn call_extern(&self, _m: &mut Machine, _name: &str, _args: &[Value]) -> R<Option<Option<Value>>> {
         Ok(None)
     }
     fn invoke(&self, _m: &mut Machine, event: &str, _args: Vec<Value>, _owner: Option<u64>) -> R<()> {
         Err(Failure::new(FailKind::NotConstant, format!("`invoke {}` runs only when the page runs", event)))
     }
-    /// The value a token case stands for, from the target's tokens.
+    /// The value a token case stands for, from the engine's tokens.
     fn token_value(&self, m: &mut Machine, case: &Case) -> R<Value> {
         m.default_token_value(case)
     }
@@ -193,7 +193,7 @@ impl Program {
             ir::Decl::Extern(ir::Extern::Fn(f)) => {
                 self.externs.insert(f.name.clone(), Rc::new(f.clone()));
             }
-            // a channel's fns are the app's: `doc/scores.saved`
+            // a channel's fns are the host's: `doc/scores.saved`
             ir::Decl::Extern(ir::Extern::Channel(c)) => {
                 for f in &c.fns {
                     let name = format!("{}.{}", c.name, f.name);

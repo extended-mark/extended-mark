@@ -54,7 +54,7 @@ function places(repo) {
   add(join(repo, "VERSION"), (t) => [t.trim()], (_, v) => `${v}\n`);
 
   // the crates: the workspace's version, a member's own, and each path dependency's
-  for (const f of files(join(repo, "compiler"), (n) => n === "Cargo.toml").concat(files(join(repo, "ide"), (n) => n === "Cargo.toml"), files(join(repo, "targets"), (n) => n === "Cargo.toml"))) {
+  for (const f of files(join(repo, "compiler"), (n) => n === "Cargo.toml").concat(files(join(repo, "ide"), (n) => n === "Cargo.toml"), files(join(repo, "engines"), (n) => n === "Cargo.toml"))) {
     pattern(f, /^(version = ")([^"]+)(")/gm);
     pattern(f, /(\bpath = "[^"]+", version = ")([^"]+)(")/g);
   }
@@ -64,7 +64,7 @@ function places(repo) {
   pattern(join(repo, "compiler", "Cargo.lock"), crate);
 
   // the package.json files and their lock files
-  for (const root of ["compiler", "targets", "apps", "ide", "examples"]) {
+  for (const root of ["compiler", "engines", "apps", "ide", "examples"]) {
     for (const f of files(join(repo, root), (n) => n === "package.json")) {
       const pkg = JSON.parse(readFileSync(f, "utf8"));
       if (!ours(pkg.name ?? "") && !f.startsWith(join(repo, "examples")) && !f.startsWith(join(repo, "ide"))) continue;
@@ -94,14 +94,14 @@ function places(repo) {
   }
 
   // the Android example, the schemas' examples, the snapshots' release and the docs that show the version
-  const android = join(repo, "targets", "examples", "misc", "android", "compose");
+  const android = join(repo, "engines", "examples", "misc", "android", "compose");
   pattern(join(android, "xtmd-android", "build.gradle.kts"), /(\bversion = ")([^"]+)(")/g);
   pattern(join(android, "xtmd-android-live", "build.gradle.kts"), /(\bversion = ")([^"]+)(")/g);
   pattern(join(android, "sample", "build.gradle.kts"), /(\bversionName = ")([^"]+)(")/g);
   pattern(join(android, "README.md"), /(xtmd:xtmd-android:)(\d+\.\d+\.\d+)()/g);
   pattern(join(android, "xtmd-android", "src", "main", "kotlin", "xtmd", "android", "XtmdDoc.kt"), /(const val RELEASE = ")([^"]+)(")/g);
   for (const f of files(join(repo, "schemas", "examples"), (n) => n.endsWith(".json"))) pattern(f, /("xtmd": ")([^"]+)(")/g);
-  pattern(join(repo, "targets", "published", "bindings", "embed", "src", "snapshot.ts"), /(export const RELEASE = ")([^"]+)(")/g);
+  pattern(join(repo, "engines", "published", "bindings", "embed", "src", "snapshot.ts"), /(export const RELEASE = ")([^"]+)(")/g);
   pattern(join(repo, "tools", "release", "README.md"), /(carries the release's version \()(\d+\.\d+\.\d+)(\))/g);
   pattern(join(repo, "ide", "vscode", "README.md"), /(# xtmd-)(\d+\.\d+\.\d+)(\.vsix)/g);
   return out.filter((p) => existsSync(p.file));
