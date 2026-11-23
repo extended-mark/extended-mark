@@ -23,7 +23,8 @@ function walk(dir, keep, out = []) {
 }
 
 /** Every case with a source: where it is, its packs' folders and files, and those files' text. */
-const cases = walk(casesDir, (p) => p.endsWith(".json")).flatMap((f) => {
+// the compiler's, and the pages the TypeScript runtime runs, which all compile
+const cases = [casesDir, join(repo, "engines/published/runtime/test/cases")].flatMap((d) => walk(d, (p) => p.endsWith(".json"))).flatMap((f) => {
   const c = JSON.parse(readFileSync(f, "utf8"));
   if (!c.id || !c.source) return [];
   const dir = dirname(f);
