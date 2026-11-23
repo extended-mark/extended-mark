@@ -222,7 +222,7 @@ in code     code spans, fenced code and indented code have no escapes and no hol
 - **No shadowing** (pass): No declaration reuses a value name that is visible where it is written.
 - **What follows @** (pass): Every `@name` is a visible value or fn, with arguments in order, or a declared widget.
 - **Widget calls** (pass): Every argument is named, is a declared input or event, and is set once. Every input without a default is given.
-- **Blocks and slots** (pass): A block of children goes to a widget with exactly one slot. A named block, or a `@slot` line in prose, names a real slot. No slot has a widget's name.
+- **Blocks and slots** (pass): A block of children goes to a widget with exactly one slot. A named block, or a `@slot` line in prose, names a real slot. Every slot is filled, except an `opt` one, which may be left out. No slot has a widget's name.
 - **Cases and tokens** (pass): Every `type.CAPITALS` is a declared enum case or token case, counting the cases that `tokens` blocks add. Every `tokens` line names a declared token type, and a `match` on a token has a `case else`.
 - **Widget bodies** (pass): The body order, a `markdown` block on every widget in a .xtmdpack file, no `expose` in a widget, and `//@param` lines that name real inputs.
 - **State** (pass): No `mut` at the top of a document or a file. At most one `$state` block, above a document's `@@@` line, each field with a starting value. No `$state` and no `expose` in a pack's files.

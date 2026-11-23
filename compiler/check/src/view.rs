@@ -99,6 +99,9 @@ impl Checker {
     /// A view written as an expression: `return @label(…)`, `let a: view = @x;`.
     pub(crate) fn view_value(&mut self, cx: &mut Cx, call: &ast::ViewCall) -> (ir::Expr, Ty) {
         if let Some(out) = self.placed_value(cx, call) {
+            if call.block.is_some() {
+                self.error(cx.file, codes::CHILDREN_ONE_SLOT, call.name.span, format!("`{}` is a view held in a value, which takes no block", call.name.name));
+            }
             return out;
         }
         let Some(d) = self.widget_of(cx, &call.name.name) else {
@@ -106,7 +109,7 @@ impl Checker {
             self.unknown(cx.file, codes::UNKNOWN_WIDGET, call.name.span, format!("there is no widget `{}`", call.name.name), &call.name.name, known.iter().map(String::as_str));
             return (ir::Expr::Num("0".into()), Ty::Err);
         };
-        let parts = self.call_parts(cx, d, call);
+        let parts = self.call_parts(cx, d, call, None);
         let full = self.defs[d].full.clone();
         let args = parts.props.into_iter().chain(parts.places.into_iter().map(|(k, p)| (k, ir::Expr::Place(p)))).collect();
         (ir::Expr::View(ir::ViewValue { widget: full, args, slots: parts.slots, events: parts.events }), Ty::Def(d, Vec::new()))
@@ -208,8 +211,17 @@ impl Checker {
     }
 
     pub(crate) fn view_call_node(&mut self, cx: &mut Cx, call: &ast::ViewCall) -> Vec<ir::Node> {
+        self.view_call_filled(cx, call, None)
+    }
+
+    /// A call, its slots filled by its own block or, in prose, by a block of prose.
+    fn view_call_filled(&mut self, cx: &mut Cx, call: &ast::ViewCall, prose: Option<ProseFill>) -> Vec<ir::Node> {
         if let Some((x, t)) = self.placed_value(cx, call) {
             let site = self.site("s");
+            // a value has no slots, so a block would be lost
+            if prose.is_some() || call.block.is_some() {
+                self.error(cx.file, codes::CHILDREN_ONE_SLOT, call.name.span, format!("`{}` is a view held in a value, which takes no block", call.name.name));
+            }
             // a slot that holds a list is placed item by item
             if let Ty::List(_) = self.vars.resolve(&t) {
                 let name = format!("{}_item", call.name.name);
@@ -235,7 +247,7 @@ impl Checker {
         self.check_sizing_chain(cx, call);
         let site = self.site("s");
         self.sites.push(crate::SiteRec { template: self.template_now.clone(), site: site.clone(), file: cx.file, span: call.span });
-        let parts = self.call_parts(cx, d, call);
+        let parts = self.call_parts(cx, d, call, prose);
         let full = self.defs[d].full.clone();
         let external = matches!(self.defs[d].kind, DefKind::Widget { external: true, .. });
         if external {
@@ -250,7 +262,7 @@ impl Checker {
     }
 
     /// A widget call's inputs, `mut` inputs' places, events (as handlers) and slots.
-    fn call_parts(&mut self, cx: &mut Cx, d: DefId, call: &ast::ViewCall) -> Parts {
+    fn call_parts(&mut self, cx: &mut Cx, d: DefId, call: &ast::ViewCall, prose: Option<ProseFill>) -> Parts {
         let file = cx.file;
         let DefKind::Widget { inputs, slots, events, .. } = self.defs[d].kind.clone() else { unreachable!() };
         let wname = self.defs[d].name.clone();
@@ -267,12 +279,15 @@ impl Checker {
             }
         }
         let mut slot_blocks: Vec<(String, ast::Block, Span)> = Vec::new();
+        // a block or a name that went nowhere has its own error, so the slots it left aren't errors too
+        let mut misplaced = false;
         match &call.block {
             None => {}
             Some(ast::CallBlock::Children(b)) => {
                 if slots.len() == 1 {
                     slot_blocks.push((slots[0].name.clone(), b.clone(), b.span));
                 } else if !b.stmts.is_empty() || slots.is_empty() {
+                    misplaced = true;
                     self.error(file, codes::CHILDREN_ONE_SLOT, call.name.span, format!("`{}` has {} slots: fill each by its name, `slot {{ … }}`", wname, slots.len()));
                 }
             }
@@ -285,6 +300,7 @@ impl Checker {
                                 self.note_ref(file, name.span, name.span.to(block.span), crate::RefTarget::Member(d, name.name.clone()));
                                 slot_blocks.push((name.name.clone(), block.clone(), name.span));
                             } else {
+                                misplaced = true;
                                 self.unknown(file, codes::UNKNOWN_SLOT, name.span, format!("`{}` has no slot `{}`", wname, name.name), &name.name, slots.iter().map(|s| s.name.as_str()));
                             }
                         }
@@ -338,8 +354,10 @@ impl Checker {
                 let id = self.handler(cx, ev, value);
                 parts.events.insert(n.name.clone(), id);
             } else if slots.iter().any(|s| s.name == n.name) {
+                misplaced = true;
                 self.error(file, codes::SLOT_EQUALS, n.span, format!("`{}` is a slot: fill it with a block, `{} {{ … }}`, never with `=`", n.name, n.name));
             } else {
+                misplaced = true;
                 let given: Vec<&str> = inputs.iter().map(|i| i.name.as_str()).chain(events.iter().map(|e| e.name.as_str())).collect();
                 self.unknown(file, codes::UNKNOWN_INPUT, n.span, format!("`{}` has no input or event `{}`", wname, n.name), &n.name, given);
             }
@@ -365,15 +383,42 @@ impl Checker {
             let bounds = parts.props.get("bounds").cloned();
             self.planes.push(bounds);
         }
-        let mut slot_list = Vec::new();
+        let mut filled: Vec<(String, Vec<ir::Node>, Span)> = Vec::new();
         for (name, block, at) in slot_blocks {
             let nodes = self.view_nodes(cx, &block);
-            if let Some(s) = slots.iter().find(|s| s.name == name) {
-                self.check_slot(file, &wname, s, &nodes, at);
-            }
-            slot_list.push((name, nodes));
+            filled.push((name, nodes, at));
         }
-        for (name, nodes) in slot_list {
+        match prose {
+            None => {}
+            // a plain block fills the widget's one slot
+            Some(ProseFill::Plain(nodes)) if slots.len() == 1 => filled.push((slots[0].name.clone(), nodes, call.name.span)),
+            Some(ProseFill::Plain(nodes)) => {
+                if !nodes.is_empty() || slots.is_empty() {
+                    misplaced = true;
+                    let named = slots.iter().map(|s| format!("`@slot {} {{`", s.name)).collect::<Vec<_>>().join(" and ");
+                    let how = if slots.is_empty() { "it takes no block".to_string() } else { format!("fill each by its name, with {}", named) };
+                    self.error(file, codes::CHILDREN_ONE_SLOT, call.name.span, format!("`{}` has {} slots: {}", wname, slots.len(), how));
+                }
+            }
+            Some(ProseFill::Named(body)) => {
+                let (named, lost) = self.prose_slots(cx, d, call, body);
+                misplaced |= lost;
+                filled.extend(named);
+            }
+        }
+        // every slot the widget declares, written or not, as every input is
+        for s in &slots {
+            match filled.iter().find(|(n, ..)| *n == s.name) {
+                Some((_, nodes, at)) => {
+                    let (nodes, at) = (nodes.clone(), *at);
+                    self.check_slot(file, &wname, s, &nodes, at);
+                }
+                None if s.ir.name == "core/opt" => {}
+                None if misplaced => {}
+                None => self.error(file, codes::MISSING_SLOT, call.name.span, format!("`{}` needs its slot `{}`: only an `opt` slot may be left out", wname, s.name)),
+            }
+        }
+        for (name, nodes, _) in filled {
             parts.slots.insert(name, nodes);
         }
         if full == "core/plane" {
@@ -648,32 +693,17 @@ impl Checker {
                         }
                         ProseNode::Call(c) => {
                             let mut call = c.call.clone();
-                            if let Some((body, _)) = &c.block {
-                                if body.nodes.iter().any(|n| matches!(n, ProseNode::Slot { .. })) {
-                                    // `@slot name {` blocks fill the slots they name (page 1)
-                                    let mut n = self.view_call_node(cx, &call);
-                                    let named = self.prose_slots(cx, &c.call, body);
-                                    if let Some(ir::Node::Extern(e)) = n.first_mut() {
-                                        e.slots.extend(named);
-                                    } else if let Some(ir::Node::Use(u)) = n.first_mut() {
-                                        u.slots.extend(named);
-                                    }
-                                    out.extend(n);
-                                    continue;
-                                }
+                            let fill = match &c.block {
+                                // `@slot name {` blocks fill the slots they name (page 1)
+                                Some((body, _)) if body.nodes.iter().any(|n| matches!(n, ProseNode::Slot { .. })) => Some(ProseFill::Named(body)),
                                 // a call's block of prose fills its one slot
-                                let nodes = self.prose_nodes(cx, body);
-                                let mut n = self.view_call_node(cx, &call);
-                                if let Some(ir::Node::Extern(e)) = n.first_mut() {
-                                    self.fill_one_slot(&e.name.clone(), &mut e.slots, nodes);
-                                } else if let Some(ir::Node::Use(u)) = n.first_mut() {
-                                    self.fill_one_slot(&u.name.clone(), &mut u.slots, nodes);
+                                Some((body, _)) => Some(ProseFill::Plain(self.prose_nodes(cx, body))),
+                                None => {
+                                    call.block = None;
+                                    None
                                 }
-                                out.extend(n);
-                                continue;
-                            }
-                            call.block = None;
-                            out.extend(self.view_call_node(cx, &call));
+                            };
+                            out.extend(self.view_call_filled(cx, &call, fill));
                         }
                         ProseNode::If { branches, otherwise, .. } => {
                             let site = self.site("m");
@@ -886,50 +916,39 @@ impl Checker {
 
     /// A prose call's `@slot name {` blocks, each filling the slot it names. Anything else in the
     /// block but blank lines is an error: a widget with several slots fills each by its name.
-    fn prose_slots(&mut self, cx: &mut Cx, call: &ast::ViewCall, body: &ast::Prose) -> BTreeMap<String, Vec<ir::Node>> {
+    /// The slots a prose call's `@slot name {` blocks fill, each with where it is named, and whether
+    /// anything in the block went to no slot.
+    fn prose_slots(&mut self, cx: &mut Cx, d: DefId, call: &ast::ViewCall, body: &ast::Prose) -> (Vec<(String, Vec<ir::Node>, Span)>, bool) {
         let file = cx.file;
         let src = self.files[file].src.clone();
-        let wname = call.name.name.clone();
-        let names: Vec<String> = self
-            .widget_of(cx, &call.name.name)
-            .and_then(|d| match &self.defs[d].kind {
-                DefKind::Widget { slots, .. } => Some(slots.iter().map(|s| s.name.clone()).collect()),
-                _ => None,
-            })
-            .unwrap_or_default();
-        let mut out = BTreeMap::new();
+        let wname = self.defs[d].name.clone();
+        let DefKind::Widget { slots, .. } = self.defs[d].kind.clone() else { return (Vec::new(), false) };
+        let mut lost = false;
+        let mut out: Vec<(String, Vec<ir::Node>, Span)> = Vec::new();
         for node in &body.nodes {
             match node {
                 ProseNode::Slot { name, body, .. } => {
-                    if !names.iter().any(|n| *n == name.name) {
-                        let known: Vec<String> = names.iter().map(|n| n.to_string()).collect();
-                        self.unknown(file, codes::UNKNOWN_SLOT, name.span, format!("`{}` has no slot `{}`", wname, name.name), &name.name, known.iter().map(String::as_str));
+                    if !slots.iter().any(|s| s.name == name.name) {
+                        lost = true;
+                        self.unknown(file, codes::UNKNOWN_SLOT, name.span, format!("`{}` has no slot `{}`", wname, name.name), &name.name, slots.iter().map(|s| s.name.as_str()));
                         continue;
                     }
                     let nodes = self.prose_nodes(cx, body);
-                    out.insert(name.name.clone(), nodes);
+                    out.retain(|(n, ..)| *n != name.name);
+                    out.push((name.name.clone(), nodes, name.span));
                 }
                 ProseNode::Text(line) if src[line.span.range()].trim().is_empty() => {}
                 ProseNode::Comment { .. } => {}
                 _ => {
+                    lost = true;
                     self.error(file, codes::CHILDREN_ONE_SLOT, call.name.span, format!("`{}` takes `@slot name {{` blocks here: put this inside one of them", wname));
                     break;
                 }
             }
         }
-        out
+        (out, lost)
     }
 
-    fn fill_one_slot(&mut self, widget: &str, slots: &mut BTreeMap<String, Vec<ir::Node>>, nodes: Vec<ir::Node>) {
-        let d = self.defs.iter().position(|d| d.full == widget);
-        if let Some(d) = d {
-            if let DefKind::Widget { slots: s, .. } = &self.defs[d].kind {
-                if let Some(first) = s.first() {
-                    slots.insert(first.name.clone(), nodes);
-                }
-            }
-        }
-    }
 }
 
 fn extern_node(name: &str, site: String, props: Vec<(&str, ir::Expr)>, slots: BTreeMap<String, Vec<ir::Node>>) -> ir::Node {
@@ -949,6 +968,14 @@ fn unsentinel(s: &str, _holes: &[(ir::Expr, Ty, Span)]) -> String {
     s.chars().map(|c| if ('\u{E000}'..='\u{F8FF}').contains(&c) { '\u{FFFD}' } else { c }).collect()
 }
 
+/// What a block of prose gives a call's slots.
+enum ProseFill<'a> {
+    /// Its nodes, for the widget's one slot.
+    Plain(Vec<ir::Node>),
+    /// `@slot name {` blocks.
+    Named(&'a ast::Prose),
+}
+
 #[derive(Default)]
 struct Parts {
     props: BTreeMap<String, ir::Expr>,
@@ -965,9 +992,14 @@ impl Checker {
     pub(crate) fn check_slot(&mut self, file: usize, widget: &str, slot: &crate::SlotSym, nodes: &[ir::Node], at: Span) {
         // the element type: a list's items, an opt's inside
         let mut el = &slot.ir;
-        if matches!(el.name.as_str(), "core/list" | "core/opt") {
-            if let Some(a) = el.args.first() {
-                el = a;
+        let mut list: Option<&ir::Type> = None;
+        while matches!(el.name.as_str(), "core/list" | "core/opt") {
+            if el.name == "core/list" {
+                list = Some(el);
+            }
+            match el.args.first() {
+                Some(a) => el = a,
+                None => break,
             }
         }
         let want: Option<(String, Option<DefId>)> = match el.name.as_str() {
@@ -1000,9 +1032,14 @@ impl Checker {
                 }
             }
         }
+        // a widget type holds exactly one call, and an `opt` of one at most one
+        if one_by_one && want.is_some() && list.is_none() && calls.len() != 1 && !(slot.ir.name == "core/opt" && calls.is_empty()) {
+            let many = if slot.ir.name == "core/opt" { "at most one" } else { "exactly one" };
+            self.error(file, codes::SLOT_LENGTH, at, format!("`{}`'s slot `{}` holds {} {}, and {} {} written here", widget, slot.name, many, el.name.rsplit('/').next().unwrap_or("widget"), calls.len(), if calls.len() == 1 { "is" } else { "are" }));
+        }
         // a length, when the children are written out one by one
-        if one_by_one && slot.ir.name == "core/list" {
-            if let Some(len) = slot.ir.contract.as_ref().and_then(|c| c.length.clone()) {
+        if one_by_one && matches!(slot.ir.name.as_str(), "core/list" | "core/opt") && list.is_some() {
+            if let Some(len) = list.and_then(|l| l.contract.as_ref()).and_then(|c| c.length.clone()) {
                 let n = calls.len() as i64;
                 let num = |x: &Option<ir::Expr>| match x {
                     Some(ir::Expr::Num(t)) => t.parse::<i64>().ok(),

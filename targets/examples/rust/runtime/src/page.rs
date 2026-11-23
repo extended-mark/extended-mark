@@ -647,13 +647,20 @@ impl Rt {
                 owner.and_then(|o| w.instances.get(&o)).and_then(|i| i.cells.get(&**n)).cloned().ok_or_else(|| Failure::ir(format!("no variable {}", n)))
             }
             Outer::Slot(n) => {
-                let found = {
-                    let w = self.w.borrow();
-                    owner.and_then(|o| w.instances.get(&o)).and_then(|i| i.slots.get(&**n).map(|s| (i.template.clone(), s.clone())))
+                let (t, held) = {
+                    let mut w = self.w();
+                    // read as an input is: whoever reads it is out of date when the caller gives it anew
+                    if let Some(o) = owner {
+                        w.track(|| format!("l:{}:{}", o, n));
+                    }
+                    let i = owner.and_then(|o| w.instances.get(&o)).ok_or_else(|| Failure::ir(format!("no slot {} here", n)))?;
+                    (i.template.clone(), i.slots.get(&**n).cloned())
                 };
-                match found {
-                    None => Ok(Value::none()),
-                    Some((t, (nodes, env))) => self.slot_value(m, &t, n, nodes, env),
+                match held {
+                    Some((nodes, env)) => self.slot_value(m, &t, n, nodes, env),
+                    // only an `opt` slot may be left out (page 3): the runtime makes up no value
+                    None if t.slots.iter().any(|s| s.name == **n && s.ty.name == "core/opt") => Ok(Value::none()),
+                    None => Err(Failure::ir(format!("the slot {} isn't filled", n))),
                 }
             }
         }
@@ -711,8 +718,12 @@ impl Rt {
 
     /// A slot read as a value: a list slot gives its calls as views; any other, one view.
     fn slot_value(&self, m: &mut Machine, t: &ir::Template, name: &str, nodes: Nodes, env: Env) -> R<Value> {
-        let decl = t.slots.iter().find(|s| s.name == name);
-        if decl.map_or(false, |d| d.ty.name == "core/list") {
+        let mut ty = t.slots.iter().find(|s| s.name == name).map(|d| &d.ty);
+        // a filled `opt` slot is what it holds, as a plain value where an opt is wanted is
+        if let Some(inner) = ty.filter(|x| x.name == "core/opt").and_then(|x| x.args.first()) {
+            ty = Some(inner);
+        }
+        if ty.map_or(false, |x| x.name == "core/list") {
             let views = self.expand_views(m, &nodes, &env)?;
             return m.make_list(views);
         }
@@ -728,6 +739,7 @@ impl Rt {
 
     /// A slot's calls as views, through its loops and branches.
     fn expand_views(&self, m: &mut Machine, nodes: &[Node], env: &Env) -> R<Vec<Value>> {
+        let mut env = env.clone();
         let mut out = Vec::new();
         for n in nodes {
             match n {
@@ -739,7 +751,7 @@ impl Rt {
                     };
                     let mut args = BTreeMap::new();
                     for (k, e) in given {
-                        args.insert(k.clone(), self.eval_in(m, env, e)?);
+                        args.insert(k.clone(), self.eval_in(m, &env, e)?);
                     }
                     out.push(Value::View(Rc::new(ViewValue {
                         widget: Rc::from(name.as_str()),
@@ -752,17 +764,49 @@ impl Rt {
                     })));
                 }
                 Node::For(f) => {
-                    for row in self.loop_rows(m, f, env)? {
+                    for row in self.loop_rows(m, f, &env)? {
                         let mut inner = env.clone();
                         inner.bindings.extend(row.bindings);
                         out.extend(self.expand_views(m, &f.body, &inner)?);
                     }
                 }
                 Node::If(i) => {
-                    let (nodes, env) = self.pick_branch(m, i, env)?;
+                    let (nodes, env) = self.pick_branch(m, i, &env)?;
                     out.extend(self.expand_views(m, nodes, &env)?);
                 }
-                _ => {}
+                Node::Match(mt) => {
+                    let v = self.eval_in(m, &env, &mt.value)?;
+                    let mut found = None;
+                    for c in &mt.cases {
+                        if let Some(binds) = self.matches(m, &v, &c.when)? {
+                            found = Some((&c.then, binds));
+                            break;
+                        }
+                    }
+                    match found {
+                        Some((then, binds)) => {
+                            let mut inner = env.clone();
+                            inner.bindings.extend(binds);
+                            out.extend(self.expand_views(m, then, &inner)?);
+                        }
+                        None => out.extend(self.expand_views(m, &mt.else_, &env)?),
+                    }
+                }
+                Node::Declare(d) => {
+                    let v = self.eval_in(m, &env, &d.let_.value)?;
+                    env.bindings.push((Rc::from(d.let_.name.as_str()), Binding::Value(v)));
+                }
+                Node::Place(p) => {
+                    fn flat(v: &Value, out: &mut Vec<Value>) {
+                        match v {
+                            Value::Opt(Some(x)) => flat(x, out),
+                            Value::List(l) => l.items.iter().for_each(|i| flat(&i.value, out)),
+                            Value::View(_) => out.push(v.clone()),
+                            _ => {}
+                        }
+                    }
+                    flat(&self.eval_in(m, &env, &p.view)?, &mut out);
+                }
             }
         }
         Ok(out)
@@ -1386,6 +1430,21 @@ impl Rt {
         }
         let held: HashMap<String, (Nodes, Env)> = slots.iter().map(|(s, nodes)| (s.clone(), (self.s.nodes_rc(nodes), env.clone()))).collect();
         let handles: HashMap<String, Handle> = events.iter().map(|(e, h)| (e.clone(), Handle { handler: h.clone(), env: env.clone() })).collect();
+        // a slot given new content, or the same content with other values around it, is an input given
+        // a new value: whatever read it is out of date
+        if !fresh {
+            let before = self.with_instance(id, |i| i.slots.clone()).unwrap_or_default();
+            let names: std::collections::BTreeSet<&String> = before.keys().chain(held.keys()).collect();
+            for s in names {
+                let same = match (before.get(s), held.get(s)) {
+                    (Some((a, x)), Some((b, y))) => Rc::ptr_eq(a, b) && x.owner == y.owner && x.path == y.path && self.same_bindings(m, &x.bindings, &y.bindings),
+                    _ => false,
+                };
+                if !same {
+                    self.w().bump(format!("l:{}:{}", id, s));
+                }
+            }
+        }
         self.with_instance(id, |i| {
             i.slots = held;
             i.events = handles;

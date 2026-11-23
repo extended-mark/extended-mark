@@ -705,9 +705,17 @@ export class Page {
           }
           case "slot": {
             const inst = owner === undefined ? undefined : page.instances.get(owner);
-            const s = inst?.slots.get(what.name);
-            if (!s) return none();
-            return page.slotValue(inst!, what.name, s);
+            if (!inst) throw new Failure("Ir", `no slot ${what.name} here`);
+            // read as an input is: whoever reads it is out of date when the caller gives it anew
+            page.track(`l:${inst.id}:${what.name}`);
+            const s = inst.slots.get(what.name);
+            const decl = inst.template.slots.find((x) => x.name === what.name);
+            if (!s) {
+              // only an `opt` slot may be left out (page 3): the runtime makes up no value
+              if (decl?.type.name === "core/opt") return none();
+              throw new Failure("Ir", `the slot ${what.name} isn't filled`);
+            }
+            return page.slotValue(inst, what.name, s);
           }
         }
       },
@@ -758,8 +766,10 @@ export class Page {
 
   /** A slot read as a value: a list slot gives its calls as views; any other, one view. */
   private slotValue(inst: Instance, name: string, s: { nodes: ir.Node[]; env: Env }): V {
-    const decl = inst.template.slots.find((x) => x.name === name);
-    if (decl?.type.name === "core/list") {
+    let type = inst.template.slots.find((x) => x.name === name)?.type;
+    // a filled `opt` slot is what it holds, as a plain value where an opt is wanted is
+    if (type?.name === "core/opt") type = type.args?.[0] as ir.Type | undefined;
+    if (type?.name === "core/list") {
       const views = this.expandViews(s.nodes, s.env);
       return this.machine.makeList(views);
     }
@@ -769,7 +779,8 @@ export class Page {
   }
 
   /** A slot's calls as views, through its loops and branches. */
-  private expandViews(nodes: ir.Node[], env: Env): V[] {
+  private expandViews(nodes: ir.Node[], env0: Env): V[] {
+    let env = env0;
     const out: V[] = [];
     for (const n of nodes) {
       if ("extern" in n || "use" in n) {
@@ -783,6 +794,22 @@ export class Page {
       } else if ("if" in n) {
         const b = this.pickBranch(n.if, env);
         if (b) out.push(...this.expandViews(b.nodes, b.env));
+      } else if ("match" in n) {
+        const v = this.evalIn(env, n.match.value);
+        const found = n.match.cases.map((c) => [c, this.matches(v, c.when)] as const).find(([, binds]) => binds);
+        out.push(...(found ? this.expandViews(found[0].then, { ...env, bindings: [...env.bindings, ...found[1]!] }) : this.expandViews(n.match.else ?? [], env)));
+      } else if ("declare" in n) {
+        const l = n.declare.let;
+        env = { ...env, bindings: [...env.bindings, [l.name, { value: this.evalIn(env, l.value) }]] };
+      } else if ("place" in n) {
+        const v = this.evalIn(env, n.place.view);
+        const flat = (x: V): void => {
+          if (x.kind === "opt") {
+            if (x.value) flat(x.value);
+          } else if (x.kind === "list") x.items.forEach((i) => flat(i.value));
+          else if (x.kind === "view") out.push(x);
+        };
+        flat(v);
       }
     }
     return out;
@@ -1242,8 +1269,17 @@ export class Page {
       const before = was.get(k);
       if (!fresh && (!before || !this.machine.equal(before, v))) this.bump(`i:${it.id}:${k}`);
     }
+    // a slot given new content, or the same content with other values around it: the same
+    const held = new Map(it.slots);
     it.slots.clear();
     for (const [s, nodes] of Object.entries(slots)) it.slots.set(s, { nodes, env });
+    if (!fresh) {
+      for (const s of new Set([...held.keys(), ...it.slots.keys()])) {
+        const [a, b] = [held.get(s), it.slots.get(s)];
+        const same = a && b && a.nodes === b.nodes && a.env.owner === b.env.owner && a.env.path === b.env.path && this.sameBindings(a.env.bindings, b.env.bindings);
+        if (!same) this.bump(`l:${it.id}:${s}`);
+      }
+    }
     it.events.clear();
     for (const [e, h] of Object.entries(events)) it.events.set(e, { handler: h, env });
     if (fresh) for (const c of t.cells) it.cells.set(c.name, c.default ? this.evalIn(own, c.default) : none());

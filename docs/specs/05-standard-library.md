@@ -1388,15 +1388,17 @@ extern widget plane(
     width: opt<size> = opt.NONE,                    // left out, the width it is given, like a column
     aspect: number 0.1..10 = 1.5,                   // the drawn area's width over its height
 ) {
-    slot background: list<layer>;                   // core.gfx: drawn under the spots, in the plane's units
-    slot items: list<spot>;
+    slot background: opt<list<layer>>;              // core.gfx: drawn under the spots, in the plane's units
+    slot items: opt<list<spot>>;
     event click(at: point);                         // a click on empty space, in the plane's units
 
     markdown {
         \{label}
 
-        @for (p in items) {
-            \{p}
+        @if (let spots: list<spot> = items) {
+            @for (p in spots) {
+                \{p}
+            }
         }
     }
 }

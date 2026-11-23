@@ -1,0 +1,10 @@
+{
+  "id": "views.unknown-input-name-in-code",
+  "about": "a call names real inputs, in code",
+  "source": "unknown-input-name-in-code.xtmd",
+  "expect": {
+    "diagnostics": [
+      {"code": "views.unknown-input", "line": 64, "column": 25}
+    ]
+  }
+}

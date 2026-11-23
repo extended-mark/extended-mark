@@ -56,6 +56,7 @@ pub mod codes {
     pub const POSITIONAL: &str = "views.positional-argument";
     pub const UNKNOWN_INPUT: &str = "views.unknown-input";
     pub const MISSING_INPUT: &str = "views.missing-input";
+    pub const MISSING_SLOT: &str = "views.missing-slot";
     pub const CHILDREN_ONE_SLOT: &str = "views.children-need-one-slot";
     pub const UNKNOWN_SLOT: &str = "views.unknown-slot";
     pub const NAMED_TO_FN: &str = "views.named-arguments-to-fn";

@@ -295,7 +295,7 @@ widget notes(mut items: list<note>) {
 
 ### Slots
 
-A slot is where a caller puts content of its own. It's declared in the widget's body with `slot`, and filled only by a block, never with `=`.
+A slot is an input whose value is content of the caller's own. It's declared in the widget's body with `slot`, and filled only by a block, never with `=`. As with any input, every call gives it, in code and in prose alike: only an `opt` slot may be left out. A block that gives no children fills a slot that may hold none.
 
 | Declared | Holds | Used in the widget |
 |---|---|---|
@@ -303,9 +303,12 @@ A slot is where a caller puts content of its own. It's declared in the widget's 
 | `slot footer: opt<view>;` | The same, and may be left out | `if (let f: view = footer) { @f; }` |
 | `slot header: tab;` | Exactly one `tab` | `@header;`, `header.title` |
 | `slot panels: list<tab>[1...];` | Only `tab` widgets, one or more | `for (p in panels) { @p; }`, `panels.len()`, `panels[i]` |
+| `slot notes: opt<list<tab>>;` | Any number of `tab` widgets, and may be left out | `if (let ns: list<tab> = notes) { … }` |
 | `slot charts: list<any chart>;` | Any mix of widgets that fit `chart` | The same |
 
-A slot with a widget type takes only calls of that type, with `for`, `if` and `match` around them. Text, other widgets and helpers that return `view` are compile errors there. A length contract on a slot is checked by the compiler when the children are written out one by one, and when the widget is made otherwise.
+A slot with a widget type takes only calls of that type, with `for`, `if` and `match` around them. Text, other widgets and helpers that return `view` are compile errors there. A length contract on a slot, and the one call that a slot with a widget type holds, are checked by the compiler when the children are written out one by one, and when the widget is made otherwise. A block given to a value after `@`, which has no slots, is a compile error.
+
+A slot's content is the caller's: it reads the caller's values, and whatever draws it is drawn anew when they change, as it is for any input.
 
 A widget fits a widget interface by its inputs and events (page 4), so an interface that a slot takes asks for something only its own kind of widget has. Core's `layer` takes `list<any shape>`, and `shape` asks for `opacity` as well as `label`, which keeps a `press` or an `icon` out of a layer (page 5).
 
