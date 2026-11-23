@@ -1,4 +1,4 @@
-<!-- The test app for <XtmdLiveDoc>: its text compiled in the tab, with the controls the shared live steps use (testing/browser.mjs, liveSteps). -->
+<!-- The test host for <XtmdLiveDoc>: its text compiled in the tab, with the controls the shared live steps use (testing/browser.mjs, liveSteps). -->
 <script>
   import { XtmdLiveDoc } from "@extended-mark/svelte-live";
 

@@ -275,7 +275,7 @@ test("gfx: the canvas, its shapes and the plane are named, and the canvas draws 
   await page.close();
 });
 
-test("a widget nobody supplies shows its Markdown and is reported, and an app's widget replaces ours by name", async () => {
+test("a widget nobody supplies shows its Markdown and is reported, and a host's widget replaces ours by name", async () => {
   const acme = pack(
     "acme",
     'package acme;\n\npack acme@1 {\n    uses core@1;\n    provides chart;\n}\n\n//@about A chart only acme draws.\nextern widget chart(title: text) {\n    markdown {\n        \\{title}\n    }\n}\n',

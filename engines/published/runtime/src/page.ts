@@ -666,7 +666,7 @@ export class Page {
           case "extern": {
             page.track(`x:${what.name}`);
             const v = page.externs.get(what.name);
-            if (!v) throw new Failure("NotConstant", `${what.name} is given by the app`);
+            if (!v) throw new Failure("NotConstant", `${what.name} is given by the host`);
             return v;
           }
           case "let": {

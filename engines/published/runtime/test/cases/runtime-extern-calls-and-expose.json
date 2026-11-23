@@ -1,6 +1,6 @@
 {
   "id": "runtime.extern-calls-and-expose",
-  "about": "an app channel's fn is a call the app receives; an exposed fn is one the app calls; channel values come from the app",
+  "about": "a host channel's fn is a call the host receives; an exposed fn is one the host calls; channel values come from the host",
   "source": "runtime-extern-calls-and-expose.xtmd",
   "expect": {
     "diagnostics": [],

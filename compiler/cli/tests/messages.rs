@@ -51,9 +51,9 @@ fn onlys_values_are_of_its_type_and_compared_with_same() {
 #[test]
 fn an_exposed_fn_takes_constants_and_returns_nothing() {
     let err = said("expose.xtmd", "$state {\n    points: int 0... = 0;\n}\n\nexpose scores {\n    fn add(mut n: int) {\n        $state.points = n.clamp(0, 100);\n    }\n\n    fn total(): int {\n        return $state.points;\n    }\n\n    fn clear() {\n        return 1;\n    }\n}\n@@@\nPoints.\n", &[]);
-    assert!(err.contains("6:16: error[types.exposed-mut-parameter]: `n` can't be `mut`: the app gives `scores.add` its values, and an exposed fn takes them as constants"), "{}", err);
-    assert!(err.contains("10:17: error[types.return]: `scores.total` is called by the app, which reads nothing back: an exposed fn returns nothing, so leave out its return type"), "{}", err);
-    assert!(err.contains("15:16: error[types.return]: an exposed fn returns nothing: the app calls it and reads nothing back, so `return;` ends it"), "{}", err);
+    assert!(err.contains("6:16: error[types.exposed-mut-parameter]: `n` can't be `mut`: the host gives `scores.add` its values, and an exposed fn takes them as constants"), "{}", err);
+    assert!(err.contains("10:17: error[types.return]: `scores.total` is called by the host, which reads nothing back: an exposed fn returns nothing, so leave out its return type"), "{}", err);
+    assert!(err.contains("15:16: error[types.return]: an exposed fn returns nothing: the host calls it and reads nothing back, so `return;` ends it"), "{}", err);
     // the return type is reported once, not again at its `return`
     assert!(!err.contains("expose.xtmd:11:"), "{}", err);
 }
@@ -61,9 +61,9 @@ fn an_exposed_fn_takes_constants_and_returns_nothing() {
 #[test]
 fn a_channel_fn_is_an_action_and_its_arguments_meet_their_contracts() {
     let err = said("channel.xtmd", "extern scores {\n    fn saved(total: int 0..10);\n}\n\nfn loud(): number {\n    scores.saved(11);\n    return 1;\n}\n\nfn push_and_save(mut xs: list<number>) {\n    xs.add(1);\n    scores.saved(1);\n}\n\nfn quiet(): number {\n    mut xs: list<number> = [];\n    push_and_save(xs);\n    return xs.len();\n}\n@@@\nCounts.\n", &[]);
-    assert!(err.contains("6:5: error[effects.action-where-nothing-changes]: `scores.saved` is an action sent to the app, and a fn that returns a value changes nothing: call it from a handler or another action"), "{}", err);
+    assert!(err.contains("6:5: error[effects.action-where-nothing-changes]: `scores.saved` is an action sent to the host, and a fn that returns a value changes nothing: call it from a handler or another action"), "{}", err);
     assert!(err.contains("6:18: error[contracts.outside]: 11 is outside `scores.saved`'s `total`'s contract, int 0..10"), "{}", err);
-    assert!(err.contains("17:5: error[effects.action-where-nothing-changes]: `push_and_save` changes more than the locals it is given (`$state`, a variable, an input, an item or an event, or it sends the app an action)"), "{}", err);
+    assert!(err.contains("17:5: error[effects.action-where-nothing-changes]: `push_and_save` changes more than the locals it is given (`$state`, a variable, an input, an item or an event, or it sends the host an action)"), "{}", err);
 }
 
 #[test]

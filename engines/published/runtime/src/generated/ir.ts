@@ -349,7 +349,7 @@ export interface NeedsPacks {
 export interface Needs {
   /** The document's own channels' fns and values, supplied by the host when it mounts the page. */
   app: string[];
-  /** core's externs, supplied by the target: widgets, fns and channels. */
+  /** core's externs, supplied by the engine: widgets, fns and channels. */
   core: string[];
   packs: NeedsPacks[];
 }

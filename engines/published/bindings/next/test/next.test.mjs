@@ -35,7 +35,7 @@ test("a page that doesn't compile fails the build with xtmd's message", async ()
   await assert.rejects(runLoader(broken), /doesn't compile/);
 });
 
-test("withXtmd gives the loader to Turbopack and to webpack, keeping the app's config", () => {
+test("withXtmd gives the loader to Turbopack and to webpack, keeping the host's config", () => {
   const mine = (c) => ((c.marked = true), c);
   const config = withXtmd({ reactStrictMode: true, turbopack: { rules: { "*.svg": { loaders: ["svgr"] } } }, webpack: mine }, { packs: ["./packs/maps"] });
   assert.equal(config.reactStrictMode, true);
@@ -48,7 +48,7 @@ test("withXtmd gives the loader to Turbopack and to webpack, keeping the app's c
   assert.ok(!wp.module.rules[0].test.test("README.md"));
 });
 
-test("pageHtml writes the page's Markdown as HTML, with the app's $state", async () => {
+test("pageHtml writes the page's Markdown as HTML, with the host's $state", async () => {
   const ir = await cli.build(counter);
   assert.equal(pageHtml(ir), "<h1>Count: 0 points</h1>\n<p>Add one</p>");
   assert.equal(pageHtml(ir, { state: { n: { num: "7" } } }), "<h1>Count: 7 points</h1>\n<p>Add one</p>");

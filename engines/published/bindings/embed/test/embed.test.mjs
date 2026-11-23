@@ -10,7 +10,7 @@ import { bundle, compilePages, launch, open, steps } from "../../testing/browser
 
 const irs = await compilePages(cli);
 
-test("makePage keeps the app's $state that fits, and says what it refused", () => {
+test("makePage keeps the host's $state that fits, and says what it refused", () => {
   const ok = makePage(irs.v2, {}, { n: { num: "4" }, stride: { num: "3" } });
   assert.deepEqual(ok.page.observeState(), { n: { num: "4" }, stride: { num: "3" } });
   assert.deepEqual(ok.outcome, { refused: [], failures: [] });
@@ -41,7 +41,7 @@ test("pageHtml writes the page's Markdown as HTML, escaped", () => {
   );
 });
 
-test("in Chromium: mounts, follows its props, tells the app, unmounts", async () => {
+test("in Chromium: mounts, follows its props, tells the host, unmounts", async () => {
   const js = await bundle(esbuild, fileURLToPath(new URL("./app.mjs", import.meta.url)));
   const browser = await launch(chromium);
   try {

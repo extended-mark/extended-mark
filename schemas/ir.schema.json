@@ -105,7 +105,7 @@
           "items": {
             "type": "string"
           },
-          "description": "core's externs, supplied by the target: widgets, fns and channels."
+          "description": "core's externs, supplied by the engine: widgets, fns and channels."
         },
         "packs": {
           "type": "array",

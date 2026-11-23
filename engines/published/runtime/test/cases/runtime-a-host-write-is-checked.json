@@ -1,7 +1,7 @@
 {
-  "id": "runtime.an-app-write-is-checked",
-  "about": "an app's write to $state is one change, checked once against every rule that reads it; a refused write changes nothing",
-  "source": "runtime-an-app-write-is-checked.xtmd",
+  "id": "runtime.a-host-write-is-checked",
+  "about": "a host's write to $state is one change, checked once against every rule that reads it; a refused write changes nothing",
+  "source": "runtime-a-host-write-is-checked.xtmd",
   "expect": {
     "diagnostics": [],
     "markdown": {

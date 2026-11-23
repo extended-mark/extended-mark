@@ -580,7 +580,7 @@ pub struct NeedsPacks {
 pub struct Needs {
     /// The document's own channels' fns and values, supplied by the host when it mounts the page.
     pub app: Vec<String>,
-    /// core's externs, supplied by the target: widgets, fns and channels.
+    /// core's externs, supplied by the engine: widgets, fns and channels.
     pub core: Vec<String>,
     pub packs: Vec<NeedsPacks>,
 }

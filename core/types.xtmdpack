@@ -255,7 +255,7 @@ record latex implements literal<template>, shown {
         return tex_values(tex);
     }
 
-    require "the target can draw this TeX" {
+    require "the engine can draw this TeX" {
         return can_draw_tex(tex);
     }
 }

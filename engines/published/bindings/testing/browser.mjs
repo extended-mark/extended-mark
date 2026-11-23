@@ -108,7 +108,7 @@ export async function steps(page) {
   await until(page, () => window.__test.heard.outcomes.length === 1, null, "onOutcome");
   assert.deepEqual((await page.evaluate(() => window.__test.heard.outcomes))[0].refused, [{ code: "contracts.outside", site: "$state.n" }]);
   await page.evaluate(() => window.__test.handle().set({ n: { num: "4" } }));
-  await until(page, () => document.querySelector("#app").textContent.includes("Count: 4 items"), null, "the app's write");
+  await until(page, () => document.querySelector("#app").textContent.includes("Count: 4 items"), null, "the host's write");
   assert.deepEqual(await page.evaluate(() => window.__test.handle().state()), { n: { num: "4" } });
 
   // an exposed fn, then the page's Markdown

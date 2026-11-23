@@ -34,7 +34,7 @@ const SCRIPT: &[(f32, Step)] = &[
     (12.3, Step::Press),
     (13.8, Step::Say("...and restore puts it back.")),
     (14.6, Step::Restore),
-    (17.0, Step::Say("Real time: XtmdLiveDoc compiles this text in the app, with xtmd-live.")),
+    (17.0, Step::Say("Live: XtmdLiveDoc compiles this text in the host, with xtmd-live.")),
     (19.5, Step::Say("An edit: a counter that steps by 10.")),
     (20.0, Step::Type("\n@counter(by = 10);\n")),
     (24.5, Step::Say("Compiled as it is typed, and drawn by egui.")),
@@ -119,7 +119,7 @@ impl Demo {
 
     fn compile(&mut self) {
         match self.live.set_text(&self.text) {
-            Followed::Compiled => self.status = (true, "Compiled in the app".into()),
+            Followed::Compiled => self.status = (true, "Compiled in the host".into()),
             Followed::Broken => self.status = (false, self.live.why().unwrap_or_default().replace("page.xtmd doesn't compile", "Doesn't compile")),
             Followed::Same => {}
         }
@@ -140,7 +140,7 @@ impl eframe::App for Demo {
             ui.columns(2, |cols| {
                 let ui = &mut cols[0];
                 ui.strong("Run time: xtmd_egui::doc::XtmdDoc");
-                ui.weak("XtmdDoc::open(\"page.ir.json\"): the IR xtmd build wrote. No compiler in the app.");
+                ui.weak("XtmdDoc::open(\"page.ir.json\"): the IR xtmd build wrote. No compiler in the host.");
                 ui.add_space(6.0);
                 egui::Frame::group(ui.style()).show(ui, |ui| {
                     // in a scroll area, as a host draws a page (xtmd_egui::run_window)
@@ -157,8 +157,8 @@ impl eframe::App for Demo {
                 }
 
                 let ui = &mut cols[1];
-                ui.strong("Real time: xtmd_egui_live::XtmdLiveDoc");
-                ui.weak("XtmdLiveDoc::new(text): compiled in the app as it changes.");
+                ui.strong("Live: xtmd_egui_live::XtmdLiveDoc");
+                ui.weak("XtmdLiveDoc::new(text): compiled in the host as it changes.");
                 ui.add_space(6.0);
                 let edit = egui::TextEdit::multiline(&mut self.text).font(mono.clone()).desired_rows(7).desired_width(f32::INFINITY);
                 egui::ScrollArea::vertical().id_salt("source").max_height(140.0).stick_to_bottom(true).show(ui, |ui| {
@@ -204,7 +204,7 @@ fn main() -> eframe::Result {
         text,
         run_state,
         live_state,
-        status: (true, "Compiled in the app".into()),
+        status: (true, "Compiled in the host".into()),
         saved: None,
         started: Instant::now(),
         next: 0,

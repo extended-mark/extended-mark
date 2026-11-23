@@ -1,6 +1,6 @@
 {
   "id": "runtime.page-values-change",
-  "about": "the page's values come from the app: a new width redraws what reads it",
+  "about": "the page's values come from the host: a new width redraws what reads it",
   "source": "runtime-page-values-change.xtmd",
   "expect": {
     "diagnostics": [],

@@ -147,7 +147,7 @@ const STEPS = [
     act: (page) => press(page, "Check out"),
     wait: async (page) => {
       await until(page, "the order", holds, ["orders", "1"]);
-      await until(page, "the app to list it", () => document.querySelectorAll("#orders li").length === 1);
+      await until(page, "the host to list it", () => document.querySelectorAll("#orders li").length === 1);
     },
     check: (o) => {
       assert.deepEqual(o.calls, [{ call: { name: "doc/shop.checkout", args: [{ num: "36" }, { num: "3" }] } }]);
@@ -190,7 +190,7 @@ const STEPS = [
     act: (page) => press(page, "Check out"),
     wait: async (page) => {
       await until(page, "the second order", holds, ["orders", "2"]);
-      await until(page, "the app to list it", () => document.querySelectorAll("#orders li").length === 2);
+      await until(page, "the host to list it", () => document.querySelectorAll("#orders li").length === 2);
     },
     check: (o) => {
       assert.deepEqual(o.calls.at(-1), { call: { name: "doc/shop.checkout", args: [{ num: "18" }, { num: "2" }] } });

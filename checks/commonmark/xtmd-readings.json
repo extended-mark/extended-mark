@@ -44,7 +44,7 @@
   "commonmark-0.31.2.json#96": {
    "section": "Setext headings",
    "only": "prose",
-   "why": "A `---` line at the very top opens YAML front matter, which Extended Mark keeps above the definitions and passes to the app untouched (page 1). md.from reads Markdown as data, with no front matter, and is held to CommonMark's output.",
+   "why": "A `---` line at the very top opens YAML front matter, which Extended Mark keeps above the definitions and passes to the host untouched (page 1). md.from reads Markdown as data, with no front matter, and is held to CommonMark's output.",
    "blocks": [
     {
      "heading": {
@@ -72,7 +72,7 @@
   "commonmark-0.31.2.json#98": {
    "section": "Setext headings",
    "only": "prose",
-   "why": "A `---` line at the very top opens YAML front matter, which Extended Mark keeps above the definitions and passes to the app untouched (page 1). md.from reads Markdown as data, with no front matter, and is held to CommonMark's output.",
+   "why": "A `---` line at the very top opens YAML front matter, which Extended Mark keeps above the definitions and passes to the host untouched (page 1). md.from reads Markdown as data, with no front matter, and is held to CommonMark's output.",
    "blocks": []
   },
   "commonmark-0.31.2.json#148": {

@@ -958,7 +958,7 @@ impl<'a> Parser<'a> {
                 return Err(Diagnostic::error(
                     codes::EXPOSE_IN_WIDGET,
                     t.span,
-                    "expose is written only at the top of a document: the app has no way to say which widget on the page it means",
+                    "expose is written only at the top of a document: the host has no way to say which widget on the page it means",
                 ))
             }
             _ => {

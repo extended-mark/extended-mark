@@ -1,4 +1,4 @@
-<!-- The test app for <XtmdDoc>: drawn by Svelte itself, $state controlled by the app, with the controls the shared doc steps use (testing/browser.mjs, docSteps). -->
+<!-- The test host for <XtmdDoc>: drawn by Svelte itself, $state controlled by the host, with the controls the shared doc steps use (testing/browser.mjs, docSteps). -->
 <script>
   import { XtmdDoc } from "@extended-mark/svelte";
 

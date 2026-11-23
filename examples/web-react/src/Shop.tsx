@@ -25,7 +25,7 @@ export function Shop() {
     <main>
       <p className="from">React</p>
       <XtmdDoc id="shop" ir={shop} onCalls={heard} ref={seen} />
-      <h2>Orders sent to the app</h2>
+      <h2>Orders sent to the host</h2>
       <ul id="orders">
         {orders.map((o) => (
           <li key={o}>{o}</li>

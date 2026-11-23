@@ -194,10 +194,10 @@ impl Checker {
             for f in e.fns.iter() {
                 // the host calls it with values of its own and reads nothing back (page 6)
                 if let Some(ast::RetType::Type(t)) = &f.sig.ret {
-                    self.error(file, codes::RETURN, t.span, format!("`{}.{}` is called by the app, which reads nothing back: an exposed fn returns nothing, so leave out its return type", e.name.name, f.sig.name.name));
+                    self.error(file, codes::RETURN, t.span, format!("`{}.{}` is called by the host, which reads nothing back: an exposed fn returns nothing, so leave out its return type", e.name.name, f.sig.name.name));
                 }
                 for p in f.sig.params.iter().filter(|p| p.mutable) {
-                    self.error(file, codes::EXPOSED_MUT, p.name.span, format!("`{}` can't be `mut`: the app gives `{}.{}` its values, and an exposed fn takes them as constants", p.name.name, e.name.name, f.sig.name.name));
+                    self.error(file, codes::EXPOSED_MUT, p.name.span, format!("`{}` can't be `mut`: the host gives `{}.{}` its values, and an exposed fn takes them as constants", p.name.name, e.name.name, f.sig.name.name));
                 }
                 let mut cx = Cx::new(file);
                 cx.state = fields.clone();

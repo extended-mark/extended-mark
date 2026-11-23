@@ -43,7 +43,7 @@ test("a widget's write goes to the caller's variable, checked against its contra
   assert.deepEqual(p.observeState(), { n: num(7) });
 });
 
-test("an app's write to $state is one change, checked once against $state's rules", () => {
+test("a host's write to $state is one change, checked once against $state's rules", () => {
   const p = page('$state {\n    low: number = 1;\n    high: number = 5;\n\n    require "low stays at or below high" {\n        return low <= high;\n    }\n}\n@@@\n\\{$state.low} to \\{$state.high}\n');
   p.set({ low: p.value(num(9)) });
   assert.deepEqual(p.takeOutcome().refused, [{ rule: "low stays at or below high" }]);
@@ -66,7 +66,7 @@ test("a handler that fails is undone whole and reported; the page carries on", (
   assert.deepEqual(p.takeOutcome().failures, [{ code: "failure.number", site: "s0/s0" }]);
 });
 
-test("extern channels: the app's fns are reported as calls, its values redraw, and exposed fns run as one change", () => {
+test("extern channels: the host's fns are reported as calls, its values redraw, and exposed fns run as one change", () => {
   const p = page(
     'extern scores {\n    unit: text = "K";\n    fn saved(total: int);\n}\n\n$state {\n    points: int 0... = 0;\n}\n\nexpose scores {\n    fn clear() {\n        $state.points = 0;\n    }\n}\n\nwidget tally(mut points: int) {\n    view {\n        @press(label = "Add", click = fn() { points = points + 1; scores.saved(points); });\n    }\n    markdown {\n        \\{points} \\{scores.unit}\n    }\n}\n@@@\n@tally(points = $state.points);\n',
   );
@@ -176,7 +176,7 @@ test("writing the Markdown leaves a widget's events in place: one that passes it
   assert.deepEqual(p.observeState(), { n: num(1) });
 });
 
-test("an app's write of the wrong type is refused, whatever its contract", () => {
+test("a host's write of the wrong type is refused, whatever its contract", () => {
   const p = page('record task {\n    title: text;\n}\n\n$state {\n    tasks: list<task> = [task { title = "a" }];\n    n: int = 1;\n    note: opt<text> = opt.NONE;\n}\n@@@\n\\{$state.n}\n');
   for (const [k, x] of [["tasks", num(3)], ["n", { text: "3" }], ["tasks", { list: [{ record: { type: "doc/task", fields: { title: num(1) } } }] }], ["note", { some: num(2) }]]) {
     p.set({ [k]: p.value(x) });
@@ -209,7 +209,7 @@ test("an extern widget the engine doesn't supply shows its Markdown, and is repo
   assert.equal(p.observeTree().s2.widget, "badge/seal");
 });
 
-test("a spot outside its plane's bounds is a warning for the app when the page runs, once as it moves out", () => {
+test("a spot outside its plane's bounds is a warning for the host when the page runs, once as it moves out", () => {
   const p = page(
     '$state {\n    x: number = 5;\n}\n\nwidget map() {\n    view {\n        @plane(label = "Map", bounds = region { from = point { x = 0, y = 0 }, to = point { x = 10, y = 10 } }) {\n            items {\n                @spot(at = point { x = $state.x, y = 5 }) {\n                    @label(value = "here");\n                }\n            }\n        }\n    }\n}\n@@@\n@map;\n',
   );

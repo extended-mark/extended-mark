@@ -69,7 +69,7 @@ test("the patcher keeps an element by key, sets only what changed, and moves onl
   assert.deepEqual(ops, [`remove ${a.id}`]);
 });
 
-test("a document renders its page with the app's externs and the `$state` it starts from", () => {
+test("a document renders its page with the host's externs and the `$state` it starts from", () => {
   const doc = new Doc({ ir: irs.v1, externs, defaultState: { n: num(2) } });
   const html = toHtml(doc.render());
   assert.match(html, /^<div class="xtmd-root" data-xtmd-root data-xtmd-theme="light"/);
@@ -104,7 +104,7 @@ test("a controlled `$state` is checked: what fits is shown and heard once, what 
   assert.equal(states.length, 1);
 });
 
-test("set, expose and the app's extern fns go through the page, each heard once its change is done", async () => {
+test("set, expose and the host's extern fns go through the page, each heard once its change is done", async () => {
   const states = [];
   const calls = [];
   const doc = new Doc({ ir: irs.v1, externs, onStateChange: (s) => states.push(s), onCalls: (c) => calls.push(...c) });

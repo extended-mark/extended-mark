@@ -1396,7 +1396,7 @@ impl Checker {
                         Some(x)
                     }
                     (Some(e), None) if cx.exposed => {
-                        self.error(file, codes::RETURN, e.span, "an exposed fn returns nothing: the app calls it and reads nothing back, so `return;` ends it");
+                        self.error(file, codes::RETURN, e.span, "an exposed fn returns nothing: the host calls it and reads nothing back, so `return;` ends it");
                         Some(self.expr(cx, e, None).0)
                     }
                     (Some(e), None) => {

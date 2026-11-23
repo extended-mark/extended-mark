@@ -593,7 +593,7 @@ impl Rt {
             Outer::Extern(n) => {
                 let mut w = self.w();
                 w.track(|| format!("x:{}", n));
-                w.externs.get(&**n).cloned().ok_or_else(|| Failure::new(FailKind::NotConstant, format!("{} is given by the app", n)))
+                w.externs.get(&**n).cloned().ok_or_else(|| Failure::new(FailKind::NotConstant, format!("{} is given by the host", n)))
             }
             Outer::Let(n) => {
                 if let Some(v) = m.prog.lets.get(&**n) {
