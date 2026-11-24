@@ -1,6 +1,7 @@
 // A shade's pixels, worked out by the page's shader, for every engine that paints them on a canvas.
 
-import { Num, type Input, type Node as Drawn } from "@extended-mark/runtime";
+import { Num } from "@extended-mark/runtime/num";
+import type { Input, Node as Drawn } from "@extended-mark/runtime";
 import { exact, field, inner, num } from "./values.js";
 
 /** The most pixels a shade works out; the canvas is scaled to its size on the page. */

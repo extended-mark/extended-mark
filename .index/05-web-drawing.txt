@@ -1,27 +1,24 @@
 WEB DRAWING
 
-engines/published/dom    npm @extended-mark/dom: draws a page with plain DOM
-  src/api.ts            WidgetContext, WidgetView, Widget, MountOptions, Mounted
-  src/mount.ts          a tree reconciled by id after each change; unmount
-  src/widgets/          core's widgets: blocks, controls, gfx, layout, plane, words, notice
-  src/style.css         the stylesheet, also view's; src/style.ts holds it as text
-  src/tokens.ts         tokens as CSS custom properties, both themes
-  src/values.ts         reading a node's inputs; src/shared.ts shares it with view
-  src/tex.ts            TeX as MathML
-  src/shade.ts          a shade's pixels
-  src/rich.ts           links and pictures checked
-  src/icons.ts          glyph drawings
-  src/planes.ts         a page's planes measured and laid out (layoutPlanes)
-  src/kit.ts, fns.ts    what our widgets need; the fns the web supplies (moment.local)
-  test/                 real Chromium: widgets, interact, plane; harness.mjs, browser.mjs
-
-engines/published/bindings/view    npm @extended-mark/view: the same widgets as plain elements
+engines/published/widgets    npm @extended-mark/widgets: the web's one widget set
+  src/widgets/          core's widgets: blocks, controls, gfx, layout, plane, rich; index.ts by full name
+  src/draw.ts           nodes as elements (children, drawn); ViewWidget, ViewContext, Drawing
   src/vnode.ts          VNode: tag, attrs, props, style, on, children, hook, component
-  src/render.ts         a tree as VNodes, keyed by id
-  src/widgets/          core's widgets again, as VNodes (the same parts and classes as dom's)
-  src/doc.ts            Doc: a page as a framework engine holds it
-  src/html.ts           VNodes as HTML, for a server
-  src/patch.ts          VNodes followed onto a live tree (Angular)
-  src/act.ts            a reader acting on an element, for tests
+  src/patch.ts          Patcher: VNodes followed onto a live tree, through a Host (DOM, Angular)
+  src/html.ts           VNodes as HTML and as schemas/web.schema.json
+  src/style.css         the stylesheet; src/style.ts holds it as text
+  src/tokens.ts         tokens as CSS custom properties, both themes
+  src/values.ts         reading a node's inputs
+  src/planes.ts         a page's planes measured and laid out (layoutPlanes)
+  src/tex.ts, shade.ts, rich.ts, icons.ts, fns.ts, act.ts
+  test/                 without a page or a browser
 
-core's web widgets are in both: a change to how one looks or acts goes in both.
+engines/published/dom    npm @extended-mark/dom: the plain web's renderer
+  src/mount.ts          a page drawn into an element; a host's own elements (own); focus kept
+  src/api.ts            MountOptions, Mounted, OwnWidget
+  test/                 real Chromium: widgets, interact, plane; planes.test.mjs without one
+
+engines/published/bindings/view    npm @extended-mark/view: a page as a framework engine holds it
+  src/doc.ts            Doc: the page, its root element, what the host is told
+
+ide/vscode/src/webview/widgets.ts is the same set in VS Code's look.

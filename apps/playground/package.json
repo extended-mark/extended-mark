@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@extended-mark/dom": "file:../../engines/published/dom",
+    "@extended-mark/widgets": "file:../../engines/published/widgets",
     "@extended-mark/embed": "file:../../engines/published/bindings/embed",
     "@extended-mark/embed-live": "file:../../engines/published/bindings/embed-live",
     "@extended-mark/live": "file:../../engines/published/bindings/live",

@@ -293,7 +293,8 @@ test("a widget nobody supplies shows its Markdown and is reported, and a host's 
 
   const mine = await open(browser, '$state {\n    who: text = "Ada";\n}\n\nwidget hi() {\n    view {\n        @label(value = "Hi \\{$state.who}");\n    }\n}\n@@@\n@hi;\n', { labels: true });
   assert.equal(await mine.locator("mark.app-label").textContent(), "[Hi Ada]");
-  assert.equal(await mine.locator("mark.app-label").getAttribute("data-xtmd-site"), "s0/s0");
+  // in an element of the widget's own, which has its id
+  assert.equal(await mine.locator("[data-xtmd-site='s0/s0'] > mark.app-label").count(), 1);
   await xtmd(mine, "set", { who: { text: "Grace" } });
   assert.equal(await mine.locator("mark.app-label").textContent(), "[Hi Grace]");
   await mine.close();

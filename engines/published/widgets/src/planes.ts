@@ -1,7 +1,9 @@
 // The planes of a page laid out: what is on each measured, placed by the runtime's layout, and written back,
 // pass by pass until nothing changes.
 
-import { Num, everyNode, lay, type Input, type Node, type Page, type Pt, type Region, type Size } from "@extended-mark/runtime";
+import { Num } from "@extended-mark/runtime/num";
+import { lay, type Pt, type Region, type Size } from "@extended-mark/runtime/layout";
+import type { Input, Node, Page } from "@extended-mark/runtime";
 import { exact, field, flag, inner, kase, nodes, pointInput, range, regionExact } from "./values.js";
 
 /** What whoever draws a page tells its layout: the size of each spot's child, and the width a plane is given
@@ -49,10 +51,26 @@ function writesOf(page: Page, plane: Node, measure: Measure): { id: string; inpu
   return out;
 }
 
+/** Every plane, outermost first. One that failed has nothing to lay out. */
+function planesIn(of: readonly Node[], out: Node[] = []): Node[] {
+  const walk = (x: Input): void => {
+    if ("nodes" in x) planesIn(x.nodes, out);
+    else if ("list" in x) x.list.forEach(walk);
+    else if ("some" in x) walk(x.some);
+    else if ("record" in x) Object.values(x.record.fields ?? {}).forEach(walk);
+    else if ("case" in x) Object.values(x.case.values ?? {}).forEach(walk);
+  };
+  for (const n of of) {
+    if (n.widget === "core/plane" && n.failed === undefined) out.push(n);
+    Object.values(n.inputs).forEach(walk);
+  }
+  return out;
+}
+
 /** Lays the page's planes out, outermost first. */
 export function layoutPlanes(page: Page, measure: Measure): void {
   page.settle(() => {
-    const planes = everyNode(page.tree().nodes).filter((n) => n.widget === "core/plane" && n.failed === undefined);
+    const planes = planesIn(page.tree().nodes);
     return { writes: planes.flatMap((p) => writesOf(page, p, measure)), of: planes.map((p) => p.id) };
   });
 }

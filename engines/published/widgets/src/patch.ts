@@ -1,6 +1,6 @@
-// Elements followed onto a live tree through a renderer's own API: for a framework that has no
-// virtual tree of its own (Angular, whose Renderer2 is how it makes and changes elements, on a
-// server too). Each element is made once, kept by key among its siblings while its tag stays, and
+// Elements followed onto a live tree through whatever makes its elements: the DOM, or a framework that has
+// no virtual tree of its own (Angular, whose Renderer2 is how it makes and changes elements, on a server
+// too). Each element is made once, kept by key among its siblings while its tag stays, and
 // only what changed is set on it, so focus and what is being typed survive a change.
 
 import type { Child, Component, VNode } from "./vnode.js";
@@ -63,8 +63,25 @@ function staying(was: number[]): Set<number> {
 /** Follows renders of one root element onto a parent node. */
 export class Patcher<N> {
   private root: Made<N> | undefined;
+  /** The elements with live properties: set at every render, as what the page shows wins over what the
+   * element has. */
+  private readonly live = new Set<Made<N>>();
 
-  constructor(private readonly host: Host<N>, private readonly parent: N) {}
+  /** With `list`, the parent itself is drawn into: `renderAll` gives its children. */
+  constructor(private readonly host: Host<N>, private readonly parent: N, list = false) {
+    if (list) this.root = { node: parent, v: { tag: "", attrs: {}, children: [] }, off: new Map(), kids: new Map(), order: [] };
+    this.list = list;
+  }
+
+  private readonly list: boolean;
+
+  /** The parent's children. */
+  renderAll(children: Child[]): void {
+    const m = this.root!;
+    m.v = { tag: "", attrs: {}, children };
+    this.children(m, children);
+    this.settleProps();
+  }
 
   /** The root element made, or undefined before the first render. */
   get node(): N | undefined {
@@ -77,13 +94,21 @@ export class Patcher<N> {
       if (this.root) this.remove(this.parent, this.root);
       this.root = this.make(v);
       this.host.insertBefore(this.parent, this.root.node, null);
+      this.settleProps();
       this.mounted(this.root);
+      return;
     }
+    this.settleProps();
+  }
+
+  private settleProps(): void {
+    for (const m of this.live) for (const [k, x] of Object.entries((m.v as VNode).props ?? {})) this.host.setProperty(m.node, k, x);
   }
 
   /** Takes the tree away: its hooks told, its listeners off. */
   destroy(): void {
-    if (this.root) this.remove(this.parent, this.root);
+    if (this.root && this.list) for (const k of this.root.order) this.remove(this.parent, this.root.kids.get(k)!);
+    else if (this.root) this.remove(this.parent, this.root);
     this.root = undefined;
   }
 
@@ -91,6 +116,7 @@ export class Patcher<N> {
     if (typeof c === "string") return { node: this.host.createText(c), v: c, off: new Map(), kids: new Map(), order: [] };
     const m: Made<N> = { node: this.host.createElement(c.tag, !!c.svg), v: c, off: new Map(), kids: new Map(), order: [] };
     this.set(m, undefined, c);
+    for (const [k, x] of Object.entries(c.props ?? {})) this.host.setProperty(m.node, k, x);
     if (c.component) m.component = this.host.component?.(m.node, c.component);
     if (c.tag === "style" || c.tag === "textarea") {
       if (c.tag === "style") this.host.setProperty(m.node, "textContent", c.children.join(""));
@@ -114,8 +140,8 @@ export class Patcher<N> {
     const st = v.style ?? {};
     for (const [k, x] of Object.entries(st)) if (prev?.style?.[k] !== x) h.setStyle(m.node, k, x);
     for (const k of Object.keys(prev?.style ?? {})) if (!(k in st)) h.removeStyle(m.node, k);
-    // live properties are set every time: what the page shows wins over what the element has
-    for (const [k, x] of Object.entries(v.props ?? {})) h.setProperty(m.node, k, x);
+    if (v.props) this.live.add(m);
+    else this.live.delete(m);
     if (h.live) {
       for (const name of Object.keys(v.on ?? {})) {
         if (!m.off.has(name)) m.off.set(name, h.listen(m.node, name, (e) => (m.v as VNode).on?.[name]?.(e)));
@@ -131,6 +157,7 @@ export class Patcher<N> {
 
   private update(m: Made<N>, v: Child): void {
     const prev = m.v;
+    if (prev === v && typeof v !== "string") return;
     m.v = v;
     if (typeof v === "string") {
       if (prev !== v) this.host.setText(m.node, v);
@@ -190,6 +217,7 @@ export class Patcher<N> {
   private forget(m: Made<N>): void {
     for (const k of m.order) this.forget(m.kids.get(k)!);
     m.component?.destroy();
+    this.live.delete(m);
     for (const off of m.off.values()) off();
     m.off.clear();
     if (this.host.live && typeof m.v !== "string") m.v.hook?.unmount?.(m.node as unknown as Element);

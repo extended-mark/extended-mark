@@ -18,7 +18,7 @@ CORE  core/    the standard library: a pack, imported by every file
   core/entities.xtmdpack     HTML's named characters (a table)
 
 40 extern widgets: 33 of core.draw, 7 of core.gfx. Who draws them:
-  web      engines/published/dom/src/widgets/ and engines/published/bindings/view/src/widgets/
+  web      engines/published/widgets/src/widgets/
   egui     engines/examples/rust/egui/src/widgets/
   Android  engines/examples/misc/android/compose/xtmd-android/src/main/kotlin/xtmd/android/widgets/
   VS Code  ide/vscode/src/webview/widgets.ts (on the web's)

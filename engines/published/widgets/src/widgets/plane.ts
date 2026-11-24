@@ -10,9 +10,10 @@
 // zoom and centre a gesture moves from are read from the page as the event comes, so a framework
 // that renders later than the page changes still pans and zooms from where the page is now.
 
-import { around, type Node as Drawn, type Page, type Region } from "@extended-mark/runtime";
-import { flag, kase, nodes, num, placesFor, point, pointInput, range, region, regionExact, str, toNum, type XY } from "@extended-mark/dom/shared";
-import type { ViewContext, ViewWidget } from "../render.js";
+import { around, type Region } from "@extended-mark/runtime/layout";
+import type { Node as Drawn } from "@extended-mark/runtime";
+import { flag, kase, nodes, num, placesFor, point, pointInput, range, region, regionExact, str, toNum, type XY } from "../values.js";
+import type { ViewContext, ViewWidget } from "../draw.js";
 import type { Act } from "../act.js";
 import { cls, css, h, on, s, type Hook } from "../vnode.js";
 import { claim, isClaimed } from "./controls.js";
@@ -106,22 +107,6 @@ function setPanning(view: Element, st: Live, panning: boolean): void {
   view.classList.toggle("xtmd-panning", panning);
 }
 
-/** The outside change each plane last asked for the layout after, by page and node. */
-const asked = new WeakMap<Page, Map<string, number>>();
-
-/** Asks for the plane's layout once this render is in the document, after every change but the
- * layout's own, as @extended-mark/dom's mount settles it: `page.changes` counts every change from outside
- * the layout. A render that follows the layout's own writes doesn't ask again, or a spot in a list
- * made anew at each redraw, whose own box never stays, would lay the page out for ever. A plane
- * the page didn't have before asks on its first render. */
-function askLayout(d: Drawn, ctx: ViewContext): void {
-  let m = asked.get(ctx.page);
-  if (!m) asked.set(ctx.page, (m = new Map()));
-  if (m.get(d.id) === ctx.page.changes) return;
-  m.set(d.id, ctx.page.changes);
-  ctx.layout();
-}
-
 /** Watches the spots the view holds now: a spot that changes size, or the view, lays the plane
  * out again. Only a real change does: a spot drawn anew (a row of a list made again at each
  * redraw) is measured by the layout that follows the redraw, and laying out again for it would
@@ -147,7 +132,7 @@ function watchItems(view: Element, st: Live): void {
 // ---- plane
 
 export const plane: ViewWidget = (d, ctx) => {
-  askLayout(d, ctx);
+  ctx.layout();
   const p = (k: string) => d.inputs[k];
   const t = ctx.tokens;
   const { z, c } = lookOf(d);
@@ -158,8 +143,8 @@ export const plane: ViewWidget = (d, ctx) => {
 
   /** The plane as the page has it now, for an event: the latest render may not be in yet. */
   const current = (): Drawn => {
-    const n = ctx.page.node(d.id);
-    return n && n.widget === d.widget ? n : d;
+    const n = ctx.node();
+    return n.widget === d.widget ? n : d;
   };
   const lookNow = (): Look => lookOf(current());
   const viewOf = (from: Element) => from.closest(VIEW) as HTMLElement | null;
@@ -299,7 +284,7 @@ export const plane: ViewWidget = (d, ctx) => {
     zoomAt(me, e.clientX, e.clientY, lookOf(n).z * Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0015)));
   };
   /** The Doc's layout, got now and kept for the ResizeObserver, which calls it after this render. */
-  const layout = () => ctx.layout();
+  const layout = () => ctx.layout(true);
   const hook: Hook = {
     mount(el) {
       const st = liveOf(el);

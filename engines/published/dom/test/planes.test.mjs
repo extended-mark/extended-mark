@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Num, Page, everyNode } from "@extended-mark/runtime";
-import { layoutPlanes } from "../dist/shared.js";
+import { layoutPlanes } from "@extended-mark/widgets";
 import { cases, run } from "../../runtime/test/run-case.mjs";
 import { measure } from "../../runtime/test/sizes.mjs";
 import { ir } from "./browser.mjs";

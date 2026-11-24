@@ -1,7 +1,8 @@
 // Reading a node's inputs for drawing. Every input arrives with its default filled in, so these only
 // unwrap: an opt to its value, a case to its name, a record to its fields.
 
-import { Num, type Input, type Node } from "@extended-mark/runtime";
+import { Num } from "@extended-mark/runtime/num";
+import type { Input, Node } from "@extended-mark/runtime";
 
 /** The value inside an opt (and inside that one), or the value itself; undefined for none. */
 export function inner(v: Input | undefined): Input | undefined {

@@ -24,7 +24,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
 
-// TeX as @extended-mark/dom reads it (engines/published/dom/src/tex.ts): the same reader, the same commands, and
+// TeX as @extended-mark/widgets reads it (engines/published/widgets/src/tex.ts): the same reader, the same commands, and
 // the same tree as its MathML (identifiers, numbers, operators, text, scripts, limits, fractions,
 // roots, accents, fences, spaces). Compose has no MathML, so the tree is drawn two ways:
 //

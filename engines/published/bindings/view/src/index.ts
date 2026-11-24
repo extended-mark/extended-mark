@@ -4,11 +4,6 @@
 // core's widgets are written once here, drawn as @extended-mark/dom draws them.
 
 export { Doc, hash, type DocError, type DocProps, type Restored, type Snapshot } from "./doc.js";
-export { renderPage, children, type Drawing, type ViewContext, type ViewWidget } from "./render.js";
-export { h, s, attr, cls, css, prop, on, slotsOf, textOf, type Child, type Component, type Hook, type VNode, type WidgetProps } from "./vnode.js";
-export { toHtml, toJson, escapeHtml, walk } from "./html.js";
-export { widgets } from "./widgets/index.js";
-export { act, type Action } from "./act.js";
+export { Patcher, act, attr, children, cls, css, escapeHtml, h, on, prop, s, slotsOf, textOf, toHtml, toJson, walk, widgets, type Action, type Child, type Component, type Drawing, type Hook, type Host, type VNode, type ViewContext, type ViewWidget, type WidgetProps } from "@extended-mark/widgets";
 export type { Call, Input, Node, Outcome, PageValues, ir } from "@extended-mark/runtime";
 export type { Ir } from "@extended-mark/embed";
-export { Patcher, type Host } from "./patch.js";

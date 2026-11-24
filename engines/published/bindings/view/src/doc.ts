@@ -4,16 +4,12 @@
 // back. No framework here: an engine renders `render()` with its own renderer and calls `update`
 // with its props.
 
-import { Page, type Call, type Outcome, type PageOptions, type PageValues, type Input, type ir } from "@extended-mark/runtime";
+import { Page, type Call, type Node, type Outcome, type PageOptions, type PageValues, type Input, type ir } from "@extended-mark/runtime";
 import { RELEASE, channelName, dataOf, hash, irText, makePage, sameIr, type DocError, type Ir, type Restored, type Snapshot } from "@extended-mark/embed";
 
 export { hash, type DocError, type Restored, type Snapshot } from "@extended-mark/embed";
 import { Num } from "@extended-mark/runtime";
-import { layoutPlanes, type Measure } from "@extended-mark/dom/shared";
-import { Tokens, webFns } from "@extended-mark/dom/shared";
-import { renderPage, type ViewWidget } from "./render.js";
-import { h, type VNode } from "./vnode.js";
-import { widgets as core } from "./widgets/index.js";
+import { Tokens, children, h, layoutPlanes, styleText, webFns, widgets as core, type Child, type Drawing, type Measure, type VNode, type ViewWidget } from "@extended-mark/widgets";
 
 /** What an engine gives the document: the same in every framework. */
 export interface DocProps {
@@ -63,6 +59,7 @@ export class Doc {
   private loading: string | undefined;
   private loadFailed: string | undefined;
   private unlisten: (() => void) | undefined;
+  private drawing: ReturnType<Doc["drawingOf"]> | undefined;
   private root: Element | undefined;
   private shown: string | undefined;
   private queued = false;
@@ -104,7 +101,7 @@ export class Doc {
     this.rendering = true;
     let root: VNode;
     try {
-      root = renderPage({ page: this.page, registry: { ...core, ...(this.props.widgets ?? {}) }, components: this.props.components, failed: this.props.failed, tokens: this.tokens, uid: this.uid, layout: () => this.layout(), after: () => this.report() });
+      root = this.rootOf(this.page, this.tokens);
     } finally {
       this.rendering = false;
     }
@@ -121,6 +118,47 @@ export class Doc {
       unmount: () => (this.root = undefined),
     };
     return root;
+  }
+
+  /** The page as one root element: its stylesheet, its tokens for both themes, and every drawn widget. */
+  private rootOf(page: Page, tokens: Tokens): VNode {
+    const { widgets, components, failed } = this.props;
+    const dr = this.drawing;
+    if (!dr || dr.page !== page || dr.widgets !== widgets || dr.components !== components || dr.failed !== failed) this.drawing = this.drawingOf(page, tokens);
+    const sheet = tokens.sheet();
+    return h("div", undefined, { class: `xtmd-root ${sheet.name}`, "data-xtmd-root": "", "data-xtmd-theme": tokens.theme().toLowerCase() }, [
+      { tag: "style", attrs: { "data-xtmd-dom": "" }, children: [styleText + sheet.css] },
+      ...children(this.drawing!, page.tree().nodes),
+    ]);
+  }
+
+  private drawingOf(page: Page, tokens: Tokens) {
+    const { widgets, components, failed } = this.props;
+    const asked = new Map<string, number>();
+    // a reader's event or write, done or refused, reaches the host
+    const told = <T>(x: T): T => (this.report(), x);
+    return {
+      page,
+      widgets,
+      registry: { ...core, ...(widgets ?? {}) },
+      components,
+      failed,
+      tokens,
+      uid: this.uid,
+      kept: new WeakMap<Node, Child>(),
+      node: (id) => page.node(id),
+      event: (id, name, args) => told(page.event(id, name, args)),
+      write: (id, input, value) => told(page.write(id, input, value)),
+      call: (id, input, args) => page.call(id, input, args),
+      // after every change but the layout's own: a spot in a list made anew at each redraw, whose own box
+      // never stays, would lay the page out for ever
+      layout: (id, again) => {
+        if (!again && asked.get(id) === page.changes) return;
+        asked.set(id, page.changes);
+        this.layout();
+      },
+      fail: (f) => page.errors.push(f),
+    } satisfies Drawing & { page: Page; widgets: unknown };
   }
 
   /** The engine's props changed: do what each change means. */

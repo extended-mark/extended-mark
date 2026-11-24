@@ -270,6 +270,7 @@
   },
   "devDependencies": {
     "@extended-mark/dom": "file:../../engines/published/dom",
+    "@extended-mark/widgets": "file:../../engines/published/widgets",
     "@extended-mark/embed-live": "file:../../engines/published/bindings/embed-live",
     "@extended-mark/live": "file:../../engines/published/bindings/live",
     "@extended-mark/runtime": "file:../../engines/published/runtime",

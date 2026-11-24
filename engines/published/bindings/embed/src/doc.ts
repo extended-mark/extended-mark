@@ -5,7 +5,7 @@
 // <XtmdDoc> (@extended-mark/view), with the same props, on Embed. There is no compiler here: @extended-mark/embed-live
 // compiles a document's text.
 
-import type { Mounted, Widget } from "@extended-mark/dom";
+import type { Mounted, OwnWidget, ViewWidget } from "@extended-mark/dom";
 import type { Call, Page, PageOptions, PageValues, Input, ir } from "@extended-mark/runtime";
 import { Embed, type PageProps } from "./index.js";
 import { irText, sameIr, type Given, type Ir } from "./page.js";
@@ -30,9 +30,11 @@ export interface DocProps {
   /** Input fns the host supplies, by full name (`acme/rate`). */
   fns?: PageOptions["fns"];
   /** The host's widgets by full name, in place of @extended-mark/dom's, or a pack's. */
-  widgets?: Record<string, Widget>;
+  widgets?: Record<string, ViewWidget>;
+  /** The host's own elements, by the widget each draws. */
+  own?: Record<string, OwnWidget>;
   /** What is drawn where a widget failed, in place of @extended-mark/dom's notice. */
-  failed?: Widget;
+  failed?: ViewWidget;
   /** How the plane's spots are measured: left out, from the DOM. The checks give fixed sizes. */
   measure?: PageProps["measure"];
   /** `$state` after each change to it. */
@@ -184,6 +186,7 @@ export class XtmdDoc {
       externs: p.externs,
       fns: p.fns,
       widgets: p.widgets,
+      own: p.own,
       failed: p.failed,
       measure: p.measure,
       onState: (s) => this.props.onStateChange?.(s),

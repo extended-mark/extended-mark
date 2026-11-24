@@ -1,24 +1,41 @@
-// A page drawn into an element: its tree reconciled by id after every change, so each widget's
-// element lives as long as the widget does, and focus, the caret and what is being typed survive
-// a redraw. The plane's layout runs after every change, with sizes read from the DOM.
+// A page drawn into an element: its widgets' elements followed onto it by id after every change, so each
+// lives as long as its widget does, and focus, the caret and what is being typed survive a redraw. The
+// plane's layout runs after every change, with sizes read from the DOM.
 
-import { Num, Page, type Node as Drawn, type PageOptions, type ir } from "@extended-mark/runtime";
-import type { Action, Mounted, MountOptions, Widget, WidgetContext, WidgetView } from "./api.js";
-import { giveKit, newUid, tokensOf, type Kit } from "./kit.js";
-import type { Tokens } from "./tokens.js";
-import { webFns } from "./fns.js";
-import { layoutPlanes, type Measure } from "./planes.js";
-import { css as styleText } from "./style.js";
-import { widgets as ours } from "./widgets/index.js";
-import { broken, failedView, notice, unknownWidget } from "./widgets/notice.js";
+import { Num } from "@extended-mark/runtime/num";
+import { Page, type Node as Drawn, type PageOptions, type ir } from "@extended-mark/runtime";
+import { Patcher, Tokens, act, children, composing, h, layoutPlanes, styleText, webFns, widgets as ours, type Child, type Component, type Drawing, type Host, type Measure } from "@extended-mark/widgets";
+import type { MountOptions, Mounted, OwnWidget } from "./api.js";
 
-interface Entry {
-  id: string;
-  widget: string;
-  d: Drawn;
-  view: WidgetView;
-  ctx: WidgetContext;
-}
+const SVG = "http://www.w3.org/2000/svg";
+let mounts = 0;
+
+/** How elements are made and changed here: the DOM's own way. */
+const dom: Host<Node> = {
+  live: true,
+  createElement: (tag, svg) => (svg ? document.createElementNS(SVG, tag) : document.createElement(tag)),
+  createText: (text) => document.createTextNode(text),
+  setText: (node, text) => {
+    if (node.nodeValue !== text) node.nodeValue = text;
+  },
+  setAttribute: (el, name, value) => (el as Element).setAttribute(name, value),
+  removeAttribute: (el, name) => (el as Element).removeAttribute(name),
+  setStyle: (el, prop, value) => (el as HTMLElement).style.setProperty(prop, value),
+  removeStyle: (el, prop) => (el as HTMLElement).style.removeProperty(prop),
+  // what is typed stays while a person composes it, and a value that is there already is never set again:
+  // that would move the caret
+  setProperty: (el, name, value) => {
+    const live = el as unknown as Record<string, unknown>;
+    if (name === "value" && composing.has(el)) return;
+    if (live[name] !== value) live[name] = value;
+  },
+  listen(el, event, f) {
+    el.addEventListener(event, f);
+    return () => el.removeEventListener(event, f);
+  },
+  insertBefore: (parent, child, before) => void parent.insertBefore(child, before),
+  removeChild: (_parent, child) => (child as ChildNode).remove(),
+};
 
 const styled = new WeakSet<Node>();
 const sheets = new WeakMap<Node, Set<string>>();
@@ -72,16 +89,40 @@ function focusOf(root: HTMLElement): (() => void) | undefined {
   };
 }
 
+/** A host's own element for a widget, its slots' widgets followed into where it puts them. */
+function own(el: Node, c: Component): { update(c: Component): void; destroy(): void } {
+  let now = c;
+  const slots = new Map<Element, { input: string; patcher: Patcher<Node> }>();
+  const follow = () => {
+    for (const { input, patcher } of slots.values()) patcher.render(holder(now.children(input)));
+  };
+  const holder = (kids: Child[]) => ({ ...h("xtmd-slot", undefined, {}, kids), style: { display: "contents" } });
+  const made = (c.of as OwnWidget)(el as HTMLElement, c.props, (container, input) => {
+    if (!slots.has(container)) slots.set(container, { input, patcher: new Patcher<Node>(dom, container) });
+    follow();
+  });
+  return {
+    update(next) {
+      now = next;
+      made.update(next.props);
+      follow();
+    },
+    destroy() {
+      for (const s of slots.values()) s.patcher.destroy();
+      made.destroy?.();
+    },
+  };
+}
+dom.component = own;
+
 export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): Mounted {
-  const registry: Record<string, Widget> = { ...ours, ...(opts.widgets ?? {}) };
+  const registry = { ...ours, ...(opts.widgets ?? {}) };
+  const components = opts.own;
   // an extern widget nobody registered shows its Markdown instead (page 6): the page draws it
   // with the blocks we do draw, and reports it in page.missing()
-  page.setSupplies((widget) => Object.hasOwn(registry, widget));
-  const tokens = tokensOf(page);
+  page.setSupplies((widget) => Object.hasOwn(registry, widget) || !!components && Object.hasOwn(components, widget));
+  const tokens = new Tokens(page);
   injectStyle(root, tokens);
-  const uid = newUid();
-  const containers = new Map<Element, Map<string, Entry>>();
-  const byId = new Map<string, Entry>();
   let live = true;
   let rendering = false;
   let again = false;
@@ -91,119 +132,27 @@ export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): M
   root.setAttribute("data-xtmd-root", "");
   root.replaceChildren();
 
-  const kitFor: Kit = {
+  const drawing: Drawing = {
+    registry,
+    components,
+    failed: opts.failed,
     tokens,
-    uid,
-    layout: () => settle(),
-    view: (id) => byId.get(id)?.view,
-    release: (el) => release(el),
+    uid: `xtmd${++mounts}-`,
+    kept: new WeakMap<Drawn, Child>(),
+    node: (id) => page.node(id),
+    event: (id, name, args) => page.event(id, name, args),
+    write: (id, input, value) => page.write(id, input, value),
+    call: (id, input, args) => page.call(id, input, args),
+    // it is laid out after every change; only a size that changed by itself asks for more
+    layout: (_id, over) => {
+      if (over) settle();
+    },
+    fail: (f) => page.errors.push(f),
   };
+  const patcher = new Patcher<Node>(dom, root, true);
 
-  function mark(e: Entry, d: Drawn): void {
-    byId.set(d.id, e);
-    const el = e.view.el;
-    if (!(el instanceof Element)) return;
-    if (el.getAttribute("data-xtmd-site") !== d.id) el.setAttribute("data-xtmd-site", d.id);
-    if (el.getAttribute("data-xtmd-widget") !== d.widget) el.setAttribute("data-xtmd-widget", d.widget);
-  }
-
-  function make(d: Drawn): Entry {
-    const e = { id: d.id, widget: kindOf(d), d } as Entry;
-    e.ctx = {
-      page,
-      event: (name, args = []) => page.event(e.id, name, args),
-      write: (input, value) => page.write(e.id, input, value),
-      call: (input, args) => page.call(e.id, input, args),
-      children,
-      token: (v) => tokens.value(v),
-    };
-    giveKit(e.ctx, kitFor);
-    const maker = d.failed !== undefined ? (opts.failed ?? notice) : (registry[d.widget] ?? unknownWidget);
-    try {
-      e.view = maker(d, e.ctx);
-    } catch (f) {
-      page.errors.push(f);
-      e.view = failedView(d, f);
-    }
-    return e;
-  }
-
-  function update(e: Entry, d: Drawn): void {
-    // the same node: nothing it shows changed
-    if (e.d === d) return;
-    e.d = d;
-    try {
-      e.view.update(d);
-    } catch (f) {
-      page.errors.push(f);
-      const failed = failedView(d, f);
-      drop(e, true);
-      e.view = failed;
-    }
-  }
-
-  /** Forgets the views drawn into every container inside an element, the element's own included. */
-  function release(el: Element): void {
-    if (!containers.size) return;
-    for (const c of [el, ...el.querySelectorAll("*")]) {
-      const m = containers.get(c);
-      if (!m) continue;
-      containers.delete(c);
-      for (const e of m.values()) forget(e);
-    }
-  }
-
-  function forget(e: Entry): void {
-    if (e.view.el instanceof Element) release(e.view.el);
-    try {
-      e.view.destroy?.();
-    } catch (f) {
-      page.errors.push(f);
-    }
-    if (byId.get(e.id) === e) byId.delete(e.id);
-  }
-
-  /** Takes a widget off the page: its element, its slots' views, and whatever it holds. */
-  function drop(e: Entry, keepEl = false): void {
-    forget(e);
-    if (!keepEl) e.view.el.remove();
-  }
-
-  /** What is drawn: a widget that failed is drawn by another, and is another when it draws again. */
-  function kindOf(d: Drawn): string {
-    return d.failed === undefined ? d.widget : `${d.widget} failed`;
-  }
-
-  function children(container: Element, nodes: readonly Drawn[]): void {
-    let map = containers.get(container);
-    if (!map) containers.set(container, (map = new Map()));
-    const seen = new Map<string, Entry>();
-    const els: ChildNode[] = [];
-    for (const d of nodes) {
-      let e = map.get(d.id);
-      if (e && (e.widget !== kindOf(d) || broken.has(e.view))) {
-        drop(e);
-        map.delete(d.id);
-        e = undefined;
-      }
-      if (e) {
-        // a widget may change its element (h2 to h3): the new one takes the old one's place
-        const before = e.view.el;
-        update(e, d);
-        if (e.view.el !== before) before.replaceWith(e.view.el);
-      } else e = make(d);
-      mark(e, d);
-      seen.set(d.id, e);
-      els.push(e.view.el);
-    }
-    for (const [k, e] of map) if (!seen.has(k)) drop(e);
-    containers.set(container, seen);
-    // in the tree's order, moving only what is out of place, so a focused field stays put
-    let cursor: ChildNode | null = container.firstChild;
-    for (const el of els) {
-      if (el === cursor) cursor = cursor.nextSibling;
-      else container.insertBefore(el, cursor);
-    }
+  function element(id: string): HTMLElement | undefined {
+    return root.querySelector<HTMLElement>(`[data-xtmd-site="${CSS.escape(id)}"]`) ?? undefined;
   }
 
   function render(): void {
@@ -219,7 +168,7 @@ export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): M
       if (root.getAttribute("data-xtmd-theme") !== theme) root.setAttribute("data-xtmd-theme", theme);
       for (let k = 0; k < 4; k++) {
         again = false;
-        children(root, page.tree().nodes);
+        patcher.renderAll(children(drawing, page.tree().nodes));
         if (!again) break;
       }
     } finally {
@@ -231,12 +180,12 @@ export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): M
   /** The default measure: each spot's box on the page, which the plane's transform never changes. */
   const measure: Measure = opts.measure ?? {
     spot(s) {
-      const el = byId.get(s.id)?.view.el as HTMLElement | undefined;
+      const el = element(s.id);
       return { width: Num.int(Math.max(0, el?.offsetWidth ?? 0)), height: Num.int(Math.max(0, el?.offsetHeight ?? 0)) };
     },
     planeWidth(p) {
-      const el = byId.get(p.id)?.view.el as HTMLElement | undefined;
-      const view = el?.querySelector?.("[data-part='plane.view']") as HTMLElement | null | undefined;
+      const el = element(p.id);
+      const view = el?.querySelector<HTMLElement>("[data-part='plane.view']");
       return Num.int(Math.max(0, Math.round((view ?? el)?.clientWidth ?? 0)));
     },
   };
@@ -263,29 +212,14 @@ export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): M
   return {
     page,
     root,
-    view: (id) => byId.get(id)?.view,
-    act(id: string, action: Action): void {
-      const e = byId.get(id);
-      if (e?.view.act) {
-        try {
-          if (e.view.act(action)) return;
-        } catch (f) {
-          page.errors.push(f);
-        }
-      }
-      if ("event" in action) page.event(id, action.event, action.args ?? []);
-      else page.write(id, action.write, action.value);
-    },
+    element,
+    act: (id, action) => act(root, page, id, action),
     layout: settle,
     unmount(): void {
       if (!live) return;
       off();
-      release(root);
-      // what a widget drew outside its element
-      for (const m of [...containers.values()]) for (const e of m.values()) drop(e);
-      containers.clear();
-      byId.clear();
       live = false;
+      patcher.destroy();
       root.classList.remove("xtmd-root", tokens.sheet().name);
       root.removeAttribute("data-xtmd-root");
       root.removeAttribute("data-xtmd-theme");
@@ -296,8 +230,8 @@ export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): M
 
 /** Makes the page from an IR file, with the web's value fns under the host's own, and mounts it. */
 export function run(irFile: ir.File | ir.Module | string, root: HTMLElement, opts: PageOptions & MountOptions = {}): Mounted {
-  const { widgets, measure, failed, ...pageOpts } = opts;
+  const { widgets, own, measure, failed, ...pageOpts } = opts;
   const file = typeof irFile === "string" ? (JSON.parse(irFile) as ir.File) : irFile;
   const page = new Page(file, { ...pageOpts, fns: { ...webFns(), ...(pageOpts.fns ?? {}) } });
-  return mount(page, root, { widgets, measure, failed });
+  return mount(page, root, { widgets, own, measure, failed });
 }

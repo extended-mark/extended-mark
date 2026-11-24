@@ -3,8 +3,9 @@
 // classes, so the same stylesheet). Props are read as markdown.ts reads them, so the page's words
 // and its Markdown agree.
 
-import { flag, inner, kase, list, nodes, noteId, num, str, texOf } from "@extended-mark/dom/shared";
-import type { ViewWidget } from "../render.js";
+import { flag, inner, kase, list, nodes, num, str } from "../values.js";
+import { noteId, texOf } from "../rich.js";
+import type { ViewWidget } from "../draw.js";
 import type { Act } from "../act.js";
 import { cls, css, h, prop, type VNode } from "../vnode.js";
 import { withTex } from "./rich.js";

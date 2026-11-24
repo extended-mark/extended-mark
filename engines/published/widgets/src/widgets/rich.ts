@@ -2,8 +2,10 @@
 // checked before use, and nothing in a value is ever read as HTML. TeX is given as its text, and drawn
 // as MathML by a hook once the element is live.
 
-import { nodes, noteId, safeHref, safeSrc, str, texOf, texToMathML } from "@extended-mark/dom/shared";
-import type { ViewWidget } from "../render.js";
+import { nodes, str } from "../values.js";
+import { noteId, safeHref, safeSrc, texOf } from "../rich.js";
+import { texToMathML } from "../tex.js";
+import type { ViewWidget } from "../draw.js";
 import { cls, h, type Hook, type VNode } from "../vnode.js";
 
 /** What a TeX element shows now: the TeX it was drawn for, and its MathML (none: TeX this reader

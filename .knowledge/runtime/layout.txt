@@ -3,7 +3,7 @@ Three parts. Pure: boxes in, places out (lay), in the plane's units, so panning 
 The driver, with the widgets: finds planes and spots, measures, writes back (layoutPlanes on the web).
 The page: settle runs passes until one changes nothing, at most eight; each pass's writes are one
 change. One that never settles is a failure of what it was for, held until something else changes.
-TypeScript: engines/published/runtime/src/layout.ts, engines/published/dom/src/planes.ts, settle in
+TypeScript: engines/published/runtime/src/layout.ts, engines/published/widgets/src/planes.ts, settle in
 engines/published/runtime/src/page.ts.
 Rust: engines/examples/rust/runtime/src/layout.rs, engines/examples/rust/planes, page.rs.
 Tests give fixed sizes (engines/published/runtime/test/sizes.mjs), so places are exact; the cases with

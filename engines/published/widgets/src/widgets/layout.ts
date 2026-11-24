@@ -3,8 +3,8 @@
 // parts and classes, so the same stylesheet). Lengths are core's tokens, as custom properties.
 
 import type { Node as Drawn } from "@extended-mark/runtime";
-import { field, flag, inner, kase, list, nodes, num, str } from "@extended-mark/dom/shared";
-import type { ViewContext, ViewWidget } from "../render.js";
+import { field, flag, inner, kase, list, nodes, num, str } from "../values.js";
+import type { ViewContext, ViewWidget } from "../draw.js";
 import type { Act } from "../act.js";
 import { attr, cls, css, h, on, type VNode } from "../vnode.js";
 import { claim, isClaimed } from "./controls.js";

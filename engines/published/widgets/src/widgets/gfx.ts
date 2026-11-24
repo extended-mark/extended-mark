@@ -5,9 +5,10 @@
 // A surface draws its slots inside its space, so the shapes read it as they are drawn; where the
 // space needs the surface on the screen (a pointer in units) it is measured in the listener.
 
-import { type Input, type Node as Drawn } from "@extended-mark/runtime";
-import { exact, field, flag, kase, list, nodes, num, paint, placesFor, point, pointInput, range, region, sig, str, toNum, type XY } from "@extended-mark/dom/shared";
-import type { ViewContext, ViewWidget } from "../render.js";
+import type { Input, Node as Drawn } from "@extended-mark/runtime";
+import { exact, field, flag, kase, list, nodes, num, placesFor, point, pointInput, range, region, sig, str, toNum, type XY } from "../values.js";
+import { paint } from "../shade.js";
+import type { ViewContext, ViewWidget } from "../draw.js";
 import type { Act } from "../act.js";
 import { attr, cls, css, h, on, s, type VNode } from "../vnode.js";
 import { claim, idOf, isClaimed } from "./controls.js";
@@ -344,7 +345,7 @@ export const shade: ViewWidget = (d, ctx) => {
       if (!cv) return;
       st.was = now;
       const mine = st;
-      paint(cv, root, d, x1 - x0, y1 - y0, { call: (a) => ctx.call("shader", a), fail: (f) => ctx.page.errors.push(f) }, ++mine.job, () => mine.job);
+      paint(cv, root, d, x1 - x0, y1 - y0, { call: (a) => ctx.call("shader", a), fail: (f) => ctx.fail(f) }, ++mine.job, () => mine.job);
     };
   }
   el.hook = {

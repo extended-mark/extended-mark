@@ -3,9 +3,12 @@
 // the same stylesheet). What only the live element can do (moving focus along a group of tabs,
 // showing a popover) is done in its listeners and hooks.
 
-import { Num, type Node as Drawn } from "@extended-mark/runtime";
-import { exact, FILLED, flag, GLYPHS, kase, nodes, range, safeSrc, str } from "@extended-mark/dom/shared";
-import type { ViewWidget } from "../render.js";
+import { Num } from "@extended-mark/runtime/num";
+import type { Node as Drawn } from "@extended-mark/runtime";
+import { exact, flag, kase, nodes, range, str } from "../values.js";
+import { FILLED, GLYPHS } from "../icons.js";
+import { safeSrc } from "../rich.js";
+import type { ViewWidget } from "../draw.js";
 import type { Act } from "../act.js";
 import { attr, cls, css, h, on, prop, s, type Child, type VNode } from "../vnode.js";
 
@@ -134,7 +137,7 @@ export const press: ViewWidget = (d, ctx) => {
 // ---- field
 
 /** Fields in the middle of composing text (an IME): they write once it is done. */
-const composing = new WeakSet<EventTarget>();
+export const composing = new WeakSet<EventTarget>();
 
 export const field: ViewWidget = (d, ctx) => {
   const p = (k: string) => d.inputs[k];

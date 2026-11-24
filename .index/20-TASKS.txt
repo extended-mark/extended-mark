@@ -19,8 +19,8 @@ add a fn to core
   extern: also compiler/eval/src/natives.rs and engines/published/runtime/src/eval/natives.ts
 
 add or change an extern widget of core
-  core/*.xtmdpack -> docs/specs/05-standard-library.md -> engines/published/dom/src/widgets
-  AND engines/published/bindings/view/src/widgets -> engines/examples/rust/egui/src/widgets -> Android
+  core/*.xtmdpack -> docs/specs/05-standard-library.md -> engines/published/widgets/src/widgets
+  -> engines/examples/rust/egui/src/widgets -> Android
   -> ide/vscode/src/webview/widgets.ts -> engines/published/runtime/test/cases
 
 change what a page does as it runs

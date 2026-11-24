@@ -1,0 +1,8 @@
+THE WEB'S WIDGET SET
+A widget is a fn from a node of the drawn tree to plain elements (ViewWidget), and knows no page: what
+it can do is in its ViewContext. Every web renderer draws from it: the DOM one, and the frameworks.
+A node that is the same object draws as the same element (Drawing.kept), and the patcher leaves the
+same element alone, so one change among many rows costs that row. Live properties (value, checked) are
+set at every render, as what the page shows wins over what was typed.
+A host replaces a widget by its full name with a ViewWidget, or with an element of its own (OwnWidget).
+What only the live element can do (a canvas, a plane measured) is a hook.

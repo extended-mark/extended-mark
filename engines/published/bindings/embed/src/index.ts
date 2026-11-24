@@ -5,7 +5,7 @@
 // of props does to it, and when the host hears what the page did.
 
 import { type Call, type Outcome, type Page, type PageOptions, type PageValues, type Input, type ir } from "@extended-mark/runtime";
-import { mount, type MountOptions, type Mounted, type Widget } from "@extended-mark/dom";
+import { mount, type MountOptions, type Mounted, type OwnWidget, type ViewWidget } from "@extended-mark/dom";
 import { channelName, channelsOf, empty, makePage, moduleOf, sameIr, type Given, type Ir } from "./page.js";
 
 export { channelName, irText, makePage, sameIr, stateFields, type Given, type Ir } from "./page.js";
@@ -30,9 +30,11 @@ export interface PageProps {
   /** Input fns the host supplies, by full name (`acme/rate`). The latest are always the ones called. */
   fns?: PageOptions["fns"];
   /** The host's widgets by full name (`core/press`), in place of @extended-mark/dom's. A change remounts. */
-  widgets?: Record<string, Widget>;
+  widgets?: Record<string, ViewWidget>;
+  /** The host's own elements, by the widget each draws. A change remounts. */
+  own?: Record<string, OwnWidget>;
   /** What is drawn where a widget failed, in place of @extended-mark/dom's notice. */
-  failed?: Widget;
+  failed?: ViewWidget;
   /** How the plane's spots are measured, for the page it is given: left out, from the DOM. The
    * checks give fixed sizes. */
   measure?: (page: Page) => NonNullable<MountOptions["measure"]>;
@@ -135,7 +137,7 @@ export class Embed implements Handle {
         this.channels[full] = { ...this.channels[full], ...values };
       }
     }
-    if (!sameIr(next.ir, prev.ir) || !sameRecord(next.widgets, prev.widgets)) {
+    if (!sameIr(next.ir, prev.ir) || !sameRecord(next.widgets, prev.widgets) || !sameRecord(next.own, prev.own)) {
       // a new page: $state carried over where its fields still exist, the host's values given again
       this.start(this.page.state(), false);
       return;
@@ -188,7 +190,7 @@ export class Embed implements Handle {
     this.held.outcome.failures.push(...outcome.failures);
     // whatever was in the element (a server's pre-rendered Markdown) gives way to the page
     this.root.replaceChildren();
-    const mounted = mount(page, this.root, { widgets: p.widgets, failed: p.failed, measure: p.measure?.(page) });
+    const mounted = mount(page, this.root, { widgets: p.widgets, own: p.own, failed: p.failed, measure: p.measure?.(page) });
     this.current = mounted;
     this.unlisten = page.onChange(() => this.changed());
     if (first) this.shown = JSON.stringify(page.state());
@@ -249,4 +251,4 @@ export function embed(root: HTMLElement, props: PageProps): Embed {
 }
 
 export type { Call, Outcome, Page, PageValues, Input, ir } from "@extended-mark/runtime";
-export type { Mounted, Widget } from "@extended-mark/dom";
+export type { Mounted, OwnWidget, ViewWidget } from "@extended-mark/dom";

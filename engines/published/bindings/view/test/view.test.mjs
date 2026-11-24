@@ -1,5 +1,4 @@
-// @extended-mark/view without a framework or a browser: the page as HTML, the patcher keeping elements by key,
-// and the document's controlled `$state`, refusals and snapshots.
+// @extended-mark/view without a framework or a browser: the page as HTML, and the document's controlled `$state`, refusals and snapshots.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -8,7 +7,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Doc, Patcher, h, toHtml, toJson } from "../dist/index.js";
+import { Doc, toHtml, toJson } from "../dist/index.js";
 import { fits } from "../../../runtime/test/fits.mjs";
 import { compilePages } from "../../testing/browser.mjs";
 
@@ -25,54 +24,6 @@ function drawn(nodes, out = []) {
   }
   return out;
 }
-
-test("toHtml escapes text and attributes, writes properties and style, and leaves a void element open", () => {
-  const v = h("p", "label", { title: 'a "b"' }, ["<i> & </i>", { tag: "input", attrs: {}, props: { value: "x<", disabled: true, checked: false }, children: [] }]);
-  v.style = { "text-align": "end" };
-  assert.equal(toHtml(v), '<p data-part="label" class="xtmd-label" title="a &quot;b&quot;" style="text-align:end">&lt;i&gt; &amp; &lt;/i&gt;<input value="x&lt;" disabled></p>');
-  // a stylesheet's text is its own
-  assert.equal(toHtml({ tag: "style", attrs: {}, children: ["a > b {}"] }), "<style>a > b {}</style>");
-});
-
-test("the patcher keeps an element by key, sets only what changed, and moves only what is out of place", () => {
-  const ops = [];
-  let made = 0;
-  const host = {
-    live: true,
-    createElement: (tag) => ({ tag, id: ++made, kids: [], attrs: {} }),
-    createText: (text) => ({ text, kids: [] }),
-    setText: (n, t) => (n.text = t),
-    setAttribute: (n, k, v) => (ops.push(`set ${k}`), (n.attrs[k] = v)),
-    removeAttribute: (n, k) => (ops.push(`unset ${k}`), delete n.attrs[k]),
-    setStyle: () => {},
-    removeStyle: () => {},
-    setProperty: () => {},
-    listen: () => () => {},
-    insertBefore: (p, c, before) => {
-      ops.push(`move ${c.tag ?? "text"}${c.id ?? ""}`);
-      p.kids = p.kids.filter((x) => x !== c);
-      p.kids.splice(before ? p.kids.indexOf(before) : p.kids.length, 0, c);
-    },
-    removeChild: (p, c) => (ops.push(`remove ${c.id}`), (p.kids = p.kids.filter((x) => x !== c))),
-  };
-  const li = (key, cls) => ({ ...h("li", undefined, { class: cls }, [key]), key });
-  const parent = { kids: [] };
-  const p = new Patcher(host, parent);
-  p.render(h("ul", undefined, {}, [li("a", "x"), li("b", "x"), li("c", "x")]));
-  const [a, b, c] = parent.kids[0].kids;
-  ops.length = 0;
-  // c moves to the front and b's class changes: a and b stay where they are, and nothing is made
-  p.render(h("ul", undefined, {}, [li("c", "x"), li("a", "x"), li("b", "y")]));
-  assert.deepEqual(parent.kids[0].kids, [c, a, b]);
-  assert.equal(made, 4);
-  assert.deepEqual(ops, ["set class", `move li${c.id}`]);
-  assert.equal(b.attrs.class, "y");
-  // a key gone is an element removed
-  ops.length = 0;
-  p.render(h("ul", undefined, {}, [li("c", "x"), li("b", "y")]));
-  assert.deepEqual(parent.kids[0].kids, [c, b]);
-  assert.deepEqual(ops, [`remove ${a.id}`]);
-});
 
 test("a document renders its page with the host's externs and the `$state` it starts from", () => {
   const doc = new Doc({ ir: irs.v1, externs, defaultState: { n: num(2) } });

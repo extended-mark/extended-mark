@@ -1,7 +1,7 @@
 package xtmd.android
 
-// core's glyphs as 24-unit line drawings, one path each: the same drawings as @extended-mark/dom's
-// (engines/published/dom/src/icons.ts), written out by a script from it, drawn with Compose's PathParser.
+// core's glyphs as 24-unit line drawings, one path each: the same drawings as @extended-mark/widgets's
+// (engines/published/widgets/src/icons.ts), written out by a script from it, drawn with Compose's PathParser.
 
 internal val GLYPHS: Map<String, String> = mapOf(
     "PLAY" to "M7 4.5v15l12-7.5z",

@@ -27,9 +27,9 @@
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@extended-mark/dom": "file:../../dom",
     "@extended-mark/embed": "file:../embed",
-    "@extended-mark/runtime": "file:../../runtime"
+    "@extended-mark/runtime": "file:../../runtime",
+    "@extended-mark/widgets": "file:../../widgets"
   },
   "devDependencies": {
     "extended-mark": "file:../../../../compiler/npm/extended-mark",

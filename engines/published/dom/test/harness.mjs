@@ -1,7 +1,8 @@
 // The page the browser tests drive: @extended-mark/dom bundled with @extended-mark/runtime, and a few helpers on
 // window.xtmd that take and give values in the IR's form, as the checks do.
 
-import { mount, run, widgets } from "../dist/index.js";
+import { mount, run } from "../dist/index.js";
+import { h, widgets } from "@extended-mark/widgets";
 import { Num } from "@extended-mark/runtime";
 
 let mounted;
@@ -36,18 +37,19 @@ window.xtmd = {
       // a label that counts how often it is taken away
       window.gone = {};
       extra.widgets = {
-        "core/label": (d) => ({ el: document.createElement("i"), update() {}, destroy: () => (window.gone[d.id] = (window.gone[d.id] ?? 0) + 1) }),
+        "core/label": (d) => ({ ...h("i"), hook: { unmount: () => (window.gone[d.id] = (window.gone[d.id] ?? 0) + 1) } }),
       };
     }
     if (opts.labels) {
-      // a host's own label, in place of ours
-      extra.widgets = {
-        "core/label": (d) => {
-          const el = document.createElement("mark");
-          el.className = "app-label";
-          const show = (d) => (el.textContent = `[${d.inputs.value.text}]`);
-          show(d);
-          return { el, update: show };
+      // a host's own label, in place of ours: an element it makes and follows itself
+      extra.own = {
+        "core/label": (el, props) => {
+          const mark = document.createElement("mark");
+          mark.className = "app-label";
+          const update = ({ node }) => (mark.textContent = `[${node.inputs.value.text}]`);
+          update(props);
+          el.append(mark);
+          return { update };
         },
       };
     }

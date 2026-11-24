@@ -2,7 +2,7 @@
 // stylesheet, so a theme change is one attribute on the root (`data-xtmd-theme`) and redraws nothing.
 // Values come from the IR's tokens.
 
-import type { Input, Page, ir } from "@extended-mark/runtime";
+import type { Input, ir } from "@extended-mark/runtime";
 import { field, inner, kase, num, str } from "./values.js";
 
 export type Theme = "LIGHT" | "DARK";
@@ -31,14 +31,21 @@ interface Sheet {
   readonly css: string;
 }
 
+/** What tokens are read from: a page, or whatever else has its IR and says what each stands for. */
+export interface TokenSource {
+  readonly ir: ir.Module;
+  given(): Record<string, Input>;
+  token(of: Input): Input | undefined;
+}
+
 const sheets = new WeakMap<ir.Module, Sheet>();
 
 export class Tokens {
-  private readonly page: Page;
+  private readonly page: TokenSource;
   private readonly named = new Set<string>();
   private readonly types = new Set<string>();
 
-  constructor(page: Page) {
+  constructor(page: TokenSource) {
     this.page = page;
     for (const t of tokensOf(page.ir)) {
       this.types.add(t.name);

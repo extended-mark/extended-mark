@@ -1,7 +1,7 @@
-// @extended-mark/dom: Extended Mark's default web widgets in plain DOM. `mount` draws a @extended-mark/runtime page into an
-// element; `run` makes the page from its IR first; `widgets` are ours, by full name.
+// @extended-mark/dom: Extended Mark's renderer for the plain web. `mount` draws a @extended-mark/runtime page
+// into an element; `run` makes the page from its IR first. Its widgets are @extended-mark/widgets', unless the
+// host gives its own.
 
 export { mount, run } from "./mount.js";
-export { widgets } from "./widgets/index.js";
-export { notice } from "./widgets/notice.js";
-export type { Action, Drawn, Input, Measure, Mounted, MountOptions, Page, PageOptions, Widget, WidgetContext, WidgetView, ir } from "./api.js";
+export type { Action, Follows, Measure, MountOptions, Mounted, OwnWidget, Page, PageOptions } from "./api.js";
+export type { ViewContext, ViewWidget } from "@extended-mark/widgets";

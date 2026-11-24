@@ -3,5 +3,5 @@ cargo test --release -p xtmd --test checks            every compiler case (also 
 cargo test --release -p xtmd-check --test commonmark
 cd engines/published/runtime && npm run build && node --test "test/memo*"
 npm tests run dist: build the package, and what it depends on, first. After a change in runtime, build
-runtime, then dom, then view, then the binding.
+runtime, then widgets, then dom or view, then the binding.
 After a change in compiler or core: cargo build --release -p xtmd, or the tests use the old one.

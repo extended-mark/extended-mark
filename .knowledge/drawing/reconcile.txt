@@ -1,5 +1,6 @@
 KEEPING ELEMENTS
-A node's element lives as long as its id: dom's mount and view's keys follow it, so focus, the caret,
+A node's element lives as long as its id: every renderer's keys follow it, so focus, the caret,
 selection and what is being typed survive a change and a row's move.
 Elements carry data-xtmd-site (the id), data-xtmd-widget and data-part; tests find them by these.
-Angular has no virtual tree: engines/published/bindings/view/src/patch.ts follows VNodes for it.
+Angular has no virtual tree: engines/published/widgets/src/patch.ts
+follows VNodes for it, as it does for the DOM.

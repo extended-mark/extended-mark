@@ -1,7 +1,7 @@
 {
   "name": "@extended-mark/dom",
   "version": "0.4.0",
-  "description": "Extended Mark's default web widgets in plain DOM: every core extern widget, drawn from @extended-mark/runtime's page",
+  "description": "Extended Mark's renderer for the plain web: a page drawn into an element, with any widget set",
   "license": "MIT",
   "homepage": "https://github.com/extended-mark/extended-mark",
   "repository": {
@@ -16,22 +16,18 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./shared": {
-      "types": "./dist/shared.d.ts",
-      "default": "./dist/shared.js"
-    },
-    "./style.css": "./dist/style.css"
+    }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p . && node scripts/copy-css.mjs",
+    "build": "tsc -p .",
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@extended-mark/runtime": "file:../runtime"
+    "@extended-mark/runtime": "file:../runtime",
+    "@extended-mark/widgets": "file:../widgets"
   },
   "devDependencies": {
     "esbuild": "0.28.2",
