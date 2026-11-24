@@ -1,7 +1,7 @@
 //! The 0.2 → 0.3 step's results, and how a 0.2 document is told apart. A document written for MKP
 //! 0.2 is read by 0.2.10's own compiler and written as 0.3 by the migrator, both frozen into one JS
 //! file (tools/migrate-0.2/frozen) that runs with Node: the xtmd command runs it, and so does an
-//! editor that has Node. What it writes is read here. Only Extended Mark 0.3 carries it.
+//! editor that has Node. What it writes is read here. Extended Mark 0.3 and 0.4 carry it.
 
 use std::collections::BTreeMap;
 

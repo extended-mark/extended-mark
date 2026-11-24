@@ -1,7 +1,6 @@
 //! The 0.2 → 0.3 step of `xtmd migrate`, run: the frozen JS file (tools/migrate-0.2/frozen), found
 //! and checked, run with Node on one document. What it writes is read by xtmd-migrate, which also
-//! tells a 0.2 document apart. Only Extended Mark 0.3 carries it: a later release sends a 0.2
-//! document to `npx extended-mark@0.3 migrate`.
+//! tells a 0.2 document apart.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;

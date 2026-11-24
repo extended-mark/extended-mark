@@ -12,7 +12,7 @@ with that hash and runs no other file.
   `@extended-mark/cli-<os>-<cpu>` package and each release tarball carries it there), else here, for a
   build from this repository. `cargo install xtmd` has none, and says to run `npx extended-mark@0.3 migrate`.
 - **Node:** `XTMD_NODE`, else `node`; `npx xtmd` passes the Node it runs with.
-- **Extended Mark 0.3 carries it.** A later version that drops it meets a 0.2 document with "run
+- **Extended Mark 0.3 and 0.4 carry it.** A later version that drops it meets a 0.2 document with "run
   `npx extended-mark@0.3 migrate` on it first".
 
 Built with:
