@@ -29,6 +29,8 @@ what something means, the IR should have said it: tell us.
 | `declarations` | Records, enums, tokens, fns, externs, `$state`, constants and what it exposes |
 | `templates` | Extended Mark's own widgets, as nodes; `doc` is the page |
 | `handlers` | What events run |
+| `reads`, `writes` | What each place of a view reads that may change, and what each handler and fn may write. A place with none never changes |
+| `whole` | An operator proved to work on whole numbers any engine's own hold |
 
 Read it once. It is static: a page's values are yours, beside it.
 
@@ -96,7 +98,8 @@ xtmd build docs --out dist --engine web --theme plain
 Every document's IR is on its standard input, all at once, and the files it makes go to its standard output
 ([build.schema.json](../../schemas/build.schema.json)). Its errors go to standard error, and a failure is its exit
 code. Everything after its name is its own arguments. It writes nothing itself: xtmd does, once it has ended well.
-In any language:
+In any language. Ours for the web, [@extended-mark/web](../../engines/published/web), compiles: each expression and
+rule becomes code, and what never changes is HTML alone. A small one runs an engine that exists:
 
 ```js
 // engine.mjs: each page as HTML
@@ -109,6 +112,14 @@ const { documents } = JSON.parse(text);
 const files = documents.map((d) => ({ path: `${d.name}.html`, text: draw(new Page(d.ir).tree()) }));
 process.stdout.write(JSON.stringify({ version: 1, files }));
 ```
+
+## One of your own, from ours
+
+Ours have a few named places to plug into, and each is a format: a widget set, token values, the page around a page
+and the host's fns, for the web engine; a widget set for a renderer. Nothing is inherited from, and what is inside is
+no promise. A widget is replaced by its full name (`core/press`), and a whole set is copied as a starting point: the
+web's, egui's and Compose's copies run our own tests in CI. For more than that, copy the module. The formats
+([schemas](../../schemas/README.md)) are all the copy has to keep.
 
 ## Checking it
 
