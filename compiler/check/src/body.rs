@@ -1294,12 +1294,62 @@ impl Checker {
     /// An argument to a `mut` parameter: the place it writes.
     fn place_arg(&mut self, cx: &mut Cx, e: &ast::Expr) -> ir::Expr {
         match self.place(cx, e) {
-            Some((p, _)) => ir::Expr::Place(p),
+            Some((p, _)) => {
+                self.check_fields_mut(cx, e);
+                ir::Expr::Place(p)
+            }
             None => {
                 self.error(cx.file, codes::NOT_MUT, e.span, "a `mut` parameter is given something it can write: a `mut` variable, a field of one, or a `mut for` variable");
                 let (x, _) = self.expr(cx, e, None);
                 x
             }
+        }
+    }
+
+    /// A place that is written: each record's field on the way to it is `mut`, as what holds it is (page 1,
+    /// constant by default).
+    pub(crate) fn check_fields_mut(&mut self, cx: &mut Cx, e: &ast::Expr) {
+        let before = self.diags.len();
+        let found = self.fixed_field(cx, e);
+        self.diags.truncate(before);
+        if let Some((name, of)) = found {
+            self.error(cx.file, codes::NOT_MUT, name.span, format!("`{0}` isn't `mut` in {1}, so it can't be written: declare it `mut {0}` there, or make a new value with `with {{ {0} = … }}`", name.name, of));
+        }
+    }
+
+    /// The first field on the way to a place that isn't `mut`, and what it is a field of.
+    fn fixed_field(&mut self, cx: &mut Cx, e: &ast::Expr) -> Option<(ast::Ident, String)> {
+        match &e.kind {
+            E::Paren(inner) => self.fixed_field(cx, inner),
+            E::Index { target, .. } => self.fixed_field(cx, target),
+            E::Field { target, name } => {
+                // `$state`'s fields are variables without saying `mut`
+                if let E::State = target.kind {
+                    return None;
+                }
+                if let Some(x) = self.fixed_field(cx, target) {
+                    return Some(x);
+                }
+                let (_, t) = self.place(cx, target)?;
+                let t = self.vars.resolve(&t);
+                let (is_mut, of) = match &t {
+                    Ty::Def(d, _) => match &self.defs[*d].kind {
+                        DefKind::Record { fields } => (fields.iter().find(|f| f.name == name.name)?.mutable, format!("`{}`", self.defs[*d].name)),
+                        _ => return None,
+                    },
+                    // an inline record's `mut` is in the type its variable is declared with
+                    Ty::Inline(_) => {
+                        let ir = self.place_ir(cx, target).and_then(|t| self.unalias(&t))?;
+                        (ir.fields.iter().find(|f| f.name == name.name)?.mutable, "its record".to_string())
+                    }
+                    // an interface can't ask for a `mut` field (page 4)
+                    Ty::Param(p) => (false, format!("`{}`", p)),
+                    Ty::Any(d, _) => (false, format!("`{}`", self.defs[*d].name)),
+                    _ => return None,
+                };
+                (!is_mut).then(|| (name.clone(), of))
+            }
+            _ => None,
         }
     }
 
@@ -1536,6 +1586,7 @@ impl Checker {
                     return Vec::new();
                 };
                 let (x, _) = self.expr(cx, value, Some(&t));
+                self.check_fields_mut(cx, place);
                 self.check_write(cx, place);
                 // every write needs the same proof: `level = (level + 1).clamp(0, 10);`
                 if let Some(w) = self.place_ir(cx, place) {
@@ -1559,7 +1610,10 @@ impl Checker {
                 let t = self.resolve(file, ty, &cx.generics.clone());
                 let opt = if *mutable {
                     match self.place(cx, value) {
-                        Some((p, _)) => ir::Expr::Place(p),
+                        Some((p, _)) => {
+                            self.check_fields_mut(cx, value);
+                            ir::Expr::Place(p)
+                        }
                         None => {
                             self.error(file, codes::NOT_MUT, value.span, "`if (mut …)` opens an opt it can write: a `mut` variable, a field of one, or a `mut for` variable");
                             self.expr(cx, value, None).0
@@ -1586,6 +1640,7 @@ impl Checker {
         if mutable {
             return match self.place(cx, over) {
                 Some((p, t)) => {
+                    self.check_fields_mut(cx, over);
                     let item = match self.vars.resolve(&t) {
                         Ty::List(x) => *x,
                         _ => Ty::Err,

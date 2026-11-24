@@ -40,7 +40,7 @@ fn mb_lines(value: template): list<text> {
 
 //@about One block while it is read, of any kind; the parts that don't apply to its kind stay as they start. Private to core
 record mb_node {
-    kind: text;
+    mut kind: text;
     parent: number;
     mut children: list<number> = [];
     mut open: bool = true;

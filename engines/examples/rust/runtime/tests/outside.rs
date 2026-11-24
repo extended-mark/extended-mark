@@ -1,0 +1,120 @@
+//! What comes to a page from outside is one of its type, or is refused and nothing changes: a host's writes
+//! and calls, its extern values, what a widget writes and the arguments of its events (page 6). The changes
+//! are checks/pages/outside.json's, which the TypeScript runtime is given too.
+
+mod common;
+
+use std::collections::BTreeMap;
+use std::rc::Rc;
+
+use common::*;
+use serde_json::{json, Value as Json};
+use xtmd_runtime::ir::{self, Expr};
+use xtmd_runtime::{Broken, Page, PageOptions};
+
+fn module() -> ir::Module {
+    let pages = repo().join("checks/pages");
+    build_with(&std::fs::read_to_string(pages.join("outside.xtmd")).unwrap(), &[pages.join("pick")])
+}
+
+/// A value as a host writes it, in the IR's form.
+fn expr(x: &Json) -> Expr {
+    match x["token"].as_str().and_then(|t| t.rsplit_once('.')) {
+        Some((ty, name)) => serde_json::from_value(json!({"case": {"enum": ty, "name": name}})).unwrap(),
+        None => serde_json::from_value(x.clone()).unwrap(),
+    }
+}
+
+fn fields(x: &Json) -> Vec<(String, Expr)> {
+    x.as_object().unwrap().iter().map(|(k, v)| (k.clone(), expr(v))).collect()
+}
+
+/// What the page holds: `$state`, the channel's values, and the overlay's own.
+fn holds(p: &Page) -> BTreeMap<String, Expr> {
+    let mut out = p.observe_state();
+    for name in ["n", "s", "p"] {
+        out.insert(format!("host.{}", name), p.given_extern(&format!("doc/host.{}", name)).unwrap().to_ir());
+    }
+    out.insert("s3.open".into(), p.find("s3").unwrap().prop("open").unwrap().to_ir());
+    out
+}
+
+#[test]
+fn what_comes_from_outside_is_of_its_type_or_refused() {
+    let m = module();
+    let cases: Json = serde_json::from_str(&std::fs::read_to_string(repo().join("checks/pages/outside.json")).unwrap()).unwrap();
+    let changes = cases["changes"].as_array().unwrap();
+    assert!(changes.len() > 40);
+    for c in changes {
+        let name = c["name"].as_str().unwrap();
+        let mut p = Page::from_module(m.clone(), PageOptions::default()).unwrap();
+        let mut want = holds(&p);
+        let d = &c["do"];
+        let args = |x: &Json| x["args"].as_array().unwrap().iter().map(expr).collect::<Vec<_>>();
+        if d["set"].is_object() {
+            p.set_given(&fields(&d["set"])).unwrap();
+        }
+        if d["extern"].is_object() {
+            p.set_extern_given("doc/host", &fields(&d["extern"])).unwrap();
+        }
+        if d["expose"].is_object() {
+            let args = args(&d["expose"]).iter().map(|x| p.value(x).unwrap()).collect();
+            p.expose("doc/host", d["expose"]["name"].as_str().unwrap(), args).unwrap();
+        }
+        if d["write"].is_object() {
+            let v = p.value(&expr(&d["write"]["value"])).unwrap();
+            p.write(d["write"]["id"].as_str().unwrap(), d["write"]["input"].as_str().unwrap(), v).unwrap();
+        }
+        if d["event"].is_object() {
+            let args = args(&d["event"]).iter().map(|x| p.value(x).unwrap()).collect();
+            p.event(d["event"]["id"].as_str().unwrap(), d["event"]["name"].as_str().unwrap(), args).unwrap();
+        }
+        let out = p.take_outcome();
+        let told = |k: &str| c.get(k).cloned().unwrap_or(json!([]));
+        assert_eq!(json!({"refused": out.refused, "failures": out.failures}), json!({"refused": told("refused"), "failures": told("failures")}), "{}", name);
+        if c["state"].is_object() {
+            want.extend(fields(&c["state"]));
+        }
+        assert_eq!(holds(&p), want, "{}", name);
+    }
+}
+
+#[test]
+fn what_a_page_starts_from_is_checked_as_what_comes_later_is() {
+    let mut opts = PageOptions::default();
+    opts.externs = vec![("doc/host".to_string(), vec![("n".to_string(), text("x")), ("s".to_string(), text("b"))])].into_iter().collect();
+    opts.state = vec![("n".to_string(), text("x")), ("t".to_string(), text("b"))];
+    let mut p = Page::from_module(module(), opts).unwrap();
+    let mut sites: Vec<String> = p.take_outcome().refused.into_iter().filter_map(|b| b.site).collect();
+    sites.sort();
+    assert_eq!(sites, vec!["$state.n", "doc/host.n"]);
+    let now = holds(&p);
+    assert_eq!([&now["host.n"], &now["host.s"], &now["n"], &now["t"]], [&num("3"), &text("b"), &num("3"), &text("b")]);
+}
+
+#[test]
+fn a_fn_the_engine_supplies_gives_a_value_of_its_type() {
+    let given = |x: Expr| {
+        let mut opts = PageOptions::default();
+        opts.fns.insert("pick/dial".into(), Rc::new(move |m, _| m.eval(&x).map(Some)));
+        Page::from_module(module(), opts).unwrap().take_outcome().failures
+    };
+    assert_eq!(given(num("4")), vec![]);
+    for x in [num("99"), text("x")] {
+        assert_eq!(given(x).iter().map(|b| b.code.clone()).collect::<Vec<_>>(), vec![Some("failure.rule".to_string())]);
+    }
+}
+
+#[test]
+fn a_failure_in_the_documents_own_code_stays_where_it_is() {
+    let mut p = page("$state {\n    n: int = 1;\n}\n@@@\nOne \\{10 / $state.n} two.\n\nThe rest.\n\n@slider(value = $state.n, label = \"N\");\n");
+    let zero = v(&p, num("0"));
+    p.set(vec![("n".into(), zero)]).unwrap();
+    assert_eq!(p.observe_state()["n"], num("0"));
+    assert_eq!(p.take_outcome().failures, vec![Broken { code: Some("failure.number".into()), rule: None, site: Some("m0".into()) }]);
+    assert_eq!(p.find("m0").unwrap().failed.as_deref(), Some("a division by zero"));
+    assert_eq!(p.markdown().unwrap(), "> paragraph failed: a division by zero\n\nThe rest.\n\nN: 0\n");
+    let two = v(&p, num("2"));
+    p.write("s2", "value", two).unwrap();
+    assert_eq!(p.markdown().unwrap(), "One 5 two.\n\nThe rest.\n\nN: 2\n");
+}

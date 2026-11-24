@@ -203,6 +203,14 @@ fn broken_code(code: &str, site: &str) -> Broken {
     Broken { code: Some(code.to_string()), rule: None, site: Some(site.to_string()) }
 }
 
+/// A change from outside that failed, as the host is told.
+fn refused(f: &Failure, site: &str) -> Broken {
+    match &f.rule {
+        Some(rule) => Broken { code: None, rule: Some(rule.clone()), site: Some(site.to_string()) },
+        None => broken_code("contracts.outside", site),
+    }
+}
+
 fn broken_rule(rule: &str) -> Broken {
     Broken { code: None, rule: Some(rule.to_string()), site: None }
 }
@@ -534,6 +542,8 @@ pub(crate) struct World {
     own_seen: HashSet<String>,
     /// Who has been drawn this redraw: content placed twice is two widgets.
     claimed: HashSet<String>,
+    /// How many inputs' own calls are being drawn around here: a sentence's, or a view's.
+    in_inputs: u32,
     /// Own variables to put back as the page is drawn, by place: what is left after had no place.
     put_back: BTreeMap<String, BTreeMap<String, Expr>>,
     /// `$state`, in the order its values were given.
@@ -647,7 +657,13 @@ impl Host for PageHost {
     fn call_extern(&self, m: &mut Machine, name: &str, args: &[Value]) -> R<Option<Option<Value>>> {
         let rt = &self.0;
         if let Some(f) = rt.s.engine_fns.get(name).cloned() {
-            return f(m, args).map(Some);
+            let out = f(m, args)?;
+            if let (Some(v), Some(t)) = (&out, rt.s.program.externs.get(name).and_then(|x| x.returns.as_ref())) {
+                if !m.takes(v, t)? {
+                    return Err(Failure::new(FailKind::Rule, format!("`{}` gave what isn't its type", name)));
+                }
+            }
+            return Ok(Some(out));
         }
         if !rt.s.host_fns.contains(name) {
             return Ok(None);
@@ -817,28 +833,52 @@ impl Rt {
         self.loop_rows(m, f, env)
     }
 
-    /// Whether the variable a place writes now breaks its own contract.
-    fn contract_broken(&self, m: &mut Machine, w: &WriteTo) -> R<bool> {
-        if !w.place.path.is_empty() {
-            return Ok(false);
-        }
-        let found = match &w.place.root {
-            ir::Root::State(n) => {
-                let ty = self.s.state_decl.as_ref().and_then(|s| s.fields.iter().find(|f| f.name == *n)).map(|f| f.ty.clone());
-                ty.zip(self.w.borrow().state_get(n))
+    /// A `mut` input's write to the variable it was given: checked against the input's type, as an engine
+    /// makes the value, and by the write against the variable's.
+    fn write_into(&self, m: &mut Machine, widget: &str, input: &str, to: &WriteTo, value: Value) -> R<()> {
+        let x = self.s.extern_widgets.get(widget).cloned();
+        if let Some(f) = x.as_ref().and_then(|x| x.inputs.iter().find(|f| f.name == input)) {
+            if !m.takes(&value, &f.ty)? {
+                return Err(Failure::new(FailKind::Rule, format!("{} is given what isn't its type", input)));
             }
-            ir::Root::Cell(n) => {
-                let world = self.w.borrow();
-                let inst = w.env.owner.and_then(|o| world.instances.get(&o));
-                let ty = inst.and_then(|i| i.template.cells.iter().find(|c| c.name == *n)).map(|c| c.ty.clone());
-                ty.zip(inst.and_then(|i| i.cells.get(n).cloned()))
+        }
+        self.write_place(m, to, value)?;
+        // an input of a type parameter's type takes any value: the variable's own type says which
+        if x.map_or(false, |x| !x.generics.is_empty()) {
+            if let Some((ty, v)) = self.root_of(m, to)? {
+                if !m.takes(&v, &ty)? {
+                    return Err(Failure::new(FailKind::Rule, format!("{} is given what isn't its variable's type", input)));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// The variable a place is in, `$state`'s or a widget's own: its type, and its value now.
+    fn root_of(&self, m: &mut Machine, to: &WriteTo) -> R<Option<(ir::Type, Value)>> {
+        let PlaceRoot::Outer(outer, owner) = m.root_of(&to.env.bindings, to.env.owner, &to.place)? else { return Ok(None) };
+        let w = self.w.borrow();
+        let inst = owner.and_then(|o| w.instances.get(&o));
+        let found = match &outer {
+            Outer::State(n) => {
+                let ty = self.s.state_decl.as_ref().and_then(|s| s.fields.iter().find(|f| *f.name == **n)).map(|f| f.ty.clone());
+                ty.zip(w.state_get(n))
+            }
+            Outer::Cell(n) => {
+                let ty = inst.and_then(|i| i.template.cells.iter().find(|c| *c.name == **n)).map(|c| c.ty.clone());
+                ty.zip(inst.and_then(|i| i.cells.get(&**n).cloned()))
+            }
+            Outer::Input(n) => {
+                let to = inst.and_then(|i| i.places.get(&**n).cloned());
+                drop(w);
+                return match to {
+                    Some(to) => self.root_of(m, &to),
+                    None => Ok(None),
+                };
             }
             _ => None,
         };
-        match found {
-            Some((ty, v)) => Ok(!m.fits(&v, &ty)?),
-            None => Ok(false),
-        }
+        Ok(found)
     }
 
     /// The message of the first of `$state`'s rules that no longer holds.
@@ -850,6 +890,18 @@ impl Rt {
             }
         }
         Ok(None)
+    }
+
+    /// The same as a host is told: a rule that can't be worked out doesn't hold.
+    fn state_refusal(&self, m: &mut Machine) -> Option<Broken> {
+        match self.state_rule_broken(m) {
+            Ok(rule) => rule.as_deref().map(broken_rule),
+            Err(f) => {
+                let broken = broken_code(&failure_code(&f), "$state");
+                self.w().errors.push(f);
+                Some(broken)
+            }
+        }
     }
 
     /// Whether one of `$state`'s rules holds: worked out again only when something it read changed.
@@ -917,16 +969,36 @@ impl Rt {
         for n in nodes {
             match n {
                 Node::Declare(d) => {
-                    let (_, v) = self.hold(m, n, &format!("let {}", d.let_.name), &env, |m| Ok((Vec::new(), Some(self.eval_in(m, &env, &d.let_.value)?))))?;
+                    let site = format!("let {}", d.let_.name);
+                    let made = self.hold(m, n, &site, &env, |m| Ok((Vec::new(), Some(self.eval_in(m, &env, &d.let_.value)?))));
+                    let (_, v) = match made {
+                        Ok(made) => made,
+                        Err(f) if self.contains(&env) => {
+                            // what comes after may read it
+                            out.push(self.failed("doc", &join(&env.path, &site), &join(env.key_or_path(), &site), &f));
+                            break;
+                        }
+                        Err(f) => return Err(f),
+                    };
                     env.bindings.push((Rc::from(d.let_.name.as_str()), Binding::Value(v.unwrap_or_else(Value::none))));
                 }
                 Node::Extern(_) | Node::Use(_) => out.extend(self.draw_node(m, n, &env)?),
                 Node::For(ir::NodeFor { site, .. }) | Node::If(ir::NodeIf { site, .. }) | Node::Match(ir::NodeMatch { site, .. }) | Node::Place(ir::NodePlace { site, .. }) => {
-                    out.extend(self.hold(m, n, site, &env, |m| Ok((self.draw_node(m, n, &env)?, None)))?.0);
+                    match self.hold(m, n, site, &env, |m| Ok((self.draw_node(m, n, &env)?, None))) {
+                        Ok(made) => out.extend(made.0),
+                        Err(f) if self.contains(&env) => out.push(self.failed("doc", &join(&env.path, site), &join(env.key_or_path(), site), &f)),
+                        Err(f) => return Err(f),
+                    }
                 }
             }
         }
         Ok(out)
+    }
+
+    /// Whether a failure here stays here: in the document's own code, which no widget is around to show it
+    /// for. In a sentence it is the failure of what holds the sentence.
+    fn contains(&self, env: &Env) -> bool {
+        env.owner.is_none() && self.w.borrow().in_inputs == 0
     }
 
     /// What a loop, a branch, a place or a local gives: as it was, when it is the same one with the
@@ -1110,6 +1182,10 @@ impl Rt {
         }
         self.w().frames.push(Frame::default());
         let drawn = self.draw_extern_now(m, name, &key, &path, given, slots, events, writes, levels, env);
+        let drawn = match drawn {
+            Err(f) if self.contains(env) => Ok(vec![self.failed(name, &path, &key, &f)]),
+            drawn => drawn,
+        };
         let frame = self.w().frames.pop().unwrap_or_default();
         let drawn = drawn?;
         {
@@ -1304,64 +1380,56 @@ impl Rt {
             held?;
         }
         let mut inside = Vec::new();
-        self.draw_inputs(m, w.as_deref(), &mut props, &mut inside, &path, &key)?;
+        self.w().in_inputs += 1;
+        let drawn = self.draw_inputs(m, w.as_deref(), &mut props, &mut inside, &path, &key);
+        self.w().in_inputs -= 1;
+        drawn?;
         let events = events.iter().map(|(e, h)| (e.clone(), Handle { handler: h.clone(), env: env.clone() })).collect();
         Ok(vec![Drawn::new(DrawnNode { path, id: key, widget: name.to_string(), props, slots: drawn_slots, events, writes: written, levels: levels.to_vec(), failed: None, held: inside })])
     }
 
-    /// Whether a value has a type's shape. The host's values come from outside, so their type is
-    /// checked before their contract: the compiler has proved only the page's own.
-    fn of_type(&self, v: &Value, t: &ir::Type, depth: u32) -> bool {
-        let p = &self.s.program;
-        let mut ty = t;
-        let mut guard = 0;
-        while let Some(next) = p.aliases.get(&ty.name) {
-            if guard >= 16 {
-                break;
-            }
-            ty = next;
-            guard += 1;
+    /// Why a value from outside is refused, or None when it is one of the type.
+    fn refusal(&self, m: &mut Machine, v: &Value, t: &ir::Type, site: &str) -> Option<Broken> {
+        match m.takes(v, t) {
+            Ok(true) => None,
+            Ok(false) => Some(broken_code("contracts.outside", site)),
+            Err(f) => Some(refused(&f, site)),
         }
-        let arg = ty.args.first();
-        if depth > 64 {
-            return false;
-        }
-        match ty.name.as_str() {
-            "core/number" | "core/int" => return matches!(v, Value::Num(_)),
-            "core/text" => return matches!(v, Value::Text(_)),
-            "core/bool" => return matches!(v, Value::Bool(_)),
-            "core/duration" => return matches!(v, Value::Duration(_)),
-            "core/list" => {
-                return match v {
-                    Value::List(l) => arg.map_or(true, |a| l.items.iter().all(|i| self.of_type(&i.value, a, depth + 1))),
-                    _ => false,
-                }
-            }
-            "core/opt" => {
-                return match v {
-                    Value::Opt(None) => true,
-                    Value::Opt(Some(x)) => arg.map_or(true, |a| self.of_type(x, a, depth + 1)),
-                    _ => false,
-                }
-            }
-            "core/range" => return matches!(v, Value::Range(_)),
-            _ => {}
-        }
-        if let Some(rec) = p.records.get(&ty.name) {
-            let Value::Record(r) = v else { return false };
-            if *r.ty != *ty.name {
+    }
+
+    /// Whether a call from outside gives its params values of their types: told when it doesn't.
+    fn takes_args(&self, m: &mut Machine, params: &[ir::Param], args: &[Value], site: &str) -> bool {
+        for (p, v) in params.iter().zip(args) {
+            if let Some(broken) = self.refusal(m, v, &p.ty, site) {
+                self.w().outcome.refused.push(broken);
                 return false;
             }
-            return rec.fields.iter().all(|f| match r.get(&f.name) {
-                Some(x) => self.of_type(x, &f.ty, depth + 1),
-                None => false,
-            });
         }
-        if p.enums.contains_key(&ty.name) || p.tokens.contains_key(&ty.name) {
-            return matches!(v, Value::Case(c) if *c.ty == *ty.name);
-        }
-        // a type parameter, or a fn or view, which the host doesn't write
         true
+    }
+
+    /// A channel's value as the host gives it, or its default for one that isn't of its type. A channel's
+    /// value this page doesn't read is no part of it.
+    fn give_extern(&self, m: &mut Machine, channel: &str, name: &str, v: Option<Value>) -> R<()> {
+        let s = self.s.clone();
+        let channels = s.module.declarations.iter().filter_map(|d| match &d.declare {
+            ir::Decl::Extern(ir::Extern::Channel(c)) if c.name == channel => Some(c),
+            _ => None,
+        });
+        let Some(f) = channels.flat_map(|c| &c.values).find(|f| f.name == name) else { return Ok(()) };
+        let site = format!("{}.{}", channel, name);
+        let broken = v.as_ref().and_then(|v| self.refusal(m, v, &f.ty, &site));
+        let v = match (v, &broken, &f.default) {
+            (Some(v), None, _) => Some(v),
+            (_, _, Some(x)) => Some(Machine::new(&s.program, Box::new(Constants)).eval(x)?),
+            _ => None,
+        };
+        let mut w = self.w();
+        w.outcome.refused.extend(broken);
+        if let Some(v) = v {
+            w.externs.insert(site, v);
+        }
+        Ok(())
     }
 
     /// What is put back at a place, as it is drawn: each variable that is there and whose value fits it.
@@ -1371,7 +1439,7 @@ impl Rt {
         for (name, x) in vars {
             let Some(t) = ty(&name) else { continue };
             let Ok(v) = Machine::new(&self.s.program, Box::new(Constants)).eval(&x) else { continue };
-            if !self.of_type(&v, &t, 0) || !m.fits(&v, &t)? {
+            if self.refusal(m, &v, &t, path).is_some() {
                 continue;
             }
             if let Some(vars) = self.w().put_back.get_mut(path) {
@@ -1920,8 +1988,8 @@ impl Page {
         }
         for (c, values) in &opts.externs {
             for (k, x) in values {
-                let v = page.constant(x)?;
-                page.rt.w().externs.insert(format!("{}.{}", c, k), v);
+                let v = page.given(x, &format!("{}.{}", c, k));
+                page.with_machine(|rt, m| rt.give_extern(m, c, k, v))?;
             }
         }
         page.apply_page(opts.page);
@@ -1939,9 +2007,8 @@ impl Page {
     fn start_from(&mut self, given: &[(String, Expr)]) -> R<()> {
         let mut values = Vec::new();
         for (k, x) in given {
-            match self.constant(x) {
-                Ok(v) => values.push((k.clone(), v)),
-                Err(_) => self.rt.w().outcome.refused.push(broken_code("contracts.outside", &format!("$state.{}", k))),
+            if let Some(v) = self.given(x, &format!("$state.{}", k)) {
+                values.push((k.clone(), v));
             }
         }
         let told = self.rt.w.borrow().outcome.refused.len();
@@ -2136,13 +2203,8 @@ impl Page {
     fn take_state(&mut self, given: &[(String, Expr)]) -> R<bool> {
         let mut values = Vec::new();
         for (k, x) in given {
-            match self.constant(x) {
-                Ok(v) => values.push((k.clone(), v)),
-                Err(_) => {
-                    self.rt.w().outcome.refused.push(broken_code("contracts.outside", &format!("$state.{}", k)));
-                    return Ok(false);
-                }
-            }
+            let Some(v) = self.given(x, &format!("$state.{}", k)) else { return Ok(false) };
+            values.push((k.clone(), v));
         }
         self.write_state(values)
     }
@@ -2219,7 +2281,12 @@ impl Page {
 
     /// A reader's event on a drawn widget, by its id.
     pub fn event(&mut self, id: &str, name: &str, args: Vec<Value>) -> R<()> {
-        let Some(ev) = self.find(id).and_then(|n| n.events.get(name).cloned()) else { return Ok(()) };
+        let Some(node) = self.find(id) else { return Ok(()) };
+        let Some(ev) = node.events.get(name).cloned() else { return Ok(()) };
+        let params = self.rt.s.extern_widgets.get(&node.widget).and_then(|w| w.events.iter().find(|e| e.name == name)).map(|e| e.params.clone()).unwrap_or_default();
+        if !self.with_machine(|rt, m| rt.takes_args(m, &params, &args, id)) {
+            return Ok(());
+        }
         self.transaction(id, move |rt, m| rt.run_handler(m, &ev.handler, &ev.env, args).map(|_| ()))
     }
 
@@ -2232,8 +2299,8 @@ impl Page {
         let Some(to) = to else {
             // a widget's own value: kept by the page for it, checked against the input's type
             let Some(f) = self.rt.s.extern_widgets.get(&widget).and_then(|w| w.inputs.iter().find(|f| f.name == input && f.mutable)).cloned() else { return Ok(()) };
-            if !self.with_machine(|_, m| m.fits(&value, &f.ty))? {
-                self.rt.w().outcome.refused.push(broken_code("contracts.outside", id));
+            if let Some(broken) = self.with_machine(|rt, m| rt.refusal(m, &value, &f.ty, id)) {
+                self.rt.w().outcome.refused.push(broken);
                 return Ok(());
             }
             {
@@ -2243,27 +2310,20 @@ impl Page {
             }
             return self.redraw();
         };
-        enum Refused {
-            Contract,
-            Rule(String),
-        }
         let snap = self.snapshot();
-        let r = self.with_machine(|rt, m| -> R<Option<Refused>> {
-            rt.write_place(m, &to, value)?;
-            if rt.contract_broken(m, &to)? {
-                return Ok(Some(Refused::Contract));
-            }
-            Ok(rt.state_rule_broken(m)?.map(Refused::Rule))
+        let r = self.with_machine(|rt, m| -> R<Option<Broken>> {
+            rt.write_into(m, &widget, input, &to, value)?;
+            Ok(rt.state_refusal(m))
         });
         match r {
             Ok(None) => {}
-            Ok(Some(Refused::Rule(rule))) => {
+            Ok(Some(broken)) => {
                 self.undo(snap);
-                self.rt.w().outcome.refused.push(broken_rule(&rule));
+                self.rt.w().outcome.refused.push(broken);
             }
-            Ok(Some(Refused::Contract)) | Err(_) => {
+            Err(f) => {
                 self.undo(snap);
-                self.rt.w().outcome.refused.push(broken_code("contracts.outside", id));
+                self.rt.w().outcome.refused.push(refused(&f, id));
             }
         }
         self.redraw()
@@ -2285,33 +2345,34 @@ impl Page {
                     continue;
                 }
             }
-            let (to, key) = (node.writes.get(&input).cloned(), node.id.clone());
+            let (to, key, widget) = (node.writes.get(&input).cloned(), node.id.clone(), node.widget.clone());
             let r = match to {
                 Some(to) => {
-                    let r = self.with_machine(|rt, m| -> R<()> {
-                        rt.write_place(m, &to, value)?;
-                        if rt.contract_broken(m, &to)? {
-                            return Err(Failure::new(FailKind::Rule, "contracts.outside"));
-                        }
-                        Ok(())
-                    });
+                    let r = self.with_machine(|rt, m| rt.write_into(m, &widget, &input, &to, value));
                     if r.is_ok() {
                         shared = true;
                     }
                     r
                 }
                 None => {
-                    let mut w = self.rt.w();
-                    w.own.entry(key.clone()).or_default().insert(input.clone(), value);
-                    w.bump(format!("o:{}", key));
-                    Ok(())
+                    let Some(f) = self.rt.s.extern_widgets.get(&widget).and_then(|w| w.inputs.iter().find(|f| f.name == input && f.mutable)).cloned() else { continue };
+                    match self.with_machine(|_, m| m.takes(&value, &f.ty)) {
+                        Ok(true) => {
+                            let mut w = self.rt.w();
+                            w.own.entry(key.clone()).or_default().insert(input.clone(), value);
+                            w.bump(format!("o:{}", key));
+                            Ok(())
+                        }
+                        Ok(false) => Err(Failure::new(FailKind::Rule, format!("{} is given what isn't its type", input))),
+                        Err(f) => Err(f),
+                    }
                 }
             };
-            if r.is_err() {
+            if let Err(f) = r {
                 self.undo(snap);
                 let mut w = self.rt.w();
                 w.own = own_before;
-                w.outcome.refused.push(broken_code("contracts.outside", &id));
+                w.outcome.refused.push(refused(&f, &id));
                 return Ok(false);
             }
             changed = true;
@@ -2319,11 +2380,11 @@ impl Page {
         if !changed {
             return Ok(false);
         }
-        if let Some(rule) = self.with_machine(|rt, m| rt.state_rule_broken(m))? {
+        if let Some(broken) = self.with_machine(|rt, m| rt.state_refusal(m)) {
             self.undo(snap);
             let mut w = self.rt.w();
             w.own = own_before;
-            w.outcome.refused.push(broken_rule(&rule));
+            w.outcome.refused.push(broken);
             return Ok(false);
         }
         self.redraw()?;
@@ -2354,28 +2415,38 @@ impl Page {
         Ok(())
     }
 
+    /// The same, with its values in the IR's form.
+    pub fn set_given(&mut self, changes: &[(String, Expr)]) -> R<()> {
+        self.changes += 1;
+        self.reset_steps();
+        if self.take_state(changes)? {
+            self.redraw()?;
+        }
+        Ok(())
+    }
+
     /// `$state` fields written, checked: refused whole, or done. Nothing is drawn.
     fn write_state(&mut self, changes: Vec<(String, Value)>) -> R<bool> {
         let snap = self.snapshot();
         for (k, v) in changes {
             let f = self.rt.s.state_decl.as_ref().and_then(|s| s.fields.iter().find(|f| f.name == k)).cloned();
-            let ok = match &f {
-                Some(f) => self.of_type(&v, &f.ty, 0) && self.with_machine(|_, m| m.fits(&v, &f.ty))?,
-                None => false,
+            let site = format!("$state.{}", k);
+            let broken = match &f {
+                Some(f) => self.with_machine(|rt, m| rt.refusal(m, &v, &f.ty, &site)),
+                None => Some(broken_code("contracts.outside", &site)),
             };
-            if !ok {
+            if let Some(broken) = broken {
                 self.undo(snap);
-                self.rt.w().outcome.refused.push(broken_code("contracts.outside", &format!("$state.{}", k)));
+                self.rt.w().outcome.refused.push(broken);
                 return Ok(false);
             }
             let mut w = self.rt.w();
             w.state_set(&k, v);
             w.bump(format!("s:{}", k));
         }
-        let rule = self.with_machine(|rt, m| rt.state_rule_broken(m))?;
-        if let Some(rule) = rule {
+        if let Some(broken) = self.with_machine(|rt, m| rt.state_refusal(m)) {
             self.undo(snap);
-            self.rt.w().outcome.refused.push(broken_rule(&rule));
+            self.rt.w().outcome.refused.push(broken);
             return Ok(false);
         }
         Ok(true)
@@ -2390,21 +2461,38 @@ impl Page {
                 continue;
             }
             let Some(f) = e.fns.iter().find(|f| f.name == name) else { continue };
+            if !self.with_machine(|rt, m| rt.takes_args(m, &f.params, &args, &format!("{}.{}", channel, name))) {
+                return Ok(());
+            }
             let body = Rc::new(f.body.clone());
             return self.transaction(&format!("{}.{}", channel, name), move |rt, m| rt.run_body(m, &f.params, body, &Env::default(), args).map(|_| ()));
         }
         Ok(())
     }
 
-    /// The host giving a channel's values.
+    /// The host giving a channel's values: one that doesn't fit its type is dropped for its default, and
+    /// the host is told.
     pub fn set_extern(&mut self, channel: &str, values: Vec<(String, Value)>) -> R<()> {
+        self.put_externs(channel, values.into_iter().map(|(k, v)| (k, Some(v))).collect())
+    }
+
+    /// The same, with its values in the IR's form.
+    pub fn set_extern_given(&mut self, channel: &str, values: &[(String, Expr)]) -> R<()> {
+        let values = values.iter().map(|(k, x)| (k.clone(), self.given(x, &format!("{}.{}", channel, k)))).collect();
+        self.put_externs(channel, values)
+    }
+
+    /// A channel's value now, by its full name: `doc/host.n`.
+    pub fn given_extern(&self, name: &str) -> Option<Value> {
+        self.rt.w.borrow().externs.get(name).cloned()
+    }
+
+    fn put_externs(&mut self, channel: &str, values: Vec<(String, Option<Value>)>) -> R<()> {
         self.changes += 1;
-        {
-            let mut w = self.rt.w();
-            for (k, v) in values {
-                w.externs.insert(format!("{}.{}", channel, k), v);
-                w.bump(format!("x:{}.{}", channel, k));
-            }
+        self.reset_steps();
+        for (k, v) in values {
+            self.with_machine(|rt, m| rt.give_extern(m, channel, &k, v))?;
+            self.rt.w().bump(format!("x:{}.{}", channel, k));
         }
         self.redraw()
     }
@@ -2606,10 +2694,18 @@ impl Page {
         }
     }
 
-    /// Whether a value has a type's shape. The host's values come from outside, so their type is
-    /// checked before their contract: the compiler has proved only the page's own.
-    pub fn of_type(&self, v: &Value, t: &ir::Type, depth: u32) -> bool {
-        self.rt.of_type(v, t, depth)
+    /// A value a host gives, in the IR's form: one that can't be made, such as a record whose own rule is
+    /// false, is refused, and `None`.
+    fn given(&self, x: &Expr, site: &str) -> Option<Value> {
+        match self.constant(x) {
+            Ok(v) => Some(v),
+            Err(f) => {
+                let mut w = self.rt.w();
+                w.outcome.refused.push(refused(&f, site));
+                w.errors.push(f);
+                None
+            }
+        }
     }
 
     fn constant(&self, x: &Expr) -> R<Value> {
@@ -2689,8 +2785,15 @@ impl Page {
             }
             let rules = rt.s.state_rules.clone();
             for (k, (_, message, _)) in rules.iter().enumerate().filter(|(_, r)| r.2) {
-                let holds = rt.state_rule(m, k)?;
-                rt.w().warned("$state", message, holds);
+                match rt.state_rule(m, k) {
+                    Ok(holds) => rt.w().warned("$state", message, holds),
+                    // one that can't be worked out is a failure, and stops nothing
+                    Err(f) => {
+                        let mut w = rt.w();
+                        w.outcome.failures.push(broken_code(&failure_code(&f), "$state"));
+                        w.errors.push(f);
+                    }
+                }
             }
             let drawn = match rt.s.templates.get("doc") {
                 Some(doc) => rt.draw_nodes(m, &doc.view, &Env::default())?,

@@ -284,7 +284,7 @@ The compiler works out the level each call needs from the table. A call in a doc
 
 An engine has written obligations: evaluation exactly as page 2 defines it, exact base-10 numbers, events run in order with one redraw, the limits below, failures contained as below, untrusted content kept sandboxed, extern values and the host's writes to `$state` checked, a widget in a sentence (`Press \{@press(…)} to start`) drawn among its words and taking its events like any other, and accessible controls.
 
-A write to `$state`, a reader's through a widget or the host's, is checked against every contract and `require` block it touches (page 2), and is done whole or refused with the rule's message. A `$state` the host gives a page as it starts is checked the same way: a field that doesn't fit is refused and reported, never set unchecked. The rest of input is the engine's: whether a widget writes on every keystroke or only when the reader submits, how a refusal is shown, and what to do with state a host saved from an earlier version of the document. How it manages memory is its own choice: Extended Mark code can't make a reference cycle, so freeing a widget's values when it leaves the page, or plain reference counting, is enough.
+A write to `$state`, a reader's through a widget or the host's, is checked against every contract and `require` block it touches (page 2), and is done whole or refused with the rule's message. The compiler has proved only the page's own values, so one that comes from outside is checked against its type first, its shape and every contract and `require` inside it: the host's writes to `$state`, its extern values and the arguments it gives an exposed fn, what a widget writes and its events' arguments, what an engine's fn gives, and a page's data put back. One that isn't of its type is refused and reported, and changes nothing; a fn's answer is a failure where the fn is called. A `$state` the host gives a page as it starts is checked the same way: a field that doesn't fit is refused and reported, never set unchecked. The rest of input is the engine's: whether a widget writes on every keystroke or only when the reader submits, how a refusal is shown, and what to do with state a host saved from an earlier version of the document. How it manages memory is its own choice: Extended Mark code can't make a reference cycle, so freeing a widget's values when it leaves the page, or plain reference counting, is enough.
 
 ### The host's side
 
@@ -349,9 +349,9 @@ A failure is a bug that could not be caught at compile time. There are no except
 
 | Where it happens | What the reader sees | What is kept |
 |---|---|---|
-| While drawing a widget | The widget's node says why (`failed`), and a short notice with the message is shown in its place. In Markdown it is a quote block. The page has no source to point into: an editor that has it shows where the failed call is written. It is tried again when an input or variable it reads changes | The rest of the page, and all variables |
+| While drawing a widget, or a call, a branch, a loop or a `let` of the document's own | The widget's node, or the document's, says why (`failed`), and a short notice with the message is shown in its place. In Markdown it is a quote block. The page has no source to point into: an editor that has it shows where the failed call is written. It is tried again when an input or variable it reads changes | The rest of the page, and all variables |
 | In an event handler | Nothing changes on the page | Everything the handler changed is undone, and the handler stops |
-| In a write from the host | Nothing changes on the page | Everything: the write is refused, and the host is told |
+| In a write from the host or a widget, or a call of an exposed fn with an argument that isn't of its type | Nothing changes on the page | Everything: the write is refused, and the host is told |
 | At compile time, when the compiler can see it | A compile error on the line | |
 
 Every failure is also reported to the host with its message and line. A broken rule inside `try` is not a failure: it gives `opt.NONE`.

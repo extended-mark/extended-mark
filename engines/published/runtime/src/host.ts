@@ -109,13 +109,15 @@ export class Page {
   /** The reader's event on a widget: what the page does with it, as one change. */
   event(id: string, name: string, args: Input[] = []): void {
     const d = this.drawn(id);
-    if (d) this.core.event(d.path, name, args.map((a) => this.core.value(fromInput(a))));
+    const given = d && this.core.givenAll(args.map(fromInput), id);
+    if (d && given) this.core.event(d.path, name, given);
   }
 
   /** A widget writing one of its `mut` inputs, as a slider does: checked, then one change. */
   write(id: string, input: string, value: Input): void {
     const d = this.drawn(id);
-    if (d) this.core.write(d.path, input, this.core.value(fromInput(value)));
+    const given = d && this.core.given(fromInput(value), id);
+    if (d && given) this.core.write(d.path, input, given);
   }
 
   /** A fn input called, as a shade calls its shader. */
@@ -133,17 +135,18 @@ export class Page {
 
   /** Writes `$state` fields as one change, checked: refused whole, or done. */
   set(changes: Record<string, Input>): void {
-    this.core.set(this.values(changes));
+    this.core.setGiven(Object.fromEntries(Object.entries(changes).map(([k, x]) => [k, fromInput(x)])));
   }
 
   /** Calls a fn the document exposes. */
   expose(channel: string, name: string, args: Input[] = []): void {
-    this.core.expose(channel, name, args.map((a) => this.core.value(fromInput(a))));
+    const given = this.core.givenAll(args.map(fromInput), `${channel}.${name}`);
+    if (given) this.core.expose(channel, name, given);
   }
 
   /** Gives a channel's values. */
   setExtern(channel: string, values: Record<string, Input>): void {
-    this.core.setExtern(channel, this.values(values));
+    this.core.setExtern(channel, Object.fromEntries(Object.entries(values).map(([k, x]) => [k, this.core.given(fromInput(x), `${channel}.${k}`)])));
   }
 
   /** Gives the page's own values: its width and theme. */
@@ -244,10 +247,6 @@ export class Page {
       this.core.tree().forEach((d, k) => this.index(d, this.now.nodes[k]));
     }
     return this.byId;
-  }
-
-  private values(xs: Record<string, Input>): Record<string, V> {
-    return Object.fromEntries(Object.entries(xs).map(([k, x]) => [k, this.core.value(fromInput(x))]));
   }
 
   /** The page drawn, as nodes: the ones nothing changed in are the ones there were. */

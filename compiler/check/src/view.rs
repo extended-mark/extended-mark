@@ -334,6 +334,7 @@ impl Checker {
                 if input.mutable {
                     match self.place(cx, value) {
                         Some((p, pt)) => {
+                            self.check_fields_mut(cx, value);
                             if self.accepts(&it, &pt, &bounds).is_none() {
                                 let (a, b) = (self.show(&it), self.show(&pt));
                                 self.error(file, codes::MISMATCH, value.span, format!("`{}` is a `mut {}`, given a {}", n.name, a, b));

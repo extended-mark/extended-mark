@@ -142,7 +142,8 @@ export class Constants implements Host {
 }
 
 /** A local, or a reference to a place for a `mut` parameter, a `mut for` or an `if (mut …)`. */
-export type Binding = { readonly value: Value } | { readonly ref: Place };
+/** A `mut` local keeps its type, for the writes of the fns it is given to. */
+export type Binding = { readonly value: Value; readonly type?: ir.Type } | { readonly ref: Place };
 
 export interface Place {
   readonly root: PlaceRoot;
@@ -363,6 +364,11 @@ export class Machine {
   /** Writes `value` where an IR place says, its locals and positions read with these bindings. */
   setPlace(bindings: readonly (readonly [string, Binding])[], owner: number | undefined, place: ir.Place, value: Value): void {
     this.withFrame(bindings, owner, () => this.writePlace(this.place(place), value));
+  }
+
+  /** The variable a place is in. */
+  rootOf(bindings: readonly (readonly [string, Binding])[], owner: number | undefined, place: ir.Place): PlaceRoot {
+    return this.withFrame(bindings, owner, () => this.place(place).root);
   }
 
   /** Opens an opt as `if (let …)` and `if (mut …)` do: the binding of its name, or `undefined`
@@ -615,8 +621,30 @@ export class Machine {
       this.writeRoot(p.root, value);
       return;
     }
-    const whole = this.readRoot(p.root);
-    this.writeRoot(p.root, writePath(whole, p.path, 0, value));
+    const whole = writePath(this.readRoot(p.root), p.path, 0, value);
+    this.checkAlong(whole, p.path, 0);
+    this.writeRoot(p.root, whole);
+  }
+
+  /** The records a write went through, from the inside out: the field written keeps its contract, and
+   * each record its rules (page 2, every change is checked). */
+  private checkAlong(v: Value, path: readonly Step[], k: number): void {
+    if (k === path.length) return;
+    const s = path[k];
+    let inside: Value | undefined;
+    if (s.kind === "field") inside = v.kind === "record" ? V.entry(v.fields, s.name) : undefined;
+    else if (s.kind === "inside") inside = v.kind === "opt" ? (v.value ?? undefined) : undefined;
+    else if (v.kind === "list") inside = (s.kind === "index" ? v.items[s.index] : v.items.find((i) => i.id === s.id))?.value;
+    if (inside === undefined) return;
+    this.checkAlong(inside, path, k + 1);
+    if (s.kind !== "field" || v.kind !== "record") return;
+    const decl = this.prog.records.get(v.ty);
+    const f = decl?.fields.find((f) => f.name === s.name);
+    if (decl === undefined || f === undefined) return;
+    if (!this.fits(inside, f.type)) {
+      throw new Failure("Rule", `${short(v.ty)}'s ${f.name} is outside its contract`);
+    }
+    this.checkRequires(decl, v);
   }
 
   private writeRoot(root: PlaceRoot, value: Value): void {
@@ -632,7 +660,11 @@ export class Machine {
       const [n, b] = frame.vars[k];
       if (n === root.name) {
         if ("value" in b) {
-          frame.vars[k] = [n, { value }];
+          // a fn given the variable writes it through a `mut` parameter, whose contract may be wider
+          if (b.type !== undefined && root.frame < this.frames.length - 1 && !this.fits(value, b.type)) {
+            throw new Failure("Rule", `${n} is outside its contract`);
+          }
+          frame.vars[k] = [n, { value, type: b.type }];
           return;
         }
         this.writePlace(b.ref, value);
@@ -706,7 +738,7 @@ export class Machine {
         const d = (s as { declare: ir.StmtDeclare }).declare;
         const l = "let" in d ? d.let : d.mut;
         const v = this.eval(l.value);
-        this.bind(l.name, { value: v });
+        this.bind(l.name, "mut" in d ? { value: v, type: l.type } : { value: v });
         break;
       }
       case "set": {
@@ -1768,6 +1800,79 @@ export class Machine {
     return true;
   }
 
+  /** Whether a value that comes from outside, from a host, an engine or a snapshot, is one of a type: its
+   * shape, and every contract in it. A record's own rule that is false is a failure. The compiler has
+   * proved only the page's own values. */
+  takes(v: Value, ty: ir.Type, depth = 0): boolean {
+    if (depth > MAX_DEPTH) {
+      return false;
+    }
+    let t = ty;
+    const contracts: ir.Contract[] = [];
+    for (let guard = 0; ; guard++) {
+      if (t.contract !== undefined) {
+        contracts.push(t.contract);
+      }
+      const next = this.prog.aliases.get(t.name);
+      if (next === undefined || guard >= 16) {
+        break;
+      }
+      t = next;
+    }
+    return this.shaped(v, t, depth) && contracts.every((c) => this.fitsContract(v, c));
+  }
+
+  private shaped(v: Value, t: ir.Type, depth: number): boolean {
+    const arg = t.args?.[0];
+    const each = (x: Value, ty: ir.Type | undefined): boolean => ty === undefined || this.takes(x, ty, depth + 1);
+    switch (t.name) {
+      case "core/number":
+        return v.kind === "num";
+      case "core/text":
+        return v.kind === "text";
+      case "core/bool":
+        return v.kind === "bool";
+      case "core/duration":
+        return v.kind === "duration";
+      case "core/list":
+        return v.kind === "list" && v.items.every((i) => each(i.value, arg));
+      case "core/opt":
+        return v.kind === "opt" && (v.value === null || each(v.value, arg));
+      case "core/range":
+        return v.kind === "range";
+      case "fn":
+        return v.kind === "fn";
+      case "record":
+        return v.kind === "record" && this.shapedEntries(v.fields, t.fields ?? [], (f) => f.type, depth);
+    }
+    const rec = this.prog.records.get(t.name);
+    if (rec !== undefined) {
+      if (v.kind !== "record" || v.ty !== t.name || !this.shapedEntries(v.fields, rec.fields, (f) => filled(f.type, rec.params, t.args), depth)) {
+        return false;
+      }
+      this.checkRequires(rec, v);
+      return true;
+    }
+    const cases = this.prog.enums.get(t.name) ?? this.prog.tokens.get(t.name);
+    if (cases !== undefined) {
+      if (v.kind !== "case" || v.ty !== t.name) {
+        return false;
+      }
+      const c = cases.cases.find((c) => c.name === v.name);
+      const params = "params" in cases ? cases.params : undefined;
+      return c !== undefined && this.shapedEntries(v.values, c.fields ?? [], (f) => filled(f.type, params, t.args), depth);
+    }
+    // a type parameter, or a view, which comes from no one outside
+    return true;
+  }
+
+  private shapedEntries(given: readonly Entry[], fields: readonly ir.Field[], type: (f: ir.Field) => ir.Type, depth: number): boolean {
+    return given.length === fields.length && fields.every((f) => {
+      const x = V.entry(given, f.name);
+      return x !== undefined && this.takes(x, type(f), depth + 1);
+    });
+  }
+
   private fitsContract(v: Value, c: ir.Contract): boolean {
     if (c.range !== undefined) {
       if (c.range.low !== undefined) {
@@ -1869,6 +1974,18 @@ function findItem(items: readonly Item[], id: number): Item | undefined {
 }
 
 /** Writes `value` at `path` inside `whole`: a new value along the path, the rest shared. */
+/** A field's type with its declaration's type parameters as a use gives them. */
+function filled(t: ir.Type, params: readonly ir.TypeParam[] | undefined, args: readonly ir.Type[] | undefined): ir.Type {
+  if (!params?.length || !args?.length) {
+    return t;
+  }
+  const at = params.findIndex((p) => p.name === t.name);
+  if (at >= 0) {
+    return args[at] ?? t;
+  }
+  return t.args ? { ...t, args: t.args.map((a) => filled(a, params, args)) } : t;
+}
+
 function writePath(whole: Value, path: readonly Step[], k: number, value: Value): Value {
   if (k === path.length) {
     return value;

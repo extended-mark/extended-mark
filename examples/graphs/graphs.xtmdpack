@@ -10,7 +10,7 @@ record node {
     id: text[1...];
     at: point;                                      // in the plane's units
     label: text;
-    box: opt<region> = opt.NONE;                    // written by its spot after layout
+    mut box: opt<region> = opt.NONE;                // written by its spot after layout
 }
 
 //@about A relation between two nodes, by their ids. Core's edge names a side, so this is link.

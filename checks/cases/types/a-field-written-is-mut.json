@@ -1,0 +1,16 @@
+{
+  "id": "types.a-field-written-is-mut",
+  "about": "a record's field is mut to be written, however it is: an assignment, a mut argument, a mut self, if (mut …), mut for, an inline record's",
+  "source": "a-field-written-is-mut.xtmdpack",
+  "expect": {
+    "diagnostics": [
+      {"code": "types.not-mut", "line": 18, "column": 10},
+      {"code": "types.not-mut", "line": 23, "column": 10},
+      {"code": "types.not-mut", "line": 25, "column": 7},
+      {"code": "types.not-mut", "line": 27, "column": 13},
+      {"code": "types.not-mut", "line": 29, "column": 11},
+      {"code": "types.not-mut", "line": 30, "column": 24},
+      {"code": "types.not-mut", "line": 33, "column": 21}
+    ]
+  }
+}

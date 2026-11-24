@@ -120,6 +120,14 @@ fn plain(b: &Block) -> String {
 struct Writer<'r> {
     rt: &'r Rt,
     depth: u32,
+    in_sentence: u32,
+}
+
+/// What failed, in its place: a quote (page 6).
+fn notice(name: &str, f: &Failure) -> Piece {
+    let short = name.rsplit('/').next().unwrap_or(name);
+    let text = Inline::Text { value: format!("{} failed: {}", short, f.message), bold: false, italic: false, strike: false, link: None };
+    Piece::Block(Block::Quote(vec![Block::Paragraph(vec![text])]))
 }
 
 impl Writer<'_> {
@@ -127,65 +135,88 @@ impl Writer<'_> {
         let mut env = env0.clone();
         let mut out = Vec::new();
         for n in nodes {
-            match n {
-                Node::Declare(d) => {
-                    let v = self.rt.eval_in(m, &env, &d.let_.value)?;
-                    env.bindings.push((Rc::from(d.let_.name.as_str()), Binding::Value(v)));
-                }
-                Node::For(f) => {
-                    // rows by position for paths, and by item for identity, as drawing walks them
-                    for (k, row) in self.rt.keyed_rows(m, f, &env)?.into_iter().enumerate() {
-                        let mut bindings = env.bindings.clone();
-                        bindings.extend(row.bindings);
-                        let key = env.key.clone().unwrap_or_else(|| env.path.clone());
-                        let inner = Env { owner: env.owner, bindings, path: join(&env.path, &format!("{}[{}]", f.site, k)), key: Some(join(&key, &format!("{}[{}]", f.site, row.key))), keep: env.keep.clone() };
-                        out.extend(self.nodes(m, &f.body, &inner)?);
+            match self.node(m, n, &mut env) {
+                Ok(pieces) => out.extend(pieces),
+                // in the document's own code, a notice in its place, as a widget that fails is
+                Err(f) if env.owner.is_none() && self.in_sentence == 0 => {
+                    let name = match n {
+                        Node::Extern(x) => x.name.as_str(),
+                        Node::Use(u) => u.name.as_str(),
+                        _ => "doc",
+                    };
+                    out.push(notice(name, &f));
+                    // what comes after may read it
+                    if matches!(n, Node::Declare(_)) {
+                        break;
                     }
                 }
-                Node::If(i) => {
-                    let (nodes, inner) = self.rt.pick_branch(m, i, &env)?;
-                    out.extend(self.nodes(m, nodes, &inner)?);
+                Err(f) => return Err(f),
+            }
+        }
+        Ok(out)
+    }
+
+    /// One node's pieces, and its local for what comes after.
+    fn node(&mut self, m: &mut Machine, n: &Node, env: &mut Env) -> R<Vec<Piece>> {
+        let mut out = Vec::new();
+        match n {
+            Node::Declare(d) => {
+                let v = self.rt.eval_in(m, env, &d.let_.value)?;
+                env.bindings.push((Rc::from(d.let_.name.as_str()), Binding::Value(v)));
+            }
+            Node::For(f) => {
+                // rows by position for paths, and by item for identity, as drawing walks them
+                for (k, row) in self.rt.keyed_rows(m, f, env)?.into_iter().enumerate() {
+                    let mut bindings = env.bindings.clone();
+                    bindings.extend(row.bindings);
+                    let key = env.key.clone().unwrap_or_else(|| env.path.clone());
+                    let inner = Env { owner: env.owner, bindings, path: join(&env.path, &format!("{}[{}]", f.site, k)), key: Some(join(&key, &format!("{}[{}]", f.site, row.key))), keep: env.keep.clone() };
+                    out.extend(self.nodes(m, &f.body, &inner)?);
                 }
-                Node::Match(mt) => {
-                    let v = self.rt.eval_in(m, &env, &mt.value)?;
-                    let mut done = false;
-                    for c in &mt.cases {
-                        if let Some(binds) = self.rt.matches(m, &v, &c.when)? {
-                            let mut inner = env.clone();
-                            inner.bindings.extend(binds);
-                            out.extend(self.nodes(m, &c.then, &inner)?);
-                            done = true;
-                            break;
-                        }
-                    }
-                    if !done {
-                        out.extend(self.nodes(m, &mt.else_, &env)?);
+            }
+            Node::If(i) => {
+                let (nodes, inner) = self.rt.pick_branch(m, i, env)?;
+                out.extend(self.nodes(m, nodes, &inner)?);
+            }
+            Node::Match(mt) => {
+                let v = self.rt.eval_in(m, env, &mt.value)?;
+                let mut done = false;
+                for c in &mt.cases {
+                    if let Some(binds) = self.rt.matches(m, &v, &c.when)? {
+                        let mut inner = env.clone();
+                        inner.bindings.extend(binds);
+                        out.extend(self.nodes(m, &c.then, &inner)?);
+                        done = true;
+                        break;
                     }
                 }
-                Node::Place(p) => {
-                    let v = self.rt.eval_in(m, &env, &p.view)?;
-                    if p.sentence {
-                        check_sentence(&v)?;
-                    }
-                    let key = join(env.key.as_deref().unwrap_or(&env.path), &p.site);
-                    out.extend(self.view(m, &v, &join(&env.path, &p.site), &key)?);
+                if !done {
+                    out.extend(self.nodes(m, &mt.else_, env)?);
                 }
-                Node::Extern(x) => {
-                    let mut props = BTreeMap::new();
-                    for (k, e) in &x.props {
-                        props.insert(k.clone(), self.rt.eval_in(m, &env, e)?);
-                    }
-                    for (k, p) in &x.writes {
-                        props.insert(k.clone(), m.eval_with(&env.bindings, env.owner, &Expr::Place(p.clone()))?);
-                    }
-                    let path = join(&env.path, &x.site);
-                    let key = join(env.key.as_deref().unwrap_or(&env.path), &x.site);
-                    out.extend(self.widget(m, &x.name, &path, props, Args::Exprs(&BTreeMap::new()), &x.slots, &env, &key, &BTreeMap::new())?);
+            }
+            Node::Place(p) => {
+                let v = self.rt.eval_in(m, env, &p.view)?;
+                if p.sentence {
+                    check_sentence(&v)?;
                 }
-                Node::Use(u) => {
-                    let key = join(env.key.as_deref().unwrap_or(&env.path), &u.site);
-                    out.extend(self.widget(m, &u.name, &join(&env.path, &u.site), BTreeMap::new(), Args::Exprs(&u.args), &u.slots, &env, &key, &u.events)?);
+                let key = join(env.key.as_deref().unwrap_or(&env.path), &p.site);
+                out.extend(self.view(m, &v, &join(&env.path, &p.site), &key)?);
+            }
+            Node::Extern(x) => {
+                let mut props = BTreeMap::new();
+                for (k, e) in &x.props {
+                    props.insert(k.clone(), self.rt.eval_in(m, env, e)?);
                 }
+                for (k, p) in &x.writes {
+                    props.insert(k.clone(), m.eval_with(&env.bindings, env.owner, &Expr::Place(p.clone()))?);
+                }
+                let path = join(&env.path, &x.site);
+                let key = join(env.key.as_deref().unwrap_or(&env.path), &x.site);
+                out.extend(self.widget(m, &x.name, &path, props, Args::Exprs(&BTreeMap::new()), &x.slots, env, &key, &BTreeMap::new())?);
+            }
+            Node::Use(u) => {
+                let key = join(env.key.as_deref().unwrap_or(&env.path), &u.site);
+                out.extend(self.widget(m, &u.name, &join(&env.path, &u.site), BTreeMap::new(), Args::Exprs(&u.args), &u.slots, env, &key, &u.events)?);
             }
         }
         Ok(out)
@@ -232,7 +263,10 @@ impl Writer<'_> {
     fn sentence(&mut self, m: &mut Machine, v: Option<&Value>, path: &str, key: &str) -> R<Vec<Inline>> {
         let Some(v) = v else { return Ok(Vec::new()) };
         check_sentence(v)?;
-        Ok(join_runs(runs_of(self.view(m, v, path, key)?)))
+        self.in_sentence += 1;
+        let pieces = self.view(m, v, path, key);
+        self.in_sentence -= 1;
+        Ok(join_runs(runs_of(pieces?)))
     }
 
     fn slot(&mut self, m: &mut Machine, slots: &BTreeMap<String, Vec<Node>>, name: &str, env: &Env) -> R<Vec<Piece>> {
@@ -261,9 +295,7 @@ impl Writer<'_> {
                     return Err(f);
                 }
                 // a widget that fails is a notice in its place, a quote in Markdown (page 6)
-                let short = name.rsplit('/').next().unwrap_or(name);
-                let notice = Inline::Text { value: format!("{} failed: {}", short, f.message), bold: false, italic: false, strike: false, link: None };
-                Ok(vec![Piece::Block(Block::Quote(vec![Block::Paragraph(vec![notice])]))])
+                Ok(vec![notice(name, &f)])
             }
         }
     }
@@ -411,6 +443,6 @@ fn runs_of(pieces: Vec<Piece>) -> Vec<Inline> {
 /// The page's blocks, with the values it has now.
 pub(crate) fn page_blocks(rt: &Rt, m: &mut Machine) -> R<Vec<Block>> {
     let Some(doc) = rt.s.templates.get("doc").cloned() else { return Ok(Vec::new()) };
-    let mut w = Writer { rt, depth: 0 };
+    let mut w = Writer { rt, depth: 0, in_sentence: 0 };
     Ok(blocks_of(w.nodes(m, doc.markdown(), &Env::default())?))
 }

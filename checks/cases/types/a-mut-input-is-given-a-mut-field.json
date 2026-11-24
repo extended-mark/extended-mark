@@ -1,0 +1,10 @@
+{
+  "id": "types.a-mut-input-is-given-a-mut-field",
+  "about": "a widget's mut input is given a field that is mut; a field that isn't is changed with `with`",
+  "source": "a-mut-input-is-given-a-mut-field.xtmd",
+  "expect": {
+    "diagnostics": [
+      {"code": "types.not-mut", "line": 15, "column": 26}
+    ]
+  }
+}

@@ -163,6 +163,8 @@ pub enum Step {
 struct Frame {
     vars: Vec<(Rc<str>, Binding)>,
     owner: Option<u64>,
+    /// A `mut` local's type, by its place in `vars`, for the writes of the fns it is given to.
+    types: Vec<(usize, ir::Type)>,
 }
 
 enum Flow {
@@ -247,7 +249,7 @@ pub struct Machine<'p> {
 
 impl<'p> Machine<'p> {
     pub fn new(prog: &'p Program, host: Box<dyn Host + 'p>) -> Machine<'p> {
-        Machine { prog, steps: 0, worked: 0, depth: 0, next_id: 0, frames: vec![Frame { vars: Vec::new(), owner: None }], host: Rc::from(host), last_rule: None, warned: Vec::new(), md_native: false }
+        Machine { prog, steps: 0, worked: 0, depth: 0, next_id: 0, frames: vec![Frame { vars: Vec::new(), owner: None, types: Vec::new() }], host: Rc::from(host), last_rule: None, warned: Vec::new(), md_native: false }
     }
 
     /// Starts counting steps again, for one redraw, one event or one constant.
@@ -296,7 +298,7 @@ impl<'p> Machine<'p> {
     /// runtime or the Markdown writer reads a node's values.
     pub fn eval_in(&mut self, locals: &[(Rc<str>, Value)], owner: Option<u64>, e: &Expr) -> R<Value> {
         let vars = locals.iter().map(|(n, v)| (n.clone(), Binding::Value(v.clone()))).collect();
-        self.frames.push(Frame { vars, owner });
+        self.frames.push(Frame { vars, owner, types: Vec::new() });
         let out = self.eval(e);
         self.frames.pop();
         out
@@ -307,7 +309,7 @@ impl<'p> Machine<'p> {
 
     fn with_frame<T>(&mut self, bindings: &[(Rc<str>, Binding)], owner: Option<u64>, f: impl FnOnce(&mut Self) -> R<T>) -> R<T> {
         self.worked += 1;
-        self.frames.push(Frame { vars: bindings.to_vec(), owner });
+        self.frames.push(Frame { vars: bindings.to_vec(), owner, types: Vec::new() });
         let out = f(self);
         self.frames.pop();
         out
@@ -484,6 +486,11 @@ impl<'p> Machine<'p> {
         })
     }
 
+    /// The variable a place is in.
+    pub fn root_of(&mut self, bindings: &[(Rc<str>, Binding)], owner: Option<u64>, place: &ir::Place) -> R<PlaceRoot> {
+        self.with_frame(bindings, owner, |m| m.place(place).map(|p| p.root))
+    }
+
     /// Opens an opt as `if (let …)` and `if (mut …)` do: the binding of its name, or `None` when
     /// there is nothing inside.
     pub fn open_cond(&mut self, bindings: &[(Rc<str>, Binding)], owner: Option<u64>, open: &ir::CondOpen) -> R<Option<Binding>> {
@@ -597,24 +604,52 @@ impl<'p> Machine<'p> {
         }
         let mut whole = self.read_root(&p.root)?;
         write_path(&mut whole, &p.path, value)?;
+        self.check_along(&whole, &p.path)?;
         self.write_root(&p.root, whole)
+    }
+
+    /// The records a write went through, from the inside out: the field written keeps its contract, and
+    /// each record its rules (page 2, every change is checked).
+    fn check_along(&mut self, v: &Value, path: &[Step]) -> R<()> {
+        let Some((s, rest)) = path.split_first() else { return Ok(()) };
+        let inside = match (s, v) {
+            (Step::Field(n), Value::Record(r)) => r.get(n),
+            (Step::Inside, Value::Opt(Some(x))) => Some(&**x),
+            (Step::Index(k), Value::List(l)) => l.items.get(*k as usize).map(|i| &i.value),
+            (Step::Item(id), Value::List(l)) | (Step::ItemOpt(id), Value::List(l)) => l.items.iter().find(|i| i.id == *id).map(|i| &i.value),
+            _ => None,
+        };
+        let Some(inside) = inside else { return Ok(()) };
+        self.check_along(inside, rest)?;
+        let (Step::Field(n), Value::Record(r)) = (s, v) else { return Ok(()) };
+        let Some(decl) = self.prog.records.get(&*r.ty).cloned() else { return Ok(()) };
+        let Some(f) = decl.fields.iter().find(|f| *f.name == **n) else { return Ok(()) };
+        if !self.fits(inside, &f.ty)? {
+            return Err(Failure::new(FailKind::Rule, format!("{}'s {} is outside its contract", short(&r.ty), f.name)));
+        }
+        self.check_requires(&decl, v)
     }
 
     fn write_root(&mut self, root: &PlaceRoot, value: Value) -> R<()> {
         match root {
             PlaceRoot::Local { frame, name } => {
-                let target = {
-                    let vars = &mut self.frames.get_mut(*frame).ok_or_else(|| Failure::ir("a reference outlived its fn"))?.vars;
-                    let slot = vars.iter_mut().rev().find(|(n, _)| n == name).ok_or_else(|| Failure::ir(format!("no local `{}`", name)))?;
-                    match &slot.1 {
-                        Binding::Value(_) => {
-                            slot.1 = Binding::Value(value);
-                            return Ok(());
+                let f = self.frames.get(*frame).ok_or_else(|| Failure::ir("a reference outlived its fn"))?;
+                let k = f.vars.iter().rposition(|(n, _)| n == name).ok_or_else(|| Failure::ir(format!("no local `{}`", name)))?;
+                if let Binding::Ref(target) = &f.vars[k].1 {
+                    let target = target.clone();
+                    return self.write_place(&target, value);
+                }
+                // a fn given the variable writes it through a `mut` parameter, whose contract may be wider
+                if *frame + 1 < self.frames.len() {
+                    let ty = f.types.iter().rev().find(|(at, _)| *at == k).map(|(_, t)| t.clone());
+                    if let Some(ty) = ty {
+                        if !self.fits(&value, &ty)? {
+                            return Err(Failure::new(FailKind::Rule, format!("{} is outside its contract", name)));
                         }
-                        Binding::Ref(p) => p.clone(),
                     }
-                };
-                self.write_place(&target, value)
+                }
+                self.frames[*frame].vars[k].1 = Binding::Value(value);
+                Ok(())
             }
             PlaceRoot::Outer(o, owner) => {
                 let (o, owner) = (o.clone(), *owner);
@@ -668,11 +703,21 @@ impl<'p> Machine<'p> {
         self.step()?;
         match s {
             Stmt::Declare(d) => {
-                let (name, value) = match d {
-                    ir::StmtDeclare::Let(l) | ir::StmtDeclare::Mut(l) => (&l.name, &l.value),
+                let (l, mutable) = match d {
+                    ir::StmtDeclare::Let(l) => (l, false),
+                    ir::StmtDeclare::Mut(l) => (l, true),
                 };
-                let v = self.eval(value)?;
-                self.bind(name, Binding::Value(v));
+                let v = self.eval(&l.value)?;
+                if mutable {
+                    let f = self.frames.last_mut().unwrap();
+                    let at = f.vars.len();
+                    // the locals of blocks that ended are gone
+                    while f.types.last().map_or(false, |(k, _)| *k >= at) {
+                        f.types.pop();
+                    }
+                    f.types.push((at, l.ty.clone()));
+                }
+                self.bind(&l.name, Binding::Value(v));
             }
             Stmt::Set(set) => {
                 let v = self.eval(&set.value)?;
@@ -1200,7 +1245,7 @@ impl<'p> Machine<'p> {
             vars.push((Rc::from(p.name.as_str()), if p.mutable { a } else { Binding::Value(self.value_of(&a)?) }));
         }
         self.depth += 1;
-        self.frames.push(Frame { vars, owner });
+        self.frames.push(Frame { vars, owner, types: Vec::new() });
         let flow = self.block(body);
         self.frames.pop();
         self.depth -= 1;
@@ -1611,6 +1656,106 @@ impl<'p> Machine<'p> {
         Ok(true)
     }
 
+    /// Whether a value that comes from outside, from a host, an engine or a snapshot, is one of a type: its
+    /// shape, and every contract in it. A record's own rule that is false is a failure. The compiler has
+    /// proved only the page's own values.
+    pub fn takes(&mut self, v: &Value, ty: &ir::Type) -> R<bool> {
+        self.takes_at(v, ty, 0)
+    }
+
+    fn takes_at(&mut self, v: &Value, ty: &ir::Type, depth: u32) -> R<bool> {
+        if depth > MAX_DEPTH {
+            return Ok(false);
+        }
+        let prog = self.prog;
+        let mut t = ty;
+        let mut contracts: Vec<&ir::Contract> = t.contract.iter().collect();
+        for _ in 0..16 {
+            let Some(next) = prog.aliases.get(&t.name) else { break };
+            t = next;
+            contracts.extend(&t.contract);
+        }
+        if !self.shaped(v, t, depth)? {
+            return Ok(false);
+        }
+        for c in contracts {
+            if !self.fits_contract(v, c)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
+    fn shaped(&mut self, v: &Value, t: &ir::Type, depth: u32) -> R<bool> {
+        let prog = self.prog;
+        match t.name.as_str() {
+            "core/number" => return Ok(matches!(v, Value::Num(_))),
+            "core/text" => return Ok(matches!(v, Value::Text(_))),
+            "core/bool" => return Ok(matches!(v, Value::Bool(_))),
+            "core/duration" => return Ok(matches!(v, Value::Duration(_))),
+            "core/range" => return Ok(matches!(v, Value::Range(_))),
+            "fn" => return Ok(matches!(v, Value::Fn(_))),
+            "core/list" => {
+                let Value::List(l) = v else { return Ok(false) };
+                if let Some(item) = t.args.first() {
+                    for i in &l.items {
+                        if !self.takes_at(&i.value, item, depth + 1)? {
+                            return Ok(false);
+                        }
+                    }
+                }
+                return Ok(true);
+            }
+            "core/opt" => {
+                return match (v, t.args.first()) {
+                    (Value::Opt(Some(x)), Some(inside)) => self.takes_at(x, inside, depth + 1),
+                    _ => Ok(matches!(v, Value::Opt(_))),
+                }
+            }
+            "record" => {
+                let Value::Record(r) = v else { return Ok(false) };
+                return self.shaped_entries(&r.fields, &t.fields, &[], &[], depth);
+            }
+            _ => {}
+        }
+        if let Some(rec) = prog.records.get(&t.name) {
+            let Value::Record(r) = v else { return Ok(false) };
+            if *r.ty != *t.name || !self.shaped_entries(&r.fields, &rec.fields, &rec.params, &t.args, depth)? {
+                return Ok(false);
+            }
+            self.check_requires(rec, v)?;
+            return Ok(true);
+        }
+        let cases = match (prog.enums.get(&t.name), prog.tokens.get(&t.name)) {
+            (Some(e), _) => Some((&e.cases, &e.params[..])),
+            (None, Some(k)) => Some((&k.cases, &[][..])),
+            _ => None,
+        };
+        if let Some((cases, params)) = cases {
+            let Value::Case(c) = v else { return Ok(false) };
+            if *c.ty != *t.name {
+                return Ok(false);
+            }
+            let Some(decl) = cases.iter().find(|x| *x.name == *c.name) else { return Ok(false) };
+            return self.shaped_entries(&c.values, &decl.fields, params, &t.args, depth);
+        }
+        // a type parameter, or a view, which comes from no one outside
+        Ok(true)
+    }
+
+    fn shaped_entries(&mut self, given: &[(Rc<str>, Value)], fields: &[ir::Field], params: &[ir::TypeParam], args: &[ir::Type], depth: u32) -> R<bool> {
+        if given.len() != fields.len() {
+            return Ok(false);
+        }
+        for f in fields {
+            let Some((_, x)) = given.iter().find(|(n, _)| **n == *f.name) else { return Ok(false) };
+            if !self.takes_at(x, &filled(&f.ty, params, args), depth + 1)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
     fn fits_contract(&mut self, v: &Value, c: &ir::Contract) -> R<bool> {
         if let Some(r) = &c.range {
             if let Some(low) = &r.low {
@@ -1709,6 +1854,14 @@ fn short(ty: &str) -> &str {
 }
 
 /// Writes `value` at `path` inside `whole`, copying only what is shared.
+/// A field's type with its declaration's type parameters as a use gives them.
+fn filled(t: &ir::Type, params: &[ir::TypeParam], args: &[ir::Type]) -> ir::Type {
+    if let Some(a) = params.iter().position(|p| p.name == t.name).and_then(|k| args.get(k)) {
+        return a.clone();
+    }
+    ir::Type { args: t.args.iter().map(|x| filled(x, params, args)).collect(), ..t.clone() }
+}
+
 fn write_path(whole: &mut Value, path: &[Step], value: Value) -> R<()> {
     let Some((first, rest)) = path.split_first() else {
         *whole = value;

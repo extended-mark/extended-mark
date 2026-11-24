@@ -155,6 +155,11 @@ function failureCode(f: unknown): string {
   return f instanceof Failure ? `failure.${String(f.kind).toLowerCase()}` : "failure.ir";
 }
 
+/** A change from outside that failed, as the host is told. */
+function refused(f: unknown, site: string): Broken {
+  return f instanceof Failure && f.rule ? { rule: f.rule, site } : { code: "contracts.outside", site };
+}
+
 function message(f: unknown): string {
   return f instanceof Error ? f.message : String(f);
 }
@@ -233,6 +238,9 @@ export class Core {
   private readonly missed = new Set<string>();
   /** A value as whoever the page is given to reads it. */
   readonly json: (v: V) => ir.Expr;
+  /** How many inputs' own calls are being drawn around here: a sentence's, or a view's. */
+  private inInputs = 0;
+  private readonly channels = new Map<string, ir.ExternChannel>();
   /** The value fns the engine supplies, by full name: `core/moment.local`. */
   private readonly engineFns: Record<string, (args: readonly ir.Expr[]) => ir.Expr | null>;
 
@@ -271,6 +279,7 @@ export class Core {
       const x = decl.extern as Record<string, unknown>;
       if (!("channel" in x)) continue;
       const c = x.channel as ir.ExternChannel;
+      this.channels.set(c.name, c);
       for (const f of (c.values ?? [])) {
         if (f.default) this.externs.set(`${c.name}.${f.name}`, this.constant(f.default));
       }
@@ -279,7 +288,7 @@ export class Core {
       if (f.default) this.state.set(f.name, this.constant(f.default));
     }
     for (const [c, values] of Object.entries(opts.externs ?? {})) {
-      for (const [k, x] of Object.entries(values)) this.externs.set(`${c}.${k}`, this.constant(x));
+      for (const [k, x] of Object.entries(values)) this.giveExtern(c, k, this.given(x, `${c}.${k}`));
     }
     if (opts.page) this.applyPage(opts.page);
     this.startFrom(opts.state ?? {});
@@ -292,11 +301,8 @@ export class Core {
   private startFrom(given: Record<string, ir.Expr>): void {
     const values: Record<string, V> = {};
     for (const [k, x] of Object.entries(given)) {
-      try {
-        values[k] = this.constant(x);
-      } catch {
-        this.outcome.refused.push({ code: "contracts.outside", site: `$state.${k}` });
-      }
+      const v = this.given(x, `$state.${k}`);
+      if (v) values[k] = v;
     }
     const told = this.outcome.refused.length;
     if (Object.keys(values).length === 0 || this.writeState(values)) return;
@@ -410,6 +416,8 @@ export class Core {
     const node = this.find(path);
     const ev = node?.events.get(name);
     if (!node || !ev) return;
+    const params = this.externWidgets.get(node.widget)?.events?.find((e) => e.name === name)?.params;
+    if (!this.takesArgs(params ?? [], args, node.key)) return;
     this.transaction(node.key, () => this.runHandler(ev.handler, ev.env, args));
   }
 
@@ -424,8 +432,9 @@ export class Core {
       // a widget's own value: kept by the page for it, checked against the input's type
       const f = this.externWidgets.get(node.widget)?.inputs?.find((f) => f.name === input && f.mut);
       if (!f) return;
-      if (!this.machine.fits(value, f.type)) {
-        this.outcome.refused.push({ code: "contracts.outside", site: node.key });
+      const broken = this.refusal(value, f.type, node.key);
+      if (broken) {
+        this.outcome.refused.push(broken);
         return;
       }
       if (!this.own.has(node.key)) this.own.set(node.key, new Map());
@@ -436,24 +445,31 @@ export class Core {
     }
     const snap = this.snapshot();
     try {
-      this.writePlace(w.place, w.env, value);
-      const broken = this.contractBroken(w.place, w.env);
+      this.writeInto(node, input, w, value);
+      const broken = this.stateRefusal();
       if (broken) {
         this.restore(snap);
-        this.outcome.refused.push({ code: "contracts.outside", site: node.key });
-        this.redraw();
-        return;
-      }
-      const rule = this.stateRuleBroken();
-      if (rule) {
-        this.restore(snap);
-        this.outcome.refused.push({ rule });
+        this.outcome.refused.push(broken);
       }
     } catch (f) {
       this.restore(snap);
-      this.outcome.refused.push({ code: "contracts.outside", site: node.key });
+      this.outcome.refused.push(refused(f, node.key));
     }
     this.redraw();
+  }
+
+  /** A `mut` input's write to the variable it was given: checked against the input's type, as an engine
+   * makes the value, and by the write against the variable's. */
+  private writeInto(node: Drawn, input: string, w: { place: ir.Place; env: Env }, value: V): void {
+    const x = this.externWidgets.get(node.widget);
+    const f = x?.inputs?.find((f) => f.name === input);
+    if (f && !this.machine.takes(value, f.type)) throw new Failure("Rule", `${input} is given what isn't its type`);
+    this.writePlace(w.place, w.env, value);
+    // an input of a type parameter's type takes any value: the variable's own type says which
+    if (x?.generics?.length) {
+      const root = this.rootOf(w.place, w.env);
+      if (root && !this.machine.takes(root.value, root.type)) throw new Failure("Rule", `${input} is given what isn't its variable's type`);
+    }
   }
 
   /** A layout pass's writes, as one change: a value equal to the one there is no change, and a
@@ -474,28 +490,30 @@ export class Core {
       const w = node.writes.get(input);
       try {
         if (w) {
-          this.writePlace(w.place, w.env, value);
-          if (this.contractBroken(w.place, w.env)) throw new Failure("Rule", "contracts.outside");
+          this.writeInto(node, input, w, value);
           shared = true;
         } else {
+          const f = this.externWidgets.get(node.widget)?.inputs?.find((f) => f.name === input && f.mut);
+          if (!f) continue;
+          if (!this.machine.takes(value, f.type)) throw new Failure("Rule", `${input} is given what isn't its type`);
           if (!this.own.has(node.key)) this.own.set(node.key, new Map());
           this.own.get(node.key)!.set(input, value);
       this.bump(`o:${node.key}`);
         }
         changed = true;
-      } catch {
+      } catch (f) {
         this.restore(snap);
         this.own = ownBefore;
-        this.outcome.refused.push({ code: "contracts.outside", site: node.key });
+        this.outcome.refused.push(refused(f, node.key));
         return false;
       }
     }
     if (!changed) return false;
-    const rule = this.stateRuleBroken();
-    if (rule) {
+    const broken = this.stateRefusal();
+    if (broken) {
       this.restore(snap);
       this.own = ownBefore;
-      this.outcome.refused.push({ rule });
+      this.outcome.refused.push(broken);
       return false;
     }
     this.redraw();
@@ -548,24 +566,32 @@ export class Core {
     if (this.writeState(changes)) this.redraw();
   }
 
+  /** The same, with its values in the IR's form. */
+  setGiven(changes: Record<string, ir.Expr>): void {
+    this.changes++;
+    this.machine.resetSteps();
+    if (this.takeState(changes)) this.redraw();
+  }
+
   /** `$state` fields written, checked: refused whole, or done. Nothing is drawn. */
   private writeState(changes: Record<string, V>): boolean {
     const snap = this.snapshot();
     const fields = new Map((this.stateDecl?.fields ?? []).map((f) => [f.name, f]));
     for (const [k, v] of Object.entries(changes)) {
       const f = fields.get(k);
-      if (!f || !this.ofType(v, f.type) || !this.machine.fits(v, f.type)) {
+      const broken = f ? this.refusal(v, f.type, `$state.${k}`) : { code: "contracts.outside", site: `$state.${k}` };
+      if (broken) {
         this.restore(snap);
-        this.outcome.refused.push({ code: "contracts.outside", site: `$state.${k}` });
+        this.outcome.refused.push(broken);
         return false;
       }
       this.state.set(k, v);
       this.bump(`s:${k}`);
     }
-    const rule = this.stateRuleBroken();
-    if (rule) {
+    const broken = this.stateRefusal();
+    if (broken) {
       this.restore(snap);
-      this.outcome.refused.push({ rule });
+      this.outcome.refused.push(broken);
       return false;
     }
     return true;
@@ -580,19 +606,33 @@ export class Core {
       if (e.channel !== channel) continue;
       const f = e.fns.find((f) => f.name === name);
       if (!f) continue;
+      if (!this.takesArgs(f.params, args, `${channel}.${name}`)) return;
       this.transaction(`${channel}.${name}`, () => this.runBody(f.params, f.body, { owner: undefined, bindings: [], path: "" }, args));
       return;
     }
   }
 
-  /** The host giving a channel's values. */
-  setExtern(channel: string, values: Record<string, V>): void {
+  /** The host giving a channel's values: one that doesn't fit its type is dropped for its default, and the
+   * host is told. */
+  setExtern(channel: string, values: Record<string, V | undefined>): void {
     this.changes++;
+    this.machine.resetSteps();
     for (const [k, v] of Object.entries(values)) {
-      this.externs.set(`${channel}.${k}`, v);
+      this.giveExtern(channel, k, v);
       this.bump(`x:${channel}.${k}`);
     }
     this.redraw();
+  }
+
+  /** A channel's value as the host gives it, or its default for one that isn't of its type. A channel's
+   * value this page doesn't read is no part of it. */
+  private giveExtern(channel: string, name: string, v: V | undefined): void {
+    const f = this.channels.get(channel)?.values?.find((f) => f.name === name);
+    if (!f) return;
+    const broken = v && this.refusal(v, f.type, `${channel}.${name}`);
+    if (broken) this.outcome.refused.push(broken);
+    const x = v && !broken ? v : f.default && this.constant(f.default);
+    if (x) this.externs.set(`${channel}.${name}`, x);
   }
 
   /** The page's own values: its width and theme. */
@@ -684,12 +724,9 @@ export class Core {
   private takeState(given: Record<string, ir.Expr>): boolean {
     const values: Record<string, V> = {};
     for (const [k, x] of Object.entries(given)) {
-      try {
-        values[k] = this.constant(x);
-      } catch {
-        this.outcome.refused.push({ code: "contracts.outside", site: `$state.${k}` });
-        return false;
-      }
+      const v = this.given(x, `$state.${k}`);
+      if (!v) return false;
+      values[k] = v;
     }
     return this.writeState(values);
   }
@@ -721,7 +758,7 @@ export class Core {
       } catch {
         continue;
       }
-      if (!this.ofType(v, t) || !this.machine.fits(v, t)) continue;
+      if (this.refusal(v, t, path)) continue;
       put(name, v);
       vars.delete(name);
     }
@@ -740,40 +777,47 @@ export class Core {
     }
   }
 
-  /** Whether a value has a type's shape. The host's values come from outside, so their type is
-   * checked before their contract: the compiler has proved only the page's own. */
-  ofType(v: V, t: ir.Type, depth = 0): boolean {
-    let ty = t;
-    for (let guard = 0; this.program.aliases.has(ty.name) && guard < 16; guard++) ty = this.program.aliases.get(ty.name)!;
-    const arg = ty.args?.[0];
-    if (depth > 64) return false;
-    switch (ty.name) {
-      case "core/number":
-      case "core/int":
-        return v.kind === "num";
-      case "core/text":
-        return v.kind === "text";
-      case "core/bool":
-        return v.kind === "bool";
-      case "core/duration":
-        return v.kind === "duration";
-      case "core/list":
-        return v.kind === "list" && (!arg || v.items.every((i) => this.ofType(i.value, arg, depth + 1)));
-      case "core/opt":
-        return v.kind === "opt" && (v.value === null || !arg || this.ofType(v.value, arg, depth + 1));
-      case "core/range":
-        return v.kind === "range";
+  /** Why a value from outside is refused, or undefined when it is one of the type. */
+  private refusal(v: V, t: ir.Type, site: string): Broken | undefined {
+    try {
+      return this.machine.takes(v, t) ? undefined : { code: "contracts.outside", site };
+    } catch (f) {
+      return refused(f, site);
     }
-    const rec = this.program.records.get(ty.name);
-    if (rec) {
-      if (v.kind !== "record" || v.ty !== ty.name) return false;
-      return rec.fields.every((f) => {
-        const x = v.fields.find(([k]) => k === f.name);
-        return x ? this.ofType(x[1], f.type, depth + 1) : false;
-      });
+  }
+
+  /** A value a host or an engine gives, in the IR's form: one that can't be made, such as a record whose
+   * own rule is false, is refused, and undefined. */
+  given(x: ir.Expr, site: string): V | undefined {
+    try {
+      return this.constant(x);
+    } catch (f) {
+      this.errors.push(f);
+      this.outcome.refused.push(refused(f, site));
+      return undefined;
     }
-    if (this.program.enums.has(ty.name) || this.program.tokens.has(ty.name)) return v.kind === "case" && v.ty === ty.name;
-    // a type parameter, or a fn or view, which the host doesn't write
+  }
+
+  /** The same for the arguments of a call: all of them, or undefined. */
+  givenAll(xs: readonly ir.Expr[], site: string): V[] | undefined {
+    const out: V[] = [];
+    for (const x of xs) {
+      const v = this.given(x, site);
+      if (!v) return undefined;
+      out.push(v);
+    }
+    return out;
+  }
+
+  /** Whether a call from outside gives its params values of their types: told when it doesn't. */
+  private takesArgs(params: readonly ir.Param[], args: readonly V[], site: string): boolean {
+    for (const [k, p] of params.entries()) {
+      const broken = args[k] && this.refusal(args[k], p.type, site);
+      if (broken) {
+        this.outcome.refused.push(broken);
+        return false;
+      }
+    }
     return true;
   }
 
@@ -877,7 +921,11 @@ export class Core {
         const own = page.engineFns[name];
         if (own) {
           const out = own(args.map(page.json));
-          return out === null ? null : page.constant(out);
+          if (out === null) return null;
+          const v = page.constant(out);
+          const t = page.program.externs.get(name)?.returns;
+          if (t && !page.machine.takes(v, t)) throw new Failure("Rule", `\`${name}\` gave what isn't its type`);
+          return v;
         }
         if (!page.hostFns.has(name)) return undefined;
         for (const f of page.frames) f.dirty = true;
@@ -900,21 +948,19 @@ export class Core {
     this.machine.setPlace(env.bindings, env.owner, place, value);
   }
 
-  /** Whether the variable a place writes now breaks its own contract. */
-  private contractBroken(place: ir.Place, env: Env): boolean {
-    const root = place.root as Record<string, string>;
-    if ("$state" in root && (place.path ?? []).length === 0) {
-      const f = this.stateDecl?.fields.find((f) => f.name === root["$state"]);
-      const v = this.state.get(root["$state"]);
-      return !!f && !!v && !this.machine.fits(v, f.type);
+  /** The variable a place is in, `$state`'s or a widget's own: its type, and its value now. */
+  private rootOf(place: ir.Place, env: Env): { type: ir.Type; value: V } | undefined {
+    const root = this.machine.rootOf(env.bindings, env.owner, place);
+    if (root?.kind !== "outer") return undefined;
+    const { outer, owner } = root;
+    const inst = owner === undefined ? undefined : this.instances.get(owner);
+    if (outer.kind === "input") {
+      const p = inst?.places.get(outer.name);
+      return p && this.rootOf(p.place, p.env);
     }
-    if ("cell" in root && (place.path ?? []).length === 0 && env.owner !== undefined) {
-      const inst = this.instances.get(env.owner);
-      const c = inst?.template.cells?.find((c) => c.name === root.cell);
-      const v = inst?.cells.get(root.cell);
-      return !!c && !!v && !this.machine.fits(v, c.type);
-    }
-    return false;
+    const type = outer.kind === "state" ? this.stateDecl?.fields.find((f) => f.name === outer.name)?.type : inst?.template.cells?.find((c) => c.name === outer.name)?.type;
+    const value = outer.kind === "state" ? this.state.get(outer.name) : inst?.cells.get(outer.name);
+    return type && value && { type, value };
   }
 
   /** The message of the first of `$state`'s rules that no longer holds. */
@@ -923,6 +969,17 @@ export class Core {
       if (!r.warn && !this.stateRule(r)) return r.message;
     }
     return undefined;
+  }
+
+  /** The same as a host is told: a rule that can't be worked out doesn't hold. */
+  private stateRefusal(): Broken | undefined {
+    try {
+      const rule = this.stateRuleBroken();
+      return rule === undefined ? undefined : { rule };
+    } catch (f) {
+      this.errors.push(f);
+      return { code: failureCode(f), site: "$state" };
+    }
   }
 
   /** Whether one of `$state`'s rules holds: worked out again only when something it read changed. */
@@ -1011,7 +1068,16 @@ export class Core {
     this.ownSeen = new Set();
     this.externSeen = new Set();
     this.nodeSeen = new Set();
-    for (const r of this.stateDecl?.requires ?? []) if (r.warn) this.warned("$state", r.message, this.stateRule(r));
+    for (const r of this.stateDecl?.requires ?? []) {
+      if (!r.warn) continue;
+      try {
+        this.warned("$state", r.message, this.stateRule(r));
+      } catch (f) {
+        // one that can't be worked out is a failure, and stops nothing
+        this.errors.push(f);
+        this.outcome.failures.push({ code: failureCode(f), site: "$state" });
+      }
+    }
     const doc = this.templates.get("doc");
     this.drawn = doc ? this.drawNodes(doc.view, { owner: undefined, bindings: [], path: "" }) : [];
     // a widget that left the page leaves with its variables
@@ -1052,17 +1118,36 @@ export class Core {
       if ("declare" in n) {
         const l = n.declare.let;
         const at = env;
-        const m = this.hold(n, `let ${l.name}`, at, () => ({ drawn: [], value: this.evalIn(at, l.value) }));
+        let m: { value?: V };
+        try {
+          m = this.hold(n, `let ${l.name}`, at, () => ({ drawn: [], value: this.evalIn(at, l.value) }));
+        } catch (f) {
+          if (!this.contains(env)) throw f;
+          // what comes after may read it
+          out.push(this.failed("doc", join(env.path, `let ${l.name}`), join(env.key ?? env.path, `let ${l.name}`), f));
+          break;
+        }
         env = { ...env, bindings: [...env.bindings, [l.name, { value: m.value! }]] };
       } else if ("extern" in n || "use" in n) {
         out.push(...this.drawNode(n, env));
       } else {
         const site = "for" in n ? n.for.site : "if" in n ? n.if.site : "match" in n ? n.match.site : n.place.site;
         const at = env;
-        out.push(...this.hold(n, site, at, () => ({ drawn: this.drawNode(n, at) })).drawn);
+        try {
+          out.push(...this.hold(n, site, at, () => ({ drawn: this.drawNode(n, at) })).drawn);
+        } catch (f) {
+          if (!this.contains(env)) throw f;
+          out.push(this.failed("doc", join(env.path, site), join(env.key ?? env.path, site), f));
+        }
       }
     }
     return out;
+  }
+
+  /** Whether a failure here stays here: in the document's own code, which no widget is around to show it
+   * for. In a sentence it is the failure of what holds the sentence. */
+  private contains(env: Env): boolean {
+    return env.owner === undefined && this.inInputs === 0;
   }
 
   /** What a loop, a branch, a place or a local gives: as it was, when it is the same one with the same
@@ -1158,6 +1243,9 @@ export class Core {
     let drawn: Drawn[];
     try {
       drawn = this.drawExternNow(x, env, path, key);
+    } catch (f) {
+      if (!this.contains(env)) throw f;
+      drawn = [this.failed(x.name, path, key, f)];
     } finally {
       this.frames.pop();
     }
@@ -1247,7 +1335,12 @@ export class Core {
         this.leave(inst);
       }
     }
-    this.drawInputs(w, props, path, key);
+    this.inInputs++;
+    try {
+      this.drawInputs(w, props, path, key);
+    } finally {
+      this.inInputs--;
+    }
     const events = new Map<string, { handler: string; env: Env }>();
     for (const [e, h] of Object.entries(x.events ?? {})) events.set(e, { handler: h, env });
     return [{ path, key, widget: x.name, props, slots, events, writes, levels: x.levels ?? [] }];

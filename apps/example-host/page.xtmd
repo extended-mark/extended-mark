@@ -1,6 +1,6 @@
 record task {
-    title: text;
-    done: bool = false;
+    mut title: text;
+    mut done: bool = false;
 }
 
 extern clock {

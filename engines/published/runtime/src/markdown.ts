@@ -126,51 +126,74 @@ function join(path: string, part: string): string {
   return path ? `${path}/${part}` : part;
 }
 
+/** What failed, in its place: a quote (page 6). */
+function notice(name: string, f: unknown): Piece {
+  const msg = f instanceof Error ? f.message : String(f);
+  return { block: { quote: [{ paragraph: [{ text: { value: `${name.split("/").pop()} failed: ${msg}` } }] }] } };
+}
+
 class Writer {
   depth = 0;
+  private inSentence = 0;
   constructor(private readonly page: Core) {}
 
   nodes(nodes: ir.Node[], env0: Env): Piece[] {
     let env = env0;
     const out: Piece[] = [];
     for (const n of nodes) {
-      if ("declare" in n) {
-        const l = n.declare.let;
-        env = { ...env, bindings: [...env.bindings, [l.name, { value: this.page.evalIn(env, l.value) }]] };
-      } else if ("for" in n) {
-        // rows by position for paths, and by item for identity, as drawing walks them
-        this.page.keyedRows(n.for, env).forEach((row, k) =>
-          out.push(...this.nodes(n.for.body, { owner: env.owner, bindings: [...env.bindings, ...row.bindings], path: join(env.path, `${n.for.site}[${k}]`), key: join(env.key ?? env.path, `${n.for.site}[${row.key}]`) })),
-        );
-      } else if ("if" in n) {
-        const b = this.page.pickBranch(n.if, env);
-        if (b) out.push(...this.nodes(b.nodes, b.env));
-      } else if ("match" in n) {
-        const v = this.page.evalIn(env, n.match.value);
-        let done = false;
-        for (const c of n.match.cases) {
-          const binds = this.page.matches(v, c.when);
-          if (binds) {
-            out.push(...this.nodes(c.then, { ...env, bindings: [...env.bindings, ...binds] }));
-            done = true;
-            break;
-          }
-        }
-        if (!done) out.push(...this.nodes(n.match.else ?? [], env));
-      } else if ("place" in n) {
-        const v = this.page.evalIn(env, n.place.view);
-        if (n.place.sentence) checkSentence(v);
-        out.push(...this.view(v, join(env.path, n.place.site), join(env.key ?? env.path, n.place.site)));
-      } else if ("extern" in n) {
-        const props = new Map<string, V>();
-        for (const [k, e] of Object.entries(n.extern.props ?? {})) props.set(k, this.page.evalIn(env, e));
-        for (const [k, p] of Object.entries(n.extern.writes ?? {})) props.set(k, this.page.machine.evalWith(env.bindings, env.owner, { place: p } as ir.Expr));
-        out.push(...this.widget(n.extern.name, join(env.path, n.extern.site), props, props, n.extern.slots ?? {}, env, join(env.key ?? env.path, n.extern.site)));
-      } else if ("use" in n) {
-        out.push(...this.widget(n.use.name, join(env.path, n.use.site), new Map(), n.use.args ?? {}, n.use.slots ?? {}, env, join(env.key ?? env.path, n.use.site), n.use.events ?? {}));
+      const had = out.length;
+      try {
+        env = this.node(n, env, out);
+      } catch (f) {
+        // in the document's own code, a notice in its place, as a widget that fails is
+        if (env.owner !== undefined || this.inSentence > 0) throw f;
+        out.length = had;
+        out.push(notice("extern" in n ? n.extern.name : "use" in n ? n.use.name : "doc", f));
+        // what comes after may read it
+        if ("declare" in n) break;
       }
     }
     return out;
+  }
+
+  /** One node's pieces, and the locals after it. */
+  private node(n: ir.Node, env: Env, out: Piece[]): Env {
+    if ("declare" in n) {
+      const l = n.declare.let;
+      return { ...env, bindings: [...env.bindings, [l.name, { value: this.page.evalIn(env, l.value) }]] };
+    } else if ("for" in n) {
+      // rows by position for paths, and by item for identity, as drawing walks them
+      this.page.keyedRows(n.for, env).forEach((row, k) =>
+        out.push(...this.nodes(n.for.body, { owner: env.owner, bindings: [...env.bindings, ...row.bindings], path: join(env.path, `${n.for.site}[${k}]`), key: join(env.key ?? env.path, `${n.for.site}[${row.key}]`) })),
+      );
+    } else if ("if" in n) {
+      const b = this.page.pickBranch(n.if, env);
+      if (b) out.push(...this.nodes(b.nodes, b.env));
+    } else if ("match" in n) {
+      const v = this.page.evalIn(env, n.match.value);
+      let done = false;
+      for (const c of n.match.cases) {
+        const binds = this.page.matches(v, c.when);
+        if (binds) {
+          out.push(...this.nodes(c.then, { ...env, bindings: [...env.bindings, ...binds] }));
+          done = true;
+          break;
+        }
+      }
+      if (!done) out.push(...this.nodes(n.match.else ?? [], env));
+    } else if ("place" in n) {
+      const v = this.page.evalIn(env, n.place.view);
+      if (n.place.sentence) checkSentence(v);
+      out.push(...this.view(v, join(env.path, n.place.site), join(env.key ?? env.path, n.place.site)));
+    } else if ("extern" in n) {
+      const props = new Map<string, V>();
+      for (const [k, e] of Object.entries(n.extern.props ?? {})) props.set(k, this.page.evalIn(env, e));
+      for (const [k, p] of Object.entries(n.extern.writes ?? {})) props.set(k, this.page.machine.evalWith(env.bindings, env.owner, { place: p } as ir.Expr));
+      out.push(...this.widget(n.extern.name, join(env.path, n.extern.site), props, props, n.extern.slots ?? {}, env, join(env.key ?? env.path, n.extern.site)));
+    } else if ("use" in n) {
+      out.push(...this.widget(n.use.name, join(env.path, n.use.site), new Map(), n.use.args ?? {}, n.use.slots ?? {}, env, join(env.key ?? env.path, n.use.site), n.use.events ?? {}));
+    }
+    return env;
   }
 
   view(v: V, path: string, key: string): Piece[] {
@@ -191,7 +214,12 @@ class Writer {
   sentence(v: V | undefined, path: string, key: string): Inline[] {
     if (!v) return [];
     checkSentence(v);
-    return joinRuns(runsOf(this.view(v, path, key)));
+    this.inSentence++;
+    try {
+      return joinRuns(runsOf(this.view(v, path, key)));
+    } finally {
+      this.inSentence--;
+    }
   }
 
   slot(slots: Record<string, ir.Node[]>, name: string, env: Env): Piece[] {
@@ -211,8 +239,7 @@ class Writer {
     } catch (f) {
       if (this.page.externWidget(name)?.piece) throw f;
       // a widget that fails is a notice in its place, a quote in Markdown (page 6)
-      const msg = f instanceof Error ? f.message : String(f);
-      return [{ block: { quote: [{ paragraph: [{ text: { value: `${name.split("/").pop()} failed: ${msg}` } }] }] } }];
+      return [notice(name, f)];
     } finally {
       this.depth--;
     }
