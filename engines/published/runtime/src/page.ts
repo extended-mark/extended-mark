@@ -848,7 +848,14 @@ export class Core {
   }
 
   private constant(x: ir.Expr): V {
-    return new Machine(this.program, new Constants()).eval(x);
+    const m = new Machine(this.program, new Constants());
+    // an item is known by its number, whoever makes its list: all of a page's are from one count
+    m.nextId = this.machine.nextId;
+    try {
+      return m.eval(x);
+    } finally {
+      this.machine.nextId = m.nextId;
+    }
   }
 
   private host(): Host {

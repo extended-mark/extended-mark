@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Page } from "../dist/index.js";
+import { Page, everyNode } from "../dist/index.js";
 import { fits } from "./fits.mjs";
 import { xtmdBinary, workdir, repo } from "./xtmd.mjs";
 
@@ -116,4 +116,36 @@ test("a rule of $state's that can't be worked out refuses the write that made it
   p.set({ n: { num: "0" } });
   assert.deepEqual(p.takeOutcome().refused, [{ code: "failure.number", site: "$state" }]);
   assert.deepEqual(p.state(), { n: { num: "1" } });
+});
+
+const TASKS = "record task {\n    mut title: text;\n}\n\n$state {\n    xs: list<task> = [task { title = \"a\" }, task { title = \"b\" }];\n}\n\nwidget row(x: task) {\n    mut votes: int = 0;\n    view {\n        @press(label = \"\\{x.title}: \\{votes}\", click = fn() { votes = votes + 1; });\n    }\n    markdown { }\n}\n\nwidget board() {\n    view {\n        @press(label = \"Add\", click = fn() { $state.xs.add(task { title = \"new\" }); });\n        mut for (t in $state.xs) {\n            if (mut x: task = t) {\n                @row(x = x);\n                @press(label = \"Mark \\{x.title}\", click = fn() { x.title = \"\\{x.title}!\"; });\n            }\n        }\n    }\n    markdown { }\n}\n@@@\n@board;\n";
+/** The same with no widget of its own in a row, so nothing else takes a number. */
+const PLAIN = TASKS.replace("                @row(x = x);\n", "");
+const labels = (p) => everyNode(p.tree().nodes).map((x) => x.inputs.label.text);
+const press = (p, label) => p.event(everyNode(p.tree().nodes).find((x) => x.inputs.label.text === label).id, "click");
+const titles = (p) => p.state().xs.list.map((x) => x.record.fields.title.text);
+const list = (...of) => ({ list: of.map((x) => ({ record: { type: "doc/task", fields: { title: { text: x } } } })) });
+
+test("an item a handler adds is another than every item there, whoever gave those (#14616)", () => {
+  for (const start of [(p) => p, (p) => (p.set({ xs: list("a", "b") }), p)]) {
+    const p = start(page(PLAIN));
+    press(p, "Add");
+    assert.deepEqual(labels(p), ["Add", "Mark a", "Mark b", "Mark new"]);
+    press(p, "Mark new");
+    assert.deepEqual(titles(p), ["a", "b", "new!"]);
+  }
+});
+
+test("a list the host replaces has its rows made again: a row's memory never moves to another item (page 3)", () => {
+  const p = page(TASKS);
+  press(p, "a: 0");
+  press(p, "b: 0");
+  assert.deepEqual(labels(p).filter((x) => x.includes(":")), ["a: 1", "b: 1"]);
+  p.set({ xs: list("c", "d") });
+  assert.deepEqual(labels(p).filter((x) => x.includes(":")), ["c: 0", "d: 0"]);
+  // and its data put back is, by place
+  const [q, data] = [page(TASKS), p.data()];
+  press(q, "a: 0");
+  q.restore(data);
+  assert.deepEqual(labels(q).filter((x) => x.includes(":")), ["c: 0", "d: 0"]);
 });

@@ -173,3 +173,82 @@ fn a_failure_in_the_documents_own_code_stays_where_it_is() {
     p.write("s2", "value", two).unwrap();
     assert_eq!(p.markdown().unwrap(), "One 5 two.\n\nThe rest.\n\nN: 2\n");
 }
+
+const TASKS: &str = r#"record task {
+    mut title: text;
+}
+
+$state {
+    xs: list<task> = [task { title = "a" }, task { title = "b" }];
+}
+
+widget row(x: task) {
+    mut votes: int = 0;
+    view {
+        @press(label = "\{x.title}: \{votes}", click = fn() { votes = votes + 1; });
+    }
+    markdown { }
+}
+
+widget board() {
+    view {
+        @press(label = "Add", click = fn() { $state.xs.add(task { title = "new" }); });
+        mut for (t in $state.xs) {
+            if (mut x: task = t) {
+                @row(x = x);
+                @press(label = "Mark \{x.title}", click = fn() { x.title = "\{x.title}!"; });
+            }
+        }
+    }
+    markdown { }
+}
+@@@
+@board;
+"#;
+
+fn labels(p: &Page) -> Vec<(String, String)> {
+    p.tree().iter().map(|d| (d.id.clone(), d.prop("label").and_then(|v| v.as_text()).unwrap_or_default().to_string())).collect()
+}
+
+fn said(p: &Page) -> Vec<String> {
+    labels(p).into_iter().map(|l| l.1).collect()
+}
+
+fn press(p: &mut Page, label: &str) {
+    let id = labels(p).into_iter().find(|l| l.1 == label).unwrap().0;
+    p.event(&id, "click", vec![]).unwrap();
+}
+
+fn tasks(of: &[&str]) -> Json {
+    json!({"list": of.iter().map(|x| json!({"record": {"type": "doc/task", "fields": {"title": {"text": x}}}})).collect::<Vec<_>>()})
+}
+
+fn give(p: &mut Page, of: &[&str]) {
+    let xs = v(p, serde_json::from_value(tasks(of)).unwrap());
+    p.set(vec![("xs".into(), xs)]).unwrap();
+}
+
+#[test]
+fn an_item_a_handler_adds_is_another_than_every_item_there() {
+    for given in [false, true] {
+        // with no widget of its own in a row, so nothing else takes a number
+        let mut p = page(&TASKS.replace("                @row(x = x);\n", ""));
+        if given {
+            give(&mut p, &["a", "b"]);
+        }
+        press(&mut p, "Add");
+        assert_eq!(said(&p), vec!["Add", "Mark a", "Mark b", "Mark new"]);
+        press(&mut p, "Mark new");
+        assert_eq!(serde_json::to_value(&p.observe_state()["xs"]).unwrap(), tasks(&["a", "b", "new!"]));
+    }
+}
+
+#[test]
+fn a_list_the_host_replaces_has_its_rows_made_again() {
+    let mut p = page(TASKS);
+    press(&mut p, "a: 0");
+    press(&mut p, "b: 0");
+    assert_eq!(said(&p).into_iter().filter(|x| x.contains(':')).collect::<Vec<_>>(), vec!["a: 1", "b: 1"]);
+    give(&mut p, &["c", "d"]);
+    assert_eq!(said(&p).into_iter().filter(|x| x.contains(':')).collect::<Vec<_>>(), vec!["c: 0", "d: 0"]);
+}

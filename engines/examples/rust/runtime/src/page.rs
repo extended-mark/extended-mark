@@ -783,6 +783,16 @@ impl Host for PageHost {
     }
 }
 
+/// A value with nothing of the page in it. An item is known by its number, whoever makes its list: all of a page's
+/// are from one count, `next`.
+fn constant(program: &Program, next: &mut u64, x: &Expr) -> R<Value> {
+    let mut m = Machine::new(program, Box::new(Constants));
+    m.next_id = *next;
+    let out = m.eval(x);
+    *next = m.next_id;
+    out
+}
+
 impl Rt {
     fn w(&self) -> RefMut<'_, World> {
         self.w.borrow_mut()
@@ -1540,7 +1550,7 @@ impl Rt {
         let broken = v.as_ref().and_then(|v| self.refusal(m, v, &f.ty, &site));
         let v = match (v, &broken, &f.default) {
             (Some(v), None, _) => Some(v),
-            (_, _, Some(x)) => Some(Machine::new(&s.program, Box::new(Constants)).eval(x)?),
+            (_, _, Some(x)) => Some(constant(&s.program, &mut m.next_id, x)?),
             _ => None,
         };
         let mut w = self.w();
@@ -1557,7 +1567,7 @@ impl Rt {
         let mut out = Vec::new();
         for (name, x) in vars {
             let Some(t) = ty(&name) else { continue };
-            let Ok(v) = Machine::new(&self.s.program, Box::new(Constants)).eval(&x) else { continue };
+            let Ok(v) = constant(&self.s.program, &mut m.next_id, &x) else { continue };
             if self.refusal(m, &v, &t, path).is_some() {
                 continue;
             }
@@ -2155,7 +2165,7 @@ impl Page {
         let mut w = rt.w.borrow_mut();
         w.steps = m.steps;
         w.worked += m.worked;
-        w.next_id = m.next_id;
+        w.next_id = w.next_id.max(m.next_id);
         w.records_warned(std::mem::take(&mut m.warned));
         out
     }
@@ -2796,7 +2806,11 @@ impl Page {
     }
 
     fn constant(&self, x: &Expr) -> R<Value> {
-        Machine::new(&self.rt.s.program, Box::new(Constants)).eval(x)
+        let mut next = self.rt.w.borrow().next_id;
+        let out = constant(&self.rt.s.program, &mut next, x);
+        let mut w = self.rt.w.borrow_mut();
+        w.next_id = w.next_id.max(next);
+        out
     }
 
     fn snapshot(&self) -> Snapshot {
