@@ -241,11 +241,13 @@ pub struct Machine<'p> {
     pub last_rule: Option<String>,
     /// The messages of the `warn` rules found false since someone last took them.
     pub warned: Vec<String>,
+    /// Whether core's `md_inline` is run in Rust: as the compiler reads a page's sentences.
+    pub md_native: bool,
 }
 
 impl<'p> Machine<'p> {
     pub fn new(prog: &'p Program, host: Box<dyn Host + 'p>) -> Machine<'p> {
-        Machine { prog, steps: 0, worked: 0, depth: 0, next_id: 0, frames: vec![Frame { vars: Vec::new(), owner: None }], host: Rc::from(host), last_rule: None, warned: Vec::new() }
+        Machine { prog, steps: 0, worked: 0, depth: 0, next_id: 0, frames: vec![Frame { vars: Vec::new(), owner: None }], host: Rc::from(host), last_rule: None, warned: Vec::new(), md_native: false }
     }
 
     /// Starts counting steps again, for one redraw, one event or one constant.
@@ -1128,6 +1130,12 @@ impl<'p> Machine<'p> {
     /// Calls a fn by its full name: a native, an extern, one written in Extended Mark, or an interface's.
     pub fn call(&mut self, name: &str, args: Vec<Binding>) -> R<Option<Value>> {
         self.step()?;
+        if self.md_native && name == "core/md_inline" {
+            if let [value, links] = args.as_slice() {
+                let (value, links) = (self.value_of(value)?, self.value_of(links)?);
+                return crate::md::inline(self, &value, &links).map(Some);
+            }
+        }
         if let Some(f) = self.prog.fns.get(name).cloned() {
             return self.run_fn(&f.params, &f.body, args, None);
         }

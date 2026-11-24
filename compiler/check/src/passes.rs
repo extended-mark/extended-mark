@@ -315,6 +315,7 @@ impl Checker {
                 let holes = t.holes.clone();
                 let placeholders: Vec<xtmd_eval::Value> = (0..holes.len()).map(|k| placeholder_hole(k)).collect();
                 let mut m = Machine::new(&prog, Box::new(Constants));
+                m.md_native = true;
                 let tpl = match template_value(&mut m, &t.pieces, placeholders) {
                     Ok(v) => v,
                     Err(_) => return,
