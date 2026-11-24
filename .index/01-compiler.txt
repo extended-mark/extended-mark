@@ -54,7 +54,7 @@ compiler/live/      xtmd-live: the compiler embedded, core compiled once; `Live`
 compiler/wasm/      xtmd-wasm: the same for the browser; build.sh, zig/ (C compiler for wasm)
 compiler/cli/       xtmd: the command
   src/main.rs         commands; batch.rs (folders), flags.rs, help.rs, out.rs (--format json)
-  src/render.rs       xtmd render --engine
+  src/engine.rs       xtmd build --engine
   src/migrate.rs      xtmd migrate; migrate_ir.rs (*.ir.json); examples.rs (a pack's examples)
   src/surface.rs      xtmd surface
   build.rs            embeds core/

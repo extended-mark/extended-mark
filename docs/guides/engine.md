@@ -81,29 +81,33 @@ compiled while a draft has errors.
 
 ## A program
 
-An engine can be a program that draws a page to a file. `xtmd render` runs it:
+An engine can be a program that builds documents into files. `xtmd build --engine` runs it:
 
 ```toml
 # xtmd.toml
 [engines]
-web = ["node", "render.mjs"]
+web = ["node", "engine.mjs"]
 ```
 
 ```sh
-xtmd render page.xtmd --out page.png --engine web --width 800
+xtmd build docs --out dist --engine web --theme plain
 ```
 
-The IR is on its standard input, what it draws goes to its standard output, its errors to standard error, and a
-failure is its exit code. Everything after its name is its own arguments. In any language:
+Every document's IR is on its standard input, all at once, and the files it makes go to its standard output
+([build.schema.json](../../schemas/build.schema.json)). Its errors go to standard error, and a failure is its exit
+code. Everything after its name is its own arguments. It writes nothing itself: xtmd does, once it has ended well.
+In any language:
 
 ```js
-// render.mjs: the page as HTML
+// engine.mjs: each page as HTML
 import { Page } from "@extended-mark/runtime";
 import { draw } from "./draw.mjs";
 
 let text = "";
 for await (const part of process.stdin) text += part;
-process.stdout.write(draw(new Page(JSON.parse(text)).tree()));
+const { documents } = JSON.parse(text);
+const files = documents.map((d) => ({ path: `${d.name}.html`, text: draw(new Page(d.ir).tree()) }));
+process.stdout.write(JSON.stringify({ version: 1, files }));
 ```
 
 ## Checking it

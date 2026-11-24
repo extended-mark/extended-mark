@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 const ID: &str = "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/";
 /// The schemas others refer to.
-const FORMATS: [&str; 6] = ["ir", "tree", "state", "actions", "told", "blocks"];
+const FORMATS: [&str; 7] = ["ir", "tree", "state", "actions", "told", "blocks", "build"];
 
 fn repo() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -137,7 +137,7 @@ fn the_resolved_ir_schema_reads_and_its_examples_fit_it() {
 
 #[test]
 fn each_format_says_its_version_and_its_name() {
-    let versions = [("tree", xtmd_ir::tree::VERSION), ("state", xtmd_ir::state::VERSION), ("actions", xtmd_ir::actions::VERSION), ("told", xtmd_ir::told::VERSION), ("blocks", xtmd_ir::blocks::VERSION)];
+    let versions = [("tree", xtmd_ir::tree::VERSION), ("state", xtmd_ir::state::VERSION), ("actions", xtmd_ir::actions::VERSION), ("told", xtmd_ir::told::VERSION), ("blocks", xtmd_ir::blocks::VERSION), ("build", xtmd_ir::build::VERSION)];
     for (name, v) in versions {
         let s = json(&repo().join(format!("schemas/{name}.schema.json")));
         assert_eq!(s["x-version"], v, "{name}");

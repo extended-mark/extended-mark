@@ -10,7 +10,7 @@ usage: xtmd <command> [arguments] [flags]
   xtmd parse <file>              print a file's syntax tree, as JSON
   xtmd build <file|folder>…      write each document's IR, for an engine (--rir: the resolved IR, for tools)
   xtmd md <file|folder>…         write each document's Markdown, as it reads when it first loads
-  xtmd render <file> --engine e  draw a document with an engine: a program that reads the IR
+  xtmd build … --engine e        …or the files an engine makes of them: HTML, Rust, whatever it is for
   xtmd surface <pack>            the release step: record what this version of the pack provides
   xtmd migrate [<file|folder>…]  bring documents and packs up to the packs they are built with
   xtmd lsp                       the language server, for an editor: the protocol over stdin and stdout
@@ -22,15 +22,15 @@ Every command takes:
                  it as JSON, with its diagnostics as JSON lines on stderr. One that reports (check,
                  fmt, surface, migrate) prints JSON lines: one object a line, each with
                  its \"type\", and a \"summary\" last.
-  --out <file>   what it prints goes to the file, its folder made if need be (build, md, render and
+  --out <file>   what it prints goes to the file, its folder made if need be (build, md and
                  surface write their document there); a run that stops at a usage error leaves it alone.
   --help         its own usage.
-And check, build, md, render, surface and migrate take:
+And check, build, md, surface and migrate take:
   --pack a,b     the packs: folders and .xtmdpack files.
   --config f     an xtmd.toml; left out, xtmd looks for one in the file's folder and the folders above.
                  It says packs = [\"kit\", \"extra.xtmdpack\"] (as --pack does), xtmd = \"0.4.0\" (the release
                  of xtmd the tree is written for), under [uses], kit = 2 (each pack's version) and, under
-                 [engines], web = [\"node\", \"render.mjs\"] (what xtmd render --engine web runs).
+                 [engines], web = [\"node\", \"engine.mjs\"] (what xtmd build --engine web runs).
 
 Exit codes: 0 done, nothing wrong; 1 something is wrong (an error, a file that would change, a
 check that failed); 2 a usage error, or a file that can't be read.
@@ -92,6 +92,7 @@ const LSP: &str = "usage: xtmd lsp
   e.g.  xtmd lsp";
 
 const BUILD: &str = "usage: xtmd build <files|folders>… [--pack a,b] [--config xtmd.toml] [--rir [--core]] [--pretty] [--out out] [--format json]
+       xtmd build <files|folders>… [--pack a,b] [--config xtmd.toml] [--format json] --out dir --engine <name|path> [the engine's own arguments]
   Writes a document's IR, what a runtime draws: the document, and only what it uses of core and
   its packs. The IR's top-level \"levels\" are what the page needs.
   --rir          the resolved IR instead: every name and type resolved and nothing lowered, for
@@ -102,10 +103,20 @@ const BUILD: &str = "usage: xtmd build <files|folders>… [--pack a,b] [--config
   --out f        one file: writes it to f, its folder made if need be; without it, it goes to stdout
   --out dir      several files, or a folder: each document as <dir>/<its place>/<name>.ir.json
                  (.rir.json with --rir), core compiled once; one that doesn't compile is left out
-  --format json  its errors as JSON lines on stderr, and what several were written as on stdout
-  exit: 0 written; 1 one doesn't compile; 2 a usage error, or a file that can't be read
+  --format json  its errors as JSON lines on stderr, and what was written on stdout
+  --engine name  writes the files an engine makes of the documents instead, into --out's folder. The
+                 engine is one of xtmd.toml's [engines], a command run in xtmd.toml's folder:
+                   [engines]
+                   web = [\"node\", \"engine.mjs\"]
+  --engine path  a program, by a path with a / in it, run in the current folder
+                 It reads the documents' IR on its standard input and gives the files on its standard
+                 output (schemas/build.schema.json), its errors on standard error. Everything after its
+                 name goes to it, untouched, so xtmd's own flags go before --engine
+  exit: 0 written; 1 one doesn't compile, or what the engine gave can't be written; 2 a usage error, a
+        file that can't be read, or an engine that can't be run; the engine's own when that isn't 0
   e.g.  xtmd build page.xtmd --out dist/page.ir.json
-        xtmd build docs --out dist";
+        xtmd build docs --out dist
+        xtmd build docs --out dist --engine web --theme plain";
 
 const MD: &str = "usage: xtmd md <files|folders>… [--pack a,b] [--config xtmd.toml] [--out out] [--format json]
   Writes a document's Markdown, as the page reads when it first loads: each value at its start,
@@ -119,22 +130,6 @@ const MD: &str = "usage: xtmd md <files|folders>… [--pack a,b] [--config xtmd.
   exit: 0 written; 1 one doesn't compile; 2 a usage error, or a file that can't be read
   e.g.  xtmd md page.xtmd --out README.md
         xtmd md docs --out markdown";
-
-const RENDER: &str = "usage: xtmd render <file> [--pack a,b] [--config xtmd.toml] [--out out.png] [--format json] --engine <name|path> [the engine's own arguments]
-  Draws a document with an engine: a program that reads the IR on its standard input and writes
-  what it draws to standard output, with its errors on standard error. xtmd has none of its own.
-  --engine name  one of xtmd.toml's [engines], a command run in xtmd.toml's folder:
-                   [engines]
-                   web = [\"node\", \"render.mjs\"]
-  --engine path  a program, by a path with a / in it, run in the current folder
-                 everything after the engine's name or path goes to the engine, untouched, so
-                 xtmd's own flags go before --engine
-  --out f        writes what it draws to f, its folder made if need be, once the engine has ended
-                 well; without it, it goes to stdout
-  --format json  the document's errors as JSON lines on stderr
-  exit: 0 drawn; 1 it doesn't compile; 2 a usage error, or an engine that can't be run; the
-        engine's own when that isn't 0
-  e.g.  xtmd render page.xtmd --out page.png --engine web --width 800";
 
 const SURFACE: &str = "usage: xtmd surface <pack folder|file> [--pack a,b] [--check | --diff | --stdout] [--out file] [--force] [--format json]
   The release step. Writes what this version of the pack provides, its surface, to
@@ -158,7 +153,6 @@ pub(crate) fn of(cmd: &str) -> Option<&'static str> {
         "parse" => PARSE,
         "build" => BUILD,
         "md" => MD,
-        "render" => RENDER,
         "surface" => SURFACE,
         "migrate" => crate::migrate::USAGE,
         "lsp" => LSP,

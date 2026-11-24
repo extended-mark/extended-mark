@@ -1,5 +1,5 @@
 //! The formats that pass between modules, as Rust types: the IR every engine runs, the tree a host
-//! draws, a page's state, what is done to it, what it tells, its Markdown blocks; and the compiler's
+//! draws, a page's state, what is done to it, what it tells, its Markdown blocks, what an engine builds; and the compiler's
 //! cases.
 //!
 //! The modules are generated from the JSON Schemas in `schemas/`, which are the source:
@@ -7,6 +7,7 @@
 
 pub mod actions;
 pub mod blocks;
+pub mod build;
 pub mod check;
 pub mod ir;
 pub mod state;

@@ -9,7 +9,7 @@ mod batch;
 mod flags;
 mod help;
 mod out;
-mod render;
+mod engine;
 pub(crate) use xtmd_migrate::step as migrate_step;
 mod surface;
 
@@ -71,7 +71,7 @@ struct Config {
     #[serde(default)]
     #[allow(dead_code)]
     uses: std::collections::BTreeMap<String, u32>,
-    /// The engines `xtmd render` runs, each a command: `web = ["node", "render.mjs"]`.
+    /// The engines `xtmd build --engine` runs, each a command: `web = ["node", "engine.mjs"]`.
     #[serde(default)]
     engines: std::collections::BTreeMap<String, Vec<String>>,
 }
@@ -277,10 +277,10 @@ fn plural(n: usize, one: &str) -> String {
 }
 
 /// A file's IR, as `xtmd build` writes it; its diagnostics are reported, and what stops it is its exit code.
-fn build_ir(base: &xtmd_check::Checker, path: &str, packs: &[xtmd_check::Source], json: bool, pretty: bool) -> Result<String, u8> {
+fn build_ir(base: &xtmd_check::Checker, path: &str, packs: &[xtmd_check::Source], json: bool) -> Result<xtmd_ir::ir::Module, u8> {
     let mut m = compile_file(base, path, packs, json, true)?;
     xtmd_lower::lower(&mut m);
-    Ok(json_text(&xtmd_ir::ir::File { ir: m }, pretty))
+    Ok(m)
 }
 
 /// A file compiled, its errors (and its own warnings, when asked) reported.
@@ -328,8 +328,9 @@ fn write_one(made: Result<String, u8>, out: Option<String>, print: impl Fn(&str)
 }
 
 /// `xtmd build <files|folders>… [--pack a,b] [--rir] [--pretty] [--out out]`: each document as one standalone
-/// IR, core and the packs in it; with `--rir`, the resolved IR of the document and its packs instead.
-fn build(args: &[String]) -> ExitCode {
+/// IR, core and the packs in it; with `--rir`, the resolved IR of the document and its packs instead; with
+/// `--engine`, the files an engine makes of them.
+fn build(args: &[String], engine: Option<(String, Vec<String>)>) -> ExitCode {
     let (files, _, _, out) = match given(args) {
         Ok(x) => x,
         Err(e) => {
@@ -357,7 +358,7 @@ fn build(args: &[String]) -> ExitCode {
     let base = || base.get_or_init(|| if with_core { xtmd_check::compile_core_logged(&core_sources()) } else { xtmd_check::compile_core(&core_sources()) });
     let one = |path: &str, packs: &[xtmd_check::Source]| -> Result<String, u8> {
         if !rir {
-            return build_ir(base(), path, packs, json, pretty);
+            return build_ir(base(), path, packs, json).map(|m| json_text(&xtmd_ir::ir::File { ir: m }, pretty));
         }
         let text = read(path).map(|x| x.0).map_err(|e| {
             eprintln!("{}", e);
@@ -372,6 +373,13 @@ fn build(args: &[String]) -> ExitCode {
         c.module.ok_or(1)?;
         r.map(|r| json_text(&r, pretty)).ok_or(1)
     };
+    if let Some(e) = engine {
+        if rir || pretty {
+            eprintln!("{} says how an IR is written, and an engine builds files: leave it out with --engine", if rir { "--rir" } else { "--pretty" });
+            return ExitCode::from(2);
+        }
+        return engine::build(&files, args, e, out, json, |path, packs| build_ir(base(), path, packs, json));
+    }
     if batch::wanted(&files, out.as_deref()) {
         return match batch::jobs("build", &files, out.as_deref(), if rir { "rir.json" } else { "ir.json" }) {
             Ok(jobs) => batch::run(&jobs, args, json, one),
@@ -804,7 +812,7 @@ fn md(args: &[String]) -> ExitCode {
 }
 
 /// The commands, as `xtmd help` names them.
-const COMMANDS: &[&str] = &["fmt", "check", "parse", "build", "md", "render", "surface", "migrate", "lsp"];
+const COMMANDS: &[&str] = &["fmt", "check", "parse", "build", "md", "surface", "migrate", "lsp"];
 
 /// Flags written before the command (`xtmd --format json check …`), moved to after it, where each
 /// command reads them.
@@ -856,8 +864,8 @@ fn run(args: &[String]) -> ExitCode {
         _ => {}
     }
     let (cmd, rest) = (args[0].as_str(), &args[1..]);
-    // render's: what follows the engine's name is the engine's, and nothing here reads it
-    let (own, engine) = if cmd == "render" { render::split(rest) } else { (rest.to_vec(), None) };
+    // build's: what follows the engine's name is the engine's, and nothing here reads it
+    let (own, engine) = if cmd == "build" { engine::split(rest) } else { (rest.to_vec(), None) };
     let rest = &own[..];
     if !COMMANDS.contains(&cmd) {
         if flags::is_flag(cmd) {
@@ -897,8 +905,8 @@ fn run(args: &[String]) -> ExitCode {
         eprintln!("Nothing written: xtmd {} doesn't know {}, so it stops before writing any file. Correct it and run it again.", cmd, unknown.join(", "));
         return ExitCode::from(2);
     }
-    // --out: build, md, render and surface write their document there; the rest, what they print
-    if !matches!(cmd, "build" | "md" | "render" | "surface") {
+    // --out: build, md and surface write their document there; the rest, what they print
+    if !matches!(cmd, "build" | "md" | "surface") {
         if let Some(p) = out::out_path(rest) {
             out::to_file(&p);
         }
@@ -907,9 +915,8 @@ fn run(args: &[String]) -> ExitCode {
         "fmt" => fmt(rest),
         "parse" => parse_cmd(rest),
         "check" => check(rest),
-        "build" => build(rest),
+        "build" => build(rest, engine),
         "md" => md(rest),
-        "render" => render::render_cmd(rest, engine),
         "surface" => surface::surface_cmd(rest),
         "migrate" => migrate::migrate_cmd(rest),
         // the language server: the protocol over stdin and stdout, for an editor (ide/lsp)
