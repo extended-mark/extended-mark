@@ -9,7 +9,9 @@ RUNTIME (TypeScript)  engines/published/runtime    npm @extended-mark/runtime
                           takes, refusal, given, takesArgs, stateRefusal      what comes from outside
                           restoreData, restoreOwn                             page data put back
                           contains, failed, checkRules                        failures
-  src/eval/interp.ts    Machine: statements, expressions, limits (port of compiler/eval/src/interp.rs)
+  src/eval/ops.ts       Ops: equality, contracts, records, places, limits; no IR walked
+  src/eval/text.ts      texts by code points; durations shown
+  src/eval/interp.ts    Machine on Ops: statements and expressions (port of compiler/eval/src/interp.rs)
   src/eval/natives.ts   extern fns of core with no body
   src/eval/num.ts       decimal128 (decimal.js underneath)
   src/eval/value.ts     values, and to and from the IR's form

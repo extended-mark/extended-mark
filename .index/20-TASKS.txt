@@ -27,7 +27,7 @@ change what a page does as it runs
   engines/published/runtime/src/page.ts AND engines/examples/rust/runtime/src/page.rs, a test in each
 
 change the evaluator
-  compiler/eval/src/interp.rs AND engines/published/runtime/src/eval/interp.ts;
+  compiler/eval/src/interp.rs AND engines/published/runtime/src/eval/{ops,interp}.ts;
   engines/published/runtime/test/differential.test.mjs compares them
 
 change inline Markdown
