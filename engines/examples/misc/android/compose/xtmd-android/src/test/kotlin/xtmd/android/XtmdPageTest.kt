@@ -58,6 +58,12 @@ class XtmdPageTest {
 
     private fun state(page: CompiledPage, name: String) = page.state(name)?.toIrJson()
 
+    /** What is drawn as a widget of its own: what a sentence is made of is drawn as its words. */
+    private fun blocks(tree: JSONObject): Set<String> {
+        val inSentence = setOf("words", "bold", "italic", "strike", "link", "code_span", "inline_math", "inline_image", "note_mark", "line_break").map { "core/$it" }
+        return tree.keys().asSequence().filter { tree.getJSONObject(it).getString("widget") !in inSentence }.toSet()
+    }
+
     @Test
     fun theTourDrawsEveryWidgetItHas() = runAndroidComposeUiTest<ComponentActivity> {
         waitsForXtmd()
@@ -73,7 +79,7 @@ class XtmdPageTest {
             assertTrue("the tour has a $w", w in widgets)
         }
         // everything in the tree is drawn: a closed overlay's body too, hidden
-        assertEquals(tree.keys().asSequence().toSet(), page.drawn)
+        assertEquals(blocks(tree), page.drawn)
         // and the plane's note was laid out from Compose's own measure
         assertTrue(state(page, "note")!!.startsWith("{\"some\""))
     }
@@ -115,8 +121,8 @@ class XtmdPageTest {
         settle()
         // the press is the paragraph's slot, drawn in its line after "Press"
         val tree = JSONObject(page.native.observeJson(null)).getJSONObject("tree")
-        assertEquals("core/press", tree.getJSONObject("m0/~0").getString("widget"))
-        assertEquals(tree.keys().asSequence().toSet(), page.drawn)
+        assertEquals(1, tree.keys().asSequence().count { it.startsWith("m0/") && tree.getJSONObject(it).getString("widget") == "core/press" })
+        assertEquals(blocks(tree), page.drawn)
         val para = onNode(hasText("Press", substring = true)).fetchSemanticsNode().boundsInRoot
         val press = onNodeWithText("Add one").fetchSemanticsNode().boundsInRoot
         assertTrue("$press isn't in $para", para.inflate(1f).contains(press.topLeft) && para.inflate(1f).contains(press.bottomRight))

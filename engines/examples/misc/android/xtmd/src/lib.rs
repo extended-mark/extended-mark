@@ -66,7 +66,6 @@ type Res<T> = Result<T, XtmdError>;
 /// A drawn extern widget, as the page asks an engine to draw it: its props worked out.
 #[derive(Clone, Debug, uniffi::Record)]
 pub struct Node {
-    /// Who it is on this draw: the sites of the instances it is in, loop rows by position.
     /// Who it is: its own on the page, and the same for as long as it is there.
     pub id: String,
     /// Its full name: `core/press`.

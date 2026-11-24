@@ -306,7 +306,7 @@ fun XtmdPage(
  * widgets that changed (each unchanged widget is the node it was, and is skipped). */
 @Composable
 private fun PageBody(page: CompiledPage, scope: XtmdScope, modifier: Modifier) {
-    val ctx = remember(scope) { WidgetContext(page, scope, Node("", "", "#page", emptyMap(), emptyList(), emptyList(), emptyList(), emptyList(), false)) }
+    val ctx = remember(scope) { WidgetContext(page, scope, Node("", "#page", emptyMap(), emptyList(), emptyList(), emptyList(), emptyList(), null, false)) }
     ctx.Flow(page.tree, modifier)
 }
 

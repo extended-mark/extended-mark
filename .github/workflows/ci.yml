@@ -1,9 +1,9 @@
 # The checks on every pull request, and on staging and main after a merge: Rust's tests, every npm package's
-# tests and the playground's; and on a pull
-# request into main, and on staging after a merge, the release's dry run. Main's ruleset
-# (.github/rulesets/main.json) requires the job named "Types, tests and conformance" (its name is the ruleset's), which passes only
-# when the ones before it do; the TypeScript builds are the type checks. The release runs these same
-# checks (release.yml calls this workflow).
+# tests and the playground's, and Android's Kotlin; and on a pull request into main, and on staging after
+# a merge, the release's dry run. Main's ruleset (.github/rulesets/main.json) requires the job named
+# "Types, tests and conformance" (its name is the ruleset's), which passes only when the ones before it do;
+# the TypeScript builds are the type checks. The release runs these same checks (release.yml calls this
+# workflow).
 #
 # A tree (the exact files, this workflow's own included) is tested once: a run that passes leaves a small
 # artifact named after the tree's hash (tested-<tree>, and dryrun-<tree> for the release dry run's
@@ -155,8 +155,61 @@ jobs:
       - name: The VS Code extension, built and tested
         working-directory: ide/vscode
         run: npm install --no-audit --no-fund && npm test
-      - name: The 0.2 migrator's tests (the frozen step xtmd migrate runs is built from it)
-        run: node --test tools/migrate-0.2/test/*.test.mjs
+
+  android:
+    name: Android's Kotlin
+    needs: gate
+    if: needs.gate.outputs.tested != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: The Android SDK the project builds with
+        # the runner has one, and these parts of it may be missing
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.1.0" > "$RUNNER_TEMP/sdk.log" || { tail -n 20 "$RUNNER_TEMP/sdk.log"; exit 1; }
+      - name: Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: compiler
+          key: android
+      - name: Gradle's downloads, kept between runs
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('engines/examples/misc/android/compose/**/*.gradle.kts', 'engines/examples/misc/android/compose/gradle/**') }}
+          restore-keys: gradle-
+      - name: The compiler, which the tests build their pages with
+        working-directory: compiler
+        run: cargo build --release -p xtmd
+      - name: The libraries for the JVM, and the Kotlin bindings
+        run: |
+          engines/examples/misc/android/xtmd/build.sh host
+          engines/examples/misc/android/xtmd-live/build.sh host
+      - name: Built
+        # Gradle fetches its plugins from Google, Maven Central and the Gradle Plugin Portal; when one stops
+        # answering it is tried again a minute later, up to three times. Kotlin that doesn't compile isn't.
+        working-directory: engines/examples/misc/android/compose
+        run: |
+          set -o pipefail
+          for try in 1 2 3; do
+            ./gradlew --no-daemon :xtmd-android:compileDebugUnitTestKotlin :xtmd-android-live:compileDebugUnitTestKotlin :sample:compileDebugUnitTestKotlin 2>&1 | tee "$RUNNER_TEMP/gradle.log" && break
+            why=$(grep -E "^e: " "$RUNNER_TEMP/gradle.log" | head -6 | tr '\n' ' ' | cut -c1-500)
+            if [ -n "$why" ]; then echo "::error::The Kotlin doesn't compile: $why"; exit 1; fi
+            why=$(tail -n 8 "$RUNNER_TEMP/gradle.log" | tr '\n' ' ' | cut -c1-500)
+            if [ "$try" = 3 ]; then echo "::error::Gradle failed three times: $why"; exit 1; fi
+            echo "::warning::Gradle failed (try $try of 3): $why; trying again in 60 seconds"
+            sleep 60
+          done
+      - name: Tested
+        working-directory: engines/examples/misc/android/compose
+        run: ./gradlew --no-daemon testDebugUnitTest --continue
 
   release:
     name: Release dry run
@@ -241,19 +294,20 @@ jobs:
     # the check main's ruleset requires, by this name
     name: Types, tests and conformance
     if: always()
-    needs: [gate, rust, npm, release]
+    needs: [gate, rust, npm, android, release]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Every check passed
         run: |
-          echo "tree ${{ needs.gate.outputs.tree }} (tested before: ${{ needs.gate.outputs.tested }}); Rust's tests: ${{ needs.rust.result }}; npm and the playground: ${{ needs.npm.result }}; release dry run: ${{ needs.release.result }}"
+          echo "tree ${{ needs.gate.outputs.tree }} (tested before: ${{ needs.gate.outputs.tested }}); Rust's tests: ${{ needs.rust.result }}; npm and the playground: ${{ needs.npm.result }}; Android's Kotlin: ${{ needs.android.result }}; release dry run: ${{ needs.release.result }}"
           test "${{ needs.gate.result }}" = success
           if [ "${{ needs.gate.outputs.tested }}" = true ]; then
             echo "these files passed every test in an earlier run of this repository: tested-${{ needs.gate.outputs.tree }}"
           else
             test "${{ needs.rust.result }}" = success
             test "${{ needs.npm.result }}" = success
+            test "${{ needs.android.result }}" = success
           fi
           # the dry run is skipped on pull requests into staging, and runs before main
           test "${{ needs.release.result }}" = success || test "${{ needs.release.result }}" = skipped

@@ -178,6 +178,6 @@ private fun irJson(v: Val, out: StringBuilder) {
             }
             out.append("}}")
         }
-        is Val.Fn, is Val.View -> out.append("{\"none\":{}}")
+        is Val.Fn, is Val.Nodes -> out.append("{\"none\":{}}")
     }
 }
