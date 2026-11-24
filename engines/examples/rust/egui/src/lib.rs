@@ -260,6 +260,8 @@ struct Frame {
     used: HashSet<(String, String)>,
     /// The paths drawn this frame, or kept on the page hidden (a closed overlay's body).
     shown: HashSet<String>,
+    /// The words and marks of the sentences drawn this frame, which their sentence draws.
+    words: Vec<Drawn>,
     acts: HashMap<String, Vec<Act>>,
     left: Vec<(String, Act)>,
     look: Look,
@@ -277,6 +279,7 @@ impl Frame {
             instances: HashMap::new(),
             used: HashSet::new(),
             shown: HashSet::new(),
+            words: Vec::new(),
             acts: HashMap::new(),
             left: Vec::new(),
             look: Look::default(),
@@ -400,9 +403,9 @@ impl<'a> Ctx<'a> {
     pub(crate) fn keep_words(&mut self, nodes: &[Drawn]) {
         for d in nodes {
             match d.widget.as_str() {
-                "core/words" | "core/code_span" | "core/inline_math" | "core/inline_image" | "core/note_mark" | "core/line_break" => self.keep_node(d),
+                "core/words" | "core/code_span" | "core/inline_math" | "core/inline_image" | "core/note_mark" | "core/line_break" => self.frame.words.push(d.clone()),
                 "core/bold" | "core/italic" | "core/strike" | "core/link" => {
-                    self.keep_node(d);
+                    self.frame.words.push(d.clone());
                     self.keep_words(d.slots.get("body").map_or(&[], Vec::as_slice));
                 }
                 _ => {}
@@ -625,8 +628,8 @@ impl XtmdPage {
     }
 
     /// The paths drawn in the last frame, and the ones kept on the page hidden.
-    pub fn shown(&self) -> &HashSet<String> {
-        &self.frame.shown
+    pub fn shown(&self) -> HashSet<String> {
+        self.frame.shown.iter().cloned().chain(self.frame.words.iter().map(|d| d.id.clone())).collect()
     }
 
     /// Asks the widget at a path to do something through its own controls on the next frame;
@@ -686,6 +689,7 @@ impl XtmdPage {
         }
         let tree = self.tree.clone();
         self.frame.shown.clear();
+        self.frame.words.clear();
         self.frame.used.clear();
         self.frame.measured = Measured::default();
         let page = &mut self.page;

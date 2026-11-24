@@ -112,6 +112,8 @@ export function outerDebug(o: Outer): string {
 /** Everything outside a fn: a widget instance, the document, the host, the engine. */
 export interface Host {
   read(m: Machine, what: Outer, owner?: number): Value;
+  /** A part of an outer value, at a place in it: `m.valueAt(place)`, for a host that minds what is read. */
+  readAt?(m: Machine, place: Place): Value;
   write(m: Machine, what: Outer, owner: number | undefined, value: Value): void;
   /** An extern fn of a pack or of the host: its value, `null` when it returns nothing, and
    * `undefined` when nobody supplies it (Rust's `None`), so its default body runs if it has one.
@@ -556,6 +558,10 @@ export class Machine {
   }
 
   readPlace(p: Place): Value {
+    return p.path.length > 0 && p.root.kind === "outer" && this.host.readAt !== undefined ? this.host.readAt(this, p) : this.valueAt(p);
+  }
+
+  valueAt(p: Place): Value {
     let v = this.readRoot(p.root);
     for (const s of p.path) {
       switch (s.kind) {

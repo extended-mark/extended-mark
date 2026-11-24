@@ -110,11 +110,6 @@ pub fn words(nodes: &[Drawn]) -> String {
     out
 }
 
-/// Whether a sentence holds a widget that isn't words.
-pub fn has_views(nodes: &[Drawn]) -> bool {
-    pieces(nodes).iter().any(|p| matches!(p, Piece::View(_)))
-}
-
 /// A sentence's runs of words, and the widgets among them, in order.
 pub fn pieces(nodes: &[Drawn]) -> Vec<Piece<'_>> {
     fn push(out: &mut Vec<Piece<'_>>, words: String, kind: Kind, marks: &Marks) {

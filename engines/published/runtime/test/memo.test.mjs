@@ -337,3 +337,59 @@ test("every case draws the same with the memo and without it", () => {
   }
   assert.ok(ran > 40 && acted > 100, `ran ${ran} pages with ${acted} changes`);
 });
+
+// ---- a part of a value: an item of a list, a field of one, what is inside an opt
+
+const parts = build(join(repo, "checks/pages/parts.xtmd"));
+
+test("what reads a part of a value keeps up with it, however it is changed", () => {
+  assert.ok(parts, why);
+  let did = 0;
+  for (const name of ["parts", "parts of", "parts of a", "parts of a value", "parts of a value that", "parts of a value that changes"]) did += same(parts, name, 40);
+  assert.ok(did > 200, String(did));
+});
+
+test("a row that changes is worked out, and the other rows are not", () => {
+  const doc = (rows) => `record task {
+    mut title: text;
+    mut done: bool = false;
+}
+
+$state {
+    tasks: list<task> = [${Array.from({ length: rows }, (_, k) => `task { title = "${k}" }`).join(", ")}];
+}
+
+widget row(mut t: task) {
+    view {
+        @press(label = t.title, selected = t.done, click = fn() { t.done = !t.done; });
+    }
+    markdown {
+        \\{t.title}
+    }
+}
+
+widget board() {
+    view {
+        mut for (t in $state.tasks) {
+            if (mut x: task = t) {
+                @row(t = x);
+            }
+        }
+    }
+    markdown {
+        x
+    }
+}
+@@@
+@board;
+`;
+  const made = (rows) => {
+    const p = new Page(source(doc(rows)));
+    const before = nodes(p);
+    p.event(before[2].path, "click");
+    const after = nodes(p);
+    return { anew: after.filter((d, k) => d !== before[k]).length, of: after.length };
+  };
+  assert.deepEqual(made(5), { anew: 1, of: 5 });
+  assert.deepEqual(made(60), { anew: 1, of: 60 });
+});

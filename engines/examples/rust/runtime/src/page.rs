@@ -10,7 +10,7 @@
 //! The tree holds every prop already worked out, so an engine that draws every frame (egui) only
 //! reads it: nothing is evaluated per frame, only once per change.
 
-use std::cell::{RefCell, RefMut};
+use std::cell::{Cell, RefCell, RefMut};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -424,27 +424,35 @@ impl Stable {
     }
 }
 
-/// What a widget's drawing read and made, so a redraw can reuse it while none of it changed.
+/// What drawing one part of the page read and met, itself: what is inside it has its own, in `kids`. A
+/// redraw reuses it while none of it changed.
 #[derive(Debug, Default)]
 struct Frame {
     /// Each outside value read, by key (`s:field`, `x:channel.value`, `c:id:cell`, `o:key`),
     /// with its version then.
     deps: HashMap<String, u64>,
-    /// The instances drawn inside it, with their paths: seen again when it is reused.
+    /// Each part of a value read at its place, an item of a list among them, and what was there: another
+    /// part that changes is nothing to it.
+    parts: Vec<(Place, Value)>,
+    kids: Vec<Rc<Frame>>,
+    /// The instances drawn here, with their paths: seen again when it is reused.
     nested: Vec<(u64, String)>,
     own: Vec<String>,
     missed: Vec<String>,
-    /// The extern calls drawn inside it, whose memos a reuse keeps.
-    ext: Vec<String>,
-    /// The loops, branches, places and locals inside it, whose memos a reuse keeps.
-    held: Vec<String>,
     /// It failed, or asked the host for a value: drawn anew every time.
     dirty: bool,
+    /// The last redraw it is a part of.
+    seen: Cell<u64>,
+    /// When everything it read was last found as it was; `STALE` once something wasn't, which it never is
+    /// again.
+    fresh: Cell<u64>,
 }
+
+const STALE: u64 = u64::MAX;
 
 /// A widget written in Extended Mark as it was last drawn, with what its drawing read.
 struct Memo {
-    frame: Frame,
+    frame: Rc<Frame>,
     template: String,
     path: String,
     owner: Option<u64>,
@@ -458,7 +466,7 @@ struct Memo {
 
 /// An extern call as it was last drawn, with what its drawing read.
 struct ExternMemo {
-    frame: Frame,
+    frame: Rc<Frame>,
     /// The call it was: [`Shared::call_id`], or where it is in the content it is kept with.
     node: usize,
     keep: Option<Arc<Vec<Node>>>,
@@ -471,7 +479,7 @@ struct ExternMemo {
 
 /// What a loop, a branch, a place or a local of a view gave, with what it read.
 struct NodeMemo {
-    frame: Frame,
+    frame: Rc<Frame>,
     node: usize,
     keep: Option<Arc<Vec<Node>>>,
     path: String,
@@ -495,6 +503,18 @@ fn same_ptr(a: &Value, b: &Value) -> bool {
         (Value::Content(x), Value::Content(y)) => Rc::ptr_eq(x, y),
         (Value::Opt(Some(x)), Value::Opt(Some(y))) => Rc::ptr_eq(x, y),
         _ => false,
+    }
+}
+
+/// Whether what is at a place is what it was: an opt is made anew each time it is read.
+fn same_now(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Opt(None), Value::Opt(None)) => true,
+        (Value::Opt(Some(x)), Value::Opt(Some(y))) => Rc::ptr_eq(x, y) || same_now(x, y),
+        (Value::Num(x), Value::Num(y)) | (Value::Duration(x), Value::Duration(y)) => x == y && x.show() == y.show(),
+        (Value::Bool(x), Value::Bool(y)) => x == y,
+        (Value::Text(x), Value::Text(y)) => x == y,
+        _ => same_ptr(a, b),
     }
 }
 
@@ -526,7 +546,8 @@ struct Instance {
     cells: HashMap<String, Value>,
     slots: HashMap<String, (Nodes, Env)>,
     events: HashMap<String, Handle>,
-    seen: bool,
+    /// The last redraw it is drawn in.
+    seen: u64,
 }
 
 /// What changes while a page runs.
@@ -569,10 +590,17 @@ pub(crate) struct World {
     epoch: u64,
     memo: HashMap<String, Rc<Memo>>,
     extern_memo: HashMap<String, Rc<ExternMemo>>,
-    /// The extern calls drawn this redraw: the memos of the rest are dropped after it.
-    extern_seen: HashSet<String>,
     node_memo: HashMap<String, Rc<NodeMemo>>,
+    /// The nodes drawn anew this redraw.
     node_seen: HashSet<String>,
+    /// Which redraw this is.
+    draws: u64,
+    /// Moves with every bump: what was found fresh at one is, until the next.
+    stamp: u64,
+    /// Above 0 while a place is read for a part that minds the place.
+    quiet: u32,
+    /// Above 0 while what is read is told by name: a held fn's calls, and `$state`'s rules.
+    whole: u32,
     /// `$state`'s rules, by their place among them: whether each held, with what it read.
     rule_memo: HashMap<usize, (HashMap<String, u64>, u64, bool)>,
     /// What each widget being drawn has read and made so far, outermost first.
@@ -585,18 +613,65 @@ impl World {
         self.state.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone())
     }
 
-    /// A read of an outside value, for every widget being drawn.
+    /// A read of an outside value, for the part being drawn.
     fn track(&mut self, key: impl FnOnce() -> String) {
-        if self.frames.is_empty() {
+        if self.quiet > 0 {
             return;
         }
+        let Some(f) = self.frames.last_mut() else { return };
         let k = key();
-        let v = self.versions.get(&k).copied().unwrap_or(0);
-        for f in self.frames.iter_mut() {
-            if !f.deps.contains_key(&k) {
-                f.deps.insert(k.clone(), v);
-            }
+        if !f.deps.contains_key(&k) {
+            let v = self.versions.get(&k).copied().unwrap_or(0);
+            f.deps.insert(k, v);
         }
+    }
+
+    /// A part of the page that starts to be drawn.
+    fn enter(&mut self) {
+        let frame = Frame { seen: Cell::new(self.draws), ..Frame::default() };
+        self.frames.push(frame);
+    }
+
+    /// And ends: it is inside the part around it.
+    fn exit(&mut self) -> Rc<Frame> {
+        let frame = Rc::new(self.frames.pop().unwrap_or_default());
+        if let Some(around) = self.frames.last_mut() {
+            around.dirty |= frame.dirty;
+            around.kids.push(frame.clone());
+        }
+        frame
+    }
+
+    /// What is being drawn is drawn anew every time.
+    fn soil(&mut self) {
+        if let Some(top) = self.frames.last_mut() {
+            top.dirty = true;
+        }
+    }
+
+    /// A part that is drawn again as it was, with everything in it.
+    fn see(&mut self, frame: &Frame) {
+        if frame.seen.replace(self.draws) == self.draws {
+            return;
+        }
+        for (id, path) in &frame.nested {
+            if let Some(i) = self.instances.get_mut(id) {
+                i.seen = self.draws;
+            }
+            self.at_path.insert(path.clone(), *id);
+        }
+        self.own_seen.extend(frame.own.iter().cloned());
+        self.missed.extend(frame.missed.iter().cloned());
+        for k in &frame.kids {
+            self.see(k);
+        }
+    }
+
+    /// Whether a name is another widget's already, this redraw.
+    fn taken(&self, id: &str) -> bool {
+        self.claimed.contains(id)
+            || self.extern_memo.get(id).map_or(false, |x| x.frame.seen.get() == self.draws)
+            || self.by_path.get(id).and_then(|i| self.instances.get(i)).map_or(false, |i| i.seen == self.draws)
     }
 
     /// A `warn` rule, worked out: told once as it becomes false.
@@ -621,6 +696,7 @@ impl World {
     /// An outside value written: every memo that read it is out of date.
     fn bump(&mut self, key: String) {
         *self.versions.entry(key).or_insert(0) += 1;
+        self.stamp += 1;
     }
 
     /// Whether every value a memo read is as it was.
@@ -650,6 +726,21 @@ impl Host for PageHost {
         self.0.host_read(m, what, owner)
     }
 
+    fn read_at(&self, m: &mut Machine, place: &Place) -> R<Value> {
+        {
+            let w = self.0.w.borrow();
+            if w.frames.is_empty() || w.quiet > 0 || w.whole > 0 {
+                drop(w);
+                return m.value_at(place);
+            }
+        }
+        let v = self.0.part_at(m, place)?;
+        if let Some(f) = self.0.w().frames.last_mut() {
+            f.parts.push((place.clone(), v.clone()));
+        }
+        Ok(v)
+    }
+
     fn write(&self, m: &mut Machine, what: &Outer, owner: Option<u64>, value: Value) -> R<()> {
         self.0.host_write(m, what, owner, value)
     }
@@ -669,9 +760,7 @@ impl Host for PageHost {
             return Ok(None);
         }
         // a widget that asks the host is drawn anew every time
-        for f in rt.w().frames.iter_mut() {
-            f.dirty = true;
-        }
+        rt.w().soil();
         rt.w().calls.push(Call { call: CallCall { name: name.to_string(), args: args.iter().map(Value::to_ir).collect() } });
         Ok(Some(None))
     }
@@ -925,10 +1014,24 @@ impl Rt {
 
     /// What some code read, for whoever holds what it gave.
     fn reading<T>(&self, f: impl FnOnce() -> T) -> (T, HashMap<String, u64>) {
-        self.w().frames.push(Frame::default());
+        {
+            let mut w = self.w();
+            w.enter();
+            w.whole += 1;
+        }
         let out = f();
-        let frame = self.w().frames.pop().unwrap_or_default();
-        (out, frame.deps)
+        let mut w = self.w();
+        w.whole -= 1;
+        let frame = w.exit();
+        fn all(f: &Frame, deps: &mut HashMap<String, u64>) {
+            for (k, v) in &f.deps {
+                deps.entry(k.clone()).or_insert(*v);
+            }
+            f.kids.iter().for_each(|k| all(k, deps));
+        }
+        let mut deps = HashMap::new();
+        all(&frame, &mut deps);
+        (out, deps)
     }
 
     fn run_handler(&self, m: &mut Machine, id: &str, env: &Env, args: Vec<Value>) -> R<Option<Value>> {
@@ -1007,24 +1110,26 @@ impl Rt {
         let Some(id) = self.s.node_id(node).or_else(|| env.keep.as_ref().map(|_| addr(node))) else { return work(m) };
         let key = format!("{}|{}", env.key_or_path(), site);
         let (hit, twice) = {
-            let mut w = self.w();
+            let w = self.w.borrow();
+            let memo = w.node_memo.get(&key);
             // the same content placed twice in one redraw is two
-            let twice = !w.node_seen.insert(key.clone());
-            for f in w.frames.iter_mut() {
-                f.held.push(key.clone());
-            }
-            let hit = if w.memo_on && !twice { w.node_memo.get(&key).filter(|x| x.node == id && x.epoch == w.epoch && x.path == env.path && x.owner == env.owner && same_keep(&x.keep, &env.keep) && w.current(&x.frame.deps)).cloned() } else { None };
+            let twice = w.node_seen.contains(&key) || memo.map_or(false, |x| x.frame.seen.get() == w.draws);
+            let hit = if w.memo_on && !twice { memo.filter(|x| x.node == id && x.epoch == w.epoch && x.path == env.path && x.owner == env.owner && same_keep(&x.keep, &env.keep)).cloned() } else { None };
             (hit, twice)
         };
         if let Some(x) = hit {
-            if self.same_bindings(m, &x.bindings, &env.bindings) {
+            if self.unchanged(m, &x.frame) && self.same_bindings(m, &x.bindings, &env.bindings) {
                 self.replay(&x.frame);
                 return Ok((x.drawn.clone(), x.value.clone()));
             }
         }
-        self.w().frames.push(Frame::default());
+        {
+            let mut w = self.w();
+            w.node_seen.insert(key.clone());
+            w.enter();
+        }
         let made = work(m);
-        let frame = self.w().frames.pop().unwrap_or_default();
+        let frame = self.w().exit();
         let (drawn, value) = made?;
         let mut w = self.w();
         if w.memo_on && !frame.dirty && !twice {
@@ -1170,23 +1275,22 @@ impl Rt {
         if let (true, Some(id)) = (memo_on, node) {
             let hit = {
                 let w = self.w.borrow();
-                w.extern_memo.get(&key).filter(|x| x.node == id && x.epoch == w.epoch && x.path == path && x.owner == env.owner && same_keep(&x.keep, &env.keep) && w.current(&x.frame.deps)).cloned()
+                w.extern_memo.get(&key).filter(|x| x.node == id && x.epoch == w.epoch && x.path == path && x.owner == env.owner && same_keep(&x.keep, &env.keep)).cloned()
             };
             if let Some(x) = hit {
-                if self.same_bindings(m, &x.bindings, &env.bindings) {
+                if self.unchanged(m, &x.frame) && self.same_bindings(m, &x.bindings, &env.bindings) {
                     self.replay(&x.frame);
-                    self.saw_extern(&key);
                     return Ok(x.drawn.clone());
                 }
             }
         }
-        self.w().frames.push(Frame::default());
+        self.w().enter();
         let drawn = self.draw_extern_now(m, name, &key, &path, given, slots, events, writes, levels, env);
         let drawn = match drawn {
             Err(f) if self.contains(env) => Ok(vec![self.failed(name, &path, &key, &f)]),
             drawn => drawn,
         };
-        let frame = self.w().frames.pop().unwrap_or_default();
+        let frame = self.w().exit();
         let drawn = drawn?;
         {
             let mut w = self.w();
@@ -1200,48 +1304,39 @@ impl Rt {
                 }
             }
         }
-        self.saw_extern(&key);
         Ok(drawn)
     }
 
-    /// An extern call drawn this redraw, and inside every widget being drawn around it.
-    fn saw_extern(&self, key: &str) {
+    /// A reused part is inside the one being drawn, and its instances are seen again.
+    fn replay(&self, frame: &Rc<Frame>) {
         let mut w = self.w();
-        w.extern_seen.insert(key.to_string());
-        for f in w.frames.iter_mut() {
-            f.ext.push(key.to_string());
+        w.see(frame);
+        if let Some(around) = w.frames.last_mut() {
+            around.kids.push(frame.clone());
         }
     }
 
-    /// What a reused subtree did when it was drawn: its instances are seen again, and every
-    /// widget being drawn around it is told what it read.
-    fn replay(&self, f: &Frame) {
-        let mut guard = self.w();
-        let w = &mut *guard;
-        for (id, p) in &f.nested {
-            if let Some(i) = w.instances.get_mut(id) {
-                i.seen = true;
-                w.claimed.insert(i.path.clone());
-            }
-            w.at_path.insert(p.clone(), *id);
+    /// Whether nothing a part read, or what is inside it, has changed since.
+    fn unchanged(&self, m: &mut Machine, frame: &Frame) -> bool {
+        let stamp = self.w.borrow().stamp;
+        match frame.fresh.get() {
+            STALE => return false,
+            at if at == stamp && stamp > 0 => return true,
+            _ => {}
         }
-        w.own_seen.extend(f.own.iter().cloned());
-        w.missed.extend(f.missed.iter().cloned());
-        w.extern_seen.extend(f.ext.iter().cloned());
-        w.claimed.extend(f.ext.iter().cloned());
-        w.node_seen.extend(f.held.iter().cloned());
-        for fr in w.frames.iter_mut() {
-            for (k, v) in &f.deps {
-                if !fr.deps.contains_key(k) {
-                    fr.deps.insert(k.clone(), *v);
-                }
-            }
-            fr.nested.extend(f.nested.iter().cloned());
-            fr.own.extend(f.own.iter().cloned());
-            fr.missed.extend(f.missed.iter().cloned());
-            fr.ext.extend(f.ext.iter().cloned());
-            fr.held.extend(f.held.iter().cloned());
-        }
+        let ok = self.w.borrow().current(&frame.deps)
+            && frame.parts.iter().all(|(place, v)| self.part_at(m, place).map_or(false, |now| same_now(v, &now)))
+            && frame.kids.iter().all(|k| self.unchanged(m, k));
+        frame.fresh.set(if ok { stamp } else { STALE });
+        ok
+    }
+
+    /// What is at a place now, read for no one.
+    fn part_at(&self, m: &mut Machine, place: &Place) -> R<Value> {
+        self.w().quiet += 1;
+        let v = m.value_at(place);
+        self.w().quiet -= 1;
+        v
     }
 
     /// Whether the locals around a call are the ones it was drawn with.
@@ -1277,7 +1372,7 @@ impl Rt {
         if memo.slots.len() != slots.len() || !memo.slots.iter().zip(slots).all(|((k, held), (n, now))| k == n && self.s.same_slot(held, now)) || memo.events != *events {
             return None;
         }
-        if !self.w.borrow().current(&memo.frame.deps) || !self.same_bindings(m, &memo.bindings, &env.bindings) {
+        if !self.unchanged(m, &memo.frame) || !self.same_bindings(m, &memo.bindings, &env.bindings) {
             return None;
         }
         // an input worked out here is the same while what it read and the locals around it are
@@ -1340,7 +1435,7 @@ impl Rt {
                 {
                     let mut w = self.w();
                     w.missed.insert(name.to_string());
-                    for f in w.frames.iter_mut() {
+                    if let Some(f) = w.frames.last_mut() {
                         f.missed.push(name.to_string());
                     }
                 }
@@ -1351,15 +1446,16 @@ impl Rt {
             }
         }
         // what it wrote to its own `mut` inputs stands until the caller gives them a variable
+        let keeps = w.as_ref().map_or(false, |w| w.inputs.iter().any(|f| f.mutable));
         for (n, v) in self.back(m, &path, |n| if written.contains_key(n) { None } else { w.as_ref()?.inputs.iter().find(|f| f.name == n && f.mutable).map(|f| f.ty.clone()) })? {
             self.w().own.entry(key.clone()).or_default().insert(n, v);
         }
-        {
+        if keeps {
             let mut world = self.w();
             world.track(|| format!("o:{}", key));
             if let Some(own) = world.own.get(&key).cloned() {
                 world.own_seen.insert(key.clone());
-                for f in world.frames.iter_mut() {
+                if let Some(f) = world.frames.last_mut() {
                     f.own.push(key.clone());
                 }
                 for (k, v) in own {
@@ -1509,7 +1605,7 @@ impl Rt {
         let mut w = self.w();
         let mut id = key.to_string();
         let mut n = 2;
-        while w.claimed.contains(&id) {
+        while w.taken(&id) {
             id = format!("{}~{}", key, n);
             n += 1;
         }
@@ -1540,12 +1636,12 @@ impl Rt {
         if let Some(reused) = self.reuse(m, name, path, key, args, slots, events, env) {
             return Ok(reused);
         }
-        self.w().frames.push(Frame::default());
+        self.w().enter();
         let drawn = match self.enter_use(m, &t, path, args, slots, events, env, key).and_then(|own| self.draw_nodes(m, &t.view, &own)) {
             Ok(out) => out,
             Err(f) => vec![self.failed(name, path, key, &f)],
         };
-        let frame = self.w().frames.pop().unwrap_or_default();
+        let frame = self.w().exit();
         let (memo_on, kept) = {
             let w = self.w.borrow();
             (w.memo_on, w.by_path.contains_key(key))
@@ -1573,9 +1669,7 @@ impl Rt {
         };
         {
             let mut w = self.w();
-            for fr in w.frames.iter_mut() {
-                fr.dirty = true;
-            }
+            w.soil();
             if !w.outcome.failures.iter().any(|b| b.site.as_deref() == Some(key) && b.code == broken.code && b.rule == broken.rule) {
                 w.outcome.failures.push(broken);
             }
@@ -1615,7 +1709,7 @@ impl Rt {
                     cells: HashMap::new(),
                     slots: HashMap::new(),
                     events: HashMap::new(),
-                    seen: true,
+                    seen: 0,
                 };
                 let mut w = self.w();
                 w.instances.insert(id, inst);
@@ -1626,11 +1720,12 @@ impl Rt {
         let was = {
             let mut w = self.w();
             w.at_path.insert(path.to_string(), id);
-            for f in w.frames.iter_mut() {
+            if let Some(f) = w.frames.last_mut() {
                 f.nested.push((id, path.to_string()));
             }
+            let draws = w.draws;
             let it = w.instances.get_mut(&id).unwrap();
-            it.seen = true;
+            it.seen = draws;
             it.places.clear();
             std::mem::take(&mut it.inputs)
         };
@@ -1740,7 +1835,7 @@ impl Rt {
             }
         }
         let held = slots.iter().map(|(s, nodes)| (s.clone(), (self.s.nodes_rc(nodes), env.clone()))).collect();
-        let inst = Instance { id, path: format!("{}#md", path), template: t, inputs, places: HashMap::new(), cells: HashMap::new(), slots: held, events: HashMap::new(), seen: true };
+        let inst = Instance { id, path: format!("{}#md", path), template: t, inputs, places: HashMap::new(), cells: HashMap::new(), slots: held, events: HashMap::new(), seen: self.w.borrow().draws };
         self.w().instances.insert(id, inst);
         Ok(Env { owner: Some(id), bindings: Vec::new(), path: path.to_string(), key: None, keep: None })
     }
@@ -2772,14 +2867,11 @@ impl Page {
             m.reset_steps();
             {
                 let mut w = rt.w();
-                for i in w.instances.values_mut() {
-                    i.seen = false;
-                }
+                w.draws += 1;
                 w.claimed.clear();
                 w.missed.clear();
                 w.at_path.clear();
                 w.own_seen.clear();
-                w.extern_seen.clear();
                 w.node_seen.clear();
                 w.frames.clear();
             }
@@ -2801,7 +2893,7 @@ impl Page {
             };
             // a widget that left the page leaves with its variables
             let mut w = rt.w();
-            let gone: Vec<(u64, String)> = w.instances.values().filter(|i| !i.seen).map(|i| (i.id, i.path.clone())).collect();
+            let gone: Vec<(u64, String)> = w.instances.values().filter(|i| i.seen != w.draws).map(|i| (i.id, i.path.clone())).collect();
             for (id, path) in gone {
                 w.instances.remove(&id);
                 // only its own: a widget of another kind may have taken its key this time
@@ -2813,12 +2905,9 @@ impl Page {
             let seen = std::mem::take(&mut w.own_seen);
             w.own.retain(|k, _| seen.contains(k));
             w.own_seen = seen;
-            let seen = std::mem::take(&mut w.extern_seen);
-            w.extern_memo.retain(|k, _| seen.contains(k));
-            w.extern_seen = seen;
-            let seen = std::mem::take(&mut w.node_seen);
-            w.node_memo.retain(|k, _| seen.contains(k));
-            w.node_seen = seen;
+            let draws = w.draws;
+            w.extern_memo.retain(|_, x| x.frame.seen.get() == draws);
+            w.node_memo.retain(|_, x| x.frame.seen.get() == draws);
             Ok(drawn)
         })?;
         self.drawn = drawn;

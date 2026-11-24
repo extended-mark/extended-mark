@@ -32,6 +32,13 @@ window.xtmd = {
     const file = JSON.parse(irText);
     const extra = {};
     if (opts.fixed) extra.measure = fixedMeasure();
+    if (opts.count) {
+      // a label that counts how often it is taken away
+      window.gone = {};
+      extra.widgets = {
+        "core/label": (d) => ({ el: document.createElement("i"), update() {}, destroy: () => (window.gone[d.id] = (window.gone[d.id] ?? 0) + 1) }),
+      };
+    }
     if (opts.labels) {
       // a host's own label, in place of ours
       extra.widgets = {

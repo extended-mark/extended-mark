@@ -101,17 +101,19 @@ pub fn style(ctx: &Ctx<'_>, f: &Font, color: Color32) -> Style {
 
 /// A sentence: one leaf, or, when it holds widgets that aren't words, flowed with them ([`rich_flow`]).
 pub fn rich(ui: &mut Ui, ctx: &mut Ctx<'_>, id: Id, nodes: &[Drawn], s: Style, lay: Lay) {
-    if rich::has_views(nodes) {
-        rich_flow(ui, ctx, id, nodes, s);
-    } else {
-        ctx.keep_nodes(nodes);
-        let runs: Vec<rich::Run> = rich::pieces(nodes).into_iter().flat_map(|p| if let rich::Piece::Run(r) = p { r } else { Vec::new() }).collect();
-        let laid = rich::layout(&runs, s);
-        let words = rich::words(nodes);
-        let text = laid.job.text.clone();
-        let l = leaf(ui, id, laid.job, &words, lay);
-        follow_links(ui, id, &l, &text, &laid.links);
+    let mut pieces = rich::pieces(nodes);
+    if pieces.iter().any(|p| matches!(p, rich::Piece::View(_))) {
+        return rich_flow(ui, ctx, id, nodes, s);
     }
+    ctx.keep_words(nodes);
+    let runs = match pieces.pop() {
+        Some(rich::Piece::Run(runs)) => runs,
+        _ => Vec::new(),
+    };
+    let laid = rich::layout(&runs, s);
+    let text = laid.job.text.clone();
+    let l = leaf(ui, id, laid.job, &text, lay);
+    follow_links(ui, id, &l, &text, &laid.links);
 }
 
 /// A sentence that holds widgets: its runs of words in one wrapped line, each starting where the

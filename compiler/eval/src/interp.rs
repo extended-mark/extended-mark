@@ -88,6 +88,10 @@ pub enum Outer {
 /// state of its own keeps it in a `RefCell`, borrowed only while it isn't calling back.
 pub trait Host {
     fn read(&self, m: &mut Machine, what: &Outer, owner: Option<u64>) -> R<Value>;
+    /// A part of an outer value, at a place in it: `m.value_at(place)`, unless the host minds what is read.
+    fn read_at(&self, m: &mut Machine, place: &Place) -> R<Value> {
+        m.value_at(place)
+    }
     fn write(&self, m: &mut Machine, what: &Outer, owner: Option<u64>, value: Value) -> R<()>;
     /// An extern fn of a pack or of the host. `None` when nobody supplies it.
     fn call_extern(&self, _m: &mut Machine, _name: &str, _args: &[Value]) -> R<Option<Option<Value>>> {
@@ -578,6 +582,13 @@ impl<'p> Machine<'p> {
     }
 
     pub fn read_place(&mut self, p: &Place) -> R<Value> {
+        match &p.root {
+            PlaceRoot::Outer(..) if !p.path.is_empty() => self.with_host(|h, m| h.read_at(m, p)),
+            _ => self.value_at(p),
+        }
+    }
+
+    pub fn value_at(&mut self, p: &Place) -> R<Value> {
         let mut v = self.read_root(&p.root)?;
         for s in &p.path {
             v = match (s, &v) {

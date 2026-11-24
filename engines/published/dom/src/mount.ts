@@ -143,8 +143,10 @@ export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): M
 
   /** Forgets the views drawn into every container inside an element, the element's own included. */
   function release(el: Element): void {
-    for (const [c, m] of [...containers]) {
-      if (!containers.has(c) || !el.contains(c)) continue;
+    if (!containers.size) return;
+    for (const c of [el, ...el.querySelectorAll("*")]) {
+      const m = containers.get(c);
+      if (!m) continue;
       containers.delete(c);
       for (const e of m.values()) forget(e);
     }
@@ -277,6 +279,8 @@ export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): M
     unmount(): void {
       if (!live) return;
       off();
+      release(root);
+      // what a widget drew outside its element
       for (const m of [...containers.values()]) for (const e of m.values()) drop(e);
       containers.clear();
       byId.clear();

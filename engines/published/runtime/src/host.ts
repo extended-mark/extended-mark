@@ -59,7 +59,7 @@ export class Page {
   /** The token types, for a value the page gives while it is being made. */
   private readonly tokens: ReadonlySet<string>;
   private now: Tree = { nodes: [] };
-  private byId: Map<string, { node: Node; drawn: Drawn }> | undefined;
+  private byId: Map<string, Drawn> | undefined;
   private made = new WeakMap<Drawn, Made>();
   private fns = new Map<string, HeldFn>();
   private contracts = new WeakMap<ir.Type, Contract>();
@@ -90,7 +90,8 @@ export class Page {
 
   /** The node of an id, if it is on the page. */
   node(id: string): Node | undefined {
-    return this.ids().get(id)?.node;
+    const d = this.drawn(id);
+    return d && this.made.get(d)?.node;
   }
 
   /** How many changes came from outside the layout: a layout that didn't settle is held until the next. */
@@ -237,16 +238,11 @@ export class Page {
   // ---- inside
 
   private drawn(id: string): Drawn | undefined {
-    return this.ids().get(id)?.drawn;
-  }
-
-  /** Every node by its id, once something asks for one. */
-  private ids(): Map<string, { node: Node; drawn: Drawn }> {
     if (!this.byId) {
       this.byId = new Map();
-      this.core.tree().forEach((d, k) => this.index(d, this.now.nodes[k]));
+      for (const d of this.core.tree()) this.index(d);
     }
-    return this.byId;
+    return this.byId.get(id);
   }
 
   /** The page drawn, as nodes: the ones nothing changed in are the ones there were. */
@@ -265,12 +261,10 @@ export class Page {
     return m.node;
   }
 
-  /** A node and everything in it, found by id. */
-  private index(d: Drawn, node: Node): void {
-    this.byId!.set(node.id, { node, drawn: d });
-    const inside = Object.values(node.inputs).flatMap((x) => nodesIn(x));
-    const by = new Map(inside.map((n) => [n.id, n]));
-    for (const kids of childrenOf(d)) for (const k of kids) this.index(k, by.get(k.key)!);
+  /** A widget and every one in it, found by id. */
+  private index(d: Drawn): void {
+    this.byId!.set(d.key, d);
+    for (const kids of childrenOf(d)) for (const k of kids) this.index(k);
   }
 
   private make(d: Drawn, fns: string[]): Node {

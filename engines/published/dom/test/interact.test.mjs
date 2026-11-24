@@ -327,6 +327,14 @@ test("unmount takes the page away and leaves the element as it was", async () =>
   await page.close();
 });
 
+test("unmount takes each widget away once, however deep it is", async () => {
+  const label = (k) => `@label(value = "${k}");`;
+  const page = await open(browser, `widget w() {\n    view {\n        @column {\n            ${label(1)}\n            @row {\n                ${label(2)}\n                @column {\n                    ${label(3)}\n                }\n            }\n        }\n    }\n    markdown {\n        x\n    }\n}\n@@@\n@w;\n\n${label(4)}\n`, { count: true });
+  await xtmd(page, "unmount");
+  assert.deepEqual(Object.values(await page.evaluate(() => window.gone)), [1, 1, 1, 1]);
+  await page.close();
+});
+
 test("run() supplies moment.local from the browser's own time zone, summer time included", async () => {
   const source = 'let summer: moment = "2026-07-01T12:00+00:00";\nlet winter: moment = "2026-01-01T12:00+00:00";\n\nwidget clock() {\n    view {\n        @label(value = "\\{summer.local().time()} \\{winter.local().time()} \\{summer.local()}");\n    }\n}\n@@@\n@clock;\n';
   const page = await open(browser, source, { context: { timezoneId: "Europe/Berlin" } });
