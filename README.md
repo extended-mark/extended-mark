@@ -5,7 +5,7 @@
 
 # Extended Mark 0.4
 
-Extended Mark (called MKP, Markdown Markup, up to 0.2) is a statically typed language for widgets in Markdown documents. A document is its definitions, a line that holds only `@@@`, and Markdown with `@widget` calls in it. Extended Mark lowers a page onto extern widgets, and whoever supplies those widgets decides how the page looks.
+Extended Mark is a statically typed language for widgets in Markdown documents. A document is its definitions, a line that holds only `@@@`, and Markdown with `@widget` calls in it. Extended Mark lowers a page onto extern widgets, and whoever supplies those widgets decides how the page looks.
 
 ## Install
 
@@ -27,8 +27,7 @@ download: `xtmd-<version>-<platform>.tar.gz` for `linux-x64`, `linux-arm64`, `da
 `%LOCALAPPDATA%\xtmd\bin`, added to your PATH); `XTMD_VERSION` picks a release and `XTMD_INSTALL_DIR`
 another folder.
 
-`xtmd migrate` moves a document of an earlier version to this one, MKP 0.2's included. MKP 0.2 is in the
-branch [`legacy-0.2.x`](https://github.com/extended-mark/extended-mark/tree/legacy-0.2.x), with its releases.
+`xtmd migrate` moves a document of an earlier version to this one.
 
 ## In this repository
 

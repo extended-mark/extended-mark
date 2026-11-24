@@ -75,7 +75,5 @@ def take(t):
     r.chapter(6)
     r.run("flag-unknown", "A flag a command doesn't take is a warning, and the command still runs.")
     t.beat(r.out("flag-unknown", "warning: xtmd check has no flag --strict"), "check has no --strict: it is ignored, and the check passes.", 3.4)
-    r.run("flag-dropped", "A flag MKP 0.2 had and 0.3 dropped stops it, and says what replaced it.")
-    t.beat(r.out("flag-dropped", "dropped --write"), "0.2's fmt --write is gone: fmt writes in place; exit 2.", 3.2)
 
     r.end("Next, part 2: packs, surfaces and the target checks.", 2.8)

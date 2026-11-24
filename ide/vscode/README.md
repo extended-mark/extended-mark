@@ -29,10 +29,7 @@ theme.
     checks an open one, into Problems.
   - **Migrate** plans what `xtmd migrate` would do (xtmd-migrate, in xtmd.wasm), asks its questions
     one at a time, shows every change side by side with the file as it is, and on Write Them writes
-    it as one edit: Undo in any file it wrote takes the whole migration back. A document written for MKP 0.2 is moved by 0.2's frozen step (`dist/migrate-0.2.cjs`),
-    run with VS Code's own Node, with the 0.2 packs (folders with a `manifest.mkp`) in the
-    workspace; a browser has no Node, so there it is left as it is, and says why. A document still
-    named `name.mkp.md` offers to migrate.
+    it as one edit: Undo in any file it wrote takes the whole migration back.
 - `*.ir.json` and `*.rir.json` are checked against the IR schemas.
 
 What it does is logged in its output channel (Extended Mark: Show the Log); nothing is sent

@@ -30,7 +30,6 @@ const tree = {
   "ide/vscode/README.md": "npm run package       # xtmd-0.3.1.vsix\n",
   "schemas/examples/counter.ir.json": json({ ir: 3, meta: { xtmd: "0.3.1" } }),
   "tools/release/README.md": "Every package and crate carries the release's version (0.3.1); …\n",
-  "tools/migrate-0.2/frozen/package.json": json({ name: "@extended-mark/migrate-0.2", version: "0.3.1" }),
   "compiler/migrate/src/lib.rs": 'pub const FIRST: &str = "0.3.0";\n',
 };
 for (const [file, text] of Object.entries(tree)) {
@@ -71,7 +70,6 @@ test("bump raises every place it owns, and nothing else", () => {
   assert.equal(read("ide/vscode/README.md"), "npm run package       # xtmd-0.4.0.vsix\n");
   assert.equal(JSON.parse(read("schemas/examples/counter.ir.json")).meta.xtmd, "0.4.0");
   assert.match(read("tools/release/README.md"), /\(0\.4\.0\)/);
-  assert.equal(JSON.parse(read("tools/migrate-0.2/frozen/package.json")).version, "0.3.1", "the frozen 0.2 tool");
   assert.equal(read("compiler/migrate/src/lib.rs"), 'pub const FIRST: &str = "0.3.0";\n', "the language's first release");
   assert.equal(new Set(changed).size, changed.length, "each file once");
   assert.deepEqual(drift(scratch, "0.4.0"), []);

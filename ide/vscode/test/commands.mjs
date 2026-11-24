@@ -1,7 +1,7 @@
 // The commands that once ran the xtmd binary, in real VS Code with none installed: Show as
 // Markdown, Check a Folder and Migrate, driven as a person would and photographed into test/out.
 // The workspace is made in a temporary folder: test/workspace's site, a page with errors beside it,
-// and a tree written for kit@1 with an MKP 0.2 document in it. Run it on a screen, or with Xvfb:
+// and a tree written for kit@1. Run it on a screen, or with Xvfb:
 //
 //   Xvfb :97 -screen 0 1600x1000x24 -nolisten tcp &  DISPLAY=:97 node test/commands.mjs
 
@@ -43,7 +43,7 @@ writeFileSync(
 );
 
 // the workspace: site/ (test/workspace, and a page with two slips), old/ (written for kit@1, as the
-// CLI's tests have it, and a document of MKP 0.2's)
+// CLI's tests have it)
 const workspace = mkdtempSync(join(tmpdir(), "xtmd-commands-"));
 cpSync(join(here, "workspace"), join(workspace, "site"), { recursive: true });
 writeFileSync(join(workspace, "site", "docs", "broken.xtmd"), 'import kit;\n@@@\n# Broken\n\n@taly(name = "Yes", count = 1);\n\n@press(lable = "Go");\n');
@@ -53,7 +53,6 @@ const old = {
   "kit/surfaces/kit@1.xtmdpack": "package kit@1;\n\nrecord stat {\n    label: text;\n    value: text;\n}\n\nenum state { DONE, LATE }\n\nextern widget chart(values: list<number>, color: color = color.ACCENT);\nextern widget badge(label: text, shadow: bool = false);\nextern widget sparkline(values: list<number>);\nextern widget stats(items: list<stat>);\n",
   "kit/migrations/kit@2.xtmdpack": 'package kit;\n\nmigration kit@1 to kit@2 {\n    widget chart {\n        rename(to = plot);\n        rename(input = color, to = tone);\n    }\n\n    widget badge {\n        drop(input = shadow, why = "badges have no shadow");\n        set(input = size, value = size.S, when = !given(size), why = "kit@1\'s badges were small");\n    }\n\n    widget sparkline {\n        drop(why = "use plot");\n    }\n\n    record stat {\n        rename(field = label, to = title);\n        add(field = unit, value = "", why = "a stat names its unit");\n    }\n\n    enum state {\n        split(from = state.LATE, to = [state.OVERDUE, state.DONE], why = "late is now overdue, or done");\n    }\n}\n',
   "docs/report.xtmd": 'import kit;\n\n$state {\n    s: state = state.LATE;\n}\n@@@\n# Report\n\n@chart(values = [1, 2], color = color.OK);\n\n@badge(label = "Beta", shadow = true);\n\n@sparkline(values = [3]);\n\n@stats(items = [stat { label = "Deploys", value = "42" }]);\n',
-  "docs/counter.mkp.md": '---\nteaches: "reader state, a press and an event"\n---\n# A counter\n\n```mkp\ncounter "A number the reader steps up or down."\n  in start int = 0 "where it begins"\n  var n int = start\n  row gap=m align=center\n    press label="one less"\n      icon name=minus\n      @click set n=(n - 1)\n    text "\\val{n}" font=mono size=large weight=bold\n    press label="one more"\n      icon name=plus\n      @click set n=(n + 1)\n  project md = "Count: " + format(n, 0)\n```\n\n```counter\nstart: 3\nsummary: A counter that starts at 3.\n```\n',
 };
 for (const [f, t] of Object.entries(old)) {
   mkdirSync(dirname(join(workspace, "old", f)), { recursive: true });
@@ -151,28 +150,26 @@ try {
   await win.locator(".quick-input-widget .monaco-list-row", { hasText: "DONE" }).first().click();
   await win.locator(".notifications-toasts", { hasText: "Write the changes" }).first().waitFor({ timeout: 90000 });
   await pause(2000);
-  await shot("sc-4-migrate-changes", "The plan side by side with each file before anything is written: report.xtmd to kit@2, counter.mkp.md moved from MKP 0.2 by its frozen step (run with VS Code's own Node) and renamed, xtmd.toml's [uses]");
+  await shot("sc-4-migrate-changes", "The plan side by side with each file before anything is written: report.xtmd to kit@2, xtmd.toml's [uses]");
   await win.locator(".notifications-toasts .monaco-button", { hasText: "Write Them" }).first().click();
   await win.locator(".notifications-toasts", { hasText: "Migrated" }).first().waitFor({ timeout: 60000 });
   await pause(1500);
   const report = readFileSync(join(workspace, "old", "docs", "report.xtmd"), "utf8");
   if (!report.includes("s: state = state.DONE;") || !report.includes("@plot(values = [1, 2], tone = color.OK);")) fail(`report.xtmd isn't migrated:\n${report}`);
-  if (!existsSync(join(workspace, "old", "docs", "counter.xtmd")) || existsSync(join(workspace, "old", "docs", "counter.mkp.md"))) fail("counter.mkp.md isn't moved to counter.xtmd");
   if (!readFileSync(join(workspace, "old", "xtmd.toml"), "utf8").includes("kit = 2")) fail("xtmd.toml's [uses] isn't kit = 2");
   await win.keyboard.press("Control+P");
   await win.keyboard.type("report.xtmd", { delay: 20 });
   await pause(600);
   await win.keyboard.press("Enter");
   await pause(1500);
-  await shot("sc-5-migrated", "Applied: report.xtmd now uses plot, size and title, DONE as answered; counter.xtmd beside it; the notification says how many moved");
+  await shot("sc-5-migrated", "Applied: report.xtmd now uses plot, size and title, DONE as answered; the notification says how many moved");
 
   // 4. Undo takes the whole migration back: Ctrl+Z in any file it wrote
   await win.locator(".view-line", { hasText: "state.DONE" }).first().click();
   await win.keyboard.press("Control+Z");
   await win.locator(".view-line", { hasText: "state.LATE" }).first().waitFor({ timeout: 15000 });
-  if (!existsSync(join(workspace, "old", "docs", "counter.mkp.md"))) fail("Undo didn't move counter.xtmd back");
   await pause(1500);
-  await shot("sc-6-undone", "Ctrl+Z in report.xtmd: the whole migration undone, in every file it wrote (unsaved until saved), counter.mkp.md back under its old name");
+  await shot("sc-6-undone", "Ctrl+Z in report.xtmd: the whole migration undone, in every file it wrote (unsaved until saved)");
 } catch (e) {
   await win.screenshot({ path: join(out, "sc-failed.png") });
   console.error(`failed after ${steps.length} steps: ${e.message}`);

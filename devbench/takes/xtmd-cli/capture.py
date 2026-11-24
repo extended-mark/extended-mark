@@ -134,13 +134,9 @@ SCENES = {
     "ci": (kit_tree(), True),
     "kit2": ({"kit/kit.xtmdpack": C["KIT2"], "kit/surfaces/kit@1.xtmdpack": C["KIT1_SURFACE"],
               "kit/migrations/kit@2.xtmdpack": EXAMPLES}, False),
-    "notes": ({"docs/counter.mkp.md": C["COUNTER_02"], "docs/runs.mkp.md": C["RUNS_02"],
-               "docs/plain.mkp.md": "# Notes\n\n```js\nlet x = 1;\n```\n",
-               "old/units/manifest.mkp": C["UNITS_02_MANIFEST"],
-               "old/units/distance.mkp": C["UNITS_02_DISTANCE"]}, False),
 }
 
-FROZEN = "~/project/markdown-markup/tools/migrate-0.2/frozen"
+
 
 
 def S(id, scene, cmd, show=(), answers=None):
@@ -172,7 +168,6 @@ REELS = {
             S("md", "pages", "xtmd md counter.xtmd"),
             S("md-json", "pages", "xtmd md --format json counter.xtmd"),
             S("flag-unknown", "pages", "xtmd check --strict counter.xtmd"),
-            S("flag-dropped", "pages", "xtmd fmt --write counter.xtmd"),
         ],
     },
     "packs": {
@@ -238,7 +233,6 @@ REELS = {
             S("json", "ci", "xtmd migrate docs --dry-run --format json"),
             S("report-md", "ci", "xtmd migrate docs --yes --report run.md", show=["run.md", "docs/report.xtmd"]),
             S("report-json", "ci", "xtmd migrate docs --check --report run.json", show=["run.json"]),
-            S("write-flag", "ci", "xtmd migrate docs --write"),
             S("newer", "ci", "sed -i 's/^xtmd = \"0.3.0\"/xtmd = \"9.0.0\"/' xtmd.toml && xtmd migrate docs --check"),
             S("examples", "kit2", "xtmd check --pack kit kit/migrations/kit@2.xtmdpack", show=["kit/migrations/kit@2.xtmdpack"]),
             S("bad-after", "kit2", "sed -i 's/size = size.S))/size = size.M))/' kit/migrations/kit@2.xtmdpack"
@@ -264,22 +258,6 @@ REELS = {
             S("bare-yes", "ask", "xtmd migrate docs --yes"),
             S("yes-all", "ask", "xtmd migrate docs --yes all", show=["docs/report.xtmd"]),
             S("defect", "repo", "xtmd target check test --defect no-undoo --expect-failures"),
-        ],
-    },
-    "from02": {
-        "part": 6, "title": "xtmd migrate: from MKP 0.2",
-        "chapters": ["a 0.2 tree", "look first", "write, with a stand-in", "check it"],
-        "steps": [
-            S("tree", "notes", "find . -type f | sort",
-              show=["docs/counter.mkp.md", "docs/runs.mkp.md", "old/units/manifest.mkp", "old/units/distance.mkp"]),
-            S("frozen", "notes", "ls " + FROZEN + " && node --version"),
-            S("dry", "notes", "xtmd migrate docs --pack old/units --dry-run"),
-            S("changed", "notes", "cp " + FROZEN + "/migrate-0.2.cjs changed.cjs && echo '// changed' >> changed.cjs"
-              " && XTMD_MIGRATE_02=changed.cjs xtmd migrate docs --pack old/units --dry-run"),
-            S("write", "notes", "xtmd migrate docs --pack old/units --yes --allow-todos",
-              show=["docs/counter.xtmd", "docs/runs.xtmd", "docs/plain.xtmd", "docs/stand-ins/units/units.xtmdpack"]),
-            S("check", "notes", "xtmd check --pack docs/stand-ins docs/counter.xtmd docs/runs.xtmd"),
-            S("again", "notes", "xtmd migrate docs --pack docs/stand-ins,old/units --check"),
         ],
     },
 }

@@ -64,7 +64,6 @@ const CHECK: &str = "usage: xtmd check <file|folder>… [--pack a,b] [--config x
   total. A document's line names the levels it needs to run (core.draw, core.live, core.gfx).
   A folder means every Extended Mark file under it. A pack's file is checked with the rest of its pack,
   against the surfaces it has released (surfaces/name@N.xtmdpack), and its migrations' examples are run.
-  A document that looks like MKP 0.2's gets a warning: xtmd migrate brings it to 0.3.
   --pack a,b     the packs the files use (or packs = [...] in xtmd.toml)
   --out f        the report goes to f instead of stderr
   --format json  JSON lines on stdout: one for each diagnostic ({\"type\":\"diagnostic\",\"code\",

@@ -36,41 +36,20 @@ pub(crate) fn writes(cmd: &str, args: &[String]) -> bool {
     }
 }
 
-/// A flag a release dropped: its command (`*` for every command), the flag, the release that dropped
-/// it, and what does its work now ("nothing: …" where nothing does, and why). A later release that
-/// drops one adds it here. A release of `""` is a flag xtmd never had but is asked for, and why it has
-/// none.
-const DROPPED: &[(&str, &str, &str, &str)] = &[
-    ("build", "--target", "0.3.0", "xtmd build writes the IR and xtmd md the Markdown; drawing HTML is an engine's"),
-    ("build", "--md", "0.3.0", "xtmd md writes CommonMark with GitHub's tables, and has no switches"),
-    ("build", "--lock", "0.3.0", "the version of each pack is xtmd.toml's [uses]"),
-    ("build", "--relock", "0.3.0", "the version of each pack is xtmd.toml's [uses], which xtmd migrate moves"),
-    ("build", "--no-lock", "0.3.0", "there is no lock: the version of each pack is xtmd.toml's [uses]"),
-    ("build", "--diagnostics", "0.3.0", "use --format json"),
-    ("build", "--styles", "0.3.0", "the look is an engine's to draw, and xtmd writes no HTML"),
-    ("build", "--profile", "0.3.0", "nothing: a pack has one surface per version"),
-    ("build", "--name", "0.3.0", "nothing: xtmd build reads a file, named by its path"),
-    ("build", "--compact", "0.3.0", "nothing: the IR is written one way"),
-    ("build", "--no-maths", "0.3.0", "nothing: maths is TeX passed to the engine, which draws it"),
-    ("build", "--no-speech", "0.3.0", "nothing: maths is TeX passed to the engine, which draws it"),
-    ("build", "--no-answers", "0.3.0", "nothing: xtmd md writes a page with its starting values"),
-    ("check", "--diagnostics", "0.3.0", "use --format json"),
-    ("fmt", "--write", "0.3.0", "xtmd fmt writes each file in place; --check only checks"),
-    ("migrate", "--write", "0.3.0", "xtmd migrate writes in place, asking first in a terminal; elsewhere --yes writes"),
-    ("migrate", "--keep", "0.3.0", "a pack's migration asks with confirm, and --yes 1,3 answers its numbered questions (or --answers)"),
-    ("migrate", "--take", "0.3.0", "a pack's migration asks with confirm, and --yes all answers every question yes (or --answers)"),
-    ("migrate", "--core", "0.3.0", "XTMD_MIGRATE_02 names the frozen 0.2 step"),
-    ("migrate", "--to", "", "a migration goes one way, to this xtmd's release and to the version of each pack in the build"),
+/// A flag xtmd hasn't but is asked for: its command (`*` for every command), the flag, and why there is
+/// none, or the one there is.
+const ASKED_FOR: &[(&str, &str, &str)] = &[
+    ("migrate", "--to", "a migration goes one way, to this xtmd's release and to the version of each pack in the build"),
     // one spelling for each flag: the short ones xtmd 0.3's development had, and the --json it had
-    ("*", "-o", "", "use --out"),
-    ("*", "-c", "", "use --config"),
-    ("*", "-h", "", "use --help"),
-    ("*", "--json", "", "use --format json"),
-    ("migrate", "-y", "", "use --yes"),
+    ("*", "-o", "use --out"),
+    ("*", "-c", "use --config"),
+    ("*", "-h", "use --help"),
+    ("*", "--json", "use --format json"),
+    ("migrate", "-y", "use --yes"),
 ];
 
 /// The command's flags looked over: each one it doesn't know, warned about, and whether it can run;
-/// a flag a release dropped stops it, with what replaced it.
+/// one it hasn't but is asked for stops it, with what there is.
 pub(crate) fn check(cmd: &str, args: &[String]) -> (Vec<String>, bool) {
     let known = known(cmd);
     let (mut unknown, mut ok) = (Vec::new(), true);
@@ -79,13 +58,9 @@ pub(crate) fn check(cmd: &str, args: &[String]) -> (Vec<String>, bool) {
         if known.contains(&name) {
             continue;
         }
-        match DROPPED.iter().find(|(c, f, _, _)| (*c == cmd || *c == "*") && *f == name) {
-            Some((_, _, since, instead)) => {
-                match (since.is_empty(), instead.strip_prefix("nothing: ")) {
-                    (true, _) => eprintln!("error: xtmd {} has no {}: {}", cmd, name, instead),
-                    (false, Some(why)) => eprintln!("error: xtmd {} dropped {} in xtmd {}, and nothing replaces it: {}", cmd, name, since, why),
-                    (false, None) => eprintln!("error: xtmd {} dropped {} in xtmd {}: {}", cmd, name, since, instead),
-                }
+        match ASKED_FOR.iter().find(|(c, f, _)| (*c == cmd || *c == "*") && *f == name) {
+            Some((_, _, instead)) => {
+                eprintln!("error: xtmd {} has no {}: {}", cmd, name, instead);
                 ok = false;
             }
             None => unknown.push(name.to_string()),
@@ -126,23 +101,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn every_dropped_flag_is_one_its_command_no_longer_takes() {
-        for (cmd, flag, since, instead) in DROPPED {
-            assert!(!known(cmd).contains(flag), "xtmd {} still takes {}", cmd, flag);
-            assert!((since.is_empty() || crate::migrate::release_of(since).is_some()) && !instead.is_empty());
+    fn every_flag_asked_for_is_one_its_command_hasnt() {
+        for (cmd, flag, instead) in ASKED_FOR {
+            assert!(!known(cmd).contains(flag), "xtmd {} takes {}", cmd, flag);
+            assert!(!instead.is_empty());
         }
     }
 
     #[test]
-    fn an_unknown_flag_is_ignored_and_a_dropped_one_stops_the_command() {
+    fn an_unknown_flag_is_ignored_and_one_asked_for_stops_the_command() {
         let args = |xs: &[&str]| xs.iter().map(|x| x.to_string()).collect::<Vec<_>>();
         assert_eq!(check("migrate", &args(&["docs", "--yes=1,3", "--pack=kit", "--stdout", "--quiet"])), (vec!["--quiet".to_string()], true));
-        assert!(!check("migrate", &args(&["docs", "--write"])).1);
         assert!(!check("migrate", &args(&["docs", "--to", "0.3.0"])).1);
         assert_eq!(check("fmt", &args(&["a.xtmdpack", "--check", "-", "--format", "json", "--out", "x.txt"])), (vec![], true));
         assert!(!check("build", &args(&["a.xtmd", "-o", "a.ir.json"])).1);
         assert!(!check("check", &args(&["a.xtmd", "-o", "report.txt"])).1);
-        assert!(!check("fmt", &args(&["a.xtmdpack", "--write"])).1);
     }
 
     #[test]

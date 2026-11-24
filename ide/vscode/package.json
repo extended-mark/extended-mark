@@ -182,7 +182,7 @@
         },
         {
           "command": "xtmd.migrate",
-          "when": "explorerResourceIsFolder || resourceExtname == .xtmd || resourceFilename =~ /\\.mkp\\.md$/",
+          "when": "explorerResourceIsFolder || resourceExtname == .xtmd",
           "group": "7_modification"
         }
       ],

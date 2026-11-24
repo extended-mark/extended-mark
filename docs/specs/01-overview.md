@@ -1,6 +1,6 @@
 # Overview
 
-Extended Mark (called MKP, Markdown Markup, up to 0.2) is a statically typed language for drawing widgets in Markdown documents. This page has the rules, the words, the two file types and how a document is read.
+Extended Mark is a statically typed language for drawing widgets in Markdown documents. This page has the rules, the words, the two file types and how a document is read.
 
 > **The language in five lines**
 >

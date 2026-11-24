@@ -17,7 +17,6 @@ pub mod releases;
 mod slots;
 mod texts;
 pub mod step;
-pub mod v02;
 
 /// This xtmd's release: what a tree is written for once `xtmd migrate` has moved it.
 pub const RELEASE: &str = env!("CARGO_PKG_VERSION");
@@ -56,21 +55,11 @@ pub struct Outcome {
     /// Each value renamed, set or added, with its statement's why.
     pub changed: Vec<String>,
     pub errors: Vec<String>,
-    /// The stand-in packs it is checked against, written with it.
-    pub stand_ins: Vec<String>,
 }
 
-/// A document: `.xtmd`, or `.mkp.md` as 0.2 named it.
+/// A document.
 pub fn is_doc(p: &str) -> bool {
-    p.ends_with(".xtmd") || p.ends_with(".mkp.md")
-}
-
-/// Where a document is written: a 0.2 name, `name.mkp.md`, moves to `name.xtmd`.
-pub fn written_as(p: &Path) -> PathBuf {
-    match p.to_str().and_then(|s| s.strip_suffix(".mkp.md")) {
-        Some(stem) => PathBuf::from(format!("{}.xtmd", stem)),
-        None => p.to_path_buf(),
-    }
+    p.ends_with(".xtmd")
 }
 
 /// The build's packs, by their package lines: each one's version, surfaces and migrations.
@@ -195,7 +184,7 @@ pub fn stamp(text: &str) -> BTreeMap<String, u32> {
 /// versions of the packs it uses.
 #[allow(clippy::too_many_arguments)]
 pub fn doc_through_releases(base: &xtmd_check::Checker, packs: &[Pack], sources: &[Source], now: &[Source], path: &Path, text: &str, from: &BTreeMap<String, u32>, uses: &BTreeMap<String, u32>, steps: &[&crate::releases::ReleaseStep], label: &str) -> Outcome {
-    let doc_path = written_as(path).display().to_string();
+    let doc_path = path.display().to_string();
     let compile = |files: &[Source]| xtmd_check::compile_on(base, &[now.to_vec()], files, "doc");
     let m = crate::releases::run(&[Source { path: doc_path.clone(), text: text.to_string() }], steps, &compile);
     if let Some(e) = m.refused.get(&doc_path) {
@@ -229,137 +218,10 @@ pub fn doc_through_releases(base: &xtmd_check::Checker, packs: &[Pack], sources:
     o
 }
 
-/// A document written for MKP 0.2: moved by the frozen 0.2 step, then through the packs'
-/// migrations as a 0.3 document is. `None` for a document that is 0.3's: one with a `@@@` line, one
-/// that compiles, or one 0.2.10 doesn't build either.
-#[allow(clippy::too_many_arguments)]
-fn migrate_02_doc(base: &xtmd_check::Checker, packs: &[Pack], sources: &[Source], now: &[Source], path: &Path, text: &str, step02: &Step02, stand_ins: &mut BTreeMap<String, (PathBuf, String)>, stand_in_dir: &Path, uses: &BTreeMap<String, u32>) -> Option<Outcome> {
-    // compiled as what it becomes: a 0.2 name is checked as the document it is written as
-    let doc_path = written_as(path).display().to_string();
-    let compiles = |world: &[Source], text: &str| xtmd_check::compile_on(base, &[world.to_vec()], &[Source { path: doc_path.clone(), text: text.to_string() }], "doc");
-    // `--from mkp@0.2` says it as a front matter would
-    let stamped = step02.from || crate::v02::stamped(text);
-    // 0.3's: a `@@@` line, or 0.3 in its prose; Markdown alone reads the same in both
-    if !stamped && (xtmd_syntax::has_divider(text) || crate::v02::speaks_03(text)) {
-        return None;
-    }
-    let mut o = Outcome { text: text.to_string(), moved: vec!["mkp 0.2 → 0.3".to_string()], ..Outcome::default() };
-    let m = match (step02.run)(path) {
-        Ok(m) => m,
-        Err(crate::v02::Failed::NotBuilt(e)) if stamped => {
-            o.refused.push(if !step02.packs_given && e.contains("unknown-widget") {
-                format!("{}. The 0.2 step builds the page with the 0.2 packs it was written with: pass each with --pack (a 0.2 pack is a folder with a manifest.mkp), beside the 0.3 ones", e)
-            } else {
-                e
-            });
-            return Some(o);
-        }
-        // the step couldn't run, so it can't say: a file that only 0.2 would write is refused
-        Err(crate::v02::Failed::NotRun(e)) if stamped || crate::v02::looks_02(text).is_some() => {
-            if !stamped {
-                o.inferred.push(format!("taken as MKP 0.2's: it has {}", crate::v02::looks_02(text).unwrap_or("0.2's marks")));
-            }
-            o.refused.push(e);
-            return Some(o);
-        }
-        Err(_) => return None,
-    };
-    if m.plain && !stamped {
-        return None;
-    }
-    if !stamped {
-        o.inferred.push("written for MKP 0.2, as 0.2.10 builds it".to_string());
-    }
-    o.changes = 1;
-    o.notices = m.notes;
-    o.todos = m.todos;
-    // each pack it uses: its own 0.3 release where the build has one, else a stand-in made from its
-    // 0.2 definitions, which is a person's to replace
-    let steps = crate::releases::between(FIRST, RELEASE, crate::releases::STEPS);
-    let mut world = now.to_vec();
-    let mut from: BTreeMap<String, u32> = BTreeMap::new();
-    for (name, shim) in &m.packs {
-        if packs.iter().any(|p| p.name == *name) {
-            from.insert(name.clone(), crate::v02::version_of(shim).unwrap_or(1));
-            continue;
-        }
-        let entry = stand_ins.entry(name.clone()).or_insert_with(|| (stand_in_dir.join(name).join(format!("{}.xtmdpack", name)), String::new()));
-        // a stand-in is written as 0.3.0 too, so it moves through the same steps
-        let path = entry.0.display().to_string();
-        let compile = |files: &[Source]| xtmd_check::compile_on(base, &[now.to_vec()], files, name);
-        let mut stepped = crate::releases::run(&[Source { path: path.clone(), text: shim.clone() }], &steps, &compile);
-        if let Some(e) = stepped.refused.remove(&path) {
-            o.refused.push(format!("{}: {}", path, e));
-            return Some(o);
-        }
-        let shim = &stepped.files[0].text;
-        entry.1 = if entry.1.is_empty() { crate::v02::marked(shim, name) } else { crate::v02::merge(&entry.1, shim) };
-        o.stand_ins.push(name.clone());
-        world.push(Source { path: entry.0.display().to_string(), text: entry.1.clone() });
-    }
-    // written as 0.3.0, then through the steps of each release after it
-    let compile = |files: &[Source]| xtmd_check::compile_on(base, &[world.clone()], files, "doc");
-    let mut stepped = crate::releases::run(&[Source { path: doc_path.clone(), text: m.doc.clone() }], &steps, &compile);
-    if let Some(e) = stepped.refused.remove(&doc_path) {
-        o.refused.push(e);
-        return Some(o);
-    }
-    if let Some(said) = stepped.said.remove(&doc_path) {
-        o.moved.push(format!("xtmd {} → {}", FIRST, RELEASE));
-        o.changes += said.len();
-        o.notices.extend(said);
-    }
-    o.todos.extend(stepped.todos.remove(&doc_path).unwrap_or_default());
-    o.text = stepped.files.remove(0).text;
-    if !o.stand_ins.is_empty() {
-        let names: Vec<String> = o.stand_ins.iter().map(|n| format!("{} ({})", n, stand_ins[n].0.display())).collect();
-        o.text = o.text.replacen("// Nothing to finish by hand.\n", &format!("// TODO(xtmd migrate): checked against a stand-in for {}, until the pack's own 0.3 release replaces it.\n", names.join(", ")), 1);
-    }
-    if (!o.todos.is_empty() || !o.stand_ins.is_empty()) && !crate::step::TODO.load(std::sync::atomic::Ordering::Relaxed) {
-        let mut what: Vec<String> = o.todos.clone();
-        what.extend(o.stand_ins.iter().map(|p| format!("{} has no 0.3 release here, so it needs a stand-in made from its 0.2 definitions", p)));
-        let n = what.len();
-        o.refused.push(format!("0.3 can't yet say {} thing{} the way 0.2 did ({}): --allow-todos writes it with a TODO at each", n, if n == 1 { "" } else { "s" }, what.join("; ")));
-        return Some(o);
-    }
-    // a summary to write never stops it: 0.2.9 only warned of one that was missing
-    o.todos.extend(m.placeholders);
-    // then up to the versions of the 0.3 packs it uses, through their migrations
-    if !from.is_empty() {
-        let next = migrate_doc(base, packs, sources, &world, path, &o.text, &from, uses);
-        o.moved.extend(next.moved.iter().cloned());
-        o.changes += next.changes;
-        o.deletions.extend(next.deletions);
-        o.notices.extend(next.notices);
-        o.todos.extend(next.todos);
-        o.changed.extend(next.changed);
-        o.errors.extend(next.errors);
-        o.refused.extend(next.refused);
-        o.inferred.extend(next.inferred);
-        o.text = next.text;
-        if !o.refused.is_empty() || next.moved.len() > 0 {
-            return Some(o);
-        }
-    }
-    let c = compiles(&world, &o.text);
-    if c.module.is_none() {
-        let lines = Lines::new(&o.text);
-        let errs: Vec<String> = c.errors().filter(|d| d.file == doc_path).take(3).map(|d| format!("line {}: {}", lines.place(d.diagnostic.span.start).line, d.diagnostic.message)).collect();
-        let why = format!("it doesn't compile as 0.3 ({})", if errs.is_empty() { "an error in a pack".to_string() } else { errs.join("; ") });
-        if ALLOW_ERRORS.load(std::sync::atomic::Ordering::Relaxed) {
-            o.errors.push(why);
-        } else {
-            o.refused.push(format!("{}; --allow-errors writes it anyway", why));
-        }
-    }
-    Some(o)
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn migrate_doc(base: &xtmd_check::Checker, packs: &[Pack], sources: &[Source], now: &[Source], path: &Path, text: &str, from: &BTreeMap<String, u32>, uses: &BTreeMap<String, u32>) -> Outcome {
     let mut o = Outcome { text: text.to_string(), ..Outcome::default() };
-    // checked as the document it is written as, for a 0.2 name too
-    let doc_path = written_as(path).display().to_string();
+    let doc_path = path.display().to_string();
     // a pack it imports that isn't in the build: nothing can say which version it is written for
     let missing: Vec<String> = imported(text).into_iter().filter(|n| !packs.iter().any(|p| p.name == *n) && !core_packs(base).contains(n)).collect();
     if !missing.is_empty() {
@@ -715,16 +577,6 @@ pub fn unified(path: &str, old: &str, new: &str) -> String {
     out
 }
 
-/// The 0.2 → 0.3 step, as whoever runs the migration has it: the xtmd command runs the frozen file
-/// with Node; an editor gives what it ran, or says why it couldn't.
-pub struct Step02<'a> {
-    pub run: &'a dyn Fn(&Path) -> Result<v02::Migrated, v02::Failed>,
-    /// Whether 0.2 packs were given to build the documents with.
-    pub packs_given: bool,
-    /// Whether every document is 0.2's, whatever it looks like: `--from mkp@0.2`.
-    pub from: bool,
-}
-
 /// What a pass over the files works with: the build as the release steps left it, and what the tree
 /// is written for.
 pub struct Tree<'a> {
@@ -744,9 +596,6 @@ pub struct Tree<'a> {
     pub from: &'a BTreeMap<String, u32>,
     /// xtmd.toml's [uses].
     pub uses: &'a BTreeMap<String, u32>,
-    /// Where the stand-ins for 0.2 packs with no 0.3 release go.
-    pub stand_in_dir: &'a Path,
-    pub step02: &'a Step02<'a>,
 }
 
 /// The release steps, run on the packs' files before anything else: `sources` holds their texts after
@@ -785,11 +634,9 @@ pub fn step_packs(base: &xtmd_check::Checker, sources: &mut [Source], steps: &[&
 }
 
 /// One pass over every file: the packs that use a migrated pack first, then each document (its path
-/// and text). Gives each file's outcome with its text before, and the stand-ins for the 0.2 packs that
-/// have no 0.3 release here, by name. The questions it met that no one has answered are
-/// [`step::pending`]: answered, the files are planned again.
-#[allow(clippy::type_complexity)]
-pub fn pass(t: &Tree, docs: &[(PathBuf, String)]) -> (Vec<(PathBuf, String, Outcome)>, BTreeMap<String, (PathBuf, String)>) {
+/// and text). Gives each file's outcome with its text before. The questions it met that no one has
+/// answered are [`step::pending`]: answered, the files are planned again.
+pub fn pass(t: &Tree, docs: &[(PathBuf, String)]) -> Vec<(PathBuf, String, Outcome)> {
     step::new_pass();
     let (base, packs, sources) = (t.base, t.packs, t.sources);
     let mut results: Vec<(PathBuf, String, Outcome)> = Vec::new();
@@ -824,21 +671,11 @@ pub fn pass(t: &Tree, docs: &[(PathBuf, String)]) -> (Vec<(PathBuf, String, Outc
     for (path, (disk, why)) in t.step_refused {
         results.push((PathBuf::from(path), disk.clone(), Outcome { text: disk.clone(), moved: vec![t.release_label.to_string()], refused: vec![why.clone()], ..Outcome::default() }));
     }
-    let mut stand_ins: BTreeMap<String, (PathBuf, String)> = BTreeMap::new();
     for (d, text) in docs {
-        let o = match migrate_02_doc(base, packs, sources, &now, d, text, t.step02, &mut stand_ins, t.stand_in_dir, t.uses) {
-            Some(o) => o,
-            None => {
-                let mut o = doc_through_releases(base, packs, sources, &now, d, text, t.from, t.uses, t.release_steps, t.release_label);
-                if let Some(why) = v02::may_be_02(text).filter(|_| !xtmd_syntax::has_divider(text) && !v02::speaks_03(text)) {
-                    o.notices.push(format!("it has {}: if it was written for MKP 0.2, xtmd migrate --from mkp@0.2 says so, and the 0.2 step takes it", why));
-                }
-                o
-            }
-        };
+        let o = doc_through_releases(base, packs, sources, &now, d, text, t.from, t.uses, t.release_steps, t.release_label);
         results.push((d.clone(), text.clone(), o));
     }
-    (results, stand_ins)
+    results
 }
 
 /// xtmd.toml's `[uses]`: the version of each pack its tree is written for.

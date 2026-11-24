@@ -2,7 +2,7 @@
 //! one, beyond any pack's migrations. Each step is made with Extended Mark's own reader, or with what
 //! the compiler finds in the files, never by searching the text. `xtmd migrate` runs the steps of every
 //! release after the one a tree is written for (xtmd.toml's `xtmd`), oldest first and before anything
-//! else; a 0.2 document's run once the 0.2 step has written it as 0.3.0.
+//! else.
 //!
 //! A step that knows what the calls of a file mean is given the files compiled, with the packs they
 //! use. What it can't settle it asks, or leaves for a person with a TODO, as a pack's migrations do.

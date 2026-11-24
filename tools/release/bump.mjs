@@ -11,7 +11,7 @@
 // `"xtmd"`; the runtime snapshots' release (`RELEASE`) in @extended-mark/embed and the Android
 // example (egui takes its crate's version); and the version the docs show (the release README, the VS
 // Code extension's README, the Android example's README). A 0.3.0 that means the language's first
-// release (`xtmd migrate`, a flag dropped "in 0.3.0") or the frozen 0.2 tool is none of these.
+// release (`xtmd migrate`) is none of these.
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";

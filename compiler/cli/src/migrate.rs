@@ -8,8 +8,8 @@ use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use xtmd_migrate::{pass, release_in, step_packs, uses_after, uses_in, with_release, with_uses, Outcome, Step02, Tree, ALLOW_ERRORS, FIRST};
-pub(crate) use xtmd_migrate::{is_doc, packs_of, release_of, unified, world_at, written_as, RELEASE};
+use xtmd_migrate::{pass, release_in, step_packs, uses_after, uses_in, with_release, with_uses, Outcome, Tree, ALLOW_ERRORS, FIRST};
+pub(crate) use xtmd_migrate::{is_doc, packs_of, release_of, unified, world_at, RELEASE};
 
 pub(crate) const USAGE: &str = "usage: xtmd migrate [<file|folder>…] [--pack a,b] [--config xtmd.toml] [--from kit@1]
                   [--dry-run | --check | --diff | --stdout] [--yes [all | 1,2,…]] [--answers answers.toml]
@@ -29,14 +29,10 @@ pub(crate) const USAGE: &str = "usage: xtmd migrate [<file|folder>…] [--pack a
   --stdout       one document's result on stdout, written nowhere (what it says goes to stderr)
   --yes          writes, without a terminal; --allow-dirty writes files with uncommitted changes too
   --allow-todos  what a migration can't do is left as it was, with a TODO above it, and written
-                 (even where that code doesn't compile); a 0.2 pack with no 0.3 release gets a stand-in
+                 (even where that code doesn't compile)
   --allow-errors writes a file that doesn't compile afterwards
   --report f     the whole run, as Markdown (f.md) or JSON (f.json)
-  --from kit@1   the version the files are written for, where nothing says (xtmd.toml's [uses] does);
-                 --from mkp@0.2 says they are MKP 0.2's, where no front matter does
-  A document written for MKP 0.2 is moved by 0.2.10's own compiler, run with Node; a
-  widget block with no summary gets a placeholder, a TODO that stops nothing; --pack takes its 0.2 packs (folders with a manifest.mkp) beside the 0.3 ones. Its name
-  moves too: MKP named a document name.mkp.md, and Extended Mark names it name.xtmd.
+  --from kit@1   the version the files are written for, where nothing says (xtmd.toml's [uses] does)
   xtmd.toml's xtmd = \"0.3.x\" says the release the tree is written for (0.3.0 when it says none),
   and [uses] each pack's version; a run that moves the tree writes both.
   An IR file (xtmd migrate page.ir.json) is brought to the version this xtmd's engines run, one way,
@@ -63,7 +59,6 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
     let mut yes_all = false;
     let mut yes_to: BTreeSet<usize> = BTreeSet::new();
     let mut from: BTreeMap<String, u32> = BTreeMap::new();
-    let mut from_02 = false;
     let mut answers: Option<PathBuf> = None;
     let mut json = false;
     let mut report: Option<String> = None;
@@ -72,15 +67,6 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
     while k < args.len() {
         match args[k].as_str() {
             "--from" => {
-                if let Some(r) = args.get(k + 1).filter(|v| release_of(v).is_some()) {
-                    eprintln!("error: --from {} names a release, as mkp 0.2's did; since xtmd 0.3.0 it names a pack and the version the files are written for (--from kit@1), and xtmd.toml's xtmd = \"…\" says the release", r);
-                    return ExitCode::from(2);
-                }
-                if args.get(k + 1).map(String::as_str) == Some("mkp@0.2") {
-                    from_02 = true;
-                    k += 2;
-                    continue;
-                }
                 let Some(v) = args.get(k + 1).and_then(|v| v.split_once('@')).and_then(|(p, n)| Some((p.to_string(), n.parse::<u32>().ok()?))) else {
                     eprintln!("--from takes a pack and the version the files are written for: --from kit@1");
                     return ExitCode::from(2);
@@ -166,8 +152,6 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
             }
         }
     }
-    // a 0.2 pack (a folder with a manifest.mkp, or a .zip) is the 0.2 step's; the rest are 0.3's
-    let (rest, packs02) = split_02_packs(rest);
     // --yes all: every question yes; --yes 1,3: those yes and the rest no; a bare --yes answers none
     if yes_all {
         *crate::migrate_step::YES.lock().unwrap() = Some(crate::migrate_step::Yes::All);
@@ -238,8 +222,6 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
 
     // the plan: a pass over every file; when it meets questions no one has answered, they are asked
     // in a terminal and the files planned again with the answers, and elsewhere the run stops
-    // stand-ins for the 0.2 packs that have no 0.3 release here, beside the documents
-    let stand_in_dir = targets.first().map(|t| if Path::new(t).is_dir() { PathBuf::from(t) } else { Path::new(t).parent().map(Path::to_path_buf).unwrap_or_default() }).unwrap_or_default().join("stand-ins");
     let mut asked_here = false;
     // the documents, read once: each pass plans them again
     let mut texts: Vec<(PathBuf, String)> = Vec::new();
@@ -250,14 +232,12 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
         };
         texts.push((d.clone(), text));
     }
-    let run_02 = |p: &Path| crate::migrate_02::run(p, &packs02);
-    let step02 = Step02 { run: &run_02, packs_given: !packs02.is_empty(), from: from_02 };
-    let tree = Tree { base: &base, sources: &sources, packs: &packs, stepped: &stepped, step_refused: &step_refused, release_steps: &release_steps, release_label: &release_label, from: &from, uses: &uses, stand_in_dir: &stand_in_dir, step02: &step02 };
-    let (results, stand_ins) = loop {
-        let (results, stand_ins) = pass(&tree, &texts);
+    let tree = Tree { base: &base, sources: &sources, packs: &packs, stepped: &stepped, step_refused: &step_refused, release_steps: &release_steps, release_label: &release_label, from: &from, uses: &uses };
+    let results = loop {
+        let results = pass(&tree, &texts);
         let waiting = crate::migrate_step::pending();
         if waiting.is_empty() {
-            break (results, stand_ins);
+            break results;
         }
         if crate::migrate_step::can_ask() && !json && !stdout && !asked_here && !bare_yes {
             asked_here = true;
@@ -310,12 +290,11 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
         if !o.refused.is_empty() {
             need += 1;
             say!("{}  {}  not written: {}", name, o.moved.join(", "), o.refused.join("; "));
-        } else if o.text == *old && written_as(p) == *p {
+        } else if o.text == *old {
             fine += 1;
             say!("{}  up to date{}", name, if o.notices.is_empty() { String::new() } else { format!(": {}", o.notices.join("; ")) });
         } else {
-            // a 0.2 document whose text reads the same in 0.3 only moves to its new name
-            let mut parts = if o.text == *old { Vec::new() } else { vec![format!("{} change{}", o.changes, if o.changes == 1 { "" } else { "s" })] };
+            let mut parts = vec![format!("{} change{}", o.changes, if o.changes == 1 { "" } else { "s" })];
             if !o.deletions.is_empty() {
                 parts.push(format!("{} deletion{}", o.deletions.len(), if o.deletions.len() == 1 { "" } else { "s" }));
             }
@@ -325,14 +304,8 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
             if !o.todos.is_empty() {
                 parts.push(format!("{} TODO{}", o.todos.len(), if o.todos.len() == 1 { "" } else { "s" }));
             }
-            if !o.stand_ins.is_empty() {
-                parts.push(format!("{} stand-in{}", o.stand_ins.len(), if o.stand_ins.len() == 1 { "" } else { "s" }));
-            }
             if !o.errors.is_empty() {
                 parts.push("doesn't compile".to_string());
-            }
-            if written_as(p) != *p {
-                parts.push(format!("renamed {}", written_as(p).file_name().map_or(String::new(), |n| n.to_string_lossy().into_owned())));
             }
             say!("{}  {}  {}{}", name, o.moved.join(", "), parts.join("; "), if o.inferred.is_empty() { String::new() } else { format!(" ({})", o.inferred.join(", ")) });
             to_write.push((p.clone(), old.clone(), o));
@@ -357,7 +330,7 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
             None => say!("{}: has no `xtmd =` line, so the tree is taken as written for xtmd {}; migrating writes xtmd = \"{}\" into it{}.", shown(cfg), FIRST, RELEASE, uses_line),
         }
     }
-    let with_todos = to_write.iter().filter(|(_, _, o)| !o.todos.is_empty() || !o.stand_ins.is_empty()).count();
+    let with_todos = to_write.iter().filter(|(_, _, o)| !o.todos.is_empty()).count();
     say!(
         "{} file{}: {} to migrate{}, {} need{} a person, {} up to date.",
         results.len(),
@@ -399,15 +372,6 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
         say!("\nleft for a person, each with a TODO above it:");
         for t in &todos {
             say!("  {}", t);
-        }
-    }
-    let mut needed: Vec<&String> = to_write.iter().flat_map(|(_, _, o)| o.stand_ins.iter()).collect();
-    needed.sort();
-    needed.dedup();
-    if !needed.is_empty() {
-        say!("\nstand-ins, each with a TODO at its top, until the pack's own 0.3 release replaces it:");
-        for name in needed {
-            say!("  {}: {}", stand_ins[name].0.display(), name);
         }
     }
     let errors: Vec<String> = to_write.iter().flat_map(|(p, _, o)| o.errors.iter().map(move |e| format!("{}: {}", p.display(), e))).collect();
@@ -510,32 +474,11 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
                 skipped.push(p.clone());
                 continue;
             }
-            let dest = written_as(p);
-            if dest != *p && dest.exists() {
-                say!("{}: skipped: {} is there already, so its 0.2 name can't move to it", p.display(), dest.display());
-                skipped.push(p.clone());
-                continue;
-            }
-            if let Err(e) = std::fs::write(&dest, &o.text).and_then(|_| if dest != *p { std::fs::remove_file(p) } else { Ok(()) }) {
+            if let Err(e) = std::fs::write(p, &o.text) {
                 eprintln!("{}: {}", p.display(), e);
                 return ExitCode::from(2);
             }
             wrote.push(p.clone());
-            for name in &o.stand_ins {
-                let (file, text) = &stand_ins[name];
-                if std::fs::read_to_string(file).ok().as_deref() == Some(text.as_str()) {
-                    continue;
-                }
-                let made = std::fs::create_dir_all(file.parent().unwrap_or(Path::new("."))).and_then(|_| std::fs::write(file, text));
-                if let Err(e) = made {
-                    eprintln!("{}: {}", file.display(), e);
-                    return ExitCode::from(2);
-                }
-                say!("{}: a stand-in for {}, written from its 0.2 definitions.", file.display(), name);
-            }
-        }
-        if to_write.iter().any(|(_, _, o)| !o.stand_ins.is_empty()) {
-            say!("The documents are checked against the stand-ins with: xtmd check --pack {} …", stand_in_dir.display());
         }
         if !to_write.is_empty() {
             say!("Wrote {} file{}.", wrote.len(), if wrote.len() == 1 { "" } else { "s" });
@@ -560,14 +503,11 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
             }
         }
         // what --allow-todos and --allow-errors let through is written, and said, not a failure
-        let (todos_left, stand_ins_left, errors_left) = to_write.iter().filter(|(p, _, _)| wrote.contains(p)).fold((0, 0, 0), |(t, s, e), (_, _, o)| (t + o.todos.len(), s + o.stand_ins.len(), e + usize::from(!o.errors.is_empty())));
-        if todos_left + stand_ins_left + errors_left > 0 {
+        let (todos_left, errors_left) = to_write.iter().filter(|(p, _, _)| wrote.contains(p)).fold((0, 0), |(t, e), (_, _, o)| (t + o.todos.len(), e + usize::from(!o.errors.is_empty())));
+        if todos_left + errors_left > 0 {
             let mut parts = Vec::new();
             if todos_left > 0 {
                 parts.push(format!("{} TODO{}", todos_left, if todos_left == 1 { "" } else { "s" }));
-            }
-            if stand_ins_left > 0 {
-                parts.push(format!("{} stand-in{}", stand_ins_left, if stand_ins_left == 1 { "" } else { "s" }));
             }
             if errors_left > 0 {
                 parts.push(format!("{} file{} that {} compile", errors_left, if errors_left == 1 { "" } else { "s" }, if errors_left == 1 { "doesn't" } else { "don't" }));
@@ -619,7 +559,7 @@ impl Report<'_> {
     fn result(&self, p: &PathBuf, old: &str, o: &Outcome) -> &'static str {
         if !o.refused.is_empty() {
             "not written"
-        } else if o.text == old && written_as(p) == *p {
+        } else if o.text == old {
             "up to date"
         } else if self.wrote.contains(p) {
             "migrated"
@@ -638,12 +578,8 @@ impl Report<'_> {
             "moved": o.moved,
             "changes": o.changes,
         });
-        // a 0.2 name, and the one it is written as
-        if written_as(p) != *p {
-            v["written_as"] = serde_json::json!(written_as(p).display().to_string());
-        }
         if notes {
-            for (k, xs) in [("inferred", &o.inferred), ("changed", &o.changed), ("deletions", &o.deletions), ("to_know", &o.notices), ("todos", &o.todos), ("errors", &o.errors), ("refused", &o.refused), ("stand_ins", &o.stand_ins)] {
+            for (k, xs) in [("inferred", &o.inferred), ("changed", &o.changed), ("deletions", &o.deletions), ("to_know", &o.notices), ("todos", &o.todos), ("errors", &o.errors), ("refused", &o.refused)] {
                 v[k] = serde_json::json!(xs);
             }
         }
@@ -683,7 +619,7 @@ impl Report<'_> {
             let mut f = self.file(p, old, o, false);
             f["type"] = "file".into();
             out.push(f.to_string());
-            for (kind, xs) in [("inferred", &o.inferred), ("changed", &o.changed), ("deletion", &o.deletions), ("to_know", &o.notices), ("todo", &o.todos), ("stand_in", &o.stand_ins), ("error", &o.errors), ("refused", &o.refused)] {
+            for (kind, xs) in [("inferred", &o.inferred), ("changed", &o.changed), ("deletion", &o.deletions), ("to_know", &o.notices), ("todo", &o.todos), ("error", &o.errors), ("refused", &o.refused)] {
                 for x in xs {
                     out.push(serde_json::json!({ "type": "note", "file": p.display().to_string(), "kind": kind, "text": x }).to_string());
                 }
@@ -718,7 +654,7 @@ impl Report<'_> {
         );
         for (p, old, o) in self.results {
             out.push_str(&format!("\n## {}\n\n{}{}.\n", p.display(), self.result(p, old, o), if o.moved.is_empty() { String::new() } else { format!(": {}", o.moved.join(", ")) }));
-            for (title, xs) in [("Inferred", &o.inferred), ("Refused", &o.refused), ("Changed", &o.changed), ("Deleted", &o.deletions), ("To know", &o.notices), ("TODO", &o.todos), ("Stand-ins", &o.stand_ins), ("Errors", &o.errors)] {
+            for (title, xs) in [("Inferred", &o.inferred), ("Refused", &o.refused), ("Changed", &o.changed), ("Deleted", &o.deletions), ("To know", &o.notices), ("TODO", &o.todos), ("Errors", &o.errors)] {
                 if !xs.is_empty() {
                     out.push_str(&format!("\n{}:\n\n", title));
                     for x in xs {
@@ -778,35 +714,6 @@ fn set_release(path: &Path, to: &str) -> std::io::Result<()> {
 fn bump_config(path: &Path, to: &BTreeMap<String, u32>) -> std::io::Result<()> {
     let text = std::fs::read_to_string(path)?;
     std::fs::write(path, with_uses(&text, to))
-}
-
-/// The `--pack` folders and files that are 0.2 packs, taken out of the arguments the 0.3 build reads.
-fn split_02_packs(args: Vec<String>) -> (Vec<String>, Vec<PathBuf>) {
-    let (mut rest, mut old) = (Vec::new(), Vec::new());
-    let mut k = 0;
-    while k < args.len() {
-        let list = match args[k].as_str() {
-            "--pack" if k + 1 < args.len() => {
-                k += 1;
-                Some(args[k].clone())
-            }
-            a if a.starts_with("--pack=") => Some(a["--pack=".len()..].to_string()),
-            _ => None,
-        };
-        match list {
-            Some(list) => {
-                let (o2, o3): (Vec<&str>, Vec<&str>) = list.split(',').filter(|x| !x.is_empty()).partition(|x| crate::migrate_02::is_pack(Path::new(x)));
-                old.extend(o2.into_iter().map(PathBuf::from));
-                if !o3.is_empty() {
-                    rest.push("--pack".to_string());
-                    rest.push(o3.join(","));
-                }
-            }
-            None => rest.push(args[k].clone()),
-        }
-        k += 1;
-    }
-    (rest, old)
 }
 
 /// The files among these with uncommitted changes, or `None` outside git.

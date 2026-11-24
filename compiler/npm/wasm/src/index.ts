@@ -88,9 +88,9 @@ export interface Markdown {
 
 /** What a migration is asked to do: `xtmd migrate`'s plan, on texts, with nothing read or written. */
 export interface MigrateRequest {
-  /** The 0.3 packs' files, as xtmd.toml's `packs` gives them. */
+  /** The packs' files, as xtmd.toml's `packs` gives them. */
   sources?: PackFile[];
-  /** The documents (`.xtmd`, and `.mkp.md` as MKP 0.2 named them), as the editor has them. */
+  /** The documents (`.xtmd`), as the editor has them. */
   docs?: PackFile[];
   /** The tree's xtmd.toml: its `xtmd` release and `[uses]` say what the files are written for. */
   config?: PackFile | null;
@@ -101,23 +101,12 @@ export interface MigrateRequest {
   /** As `--allow-todos` and `--allow-errors`. */
   allowTodos?: boolean;
   allowErrors?: boolean;
-  /** Where the stand-ins for 0.2 packs with no 0.3 release go: a folder beside the documents. */
-  standIns?: string;
-  /** What the frozen 0.2 step (tools/migrate-0.2/frozen, run with Node) printed for each document
-   * `needs02` named, or `{ notRun: why }` where it can't run. */
-  step02?: Record<string, unknown>;
-  /** Whether 0.2 packs were given to the 0.2 step. */
-  packs02?: boolean;
-  /** As `--from mkp@0.2`: every document is MKP 0.2's, whatever it looks like. */
-  from02?: boolean;
 }
 
-/** One file's part of a migration. `result`: `migrate` (it changes, or moves to `to`), `up to date`,
- * or `refused` (`refused` says why, and nothing of it is written). */
+/** One file's part of a migration. `result`: `migrate` (it changes), `up to date`, or `refused`
+ * (`refused` says why, and nothing of it is written). */
 export interface MigratedFile {
   path: string;
-  /** Where it is written: a 0.2 name, `name.mkp.md`, moves to `name.xtmd`. */
-  to: string;
   old: string;
   text: string;
   result: "migrate" | "up to date" | "refused";
@@ -131,21 +120,14 @@ export interface MigratedFile {
   todos: string[];
   changed: string[];
   errors: string[];
-  standIns: string[];
 }
 
-/** A migration's plan: each file, the stand-ins to write, the questions no one has answered (asked,
- * the plan is made again with their answers), the documents the 0.2 step must run on first, and
- * xtmd.toml once the tree moves (only when every file can). `error`: what stops it before a plan. */
+/** A migration's plan: each file, the questions no one has answered (asked, the plan is made again
+ * with their answers), and xtmd.toml once the tree moves (only when every file can). `error`: what stops it before a plan. */
 export interface Migration {
   files: MigratedFile[];
-  standIns: Array<{ name: string; path: string; text: string }>;
   questions: Array<{ number: number; key: string; asks: string; options: string[] }>;
   asked: Array<{ number: number; asks: string; answer: boolean; by: string }>;
-  needs02: string[];
-  /** Documents 0.2.10 refuses only for summaries they lack, with a placeholder in each: run the 0.2 step on
-   * `text`, and add what it printed to the document's `step02` entry as `filled`. */
-  fill02: Array<{ path: string; text: string }>;
   config: { path: string; old: string; text: string } | null;
   release: { from: string; to: string };
   error?: string;
@@ -357,8 +339,7 @@ export class Compiler {
   /**
    * What `xtmd migrate` would do to these files, as a plan: nothing is read or written. Give the
    * documents and packs as the editor has them; ask a person the plan's `questions` and plan again
-   * with the answers; run the 0.2 step on each of `needs02` (it needs Node) and plan again with what
-   * it printed; then write each file's `text` (at `to`), the stand-ins and `config`.
+   * with the answers; then write each file's `text`, and `config`.
    */
   migrate(request: MigrateRequest): Migration {
     return this.call("xtmd_migrate", "the migration", request as Record<string, unknown>) as Migration;

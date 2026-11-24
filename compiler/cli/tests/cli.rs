@@ -231,7 +231,7 @@ fn a_hole_shows_the_theme_in_words() {
 
 #[test]
 fn a_long_line_of_inline_markdown_reads_within_the_step_limit() {
-    // 0.2's changelog has a 3,189-character list item of code spans; emphasis is as costly a case
+    // a list item of 3,189 characters of code spans; emphasis is as costly a case
     let code: Vec<String> = (0..400).map(|k| format!("`name{}`", k)).collect();
     let em: Vec<String> = (0..300).map(|k| format!("*w{}*", k)).collect();
     let doc = format!("@@@\n# Changes\n\n- {}\n- {}\n", code.join(", "), em.join(", "));
@@ -316,104 +316,6 @@ fn migrate_takes_a_prose_calls_block_from_the_parser_fences_and_all() {
     let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
     assert_eq!(code, 0, "{}{}", out, err);
     assert_eq!(std::fs::read_to_string(docs.join("code.xtmd")).unwrap(), "import kit;\n@@@\n# Code\n\n@holder(title = \"Q3\") {\n@card {\n```js\nif (x) {\n}\n```\n}\n}\n\nAfter.\n");
-}
-
-const COUNTER_02: &str = "---\nteaches: \"reader state, a press and an event\"\n---\n# A counter\n\n```mkp\ncounter \"A number the reader steps up or down.\"\n  in start int = 0 \"where it begins\"\n  var n int = start\n  row gap=m align=center\n    press label=\"one less\"\n      icon name=minus\n      @click set n=(n - 1)\n    text \"\\val{n}\" font=mono size=large weight=bold\n    press label=\"one more\"\n      icon name=plus\n      @click set n=(n + 1)\n  project md = \"Count: \" + format(n, 0)\n```\n\n```counter\nstart: 3\nsummary: A counter that starts at 3.\n```\n";
-const RUNS_02: &str = "---\nmkp: 0.2.10\nir: 1\n---\n# Two runs\n\n```distance@1\nkm: 21.0975\nlabel: A half marathon\nsummary: A half marathon's distance.\n```\n";
-const UNITS_02_MANIFEST: &str = "pack units@1 \"Distances shown in kilometres and miles.\"\n  requires core@1\n  provides distance\n";
-const UNITS_02_DISTANCE: &str = "distance@1 \"A distance in kilometres, with its miles beside it.\"\n  in km num \"the distance in kilometres\"\n  in label text = \"\" \"what the distance is\"\n  miles = km / 1.609344\n  row gap=s align=baseline\n    text label tone=muted if=(label != \"\")\n    text \"\\val{format(km, 1)} km\" font=mono weight=bold\n    text \"(\\val{format(miles, 1)} mi)\" tone=muted\n  project md = (if(label != \"\", label + \": \", \"\")) + format(km, 1) + \" km (\" + format(miles, 1) + \" mi)\"\n";
-
-#[test]
-fn migrate_moves_a_0_2_document_with_0_2_10s_own_compiler() {
-    let plain = "# Notes\n\n```js\nlet x = 1;\n```\n";
-    let files = [("docs/counter.mkp.md", COUNTER_02), ("docs/runs.mkp.md", RUNS_02), ("docs/plain.mkp.md", plain), ("old/units/manifest.mkp", UNITS_02_MANIFEST), ("old/units/distance.mkp", UNITS_02_DISTANCE)];
-    let dir = scratch("migrate-02", &files);
-    let (docs, old) = (dir.join("docs"), dir.join("old/units"));
-    let (d, o) = (docs.to_str().unwrap(), old.to_str().unwrap());
-    // 0.2's names: a document is name.mkp.md, a pack a folder with a manifest.mkp. The counter is 0.2's by
-    // what 0.2.10 finds in it, runs.mkp.md by its stamp; plain Markdown reads the same in both, and moves
-    // only to its new name
-    let (code, out, _) = xtmd(&["migrate", d, "--pack", o, "--dry-run"]);
-    assert_eq!(code, 1, "{}", out);
-    assert!(out.contains("counter.mkp.md  mkp 0.2 → 0.3  1 change; 1 to know; renamed counter.xtmd (written for MKP 0.2, as 0.2.10 builds it)"), "{}", out);
-    assert!(out.lines().any(|l| l.contains("plain.mkp.md ") && l.ends_with("  renamed plain.xtmd")), "{}", out);
-    // units has no 0.3 release here: only a stand-in, so runs.mkp.md is refused without --allow-todos
-    assert!(out.contains("runs.mkp.md     mkp 0.2 → 0.3  not written: 0.3 can't yet say 1 thing") && out.contains("--allow-todos writes it"), "{}", out);
-    // a stand-in is a person's to replace: written, as --allow-todos asks, and said
-    let (code, out, err) = xtmd(&["migrate", d, "--pack", o, "--yes", "--allow-todos"]);
-    assert_eq!(code, 0, "{}{}", out, err);
-    assert!(out.contains("Left for a person, as asked: 1 stand-in"), "{}", out);
-    assert!(["counter", "plain", "runs"].iter().all(|n| docs.join(format!("{}.xtmd", n)).is_file() && !docs.join(format!("{}.mkp.md", n)).exists()));
-    let counter = std::fs::read_to_string(docs.join("counter.xtmd")).unwrap();
-    assert!(counter.contains("widget counter(start: int = 0) {") && counter.contains("\n@@@\n") && counter.contains("@counter(start = 3);"), "{}", counter);
-    assert_eq!(std::fs::read_to_string(docs.join("plain.xtmd")).unwrap(), plain);
-    let stand_in = std::fs::read_to_string(docs.join("stand-ins/units/units.xtmdpack")).unwrap();
-    assert!(stand_in.starts_with("package units;\n// TODO(xtmd migrate): a stand-in made from the 0.2 definitions of units,") && stand_in.contains("extern widget distance(km: number"), "{}", stand_in);
-    let runs = std::fs::read_to_string(docs.join("runs.xtmd")).unwrap();
-    assert!(!runs.contains("mkp: 0.2.10") && runs.contains("import units;") && runs.contains("@distance(km = 21.0975, label = \"A half marathon\""), "{}", runs);
-    // its header says what is left: the stand-in, not "nothing to finish"
-    assert!(runs.contains("// TODO(xtmd migrate): checked against a stand-in for units (") && !runs.contains("Nothing to finish by hand"), "{}", runs);
-    let stand_ins = docs.join("stand-ins");
-    assert_eq!(xtmd(&["check", "--pack", stand_ins.to_str().unwrap(), docs.join("runs.xtmd").to_str().unwrap(), docs.join("counter.xtmd").to_str().unwrap()]).0, 0);
-    // now 0.3: a second run leaves them alone
-    let (code, out, _) = xtmd(&["migrate", d, "--pack", &format!("{},{}", stand_ins.display(), o), "--check"]);
-    assert_eq!(code, 0, "{}", out);
-}
-
-#[test]
-fn migrate_takes_a_0_2_document_with_no_summary_and_one_named_by_from() {
-    // 0.2.9 only warned of a missing summary; 0.2.10 refuses it
-    let bare = COUNTER_02.replace("summary: A counter that starts at 3.\n", "");
-    let units3 = "package units;\n\npack units@1 {\n    uses core@1;\n    provides distance;\n}\n\nextern widget distance(km: number, label: text = \"\", summary: text = \"\") {\n    markdown { }\n}\n";
-    let runs = RUNS_02.replace("summary: A half marathon's distance.\n", "summary:\n");
-    let dir = scratch("migrate-02-summary", &[("docs/counter.mkp.md", &bare), ("docs/runs.mkp.md", &runs), ("old/units/manifest.mkp", UNITS_02_MANIFEST), ("old/units/distance.mkp", UNITS_02_DISTANCE), ("units/units.xtmdpack", units3)]);
-    let docs = dir.join("docs");
-    let packs = format!("{},{}", dir.join("old/units").display(), dir.join("units").display());
-    // the placeholder stops nothing, and is said where 0.3 keeps it
-    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--pack", &packs, "--yes"]);
-    assert_eq!(code, 0, "{}{}", out, err);
-    let runs = std::fs::read_to_string(docs.join("runs.xtmd")).unwrap();
-    assert!(runs.contains("summary = \"TODO(xtmd migrate): say in one sentence what this shows\"") && runs.contains("// TODO(xtmd migrate): a summary to write"), "{}", runs);
-    assert!(out.contains("0.2 line 7: the distance block has no summary") || out.contains("0.2 line 6: the distance block has no summary"), "{}", out);
-    // a document's own widget has no use for one
-    let counter = std::fs::read_to_string(docs.join("counter.xtmd")).unwrap();
-    assert!(counter.contains("@counter(start = 3);") && !counter.contains("TODO("), "{}", counter);
-    assert!(!std::env::temp_dir().join(format!("xtmd-migrate-{}", std::process::id())).exists());
-
-    // one with no mark of 0.2's but a widget's fence: left as it is, and told; named as 0.2's, it moves
-    let plain = "# Runs\n\n```distance\nkm: 5\nsummary: Five kilometres.\n```\n";
-    let dir = scratch("migrate-02-from", &[("a.xtmd", plain), ("old/units/manifest.mkp", UNITS_02_MANIFEST), ("old/units/distance.mkp", UNITS_02_DISTANCE), ("units/units.xtmdpack", units3)]);
-    let a = dir.join("a.xtmd");
-    let (code, out, _) = xtmd(&["migrate", a.to_str().unwrap(), "--yes"]);
-    assert_eq!(code, 0, "{}", out);
-    assert!(out.contains("a fence with a summary: line, as a widget's block has: if it was written for MKP 0.2, xtmd migrate --from mkp@0.2 says so"), "{}", out);
-    assert_eq!(std::fs::read_to_string(&a).unwrap(), plain);
-    let packs = format!("{},{}", dir.join("old/units").display(), dir.join("units").display());
-    let (code, out, err) = xtmd(&["migrate", a.to_str().unwrap(), "--from", "mkp@0.2", "--pack", &packs, "--yes"]);
-    assert_eq!(code, 0, "{}{}", out, err);
-    assert!(std::fs::read_to_string(&a).unwrap().contains("@distance(km = 5"));
-}
-
-#[test]
-fn migrate_uses_a_packs_own_0_3_release_and_checks_the_0_2_step_it_runs() {
-    let units3 = "package units;\n\npack units@1 {\n    uses core@1;\n    provides distance;\n}\n\nextern widget distance(km: number, label: text = \"\", summary: text = \"\") {\n    markdown { }\n}\n";
-    let dir = scratch("migrate-02-own", &[("docs/runs.mkp.md", RUNS_02), ("old/units/manifest.mkp", UNITS_02_MANIFEST), ("old/units/distance.mkp", UNITS_02_DISTANCE), ("units/units.xtmdpack", units3)]);
-    let docs = dir.join("docs");
-    let packs = format!("{},{}", dir.join("old/units").display(), dir.join("units").display());
-    // with units' own 0.3 release in the build, nothing is a stand-in and nothing needs --allow-todos
-    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--pack", &packs, "--yes"]);
-    assert_eq!(code, 0, "{}{}", out, err);
-    assert!(!docs.join("stand-ins").exists());
-    assert_eq!(xtmd(&["check", "--pack", dir.join("units").to_str().unwrap(), docs.join("runs.xtmd").to_str().unwrap()]).0, 0);
-    // a frozen step that isn't the one xtmd was built with is never run
-    std::fs::write(docs.join("runs.mkp.md"), RUNS_02).unwrap();
-    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tools/migrate-0.2/frozen/migrate-0.2.cjs");
-    let changed = dir.join("migrate-0.2.cjs");
-    std::fs::write(&changed, format!("{}\n// changed\n", std::fs::read_to_string(repo).unwrap())).unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_xtmd")).args(["migrate", docs.to_str().unwrap(), "--pack", &packs, "--dry-run"]).env("XTMD_MIGRATE_02", &changed).output().unwrap();
-    let text = String::from_utf8_lossy(&out.stdout);
-    assert_eq!(out.status.code(), Some(1));
-    assert!(text.contains("isn't the 0.2 → 0.3 step this xtmd was built with (its SHA-256 differs): not run"), "{}", text);
 }
 
 #[test]
@@ -509,21 +411,15 @@ fn migrate_leaves_a_statements_semicolon_after_a_record_it_rewrites() {
 }
 
 #[test]
-fn an_unknown_flag_is_a_warning_and_a_dropped_one_says_what_replaced_it() {
+fn an_unknown_flag_is_a_warning_and_one_asked_for_says_what_there_is() {
     let dir = kit_tree("migrate-flags", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n");
     let docs = dir.join("docs");
     let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run", "--quiet"]);
     assert_eq!(code, 0, "{}{}", out, err);
     assert!(err.contains("warning: xtmd migrate has no flag --quiet, so it is ignored") && out.contains("kit@1 → kit@2"), "{}", err);
-    let (code, _, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--write"]);
-    assert_eq!(code, 2);
-    assert!(err.contains("error: xtmd migrate dropped --write in xtmd 0.3.0: xtmd migrate writes in place"), "{}", err);
     let (code, _, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--to", "0.3.0"]);
     assert_eq!(code, 2);
     assert!(err.contains("error: xtmd migrate has no --to: a migration goes one way"), "{}", err);
-    let (code, _, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--from", "0.2.1"]);
-    assert_eq!(code, 2);
-    assert!(err.contains("--from 0.2.1 names a release, as mkp 0.2's did"), "{}", err);
     let (code, _, err) = xtmd(&["check", "--json", docs.join("report.xtmd").to_str().unwrap()]);
     assert_eq!(code, 2);
     assert!(err.contains("error: xtmd check has no --json: use --format json"), "{}", err);
@@ -812,16 +708,15 @@ fn out_is_written_at_the_end_in_a_folder_it_makes_and_a_closed_pipe_is_quiet() {
 #[test]
 fn check_takes_folders_and_says_what_each_file_needs_and_what_is_wrong() {
     let broken = SHELF.replace("widget row_of_books(title: text)", "widget row_of_books(name: text)").replace("\\{title}", "\\{name}").replace("value = title", "value = name");
-    let old = "---\nmkp: 0.2.10\nir: 1\n---\n# Old\n\n```shelf@1\ntitle: Read\n```\n";
-    let dir = scratch("check-folders", &[("shelf/shelf.xtmdpack", SHELF), ("docs/doc.xtmd", DOC), ("docs/old.mkp.md", old), ("xtmd.toml", "packs = [\"shelf\"]\n")]);
+    let dir = scratch("check-folders", &[("shelf/shelf.xtmdpack", SHELF), ("docs/doc.xtmd", DOC), ("docs/notes.md", "# Notes\n"), ("xtmd.toml", "packs = [\"shelf\"]\n")]);
     // a folder: each file, a line for each, the levels a document needs, a total
     let (code, _, err) = xtmd(&["check", dir.join("docs").to_str().unwrap()]);
     assert_eq!(code, 0, "{}", err);
     assert!(err.contains("doc.xtmd: clean; needs core.draw"), "{}", err);
-    // a document 0.2 wrote, by 0.2's name: a warning that says how to move it, and one for its name
-    assert!(err.contains("warning[file.mkp-0.2]: this looks like an MKP 0.2 document (its front matter says mkp: 0.2)") && err.contains("xtmd migrate brings it to 0.3"), "{}", err);
-    assert!(err.contains("warning[file.mkp-name]: MKP's name for a document: Extended Mark's is old.xtmd, so rename it"), "{}", err);
-    assert!(err.contains("2 files: 0 with errors, 2 without; 0 errors, 2 warnings"), "{}", err);
+    assert!(!err.contains("notes.md"), "{}", err);
+    let (code, _, err) = xtmd(&["check", dir.join("docs/notes.md").to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(err.contains("not an Extended Mark file (.xtmdpack or .xtmd)"), "{}", err);
     let (_, out, _) = xtmd(&["check", "--format", "json", dir.join("docs/doc.xtmd").to_str().unwrap()]);
     assert!(out.contains("\"levels\":[\"core.draw\"]"), "{}", out);
     // a pack that is missing: one error, saying how to add it, and none of what follows from it
@@ -835,11 +730,6 @@ fn check_takes_folders_and_says_what_each_file_needs_and_what_is_wrong() {
     let (code, _, err) = xtmd(&["check", dir.join("shelf/shelf.xtmdpack").to_str().unwrap()]);
     assert_eq!(code, 1);
     assert!(err.contains("error[pack.version-break]"), "{}", err);
-    // a 0.2 pack given to --pack: said what it is
-    let old_pack = scratch("check-02-pack", &[("units/manifest.mkp", UNITS_02_MANIFEST), ("units/distance.mkp", UNITS_02_DISTANCE), ("doc.xtmd", "# Hi\n")]);
-    let (code, _, err) = xtmd(&["check", "--pack", old_pack.join("units").to_str().unwrap(), old_pack.join("doc.xtmd").to_str().unwrap()]);
-    assert_eq!(code, 2);
-    assert!(err.contains("an MKP 0.2 pack (it has a manifest.mkp)"), "{}", err);
     // xtmd surface names the pack it was given, not a flag
     let (code, _, err) = xtmd(&["surface", dir.join("nokit").to_str().unwrap()]);
     assert_eq!(code, 2);

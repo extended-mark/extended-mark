@@ -6,7 +6,7 @@ Page 8 of 9. What this version decided, what the tenth round settled, what was l
 
 The second to tenth rounds of review changed these. Each row names the rule that now holds, and a row that a later round changed says which round.
 
-- **A divider instead of 0.2's `mkp` fences** (done, @@@): A document is its definitions, a `@@@` line, then Markdown. Nothing above the line draws, and an `xtmd` fence below it is ordinary code.
+- **A divider instead of fences** (done, @@@): A document is its definitions, a `@@@` line, then Markdown. Nothing above the line draws, and an `xtmd` fence below it is ordinary code.
 - **A literal @** (done, escape): A line that starts with `@` and a small letter is always Extended Mark. `\@` is always a literal @, and `\@@@` shows the divider as text.
 - **One number type** (done, number): Exact base-10 (decimal128, 34 digits). Whole numbers are a `step 1` contract, written `int` since round 10: core declares `type int = number step 1`, and a contract written after it adds to its own. No conversions between number types, and `7 / 2` is `3.5`.
 - **Interfaces fit structurally** (done, any): `any chart` is the type for any kind of chart. A type fits an interface when it has what the interface asks for, the six standard ones included, and `implements` is an optional, checked promise. Only fns in the type's own pack or the interface's count, so the list method is `xs.some(…)`. Round 10: the six are declared in core, as ordinary interfaces.
@@ -44,7 +44,6 @@ The second to tenth rounds of review changed these. Each row names the rule that
 - **Inline Markdown arrives parsed** (done, rich_text): A sentence is calls, as blocks are, so nothing about inline is special. No implementer parses Markdown, and a hole can never become formatting. Core's own Extended Mark code parses it, as any pack could.
 - **The Markdown Extended Mark extends** (done, CommonMark): CommonMark with GitHub's tables, task lists, strikethrough, footnotes and bare links. Raw HTML is text. Markdown out keeps the meaning in one spelling. Round 10: page 1 lists that spelling for each block and mark, and a line that holds only `$$` opens and closes a maths block.
 - **Names** (done, _): Small letters, digits and `_`, with `_` between words. A `-` is always minus. Round 10: no name starts with `$`, and `$state` is a keyword.
-- **Extended Mark 0.3.x** (done, breaking): This syntax is Extended Mark 0.3.x. It replaces 0.2.x entirely: no 0.2.x source compiles, and there is no migration.
 - **Deprecated** (done, //@deprecated): A doc comment, not an attribute: every use of the declaration warns with its text.
 - **Limits match today's renderer** (done, 64): 1,000,000 steps, 10,000 items, and calls 64 deep.
 - **Confirmed as they were** (done, kept): Bounds written `T: chart`, front matter at the top, the rows-by-position error, global variables in .xtmdpack files, exact numbers (with a decimal library for JavaScript), and `try`. Round 10 replaced two of them: rows follow their items, and `$state` replaces global variables.

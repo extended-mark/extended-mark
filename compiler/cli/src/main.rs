@@ -10,7 +10,6 @@ mod flags;
 mod help;
 mod out;
 mod render;
-mod migrate_02;
 pub(crate) use xtmd_migrate::step as migrate_step;
 mod surface;
 
@@ -40,9 +39,6 @@ fn pack_sources(list: &str) -> Result<Vec<xtmd_check::Source>, String> {
     let mut paths = Vec::new();
     for item in list.split(',').map(str::trim).filter(|s| !s.is_empty()) {
         let p = std::path::Path::new(item);
-        if migrate_02::is_pack(p) {
-            return Err(format!("--pack {}: an MKP 0.2 pack (it has a manifest.mkp). xtmd migrate takes it, beside the 0.3 packs, to move a 0.2 document; the rest of xtmd needs its 0.3 release, or the stand-in xtmd migrate writes", item));
-        }
         if p.is_dir() {
             walk(p, &mut paths)?;
         } else if item.ends_with(".xtmdpack") {
@@ -194,7 +190,7 @@ fn under(dir: &std::path::Path, out: &mut Vec<String>) {
             if !name.starts_with('.') && !matches!(name, "node_modules" | "target" | "dist") {
                 under(&p, out);
             }
-        } else if entry_for(&p.to_string_lossy()).is_some() || name.ends_with(".mkp.md") {
+        } else if entry_for(&p.to_string_lossy()).is_some() {
             out.push(p.to_string_lossy().into_owned());
         }
     }
@@ -264,24 +260,6 @@ fn missing_packs(c: &mut xtmd_check::Compiled) {
             d.diagnostic.message = format!("{} ({} more error{} that follow from it are left out until it is found)", d.diagnostic.message, n, if n == 1 { "" } else { "s" });
         }
     }
-}
-
-/// A document that looks like MKP 0.2's, which 0.3 reads as plain Markdown: a warning that says so.
-fn written_for_02(src: &str) -> Option<Diagnostic> {
-    let what = if migrate_02::stamped(src) {
-        "its front matter says mkp: 0.2"
-    } else {
-        let marks = migrate_02::looks_02(src)?;
-        if migrate_02::speaks_03(src) {
-            return None;
-        }
-        marks
-    };
-    Some(Diagnostic::warning(
-        "file.mkp-0.2",
-        xtmd_syntax::Span { start: 0, end: 0 },
-        format!("this looks like an MKP 0.2 document ({}), which 0.3 reads as plain Markdown: xtmd migrate brings it to 0.3", what),
-    ))
 }
 
 /// What `xtmd build` writes: as small as it goes, or over several lines with `--pretty`.
@@ -416,14 +394,7 @@ fn read(path: &str) -> Result<(String, xtmd_syntax::Entry), String> {
     if std::path::Path::new(path).is_dir() {
         return Err(format!("{}: a folder", path));
     }
-    // MKP's names: check reads a name.mkp.md to say so, and the rest need the new name
-    let entry = if let Some(stem) = path.strip_suffix(".mkp.md") {
-        return Err(format!("{}: MKP's name for a document: Extended Mark's is {}.xtmd, so rename it (xtmd migrate renames a 0.2 document as it moves it)", path, stem));
-    } else if path.ends_with(".mkp") {
-        return Err(format!("{}: MKP's name for a definitions file: Extended Mark's is .xtmdpack, so rename it", path));
-    } else {
-        entry_for(path).ok_or_else(|| format!("{}: not an Extended Mark file (.xtmdpack or .xtmd)", path))?
-    };
+    let entry = entry_for(path).ok_or_else(|| format!("{}: not an Extended Mark file (.xtmdpack or .xtmd)", path))?;
     let src = std::fs::read_to_string(path).map_err(|e| format!("{}: {}", path, e))?;
     Ok((src, entry))
 }
@@ -710,9 +681,7 @@ fn check(args: &[String]) -> ExitCode {
     let (mut errors, mut warnings, mut with_errors) = (0, 0, 0);
     let base = xtmd_check::compile_core(&core_sources());
     for path in &files {
-        // a document by MKP's name is checked as the document it is, and warned about
-        let read_it = if path.ends_with(".mkp.md") { std::fs::read_to_string(path).map(|t| (t, xtmd_syntax::Entry::Document)).map_err(|e| format!("{}: {}", path, e)) } else { read(path) };
-        let (src, _) = match read_it {
+        let (src, _) = match read(path) {
             Ok(x) => x,
             Err(e) => {
                 if json {
@@ -733,16 +702,7 @@ fn check(args: &[String]) -> ExitCode {
             packs.extend(released_surfaces(path).into_iter().filter(|s| std::fs::canonicalize(&s.path).map_or(true, |p| seen.insert(p))));
             packs = without(&packs, path);
         }
-        let as_doc = migrate::written_as(std::path::Path::new(path)).display().to_string();
-        let mut c = xtmd_check::compile_on(&base, &[packs.clone()], &[xtmd_check::Source { path: as_doc.clone(), text: src.clone() }], module);
-        if as_doc != *path {
-            for d in c.diagnostics.iter_mut().filter(|d| d.file == as_doc) {
-                d.file = path.to_string();
-            }
-            if let Some(t) = c.texts.remove(&as_doc) {
-                c.texts.insert(path.to_string(), t);
-            }
-        }
+        let mut c = xtmd_check::compile_on(&base, &[packs.clone()], &[xtmd_check::Source { path: path.to_string(), text: src.clone() }], module);
         missing_packs(&mut c);
         failed |= c.module.is_none();
         // a pack's migrations: each example run through its block, once the file compiles
@@ -751,20 +711,6 @@ fn check(args: &[String]) -> ExitCode {
             for d in examples::check(&base, path, &src, &packs) {
                 failed = true;
                 c.diagnostics.push(xtmd_check::Found { file: path.to_string(), diagnostic: d });
-            }
-        }
-        // a document 0.3 reads as plain Markdown, written for 0.2; a document by MKP's name
-        if module == "doc" {
-            if let Some(d) = written_for_02(&src) {
-                c.diagnostics.insert(0, xtmd_check::Found { file: path.to_string(), diagnostic: d });
-            }
-            if let Some(stem) = path.strip_suffix(".mkp.md") {
-                let d = Diagnostic::warning(
-                    "file.mkp-name",
-                    xtmd_syntax::Span { start: 0, end: 0 },
-                    format!("MKP's name for a document: Extended Mark's is {}.xtmd, so rename it (xtmd migrate renames a 0.2 document as it moves it)", std::path::Path::new(stem).file_name().map_or(String::new(), |n| n.to_string_lossy().into_owned())),
-                );
-                c.diagnostics.insert(0, xtmd_check::Found { file: path.to_string(), diagnostic: d });
             }
         }
         // this file's errors and warnings, and any pack's errors

@@ -39,8 +39,8 @@ C = consts()
 COUNTER = (REPO / "schemas/examples/counter.xtmd").read_text()
 GRAPHS = (REPO / "examples/graphs/graphs.xtmdpack").read_text()
 FLOW = (REPO / "examples/graphs/release-flow.xtmd").read_text()
-MESSY_MKP = "package messy;\nlet   x: number = 1;\n"
-NEAT_MKP = "package a;\n\nlet x: number = 1;\n"
+MESSY = "package messy;\nlet   x: number = 1;\n"
+NEAT = "package a;\n\nlet x: number = 1;\n"
 BROKEN = '// the counter from the plan\n$state {\n    n: number = 0;\n}\n@@@\n# Counter\n\nThe count is \\{$state.count}.\n\n@press(label = 5, click = fn() { $state.n = $state.n + 1; });\n'
 ALSO_BROKEN = "@@@\n# Notes\n\nThe total is \\{$state.total}.\n"
 TIDY = '$state {\n    n: number = 0;\n    by: number = 1; }\n@@@\n# Counter\n\nThe count is \\{$state.n}.\n\n@press(label = "Add", click = fn() { $state.n = $state.n + $state.by; });\n'
@@ -54,7 +54,6 @@ MIG_BAD_EXAMPLE = C["MIGRATION"].replace(
 )
 MIGRATED = 'import kit;\n\n$state {\n    s: state = state.OVERDUE;\n}\n@@@\n# Report\n\n@plot(values = [1, 2], tone = color.OK);\n\n@badge(label = "Beta", size = size.S);\n\n@// kit@2 dropped sparkline: use plot\n@// @sparkline(values = [3]);\n\n@stats(items = [stat { title = "Deploys", value = "42", unit = "" }]);\n'
 DASH = 'package dash;\n\nimport kit;\n\npack dash@1 {\n    uses core@1, kit@1;\n    provides summary;\n}\n\nwidget summary(n: number) {\n    view {\n        @chart(values = [n], color = color.OK);\n    }\n    markdown {\n        A summary.\n    }\n}\n'
-UNITS_03 = 'package units;\n\npack units@1 {\n    uses core@1;\n    provides distance;\n}\n\nextern widget distance(km: number, label: text = "", summary: text = "") {\n    markdown { }\n}\n'
 SHELF_CHANGED = C["SHELF"].replace("widget row_of_books(title: text)", "widget row_of_books(name: text)").replace("@label(value = title);", "@label(value = name);").replace("\\{title}", "\\{name}")
 
 
@@ -69,18 +68,18 @@ def kit(doc=None, migration=None, toml='packs = ["kit"]\n\n[uses]\nkit = 1\n'):
 # a setup command (run in the sandbox after the files are written), one solution, and the check.
 TASKS = [
     # ---- formatting
-    dict(id="01-tidy", area="fmt", goal="messy.xtmdpack looks off. Tidy it up the standard way.", files={"messy.xtmdpack": MESSY_MKP},
+    dict(id="01-tidy", area="fmt", goal="messy.xtmdpack looks off. Tidy it up the standard way.", files={"messy.xtmdpack": MESSY},
          solution="xtmd fmt messy.xtmdpack", check="xtmd fmt --check messy.xtmdpack >/dev/null 2>&1 || fail 'messy.xtmdpack is still not in the canonical layout'"),
     dict(id="02-which-untidy", area="fmt", goal="CI should tell me which .xtmdpack files under src/ aren't laid out properly, without touching them. Put the names of the ones that aren't in answer.txt.",
-         files={"src/a.xtmdpack": NEAT_MKP, "src/b.xtmdpack": MESSY_MKP.replace("messy", "b"), "src/c.xtmdpack": MESSY_MKP.replace("messy", "c")},
+         files={"src/a.xtmdpack": NEAT, "src/b.xtmdpack": MESSY.replace("messy", "b"), "src/c.xtmdpack": MESSY.replace("messy", "c")},
          solution="xtmd fmt --check src/*.xtmdpack 2>&1 | grep -o '[a-z]*\\.xtmdpack' > answer.txt",
          check="unchanged src/a.xtmdpack src/b.xtmdpack src/c.xtmdpack; names_are b.xtmdpack c.xtmdpack"),
     dict(id="03-review-format", area="fmt", goal="Before I let the formatter loose on tidy.xtmd, show me exactly what it would change. Save that somewhere I can review it: change.diff.", files={"tidy.xtmd": TIDY},
          solution="xtmd fmt --diff tidy.xtmd > change.diff", check="unchanged tidy.xtmd; grep -q '^@@' change.diff || fail 'change.diff has no hunk'; grep -q '^+' change.diff || fail 'change.diff adds nothing'"),
-    dict(id="04-clean-copy", area="fmt", goal="I need a properly laid-out copy of messy.xtmdpack next to it, called clean.xtmdpack. The original must stay exactly as it is.", files={"messy.xtmdpack": MESSY_MKP},
+    dict(id="04-clean-copy", area="fmt", goal="I need a properly laid-out copy of messy.xtmdpack next to it, called clean.xtmdpack. The original must stay exactly as it is.", files={"messy.xtmdpack": MESSY},
          solution="xtmd fmt --stdout messy.xtmdpack > clean.xtmdpack", check="unchanged messy.xtmdpack; [ \"$(xtmd fmt --stdout messy.xtmdpack)\" = \"$(cat clean.xtmdpack)\" ] || fail 'clean.xtmdpack is not messy.xtmdpack in the canonical layout'"),
     dict(id="05-format-verdict-data", area="fmt", goal="My editor plugin wants the formatter's verdict on every .xtmdpack file in this folder as machine-readable data. Produce it in fmt.jsonl.",
-         files={"a.xtmdpack": NEAT_MKP, "b.xtmdpack": MESSY_MKP.replace("messy", "b")},
+         files={"a.xtmdpack": NEAT, "b.xtmdpack": MESSY.replace("messy", "b")},
          solution="xtmd fmt --check --format json a.xtmdpack b.xtmdpack > fmt.jsonl",
          check="jsonl fmt.jsonl; last_type fmt.jsonl summary; grep -q '\"file\":\"a.xtmdpack\"' fmt.jsonl && grep -q '\"file\":\"b.xtmdpack\"' fmt.jsonl || fail 'fmt.jsonl does not name both files'"),
     # ---- checking
@@ -176,20 +175,6 @@ TASKS = [
          solution="xtmd migrate docs --yes --allow-dirty", check="grep -q '@plot(' docs/report.xtmd || fail 'the document was not migrated'"),
     dict(id="44-example-holds", area="migrate", goal="Does the example in kit's migration actually hold? answer.txt: yes or no.", files=kit(migration=MIG_BAD_EXAMPLE), solution="echo no > answer.txt",
          check="unchanged kit/migrations/kit@2.xtmdpack; answer_is no"),
-    # ---- MKP 0.2
-    dict(id="45-find-the-old-ones", area="0.2", goal="Which of the documents in docs/ were written for MKP 0.2? List their file names in answer.txt.",
-         files={"docs/counter.mkp.md": C["COUNTER_02"], "docs/notes.mkp.md": "# Notes\n\nPlain text.\n", "docs/page.xtmd": COUNTER}, solution="echo counter.mkp.md > answer.txt",
-         check="unchanged docs/counter.mkp.md docs/notes.mkp.md docs/page.xtmd; names_are counter.mkp.md"),
-    dict(id="46-old-page", area="0.2", goal="counter.mkp.md is an old MKP 0.2 page. Bring it into Extended Mark 0.3.", files={"counter.mkp.md": C["COUNTER_02"]}, solution="xtmd migrate counter.mkp.md --yes",
-         check="grep -q 'widget counter(' counter.xtmd || fail 'counter.xtmd is not 0.3'; xtmd check counter.xtmd >/dev/null 2>&1 || fail 'counter.xtmd does not compile'"),
-    dict(id="47-old-pack-stand-in", area="0.2", goal="runs.mkp.md is MKP 0.2 and uses the old units pack in old/units, which has no 0.3 version yet. Get runs.mkp.md onto 0.3 anyway; something standing in for the pack is fine.",
-         files={"runs.mkp.md": C["RUNS_02"], "old/units/manifest.mkp": C["UNITS_02_MANIFEST"], "old/units/distance.mkp": C["UNITS_02_DISTANCE"]},
-         solution="xtmd migrate runs.mkp.md --pack old/units --yes --allow-todos; true",
-         check="grep -q 'import units;' runs.xtmd || fail 'runs.xtmd is not 0.3'; s=$(find . -path ./old -prune -o -name units.xtmdpack -print | head -1); [ -n \"$s\" ] || fail 'no stand-in for units'; xtmd check --pack \"$(dirname \"$s\")\" runs.xtmd >/dev/null 2>&1 || fail 'runs.xtmd does not compile with the stand-in'"),
-    dict(id="48-old-page-new-pack", area="0.2", goal="runs.mkp.md is an MKP 0.2 page that uses the old units pack in old/units; the 0.3 version of units is in ./units. Move runs.mkp.md to 0.3 using it, with no stand-ins.",
-         files={"runs.mkp.md": C["RUNS_02"], "old/units/manifest.mkp": C["UNITS_02_MANIFEST"], "old/units/distance.mkp": C["UNITS_02_DISTANCE"], "units/units.xtmdpack": UNITS_03},
-         solution="xtmd migrate runs.mkp.md --pack old/units,units --yes",
-         check="grep -q 'import units;' runs.xtmd || fail 'runs.xtmd is not 0.3'; [ -z \"$(find . -name stand-ins)\" ] || fail 'a stand-in was written'; xtmd check --pack units runs.xtmd >/dev/null 2>&1 || fail 'runs.xtmd does not compile with units'"),
 ]
 
 PRELUDE = r'''#!/usr/bin/env bash

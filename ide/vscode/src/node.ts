@@ -1,47 +1,11 @@
-// The extension on the desktop: the language server built in, xtmd.wasm in a Node process; and MKP
-// 0.2's frozen step (dist/migrate-0.2.cjs), run with the Node VS Code itself runs on, for a 0.2
-// document that is migrated. Nothing needs to be installed.
+// The extension on the desktop: the language server built in, xtmd.wasm in a Node process. Nothing
+// needs to be installed.
 
-import { fork } from "node:child_process";
-import { copyFileSync, existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
 import * as vscode from "vscode";
 import { LanguageClient, TransportKind } from "vscode-languageclient/node";
-import { activate as start, type Host } from "./common.js";
+import { activate as start } from "./common.js";
 
 export function activate(context: vscode.ExtensionContext): Promise<void> {
-  const step02 = vscode.Uri.joinPath(context.extensionUri, "dist", "migrate-0.2.cjs").fsPath;
-  const host: Host = {
-    // as `xtmd migrate` runs it: the document and its 0.2 packs in, one JSON object out
-    run02: existsSync(step02)
-      ? (doc, packs, text) =>
-          new Promise((done) => {
-            // another text of the document is a file of its name, with its definitions (name.mkp) beside it
-            const dir = text === undefined ? undefined : mkdtempSync(join(tmpdir(), "xtmd-migrate-"));
-            let file = doc;
-            if (dir) {
-              writeFileSync((file = join(dir, basename(doc))), text!);
-              const own = doc.replace(/\.mkp\.md$/, ".mkp");
-              if (own !== doc && existsSync(own)) copyFileSync(own, join(dir, basename(own)));
-            }
-            const child = fork(step02, [file, ...packs.flatMap((p) => ["--pack", p])], { silent: true, execArgv: [] });
-            let out = "";
-            let err = "";
-            child.stdout?.on("data", (b: Buffer) => (out += b.toString()));
-            child.stderr?.on("data", (b: Buffer) => (err += b.toString()));
-            child.on("error", (e) => done({ notRun: `the 0.2 → 0.3 step can't be run: ${e.message}` }));
-            child.on("close", () => {
-              if (dir) rmSync(dir, { recursive: true, force: true });
-              try {
-                done(JSON.parse(out));
-              } catch {
-                done({ notRun: `the 0.2 → 0.3 step failed: ${err.split("\n")[0] || "no output"}` });
-              }
-            });
-          })
-      : undefined,
-  };
   return start(
     context,
     async (options) => {
@@ -49,7 +13,6 @@ export function activate(context: vscode.ExtensionContext): Promise<void> {
       const run = { module, transport: TransportKind.ipc };
       return { client: new LanguageClient("xtmd", "Extended Mark", { run, debug: run }, options), server: "built in (xtmd.wasm)" };
     },
-    host,
   );
 }
 
