@@ -132,7 +132,8 @@ fn sweep(mut stats: list<stat>) {
 - **Plain `for` makes no copy.** It can't change the list it walks or its items, and a change to them in its body is a compile error. It can still update its own locals, such as a running total.
 - **After a removal**: Once a body or an event handler removes `x` from its list, `x` can't be used in the rest of that block. It is a compile error when the compiler can see it, and a failure when it can't.
 - **Lambdas**: A lambda reads its parameters, and the constants, `let`s and `for` variables around it, as they were when it was made. The variables it may assign it reads and writes where they live, so after `$state.tries = $state.tries + 1;` the next read sees the new value. A lambda with no return type may assign `$state`'s fields, the widget's own variables, a `mut` input, and a `mut for` or `if (mut …)` variable, whose writes go to the real item. A row leaves the page with its item, so its handlers can never write an item that is gone. A lambda can't assign a `mut` local of the fn it is written in.
-- **Derived values**: A `let` at the top of a document or in a widget or a view is worked out again whenever something it reads changes, such as a `$state` field or an input. One whose expression is a constant is a constant (Contracts, below). A `let` inside a fn is an ordinary local.
+- **Constants at the top of a file**: A `let` at the top of a file is a constant (Contracts, below). Anything else is a compile error. A fn gives a value that changes: `fn total(): number { … }`, read as `total()`.
+- **Derived values**: A `let` in a widget or a view is worked out again whenever something it reads changes, such as a `$state` field or an input. A `let` inside a fn is an ordinary local.
 - **Memory** is the implementer's. Extended Mark code has no pointers, no freeing and no null, and indexing gives an `opt`, so it can't cause a memory error. Values can't form cycles, because assigning makes a value of its own and a reference can't be stored, so no tracing garbage collector is needed.
 
 ### Optional values
@@ -221,7 +222,7 @@ side: text only ("left", "right") = "left";
 - **A length** `[low..high]`, `[low...]` or `[n]` counts the characters of a text or the items of a list. `[3]` is exactly 3, short for `[3..3]`. Nothing is ever padded to fit.
 - **`only (…)`** lists the allowed values, for types that implement `same`, and the values are constants. Tokens compare as cases, so the `tone` above takes those four cases and no other, whatever values a theme gives them.
 - **A bound** is a number with an optional sign, a duration, a named constant, or a constant expression in brackets. Bounds are always constants. A type can't depend on a value that is only known when the page runs.
-- **Constants** are literals, enum cases (tokens among them), top-level `let` values whose expression is itself a constant, and arithmetic over those. A `let` that reads a variable, `$state` or an extern value is not a constant.
+- **Constants** are what the compiler can work out: literals, enum cases (tokens among them), records, lists, arithmetic, top-level `let`s, fns called on constants, and lambdas and widgets held as values that read nothing that changes. What reads a variable, `$state` or an extern value is not a constant, and neither is what calls an `extern fn`, whose supplier may replace its default.
 
 #### When a value is accepted
 

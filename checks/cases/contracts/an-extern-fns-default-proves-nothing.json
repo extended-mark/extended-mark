@@ -1,0 +1,11 @@
+{
+  "id": "contracts.an-extern-fns-default-proves-nothing",
+  "about": "an extern fn's supplier may replace its default, so what the default gives is no proof; its return type's contract is",
+  "source": "an-extern-fns-default-proves-nothing.xtmd",
+  "packs": ["../../pages/pick"],
+  "expect": {
+    "diagnostics": [
+      {"code": "contracts.needs-proof", "line": 13, "column": 16}
+    ]
+  }
+}

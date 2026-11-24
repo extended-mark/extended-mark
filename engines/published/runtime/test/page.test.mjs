@@ -416,6 +416,15 @@ test("an undone change leaves no reused node behind", () => {
 
 const TAKES = "extern scores {\n    best: int;\n    worst: int = 0;\n}\n@@@\n\\{scores.best} \\{scores.worst}\n";
 
+test("a top-level let that holds a widget is placed by @name, each time another", () => {
+  const p = page('let limit: int = 3;\nlet abc: label = @label(value = "up to \\{limit}");\nlet tap: view = @press(label = "Add", click = fn() { $state.n = $state.n + 1; });\n\n$state {\n    n: int = 0;\n}\n\nwidget held(shown: view) {\n    view {\n        @shown;\n        @abc;\n    }\n}\n@@@\n@abc;\n\n@held(shown = abc);\n\n@tap;\n\n\\{$state.n}\n');
+  assert.equal(p.markdown(), "up to 3\n\nup to 3\n\nup to 3\n\nAdd\n\n0\n");
+  const tap = Object.entries(p.observeTree()).find(([, d]) => d.widget === "core/press")[0];
+  p.event(tap, "click");
+  assert.deepEqual(p.observeState(), { n: { num: "1" } });
+  assert.deepEqual(p.takeOutcome(), { refused: [], failures: [] });
+});
+
 test("an IR of another version is refused, and told what to do", () => {
   const ir = page("Hi.\n").module;
   assert.throws(() => new Page({ ir: { ...ir, version: 3 } }), /this page is IR 3, this engine reads IR 4: run xtmd migrate/);

@@ -85,6 +85,13 @@ impl Checker {
                 self.check_view_name(s.file, &s.name, s.span);
             }
         }
+        // nor a top-level let that holds one
+        for l in self.from.lets..self.lets.len() {
+            let s = self.lets[l].clone();
+            if self.is_view_type(&s.ty) && self.vars.resolve(&s.ty) != Ty::Rich {
+                self.check_view_name(s.file, &s.name, s.span);
+            }
+        }
         // a generic fn's type parameters are worked out from its parameters
         for f in self.from.fns..self.fns.len() {
             let s = self.fns[f].clone();

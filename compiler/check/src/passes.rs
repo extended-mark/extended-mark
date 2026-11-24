@@ -3,7 +3,8 @@
 use crate::body::{Cx, Local, LocalKind, LITERAL_MARK};
 use crate::ty::Ty;
 use crate::*;
-use xtmd_eval::{interp::Constants, FailKind, Machine, Program};
+use std::collections::HashSet;
+use xtmd_eval::{interp::Constants, FailKind, Failure, Fixed, Machine, Program};
 
 /// What stands in for core/entities.xtmdpack: its table is [`entities`].
 pub(crate) const NO_ENTITIES: &str = "package core;\n\nlet entities: map<text> = map { entries = [] };\n";
@@ -373,9 +374,9 @@ impl Checker {
         }
         // constant lets, each once the ones it reads are known
         let mut prog = self.program();
-        let mut left: Vec<usize> = (self.from.lets..self.lets.len()).collect();
-        if let Some(l) = left.iter().position(|l| &*self.files[self.lets[*l].file].src == NO_ENTITIES) {
-            let l = left.swap_remove(l);
+        let mut left: Vec<(usize, Failure)> = (self.from.lets..self.lets.len()).map(|l| (l, Failure::new(FailKind::NotConstant, String::new()))).collect();
+        if let Some(k) = left.iter().position(|(l, _)| &*self.files[self.lets[*l].file].src == NO_ENTITIES) {
+            let (l, _) = left.swap_remove(k);
             let v = entities();
             let full = self.lets[l].full.clone();
             prog.lets.insert(full.clone(), v.clone());
@@ -385,13 +386,18 @@ impl Checker {
         loop {
             let mut progress = false;
             let mut still = Vec::new();
-            for l in left {
+            for (l, _) in left {
                 let Some(value) = self.out.let_values.get(&l).cloned() else { continue };
                 let (out, told) = {
-                    let mut m = Machine::new(&prog, Box::new(Constants));
+                    let mut m = Machine::new(&prog, Box::new(Fixed));
                     (m.eval(&value), m.warned)
                 };
                 match out {
+                    // a widget, or code held to run later, that reads what changes
+                    Ok(_) if self.reads_moving(&prog, &value).is_some() => {
+                        let why = self.reads_moving(&prog, &value).unwrap();
+                        still.push((l, Failure::new(FailKind::NotConstant, why)))
+                    }
                     Ok(v) => {
                         let (file, span) = (self.lets[l].file, self.lets[l].span);
                         warned.extend(told.into_iter().map(|w| (file, span, w)));
@@ -401,7 +407,7 @@ impl Checker {
                         self.out.let_values.insert(l, v.to_ir());
                         progress = true;
                     }
-                    Err(f) if f.kind == FailKind::NotConstant => still.push(l),
+                    Err(f) if f.kind == FailKind::NotConstant => still.push((l, f)),
                     Err(_) if self.failed_lets.contains(&l) => {}
                     Err(f) => {
                         let (file, span) = (self.lets[l].file, self.lets[l].span);
@@ -414,10 +420,21 @@ impl Checker {
                 break;
             }
         }
+        // one that reads another that isn't a constant is told by that one
+        let moving: HashSet<String> = left.iter().map(|(l, _)| self.lets[*l].full.clone()).collect();
+        for (l, f) in left {
+            let Some(x) = self.out.let_values.get(&l).cloned() else { continue };
+            if self.failed_lets.contains(&l) || f.message.starts_with("Let(") && reads_lets(&x).iter().any(|n| moving.contains(n)) {
+                continue;
+            }
+            let why = if f.message.contains("only known when the page runs") { "it reads what is only known when the page runs".into() } else { f.message };
+            let (file, span, name) = (self.lets[l].file, self.lets[l].span, self.lets[l].name.clone());
+            self.error(file, codes::LET_NOT_CONSTANT, span, format!("a `let` at the top of a file is a constant, and `{name}` isn't: {why}. A fn gives a value that changes: `fn {name}(): … {{ return …; }}`, read as `{name}()`"));
+        }
         // token values: constants, with their records' rules checked now
         for (d, case, file, src) in self.token_values.iter().skip(self.from.tokens).cloned().collect::<Vec<_>>() {
             let Some(x) = self.out.token_values.get(&(d, case.clone())).cloned() else { continue };
-            let mut m = Machine::new(&prog, Box::new(Constants));
+            let mut m = Machine::new(&prog, Box::new(Fixed));
             match m.eval(&x) {
                 Ok(v) => {
                     warned.extend(m.warned.iter().map(|w| (file, src.span, w.clone())));
@@ -431,7 +448,7 @@ impl Checker {
         let keys: Vec<(DefId, String)> = self.out.defaults.own().keys().cloned().collect();
         for k in keys {
             let x = self.out.defaults.own()[&k].clone();
-            let mut m = Machine::new(&prog, Box::new(Constants));
+            let mut m = Machine::new(&prog, Box::new(Fixed));
             match m.eval(&x) {
                 Ok(v) if !matches!(v, xtmd_eval::Value::Fn(_) | xtmd_eval::Value::View(_)) => {
                     let (file, span) = self.field_span(k.0, &k.1);
@@ -448,7 +465,7 @@ impl Checker {
         let keys: Vec<(usize, String)> = self.out.channel_defaults.own().keys().cloned().collect();
         for k in keys {
             let x = self.out.channel_defaults.own()[&k].clone();
-            let mut m = Machine::new(&prog, Box::new(Constants));
+            let mut m = Machine::new(&prog, Box::new(Fixed));
             if let Ok(v) = m.eval(&x) {
                 self.out.channel_defaults.insert(k, v.to_ir());
             }
@@ -464,6 +481,31 @@ impl Checker {
         self.known_at.clear();
     }
 
+    /// What code in a value reads that can be another value later, through the fns it calls: a lambda and a
+    /// sentence's holes are worked out when they are used.
+    fn reads_moving(&self, prog: &Program, x: &ir::Expr) -> Option<String> {
+        let mut todo = vec![x.clone()];
+        let mut seen: HashSet<String> = HashSet::new();
+        let mut why = None;
+        while let Some(mut x) = todo.pop() {
+            walk_expr(&mut x, &mut |e| match e {
+                ir::Expr::Get(ir::Get::State(n)) => why = Some(format!("it reads `$state.{n}`")),
+                ir::Expr::Get(ir::Get::Extern(n)) => why = Some(format!("it reads `{n}`, which the host gives")),
+                ir::Expr::Place(p) if matches!(p.root, ir::Root::State(_)) => why = Some("it reads `$state`".into()),
+                ir::Expr::Call(c) if seen.insert(c.name.clone()) => {
+                    if let Some(f) = prog.fns.get(&c.name) {
+                        // a fn's body, as the body of a fn held in a value
+                        todo.push(ir::Expr::Fn(Box::new(ir::Lambda { params: Vec::new(), returns: None, body: f.body.clone() })));
+                    } else if prog.externs.contains_key(&c.name) && !xtmd_eval::natives::exists(&c.name) {
+                        why = Some(format!("it calls `{}`, an extern fn, which its supplier may replace", c.name));
+                    }
+                }
+                _ => {}
+            });
+        }
+        why
+    }
+
     fn field_span(&self, d: DefId, name: &str) -> (usize, Span) {
         let file = self.defs[d].file;
         let span = match &self.defs[d].kind {
@@ -476,6 +518,18 @@ impl Checker {
 }
 
 /// The document's link definitions as core's `map<text>`.
+/// The lets an expression reads, by full name.
+fn reads_lets(x: &ir::Expr) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut x = x.clone();
+    walk_expr(&mut x, &mut |e| {
+        if let ir::Expr::Get(ir::Get::Let(n)) = e {
+            out.push(n.clone());
+        }
+    });
+    out
+}
+
 fn links_value(links: &[(String, String)]) -> xtmd_eval::Value {
     use xtmd_eval::Value;
     use std::rc::Rc;

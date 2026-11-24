@@ -528,3 +528,13 @@ fn a_pages_needs_are_checked_when_it_loads() {
     let p = page("extern scores {\n    best: int;\n    worst: int = 0;\n}\n@@@\n@if (scores.worst > 0) {\n    \\{scores.best}\n}\n");
     assert_eq!(p.lacking(), vec!["doc/scores.best".to_string()]);
 }
+
+#[test]
+fn a_top_level_let_that_holds_a_widget_is_placed_by_name_each_time_another() {
+    let mut p = page("let limit: int = 3;\nlet abc: label = @label(value = \"up to \\{limit}\");\nlet tap: view = @press(label = \"Add\", click = fn() { $state.n = $state.n + 1; });\n\n$state {\n    n: int = 0;\n}\n\nwidget held(shown: view) {\n    view {\n        @shown;\n        @abc;\n    }\n}\n@@@\n@abc;\n\n@held(shown = abc);\n\n@tap;\n\n\\{$state.n}\n");
+    assert_eq!(p.markdown().unwrap(), "up to 3\n\nup to 3\n\nup to 3\n\nAdd\n\n0\n");
+    let tap = p.observe_tree().into_iter().find(|(_, d)| d.widget == "core/press").unwrap().0;
+    p.event(&tap, "click", vec![]);
+    assert_eq!(p.observe_state()["n"], num("1"));
+    assert_eq!(p.take_outcome().failures, vec![]);
+}

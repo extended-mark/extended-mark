@@ -1,0 +1,13 @@
+import pick;
+
+widget gauge(level: int 0..5) {
+    view {
+        @label(value = "\{level}");
+    }
+}
+
+record kept {
+    level: int 0..9 = dial(1);
+}
+@@@
+@gauge(level = dial(1));

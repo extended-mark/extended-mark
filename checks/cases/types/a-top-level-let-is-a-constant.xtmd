@@ -1,0 +1,42 @@
+import pick;
+
+extern scores {
+    best: int = 0;
+}
+
+$state {
+    n: int = 1;
+}
+
+record row {
+    of: fn(): int;
+}
+
+fn twice(): int {
+    return $state.n * 2;
+}
+
+fn area(w: int): int {
+    return w * limit;
+}
+
+let limit: int = 10;
+let half: number = limit / 2;
+let worked: int = area(3);
+let rows: list<row> = [row { of = fn() { return limit; } }];
+let note: rich_text = "so **far**";
+let still: view = @column {
+    @label(value = "\{limit}");
+};
+let moving: int = $state.n;
+let through: int = twice();
+let wide: bool = page.width == width.WIDE;
+let told: number = scores.best;
+let turned: int = dial(1);
+let held: fn(): int = fn() { return $state.n; };
+let deep: list<row> = [row { of = fn() { return twice(); } }];
+let said: rich_text = "now \{$state.n}";
+let placed: view = @label(value = "\{$state.n}");
+let after: int = moving + 1;
+@@@
+Lets.

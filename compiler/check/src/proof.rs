@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use xtmd_eval::interp::Constants;
+use xtmd_eval::interp::{Constants, Fixed};
 use xtmd_eval::{Machine, Num, Program, Value};
 use xtmd_ir::ir;
 use xtmd_syntax::Span;
@@ -558,7 +558,7 @@ impl Checker {
             let mut given = Given { inputs: HashMap::new(), slots: HashMap::new() };
             for f in &declared {
                 let Some(x) = args.get(&f.name).cloned().or_else(|| self.out.defaults.get(&(d, f.name.clone())).cloned()) else { continue };
-                if let Ok(v) = Machine::new(prog, Box::new(Constants)).eval(&x) {
+                if let Ok(v) = Machine::new(prog, Box::new(Fixed)).eval(&x) {
                     given.inputs.insert(f.name.clone(), v);
                 }
             }
@@ -604,7 +604,7 @@ impl Checker {
             if !seen.insert((file, span.start, span.end)) {
                 continue;
             }
-            let mut m = Machine::new(prog, Box::new(Constants));
+            let mut m = Machine::new(prog, Box::new(Fixed));
             if let Err(f) = m.eval(&x) {
                 let why = if f.kind == xtmd_eval::FailKind::NotConstant { "it reads something only known when the page runs".to_string() } else { f.message };
                 self.error(file, codes::BOUND_NOT_CONSTANT, span, format!("a contract's bound is a constant: {}", why));
@@ -614,7 +614,7 @@ impl Checker {
         let aliases = prog.aliases.clone();
         let mut errors = Vec::new();
         for p in proofs {
-            let mut s = Solver { m: Machine::new(prog, Box::new(Constants)), aliases: aliases.clone() };
+            let mut s = Solver { m: Machine::new(prog, Box::new(Fixed)), aliases: aliases.clone() };
             let want = s.of_type(&p.want);
             if !want.says_anything() {
                 continue;
@@ -623,7 +623,7 @@ impl Checker {
             let Some(why) = s.missing(&known, &want) else { continue };
             // no proof: a constant is checked on the spot
             if let Some(x) = &p.value {
-                let mut m = Machine::new(prog, Box::new(Constants));
+                let mut m = Machine::new(prog, Box::new(Fixed));
                 if let Ok(v) = m.eval(x) {
                     match m.fits(&v, &p.want) {
                         Ok(true) => {}
@@ -1021,9 +1021,9 @@ fn constant_calls(prog: &Program, nodes: &[ir::Node]) -> Option<Vec<Value>> {
             _ => return None,
         };
         // an input only known when the page runs is left out: a rule that reads it isn't decided
-        let known = given.iter().filter(|(_, x)| Machine::new(prog, Box::new(Constants)).eval(x).is_ok()).map(|(k, x)| (k.clone(), x.clone())).collect();
+        let known = given.iter().filter(|(_, x)| Machine::new(prog, Box::new(Fixed)).eval(x).is_ok()).map(|(k, x)| (k.clone(), x.clone())).collect();
         let x = ir::Expr::View(ir::ViewValue { widget: name.clone(), args: known, slots: slots.clone(), events: events.clone(), reads: Default::default() });
-        out.push(Machine::new(prog, Box::new(Constants)).eval(&x).ok()?);
+        out.push(Machine::new(prog, Box::new(Fixed)).eval(&x).ok()?);
     }
     Some(out)
 }

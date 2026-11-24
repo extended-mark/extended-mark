@@ -1,0 +1,19 @@
+{
+  "id": "types.a-top-level-let-is-a-constant",
+  "about": "a let at the top of a file is worked out as the file is compiled: one that reads $state, the host or an extern fn, here or in a fn, a widget or a sentence it calls or holds, isn't; one that reads a let already reported isn't reported again",
+  "source": "a-top-level-let-is-a-constant.xtmd",
+  "packs": ["../../pages/pick"],
+  "expect": {
+    "diagnostics": [
+      {"code": "types.let-not-constant", "line": 31, "column": 5},
+      {"code": "types.let-not-constant", "line": 32, "column": 5},
+      {"code": "types.let-not-constant", "line": 33, "column": 5},
+      {"code": "types.let-not-constant", "line": 34, "column": 5},
+      {"code": "types.let-not-constant", "line": 35, "column": 5},
+      {"code": "types.let-not-constant", "line": 36, "column": 5},
+      {"code": "types.let-not-constant", "line": 37, "column": 5},
+      {"code": "types.let-not-constant", "line": 38, "column": 5},
+      {"code": "types.let-not-constant", "line": 39, "column": 5}
+    ]
+  }
+}

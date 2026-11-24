@@ -10,6 +10,6 @@ pub mod natives;
 pub mod num;
 pub mod value;
 
-pub use interp::{Binding, Constants, FailKind, Failure, Host, Machine, Program, Row};
+pub use interp::{Binding, Constants, FailKind, Fixed, Failure, Host, Machine, Program, Row};
 pub use num::Num;
 pub use value::Value;

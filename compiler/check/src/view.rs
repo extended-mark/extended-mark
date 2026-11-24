@@ -89,6 +89,13 @@ impl Checker {
                 return Some(self.expr(cx, &ast::Expr { kind: E::Call { callee: Box::new(callee), args: g }, span: call.span }, None));
             }
         }
+        if let Some(ValueSym::Let(l)) = self.lookup_value(cx.file, name) {
+            let ty = self.lets[l].ty.clone();
+            if call.args.is_none() && self.holds_view(&ty) && !(widget && rich(self, &ty)) {
+                self.warn_deprecated(cx.file, self.lets[l].file, self.lets[l].span, call.name.span);
+                return Some((ir::Expr::Get(ir::Get::Let(self.lets[l].full.clone())), ty));
+            }
+        }
         if let Some(ValueSym::Fn(f)) = self.lookup_value(cx.file, name) {
             let ret = self.fns[f].ret.clone();
             if ret.map_or(false, |r| self.holds_view(&r)) {

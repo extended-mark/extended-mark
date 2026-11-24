@@ -1,11 +1,12 @@
 {
   "id": "names.a-view-is-never-named-like-a-widget",
-  "about": "a slot and a fn that returns a view can't take a visible widget's name",
+  "about": "a slot, a fn that returns a view and a let that holds one can't take a visible widget's name",
   "source": "a-view-is-never-named-like-a-widget.xtmdpack",
   "expect": {
     "diagnostics": [
       {"code": "names.view-named-like-a-widget", "line": 3, "column": 8},
-      {"code": "names.view-named-like-a-widget", "line": 13, "column": 4}
+      {"code": "names.view-named-like-a-widget", "line": 13, "column": 4},
+      {"code": "names.view-named-like-a-widget", "line": 17, "column": 5}
     ]
   }
 }

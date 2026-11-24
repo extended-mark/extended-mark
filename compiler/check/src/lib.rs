@@ -57,6 +57,7 @@ pub mod codes {
     pub const EXPOSED_MUT: &str = "types.exposed-mut-parameter";
     pub const INTERFACE_ALONE: &str = "types.interface-alone";
     pub const CONSTANT: &str = "types.constant-failed";
+    pub const LET_NOT_CONSTANT: &str = "types.let-not-constant";
     pub const POSITIONAL: &str = "views.positional-argument";
     pub const UNKNOWN_INPUT: &str = "views.unknown-input";
     pub const MISSING_INPUT: &str = "views.missing-input";

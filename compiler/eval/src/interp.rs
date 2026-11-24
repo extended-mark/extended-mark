@@ -124,6 +124,27 @@ impl Host for Constants {
     }
 }
 
+/// Constants, for what has to be one: an extern fn's default isn't, as whoever supplies the fn may replace
+/// it. A record's rules may ask one, as core's maths does: they are checked again where the page makes it.
+pub struct Fixed;
+
+impl Host for Fixed {
+    fn read(&self, m: &mut Machine, what: &Outer, owner: Option<u64>) -> R<Value> {
+        Constants.read(m, what, owner)
+    }
+
+    fn write(&self, m: &mut Machine, what: &Outer, owner: Option<u64>, value: Value) -> R<()> {
+        Constants.write(m, what, owner, value)
+    }
+
+    fn call_extern(&self, m: &mut Machine, name: &str, _args: &[Value]) -> R<Option<Option<Value>>> {
+        match m.in_rules {
+            0 => Err(Failure::new(FailKind::NotConstant, format!("`{}` is an extern fn, which its supplier may replace", name))),
+            _ => Ok(None),
+        }
+    }
+}
+
 /// One row of a `for` in a view: its locals, and who it is across redraws.
 #[derive(Clone, Debug)]
 pub struct Row {
@@ -249,11 +270,13 @@ pub struct Machine<'p> {
     pub warned: Vec<String>,
     /// Whether core's `md_inline` is run in Rust: as the compiler reads a page's sentences.
     pub md_native: bool,
+    /// How many records' rules are being run around here.
+    pub in_rules: u32,
 }
 
 impl<'p> Machine<'p> {
     pub fn new(prog: &'p Program, host: Box<dyn Host + 'p>) -> Machine<'p> {
-        Machine { prog, steps: 0, worked: 0, depth: 0, next_id: 0, frames: vec![Frame { vars: Vec::new(), owner: None, types: Vec::new() }], host: Rc::from(host), last_rule: None, warned: Vec::new(), md_native: false }
+        Machine { prog, steps: 0, worked: 0, depth: 0, next_id: 0, frames: vec![Frame { vars: Vec::new(), owner: None, types: Vec::new() }], host: Rc::from(host), last_rule: None, warned: Vec::new(), md_native: false, in_rules: 0 }
     }
 
     /// Starts counting steps again, for one redraw, one event or one constant.
@@ -1551,7 +1574,10 @@ impl<'p> Machine<'p> {
         for rule in &decl.requires {
             let args: Vec<Binding> = r.fields.iter().map(|(_, v)| Binding::Value(v.clone())).collect();
             let params: Vec<ir::Param> = r.fields.iter().map(|(n, _)| ir::Param { name: n.to_string(), ty: ir::Type::named("core/any"), mutable: false }).collect();
-            match self.run_fn(&params, &rule.body, args, None)? {
+            self.in_rules += 1;
+            let held = self.run_fn(&params, &rule.body, args, None);
+            self.in_rules -= 1;
+            match held? {
                 Some(Value::Bool(true)) => {}
                 _ if rule.warn => self.warned.push(rule.message.clone()),
                 _ => return Err(Failure::rule(&rule.message)),
