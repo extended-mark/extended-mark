@@ -201,10 +201,9 @@ test("rows keep their elements by key: typing in a row keeps focus and caret whe
   await page.keyboard.type("X");
   assert.equal((await xtmd(page, "state")).tasks.list[0].record.fields.title.text, "teXst it");
   assert.equal(await xtmd(page, "markdown"), "- teXst it\n- ship\n");
-  // a row added at the start moves nothing the reader is in
+  // a list the host replaces has its rows made again (page 3): the reader's field was one of the old ones
   await xtmd(page, "set", { tasks: { list: [{ record: { type: "doc/task", fields: { title: { text: "plan" } } } }, ...(await xtmd(page, "state")).tasks.list] } });
-  assert.equal(await page.evaluate(() => document.activeElement.dataset.mine), "yes");
-  assert.equal(await page.evaluate(() => document.activeElement.selectionStart), 3);
+  assert.deepEqual(await fields.evaluateAll((all) => all.map((el) => [el.value, el.dataset.mine ?? "new"])), [["plan", "new"], ["teXst it", "new"], ["ship", "new"]]);
   await page.close();
 });
 
