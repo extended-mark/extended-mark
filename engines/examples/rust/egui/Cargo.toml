@@ -29,6 +29,7 @@ app = ["dep:eframe"]
 
 [dependencies]
 xtmd-runtime = { path = "../runtime", version = "0.4.0" }
+xtmd-planes = { path = "../planes", version = "0.4.0" }
 xtmd-eval = { path = "../../../../compiler/eval", version = "0.4.0" }
 xtmd-ir = { path = "../../../../compiler/ir", version = "0.4.0" }
 serde.workspace = true

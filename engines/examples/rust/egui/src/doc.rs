@@ -13,7 +13,8 @@ use std::path::Path;
 
 use egui::Ui;
 use xtmd_runtime::ir::{self, Expr};
-use xtmd_runtime::{Broken, Call, Measure, Page, PageData, PageOptions, PageValues, Value, ValueFn};
+use xtmd_planes::Measure;
+use xtmd_runtime::{Broken, Call, Page, PageData, PageOptions, PageValues, Value, ValueFn};
 use serde::{Deserialize, Serialize};
 
 use crate::{fns, XtmdPage, Registry};

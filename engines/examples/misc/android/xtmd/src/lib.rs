@@ -203,6 +203,7 @@ pub struct ExternCall {
 
 struct Inner {
     page: Page,
+    planes: xtmd_planes::Planes,
     /// Time spent in the runtime (changes, redraws, layouts) and turning the tree into `Node`s.
     timings: Timings,
     /// The IR's type aliases, for a slider's variable's contract.
@@ -354,7 +355,7 @@ fn num_of(x: f64) -> Num {
 
 struct MeasureFrom<'a>(&'a dyn Measure);
 
-impl xtmd_runtime::Measure for MeasureFrom<'_> {
+impl xtmd_planes::Measure for MeasureFrom<'_> {
     fn spot(&mut self, page: &Page, spot: &Drawn) -> xtmd_runtime::Size {
         let e = self.0.spot(node(page, spot));
         xtmd_runtime::Size { width: num_of(e.width), height: num_of(e.height) }
@@ -452,7 +453,7 @@ impl NativePage {
         }
         opts.supplies = supplies_fn(init.supplies);
         let page = Page::new(file, opts)?;
-        Ok(Arc::new(NativePage { inner: Mutex::new(Locked(Inner { page, aliases, timings: Timings::default(), sent: Vec::new(), listening: HashMap::new(), sent_revision: None })), owner: AtomicU64::new(0) }))
+        Ok(Arc::new(NativePage { inner: Mutex::new(Locked(Inner { page, planes: Default::default(), aliases, timings: Timings::default(), sent: Vec::new(), listening: HashMap::new(), sent_revision: None })), owner: AtomicU64::new(0) }))
     }
 }
 
@@ -698,7 +699,7 @@ impl NativePage {
 
     /// Lays the page's planes out until nothing changes, from the engine's measure.
     pub fn layout(&self, measure: Box<dyn Measure>) -> Res<()> {
-        self.change(|i| Ok(i.page.layout(&mut MeasureFrom(measure.as_ref()))?))
+        self.change(|i| Ok(i.planes.lay(&mut i.page, &mut MeasureFrom(measure.as_ref()))?))
     }
 
     // ---- the checks: the check protocol's own JSON, in and out

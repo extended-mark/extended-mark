@@ -1,0 +1,18 @@
+[package]
+name = "xtmd-planes"
+workspace = "../../../../compiler"
+description = "The planes of a page laid out, for the engines that draw them: what is on each measured, placed by the native runtime's layout, and written back."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# an example engine's (engines/README.md): built and checked by CI, never published
+publish = false
+
+[dependencies]
+xtmd-runtime = { path = "../runtime", version = "0.4.0" }
+xtmd-eval = { path = "../../../../compiler/eval", version = "0.4.0" }
+
+[dev-dependencies]
+xtmd-check = { path = "../../../../compiler/check" }
+xtmd-lower = { path = "../../../../compiler/lower" }

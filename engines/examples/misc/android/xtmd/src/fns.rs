@@ -86,7 +86,7 @@ pub fn shade(page: &Page, id: &str, cols: u32, rows: u32) -> Result<Vec<i32>, Xt
         let y = hy.sub(py.mul(Num::int(j as i64).add(half)?)?)?;
         for i in 0..cols {
             let x = lx.add(px.mul(Num::int(i as i64).add(half)?)?)?;
-            let at = xtmd_runtime::layout::pt_value(&xtmd_runtime::Pt { x, y });
+            let at = xtmd_planes::pt_value(&xtmd_runtime::Pt { x, y });
             let argb = match page.apply(&shader, vec![at, Value::Num(px), args.clone()]) {
                 Ok(Some(c)) => (channel(&c, "a", 1.0) << 24) | (channel(&c, "r", 0.0) << 16) | (channel(&c, "g", 0.0) << 8) | channel(&c, "b", 0.0),
                 _ => 0,

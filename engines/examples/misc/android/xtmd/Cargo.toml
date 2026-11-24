@@ -25,6 +25,7 @@ required-features = ["bindgen"]
 bindgen = ["uniffi/cli"]
 
 [dependencies]
+xtmd-planes = { path = "../../../rust/planes", version = "0.4.0" }
 xtmd-runtime = { path = "../../../rust/runtime", version = "0.4.0" }
 xtmd-eval = { path = "../../../../../compiler/eval", version = "0.4.0" }
 xtmd-ir = { path = "../../../../../compiler/ir", version = "0.4.0" }

@@ -3,14 +3,15 @@
 //! run so a busy machine weighs on both alike. Prints the median ms per step, as
 //! engines/published/dom/test/drag-bench.mjs does for the web.
 //!
-//!   cargo run --release -p xtmd-runtime --example drag_bench -- engines/examples/misc/android/compose/sample/pages/tour.xtmd
+//!   cargo run --release -p xtmd-planes --example drag_bench -- engines/examples/misc/android/compose/sample/pages/tour.xtmd
 
 use std::path::PathBuf;
 use std::time::Instant;
 
 use xtmd_check::Source;
 use xtmd_runtime::ir::{Expr, ExprRecord};
-use xtmd_runtime::{Drawn, Measure, Num, Page, PageOptions, Size};
+use xtmd_planes::{Measure, Planes};
+use xtmd_runtime::{Drawn, Num, Page, PageOptions, Size};
 
 struct Fixed;
 
@@ -53,11 +54,12 @@ fn point(x: f64, y: f64) -> Expr {
 /// One drag: `steps` writes of `input` on the widget at `path`, each laid out; ms per step.
 fn drag(page: &mut Page, path: &str, input: &str, steps: usize, at: impl Fn(usize) -> Expr) -> Vec<f64> {
     let mut out = Vec::new();
+    let mut planes = Planes::default();
     for k in 1..=steps {
         let v = page.value(&at(k)).unwrap();
         let t = Instant::now();
         page.write(path, input, v).unwrap();
-        page.layout(&mut Fixed).unwrap();
+        planes.lay(page, &mut Fixed).unwrap();
         out.push(t.elapsed().as_secs_f64() * 1000.0);
     }
     out
@@ -77,7 +79,7 @@ fn main() {
     xtmd_lower::lower(&mut module);
     let t = Instant::now();
     let mut page = Page::from_module(module, PageOptions::default()).unwrap();
-    page.layout(&mut Fixed).unwrap();
+    Planes::default().lay(&mut page, &mut Fixed).unwrap();
     let mount = t.elapsed().as_secs_f64() * 1000.0;
     let handle = find(page.tree(), "core/handle").expect("a handle");
     let plane = find(page.tree(), "core/plane").expect("a plane");

@@ -4418,6 +4418,7 @@ dependencies = [
  "xtmd-eval",
  "xtmd-ir",
  "xtmd-lower",
+ "xtmd-planes",
  "xtmd-runtime",
 ]
 
@@ -4456,6 +4457,7 @@ dependencies = [
  "xtmd-eval",
  "xtmd-ir",
  "xtmd-lower",
+ "xtmd-planes",
  "xtmd-runtime",
 ]
 
@@ -4540,6 +4542,16 @@ dependencies = [
  "xtmd-lower",
  "xtmd-markdown",
  "xtmd-syntax",
+]
+
+[[package]]
+name = "xtmd-planes"
+version = "0.4.0"
+dependencies = [
+ "xtmd-check",
+ "xtmd-eval",
+ "xtmd-lower",
+ "xtmd-runtime",
 ]
 
 [[package]]

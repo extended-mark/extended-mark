@@ -62,7 +62,8 @@ use std::rc::Rc;
 use egui::{Id, InnerResponse, Ui, UiBuilder};
 pub use xtmd_runtime as runtime;
 use xtmd_runtime::ir::{self, Expr};
-use xtmd_runtime::{Drawn, Measure, Num, Page, PageOptions, PageTheme, PageValues, Value};
+use xtmd_planes::{Measure, Planes};
+use xtmd_runtime::{Drawn, Num, Page, PageOptions, PageTheme, PageValues, Value};
 
 use crate::look::Look;
 use crate::measure::Measured;
@@ -528,6 +529,7 @@ pub struct XtmdPage {
     tree: Rc<Vec<Drawn>>,
     revision: Option<u64>,
     sizes: Sizes,
+    planes: Planes,
     follow_theme: bool,
     id: Id,
     /// The theme last given to the page from egui's.
@@ -549,6 +551,7 @@ impl XtmdPage {
             tree: Rc::new(Vec::new()),
             revision: None,
             sizes: Sizes::Measured,
+            planes: Planes::default(),
             follow_theme: true,
             id: Id::unique("xtmd-page"),
             streak: (0, 0),
@@ -726,10 +729,10 @@ impl XtmdPage {
             self.held = None;
             let at = self.page.revision();
             let laid = match &mut self.sizes {
-                Sizes::Given(m) => self.page.layout(m.as_mut()),
+                Sizes::Given(m) => self.planes.lay(&mut self.page, m.as_mut()),
                 Sizes::Measured => {
                     let mut m = self.frame.measured.clone();
-                    self.page.layout(&mut m)
+                    self.planes.lay(&mut self.page, &mut m)
                 }
             };
             if let Err(f) = laid {
@@ -739,7 +742,7 @@ impl XtmdPage {
                 self.streak = (outside, 0);
             } else {
                 self.streak = if self.streak.0 == outside { (outside, self.streak.1 + 1) } else { (outside, 1) };
-                if self.streak.1 >= xtmd_runtime::MAX_LAYOUT_PASSES {
+                if self.streak.1 >= xtmd_runtime::MAX_PASSES {
                     self.held = Some(outside);
                     self.frame.errors.push(format!("the layout still changed the page after {} frames with nothing else changing it: held until something does", self.streak.1));
                 }

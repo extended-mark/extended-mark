@@ -10,7 +10,8 @@
 
 use std::collections::HashMap;
 
-use xtmd_runtime::{Drawn, Measure, Num, Page, Size, Value};
+use xtmd_planes::Measure;
+use xtmd_runtime::{Drawn, Num, Page, Size, Value};
 
 pub const CHAR: f64 = 8.0;
 pub const LINE: f64 = 20.0;

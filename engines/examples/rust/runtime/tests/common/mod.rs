@@ -86,3 +86,21 @@ pub fn n(s: &str) -> Num {
 pub fn v(p: &Page, x: Expr) -> Value {
     p.value(&x).unwrap()
 }
+
+/// Every step, on a page with reuse and on one without: the same tree, `$state` and Markdown.
+pub fn same_with_and_without_reuse(source: &str, steps: &[&dyn Fn(&mut Page)]) {
+    let mut on = page(source);
+    let mut off = page_with(source, PageOptions { memo: false, ..PageOptions::default() });
+    let same = |on: &Page, off: &Page, k: usize| {
+        assert_eq!(on.observe_tree(), off.observe_tree(), "the tree after step {}", k);
+        assert_eq!(on.observe_state(), off.observe_state(), "$state after step {}", k);
+        assert_eq!(on.markdown().unwrap(), off.markdown().unwrap(), "the Markdown after step {}", k);
+    };
+    same(&on, &off, 0);
+    for (k, step) in steps.iter().enumerate() {
+        step(&mut on);
+        step(&mut off);
+        same(&on, &off, k + 1);
+        assert_eq!(on.take_outcome(), off.take_outcome(), "the outcome after step {}", k + 1);
+    }
+}

@@ -569,11 +569,13 @@ export class Core {
   settle(pass: () => { writes: { path: string; input: string; value: V }[]; of: string[] }): void {
     if (this.held === this.changes) return;
     this.held = undefined;
+    let last: string[] = [];
     for (let k = 0; k < MAX_PASSES; k++) {
       const { writes, of } = pass();
       if (!of.length || !this.layoutWrite(writes)) return;
+      last = of;
     }
-    for (const id of pass().of) this.layoutFailed(id);
+    for (const id of last) this.layoutFailed(id);
     this.held = this.changes;
   }
 

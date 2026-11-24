@@ -141,7 +141,7 @@ pub fn tex(latex: Option<&Value>) -> String {
 
 /// A point value in the IR's record form.
 pub fn point_value(x: Num, y: Num) -> Value {
-    xtmd_runtime::layout::pt_value(&xtmd_runtime::Pt { x, y })
+    xtmd_planes::pt_value(&xtmd_runtime::Pt { x, y })
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@
 
 use std::collections::HashSet;
 
-use xtmd_runtime::layout::region_of;
+use xtmd_planes::region_of;
 use xtmd_runtime::{Drawn, Num, Page};
 use serde_json::{json, Map, Value as Json};
 

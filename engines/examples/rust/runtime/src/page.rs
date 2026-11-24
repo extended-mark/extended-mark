@@ -1939,7 +1939,7 @@ struct Snapshot {
 
 /// One write a layout makes: a `mut` input of a drawn widget.
 #[derive(Clone, Debug)]
-pub struct LayoutWrite {
+pub struct Write {
     pub id: String,
     pub input: String,
     pub value: Value,
@@ -1957,9 +1957,7 @@ pub struct Page {
     revision: u64,
     listeners: Vec<(usize, Box<dyn FnMut()>)>,
     next_listener: usize,
-    /// The planes already laid out once, by identity: `fit` only sets where they start.
-    pub(crate) started: HashSet<String>,
-    /// The outside change a layout that didn't settle is held at.
+    /// The outside change a page that didn't settle is held at.
     pub(crate) held_layout: Option<u64>,
     /// The fns a host calls.
     held_fns: crate::host::HeldFns,
@@ -1969,6 +1967,9 @@ pub struct Page {
 
 /// The IR this runtime runs: a whole number of its own, apart from its release.
 pub const IR_VERSION: i64 = 4;
+
+/// A page still changing after this many passes is stopped (page 6, failures).
+pub const MAX_PASSES: usize = 8;
 
 /// An IR of another version is refused, and told what to do.
 fn check_version(version: i64) -> R<()> {
@@ -2090,7 +2091,6 @@ impl Page {
             revision: 0,
             listeners: Vec::new(),
             next_listener: 0,
-            started: HashSet::new(),
             held_layout: None,
             held_fns: Default::default(),
             left: None,
@@ -2248,7 +2248,7 @@ impl Page {
             };
             if let (true, Some(f), Some((fx, fy, tx, ty))) = (samples, f, corners) {
                 let half = Num::parse("0.5").unwrap();
-                let point = |x: Num, y: Num| crate::layout::pt_value(&crate::layout::Pt { x, y });
+                let point = |x: Num, y: Num| Value::Record(Rc::new(Record { ty: Rc::from("core/point"), fields: vec![(Rc::from("x"), Value::Num(x)), (Rc::from("y"), Value::Num(y))] }));
                 let px = Value::Num(tx.sub(fx)?.abs().div(Num::int(64))?);
                 let ats = [point(fx, fy), point(fx.add(tx)?.mul(half)?, fy.add(ty)?.mul(half)?), point(tx, ty)];
                 let mut taken = Vec::new();
@@ -2459,13 +2459,13 @@ impl Page {
     /// A layout pass's writes, as one change: a value equal to the one there is no change, and a
     /// refused write undoes the pass. Whether the layout has to run again: only when a variable
     /// changed, since a widget's own values are read by no Extended Mark code.
-    pub fn layout_write(&mut self, writes: Vec<LayoutWrite>) -> R<bool> {
+    pub fn layout_write(&mut self, writes: Vec<Write>) -> R<bool> {
         self.reset_steps();
         let snap = self.snapshot();
         let own_before = self.rt.w.borrow().own.clone();
         let mut changed = false;
         let mut shared = false;
-        for LayoutWrite { id, input, value } in writes {
+        for Write { id, input, value } in writes {
             let Some(node) = self.find(&id) else { continue };
             if let Some(now) = node.props.get(&input) {
                 if self.with_machine(|_, m| m.equal(now, &value))? {
@@ -2521,6 +2521,30 @@ impl Page {
     /// The warnings since the host last took them: `warn` rules found false (page 2).
     pub fn take_warnings(&mut self) -> Vec<Broken> {
         std::mem::take(&mut self.rt.w().warnings)
+    }
+
+    /// Runs passes until one changes nothing: each gives its writes and what they are for, and its writes are
+    /// one change. A page still changing after [`MAX_PASSES`] of them is stopped, and is a failure of what it
+    /// was for; stopped once, it stays so until something else changes the page, as an engine that settles it
+    /// on every frame would run it for ever.
+    pub fn settle(&mut self, pass: &mut dyn FnMut(&Page) -> R<(Vec<Write>, Vec<String>)>) -> R<()> {
+        if self.held_layout == Some(self.changes()) {
+            return Ok(());
+        }
+        self.held_layout = None;
+        let mut last = Vec::new();
+        for _ in 0..MAX_PASSES {
+            let (writes, of) = pass(self)?;
+            if of.is_empty() || !self.layout_write(writes)? {
+                return Ok(());
+            }
+            last = of;
+        }
+        for id in last {
+            self.layout_failed(&id);
+        }
+        self.held_layout = Some(self.changes());
+        Ok(())
     }
 
     /// A plane whose layout didn't settle (page 6, failures).

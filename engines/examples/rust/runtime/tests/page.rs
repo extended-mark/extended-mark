@@ -10,8 +10,8 @@ use std::rc::Rc;
 
 use common::*;
 use xtmd_runtime::ir::Expr;
-use xtmd_runtime::layout::{around, keep_inside, place, Pt, Region, Size};
-use xtmd_runtime::{Broken, Drawn, Measure, Num, Page, PageOptions, PageValues, PageWidth, Value};
+use xtmd_runtime::layout::{around, keep_inside, lay, place, Box as OnPlane, Plane, Pt, Region, Size};
+use xtmd_runtime::{Broken, Drawn, Num, Page, PageOptions, PageValues, PageWidth, Value};
 
 fn refused_code(code: &str, site: &str) -> Broken {
     Broken { code: Some(code.into()), rule: None, site: Some(site.into()) }
@@ -294,71 +294,6 @@ fn bounds_left_out_are_the_region_around_every_box_and_the_centre_stays_inside()
     assert_eq!(at(pt("390", "0"), pt("500", "50")), ("0".into(), "0".into()));
 }
 
-const MAP: &str = "$state {\n    home: opt<region> = opt.NONE;\n}\n\nwidget map() {\n    view {\n        @plane(label = \"Map\", bounds = region { from = point { x = -100, y = -100 }, to = point { x = 100, y = 100 } }) {\n            items {\n                @spot(at = point { x = 0, y = 0 }, box = $state.home) {\n                    @label(value = \"Home\");\n                }\n            }\n        }\n    }\n}\n@@@\n@map;\n";
-
-struct Fixed {
-    width: Num,
-    measured: Rc<Cell<u32>>,
-    /// Each spot measured grows by this much: a layout that never settles.
-    grow: i64,
-}
-
-impl Measure for Fixed {
-    fn spot(&mut self, _page: &Page, _spot: &Drawn) -> Size {
-        self.measured.set(self.measured.get() + 1);
-        let extra = self.grow * self.measured.get() as i64;
-        Size { width: Num::int(32 + extra), height: Num::int(20) }
-    }
-
-    fn plane_width(&mut self, _page: &Page, _plane: &Drawn) -> Num {
-        self.width
-    }
-}
-
-fn region_expr(fx: &str, fy: &str, tx: &str, ty: &str) -> Expr {
-    use xtmd_runtime::ir::ExprRecord;
-    let point = |x: &str, y: &str| Expr::Record(ExprRecord { ty: "core/point".into(), fields: BTreeMap::from([("x".to_string(), num(x)), ("y".to_string(), num(y))]) });
-    Expr::Some(Box::new(Expr::Record(ExprRecord { ty: "core/region".into(), fields: BTreeMap::from([("from".to_string(), point(fx, fy)), ("to".to_string(), point(tx, ty))]) })))
-}
-
-#[test]
-fn a_layout_writes_boxes_once_a_second_pass_with_nothing_changed_writes_nothing() {
-    let mut p = page(MAP);
-    let redraws = Rc::new(Cell::new(0));
-    let r = redraws.clone();
-    p.on_change(move || r.set(r.get() + 1));
-    let mut measure = Fixed { width: n("100"), measured: Rc::new(Cell::new(0)), grow: 0 };
-    p.layout(&mut measure).unwrap();
-    assert_eq!(redraws.get(), 1);
-    assert_eq!(state(&p, "home"), region_expr("-16", "-10", "16", "10"));
-    // the plane's drawn region, in its units
-    let plane = p.observe_tree().into_iter().find(|(_, m)| m.widget == "core/plane").unwrap().1;
-    assert!(plane.props.contains_key("drawn"));
-    p.layout(&mut measure).unwrap();
-    assert_eq!(redraws.get(), 1);
-    assert_eq!(p.take_outcome(), Default::default());
-}
-
-#[test]
-fn a_layout_that_never_settles_fails_its_plane_and_is_held_until_an_outside_change() {
-    let mut p = page(MAP);
-    let measured = Rc::new(Cell::new(0));
-    let mut measure = Fixed { width: n("100"), measured: measured.clone(), grow: 2 };
-    p.layout(&mut measure).unwrap();
-    assert_eq!(measured.get(), xtmd_runtime::MAX_LAYOUT_PASSES as u32);
-    let failures = p.take_outcome().failures;
-    assert_eq!(failures.len(), 1);
-    assert_eq!(failures[0].code.as_deref(), Some("failure.layout"));
-    // held: laying out again, as an engine does every frame, runs no pass
-    p.layout(&mut measure).unwrap();
-    p.layout(&mut measure).unwrap();
-    assert_eq!(measured.get(), xtmd_runtime::MAX_LAYOUT_PASSES as u32);
-    // until something outside the layout changes the page
-    p.set_page(PageValues { width: Some(PageWidth::Wide), theme: None }).unwrap();
-    p.layout(&mut measure).unwrap();
-    assert_eq!(measured.get(), 2 * xtmd_runtime::MAX_LAYOUT_PASSES as u32);
-}
-
 #[test]
 fn a_spot_outside_its_planes_bounds_is_a_warning_once_as_it_moves_out() {
     let mut p = page("$state {\n    x: number = 5;\n}\n\nwidget map() {\n    view {\n        @plane(label = \"Map\", bounds = region { from = point { x = 0, y = 0 }, to = point { x = 10, y = 10 } }) {\n            items {\n                @spot(at = point { x = $state.x, y = 5 }) {\n                    @label(value = \"here\");\n                }\n            }\n        }\n    }\n}\n@@@\n@map;\n");
@@ -432,24 +367,6 @@ fn a_widget_whose_reads_didnt_change_is_the_very_same_node_after_a_change() {
     }
 }
 
-/// Every step, on a page with reuse and on one without: the same tree, `$state` and Markdown.
-fn same_with_and_without_reuse(source: &str, steps: &[&dyn Fn(&mut Page)]) {
-    let mut on = page(source);
-    let mut off = page_with(source, PageOptions { memo: false, ..PageOptions::default() });
-    let same = |on: &Page, off: &Page, k: usize| {
-        assert_eq!(on.observe_tree(), off.observe_tree(), "the tree after step {}", k);
-        assert_eq!(on.observe_state(), off.observe_state(), "$state after step {}", k);
-        assert_eq!(on.markdown().unwrap(), off.markdown().unwrap(), "the Markdown after step {}", k);
-    };
-    same(&on, &off, 0);
-    for (k, step) in steps.iter().enumerate() {
-        step(&mut on);
-        step(&mut off);
-        same(&on, &off, k + 1);
-        assert_eq!(on.take_outcome(), off.take_outcome(), "the outcome after step {}", k + 1);
-    }
-}
-
 #[test]
 fn with_and_without_reuse_every_step_observes_the_same_tree_state_and_markdown() {
     same_with_and_without_reuse(
@@ -477,38 +394,6 @@ fn an_undone_change_leaves_no_reused_node_behind() {
 }
 
 #[test]
-fn dragging_on_the_tour_page_observes_the_same_with_and_without_reuse() {
-    let source = std::fs::read_to_string(repo().join("engines/examples/misc/android/compose/sample/pages/tour.xtmd")).unwrap();
-    let point = |x: &str, y: &str| {
-        Expr::Record(xtmd_runtime::ir::ExprRecord { ty: "core/point".into(), fields: BTreeMap::from([("x".to_string(), num(x)), ("y".to_string(), num(y))]) })
-    };
-    let find = |p: &Page, widget: &str| p.observe_tree().into_iter().find(|(_, m)| m.widget == widget).unwrap().0;
-    let lay = |p: &mut Page| {
-        let mut m = Fixed { width: n("640"), measured: Rc::new(Cell::new(0)), grow: 0 };
-        p.layout(&mut m).unwrap();
-    };
-    let handle = |x: &'static str, y: &'static str| {
-        move |p: &mut Page| {
-            let at = find(p, "core/handle");
-            let value = v(p, point(x, y));
-            p.write(&at, "at", value).unwrap();
-            lay(p);
-        }
-    };
-    let pan = |x: &'static str, y: &'static str| {
-        move |p: &mut Page| {
-            let at = find(p, "core/plane");
-            let value = v(p, point(x, y));
-            p.write(&at, "center", value).unwrap();
-            lay(p);
-        }
-    };
-    let (h1, h2, p1, p2, h3) = (handle("0.5", "0.2"), handle("0.6", "0.1"), pan("20", "10"), pan("40", "-20"), handle("-0.3", "0.9"));
-    let dark = |p: &mut Page| p.set(vec![("dark".into(), v(p, Expr::Bool(true)))]).unwrap();
-    same_with_and_without_reuse(&source, &[&lay, &h1, &h2, &p1, &dark, &p2, &h3]);
-}
-
-#[test]
 fn an_ir_of_another_version_is_refused_and_told_what_to_do() {
     let m = build_with("Hi.\n", &[]);
     let refused = |version: i64| Page::from_module(xtmd_runtime::ir::Module { version, ..m.clone() }, PageOptions::default()).err().unwrap().message;
@@ -530,11 +415,28 @@ fn a_pages_needs_are_checked_when_it_loads() {
 }
 
 #[test]
+fn lay_puts_boxes_by_their_points_the_zoom_in_its_range_and_the_centre_in_the_bounds() {
+    let pt = |x: &str, y: &str| Pt { x: n(x), y: n(y) };
+    let of = |p: Plane| lay(&p).unwrap();
+    let base = || Plane { boxes: vec![], bounds: None, width: n("100"), aspect: n("1"), center: pt("0", "0"), zoom: n("1"), fit: false, first: true, zoom_range: (None, None) };
+    let at = |q: Pt| format!("{},{}", q.x.show(), q.y.show());
+    let on = OnPlane { at: pt("10", "0"), anchor: "W".into(), nudge: pt("0", "0"), size: Size { width: n("20"), height: n("10") } };
+    // bounds left out are the boxes'; smaller than what is drawn, the centre is their middle
+    let a = of(Plane { boxes: vec![on], ..base() });
+    assert_eq!([at(a.boxes[0].from), at(a.boxes[0].to), at(a.center), at(a.drawn.from), at(a.drawn.to)], ["10,-5", "30,5", "20,0", "-30,-50", "70,50"]);
+    // fit: the whole of the bounds, the first time only, and the range counts from it
+    let bounds = Some(Region { from: pt("0", "0"), to: pt("400", "200") });
+    let fit = |first: bool, high: Option<Num>| of(Plane { bounds, fit: true, first, zoom_range: (None, high), ..base() }).zoom.show();
+    assert_eq!([fit(true, None), fit(false, None), fit(false, Some(n("2")))], ["0.25", "1", "0.5"]);
+    assert_eq!([of(Plane { zoom: n("50"), ..base() }).zoom.show(), of(Plane { zoom: n("0.01"), ..base() }).zoom.show()], ["10", "0.1"]);
+}
+
+#[test]
 fn a_top_level_let_that_holds_a_widget_is_placed_by_name_each_time_another() {
     let mut p = page("let limit: int = 3;\nlet abc: label = @label(value = \"up to \\{limit}\");\nlet tap: view = @press(label = \"Add\", click = fn() { $state.n = $state.n + 1; });\n\n$state {\n    n: int = 0;\n}\n\nwidget held(shown: view) {\n    view {\n        @shown;\n        @abc;\n    }\n}\n@@@\n@abc;\n\n@held(shown = abc);\n\n@tap;\n\n\\{$state.n}\n");
     assert_eq!(p.markdown().unwrap(), "up to 3\n\nup to 3\n\nup to 3\n\nAdd\n\n0\n");
     let tap = p.observe_tree().into_iter().find(|(_, d)| d.widget == "core/press").unwrap().0;
-    p.event(&tap, "click", vec![]);
+    p.event(&tap, "click", vec![]).unwrap();
     assert_eq!(p.observe_state()["n"], num("1"));
     assert_eq!(p.take_outcome().failures, vec![]);
 }

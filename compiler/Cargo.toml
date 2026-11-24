@@ -14,6 +14,7 @@ members = [
     "schemagen",
     "../ide/lsp",
     "../engines/examples/rust/runtime",
+    "../engines/examples/rust/planes",
     "../engines/examples/rust/egui",
     "../engines/examples/rust/egui-live",
     "../engines/examples/misc/android/xtmd",

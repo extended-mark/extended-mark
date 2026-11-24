@@ -1,19 +1,12 @@
-//! The plane's layout (page 5, plane; plan tab 15). An engine measures what it drew; this works
-//! out, in the plane's units, where each spot landed, the plane's bounds when they are left out,
-//! its centre kept inside them and the region it draws, and writes them as one change per pass.
-//! A port of @extended-mark/runtime's `layout.ts`.
+//! Where the boxes on a plane go (page 5, plane): sizes and points in, places out, in the plane's units. It
+//! knows no page and no widget, so whoever draws planes asks it with what they measured. A port of
+//! @extended-mark/runtime's `layout.ts`.
 //!
-//! At zoom 1 one unit of the plane is one of the page's own lengths (an egui point, an Android
-//! dp), so a spot's box is its child's size on the page, placed at its point: panning and
-//! zooming never change it.
-
-use std::rc::Rc;
+//! At zoom 1 one unit of the plane is one of the page's own lengths (an egui point, an Android dp), so a box
+//! is its size on the page, placed at its point: panning and zooming never change it.
 
 use xtmd_eval::interp::R;
-use xtmd_eval::value::Record;
-use xtmd_eval::{Num, Value};
-
-use crate::page::{Drawn, LayoutWrite, Page};
+use xtmd_eval::Num;
 
 /// A size on the page, in its own lengths.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -36,15 +29,43 @@ pub struct Region {
     pub to: Pt,
 }
 
-/// What an engine tells the layout: the size of each spot's child, and the width a plane is given
-/// when it says none.
-pub trait Measure {
-    fn spot(&mut self, page: &Page, spot: &Drawn) -> Size;
-    fn plane_width(&mut self, page: &Page, plane: &Drawn) -> Num;
+/// A box on a plane, as it was measured.
+#[derive(Clone, Debug)]
+pub struct Box {
+    pub at: Pt,
+    /// Which part of it is on its point: `CENTER`, `N`, `SE`…
+    pub anchor: String,
+    pub nudge: Pt,
+    pub size: Size,
 }
 
-/// A layout still changing after this many passes is stopped: a failure of the plane.
-pub const MAX_LAYOUT_PASSES: usize = 8;
+/// A plane and what is on it.
+#[derive(Clone, Debug)]
+pub struct Plane {
+    pub boxes: Vec<Box>,
+    /// Left out, the region around every box.
+    pub bounds: Option<Region>,
+    /// Its width on the page, and that over its height.
+    pub width: Num,
+    pub aspect: Num,
+    pub center: Pt,
+    pub zoom: Num,
+    /// `fit` sets where the zoom starts, so only a plane laid out for the first time starts there.
+    pub fit: bool,
+    pub first: bool,
+    /// How far the zoom may go: its ends, either of them open.
+    pub zoom_range: (Option<Num>, Option<Num>),
+}
+
+/// Where everything on a plane is.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Places {
+    pub boxes: Vec<Region>,
+    pub center: Pt,
+    pub zoom: Num,
+    /// The region it draws.
+    pub drawn: Region,
+}
 
 fn half() -> Num {
     Num::parse("0.5").unwrap()
@@ -102,196 +123,51 @@ pub fn keep_inside(center: Pt, half_size: Pt, bounds: Region) -> R<Pt> {
     Ok(Pt { x: axis(center.x, half_size.x, bounds.from.x, bounds.to.x)?, y: axis(center.y, half_size.y, bounds.from.y, bounds.to.y)? })
 }
 
-// ---- values
-
-pub fn pt_of(v: Option<&Value>) -> Option<Pt> {
-    let Some(Value::Record(r)) = v else { return None };
-    match (r.get("x"), r.get("y")) {
-        (Some(Value::Num(x)), Some(Value::Num(y))) => Some(Pt { x: *x, y: *y }),
-        _ => None,
-    }
-}
-
-pub fn region_of(v: Option<&Value>) -> Option<Region> {
-    match v? {
-        Value::Opt(x) => region_of(x.as_deref()),
-        Value::Record(r) => Some(Region { from: pt_of(r.get("from"))?, to: pt_of(r.get("to"))? }),
-        _ => None,
-    }
-}
-
-pub fn pt_value(p: &Pt) -> Value {
-    Value::Record(Rc::new(Record { ty: Rc::from("core/point"), fields: vec![(Rc::from("x"), Value::Num(p.x)), (Rc::from("y"), Value::Num(p.y))] }))
-}
-
-pub fn region_value(r: &Region) -> Value {
-    Value::Record(Rc::new(Record { ty: Rc::from("core/region"), fields: vec![(Rc::from("from"), pt_value(&r.from)), (Rc::from("to"), pt_value(&r.to))] }))
-}
-
-fn num_of(v: Option<&Value>, or: Num) -> Num {
-    match v {
-        Some(Value::Num(n)) => *n,
-        _ => or,
-    }
-}
-
-// ---- a pass
-
-/// Every plane in the tree, outermost first.
-pub fn planes(nodes: &[Drawn]) -> Vec<&Drawn> {
-    fn walk<'a>(nodes: &'a [Drawn], out: &mut Vec<&'a Drawn>) {
-        for n in nodes {
-            if n.widget == "core/plane" {
-                out.push(n);
-            }
-            for kids in n.slots.values().chain(n.held.iter()) {
-                walk(kids, out);
-            }
-        }
-    }
-    let mut out = Vec::new();
-    walk(nodes, &mut out);
-    out
-}
-
-/// What one plane writes after a layout: each spot's box, its centre when it had to move, and
-/// the region it draws. Boxes come first, so bounds left out are worked out from them. `started`
-/// holds the planes laid out once already, by identity: `fit` only sets where they start.
-pub fn plane_writes(page: &Page, plane: &Drawn, measure: &mut dyn Measure, started: &mut std::collections::HashSet<String>) -> R<Vec<LayoutWrite>> {
-    let mut writes = Vec::new();
+/// A plane laid out: its boxes, its zoom inside what it allows, its centre kept where the drawn area stays
+/// inside the bounds, and the region it draws.
+pub fn lay(p: &Plane) -> R<Places> {
     let mut boxes = Vec::new();
-    let zero = Pt { x: Num::zero(), y: Num::zero() };
-    for s in plane.slots.get("items").into_iter().flatten() {
-        if s.widget != "core/spot" {
-            continue;
-        }
-        let at = pt_of(s.props.get("at")).unwrap_or(zero);
-        let anchor = match s.props.get("anchor") {
-            Some(Value::Case(c)) => c.name.to_string(),
-            _ => "CENTER".to_string(),
-        };
-        let nudge = pt_of(s.props.get("nudge")).unwrap_or(zero);
-        let size = measure.spot(page, s);
-        let b = place(at, &anchor, nudge, size)?;
-        boxes.push(b);
-        writes.push(LayoutWrite { id: s.id.clone(), input: "box".into(), value: Value::some(region_value(&b)) });
+    for b in &p.boxes {
+        boxes.push(place(b.at, &b.anchor, b.nudge, b.size)?);
     }
-    let bounds = region_of(plane.props.get("bounds")).or_else(|| around(&boxes));
-    let aspect = num_of(plane.props.get("aspect"), Num::parse("1.5").unwrap());
-    let measured = measure.plane_width(page, plane);
-    let width = match plane.props.get("width") {
-        Some(Value::Opt(Some(w))) => num_of(token_num(page, w)?.as_ref(), measured),
-        _ => measured,
-    };
-    // the zoom: `fit` starts it where the whole of bounds fits, and zoom_range counts from there
-    let was_zoom = num_of(plane.props.get("zoom"), Num::int(1));
-    let fit = matches!(plane.props.get("fit"), Some(Value::Bool(true)));
+    let bounds = p.bounds.or_else(|| around(&boxes));
+    // `fit` starts the zoom where the whole of the bounds fits, and the zoom's range counts from there
     let mut base = Num::int(1);
-    if let (true, Some(b)) = (fit, bounds) {
+    if let (true, Some(b)) = (p.fit, bounds) {
         let bw = b.to.x.sub(b.from.x)?;
         let bh = b.to.y.sub(b.from.y)?;
         if !bw.is_zero() && !bh.is_zero() {
-            let across = width.div(bw)?;
-            let up = width.div(aspect)?.div(bh)?;
+            let across = p.width.div(bw)?;
+            let up = p.width.div(p.aspect)?.div(bh)?;
             base = if across < up { across } else { up };
         }
     }
-    let mut zoom = was_zoom;
-    if !started.contains(&plane.id) {
-        started.insert(plane.id.clone());
-        if fit {
-            zoom = base;
+    let mut zoom = if p.first && p.fit { base } else { p.zoom };
+    if let Some(lo) = p.zoom_range.0 {
+        let lo = lo.mul(base)?;
+        if zoom < lo {
+            zoom = lo;
         }
     }
-    if let Some(Value::Range(range)) = plane.props.get("zoom_range") {
-        let lo = match &range.low {
-            Some(Value::Num(n)) => Some(n.mul(base)?),
-            _ => None,
-        };
-        let hi = match &range.high {
-            Some(Value::Num(n)) => Some(n.mul(base)?),
-            _ => None,
-        };
-        if let Some(lo) = lo {
-            if zoom < lo {
-                zoom = lo;
-            }
-        }
-        if let Some(hi) = hi {
-            if zoom > hi {
-                zoom = hi;
-            }
+    if let Some(hi) = p.zoom_range.1 {
+        let hi = hi.mul(base)?;
+        if zoom > hi {
+            zoom = hi;
         }
     }
-    // and inside what the zoom input allows
-    let least = Num::parse("0.1").unwrap();
-    let most = Num::int(10);
+    let (least, most) = (Num::parse("0.1").unwrap(), Num::int(10));
     if zoom < least {
         zoom = least;
     }
     if zoom > most {
         zoom = most;
     }
-    if zoom != was_zoom {
-        writes.push(LayoutWrite { id: plane.id.clone(), input: "zoom".into(), value: Value::Num(zoom) });
-    }
     // the drawn area, in the plane's units: the widget's size on the page over the zoom
-    let half_size = Pt { x: width.div(zoom)?.mul(half())?, y: width.div(aspect)?.div(zoom)?.mul(half())? };
-    let was = pt_of(plane.props.get("center")).unwrap_or(zero);
+    let across = Pt { x: p.width.div(zoom)?.mul(half())?, y: p.width.div(p.aspect)?.div(zoom)?.mul(half())? };
     let center = match bounds {
-        Some(b) => keep_inside(was, half_size, b)?,
-        None => was,
+        Some(b) => keep_inside(p.center, across, b)?,
+        None => p.center,
     };
-    if center.x != was.x || center.y != was.y {
-        writes.push(LayoutWrite { id: plane.id.clone(), input: "center".into(), value: pt_value(&center) });
-    }
-    let drawn = Region { from: Pt { x: center.x.sub(half_size.x)?, y: center.y.sub(half_size.y)? }, to: Pt { x: center.x.add(half_size.x)?, y: center.y.add(half_size.y)? } };
-    writes.push(LayoutWrite { id: plane.id.clone(), input: "drawn".into(), value: Value::some(region_value(&drawn)) });
-    Ok(writes)
-}
-
-fn token_num(page: &Page, v: &Value) -> R<Option<Value>> {
-    match v {
-        Value::Num(_) => Ok(Some(v.clone())),
-        Value::Case(_) => page.token_value(v).map(Some),
-        _ => Ok(None),
-    }
-}
-
-impl Page {
-    /// Lays the page's planes out until nothing changes: each pass's writes are one change. A
-    /// page still changing after [`MAX_LAYOUT_PASSES`] passes is stopped, and is a failure of its
-    /// planes, held until something outside the layout changes the page: an engine that lays out
-    /// again on every frame would otherwise run it for ever.
-    pub fn layout(&mut self, measure: &mut dyn Measure) -> R<()> {
-        if self.held_layout == Some(self.changes()) {
-            return Ok(());
-        }
-        self.held_layout = None;
-        for _ in 0..MAX_LAYOUT_PASSES {
-            let mut started = std::mem::take(&mut self.started);
-            let pass = (|| -> R<Option<Vec<LayoutWrite>>> {
-                let all = planes(self.tree());
-                if all.is_empty() {
-                    return Ok(None);
-                }
-                let mut writes = Vec::new();
-                for p in all {
-                    writes.extend(plane_writes(self, p, measure, &mut started)?);
-                }
-                Ok(Some(writes))
-            })();
-            self.started = started;
-            let Some(writes) = pass? else { return Ok(()) };
-            if !self.layout_write(writes)? {
-                return Ok(());
-            }
-        }
-        let ids: Vec<String> = planes(self.tree()).iter().map(|p| p.id.clone()).collect();
-        for p in ids {
-            self.layout_failed(&p);
-        }
-        self.held_layout = Some(self.changes());
-        Ok(())
-    }
+    let drawn = Region { from: Pt { x: center.x.sub(across.x)?, y: center.y.sub(across.y)? }, to: Pt { x: center.x.add(across.x)?, y: center.y.add(across.y)? } };
+    Ok(Places { boxes, center, zoom, drawn })
 }

@@ -16,7 +16,8 @@ An example engine (engines/README.md): CI builds it and runs its tests, and it i
   handler that fails is undone, a host's write that breaks a rule is refused. Each is reported in
   `take_outcome()`.
 - **Markdown out**: `markdown()` writes the live page, the same text @extended-mark/runtime writes.
-- **Layout**: `layout(&mut measure)` lays planes out from what the engine measured.
+- **Layout**: `layout::lay` places the boxes on a plane, and `settle` runs an engine's passes over the page until
+  nothing changes. It knows no widget: `xtmd-planes` finds and measures the planes.
 - **No drawing** and no UI dependency. Its tree holds every prop already worked out, so an engine
   that draws every frame (egui) only reads it: nothing is evaluated per frame.
 - **Only what reads what changed is worked out again.** Each widget instance, extern call, loop, branch
@@ -29,8 +30,7 @@ An example engine (engines/README.md): CI builds it and runs its tests, and it i
 
 ```rust,no_run
 use xtmd_runtime::ir::Expr;
-use xtmd_runtime::layout::{Measure, Size};
-use xtmd_runtime::{Drawn, Num, Page, PageOptions, Value};
+use xtmd_runtime::{Drawn, Num, Page, PageOptions, Value, Write};
 
 // a page from `xtmd build page.xtmd --out page.ir.json`, mounted and drawn once
 let json = std::fs::read_to_string("page.ir.json").unwrap();
@@ -76,17 +76,15 @@ for call in page.take_calls() {
 }
 let _ = (outcome, page.take_warnings());
 
-// planes: the engine measures each spot's child, and the layout writes the boxes
-struct Measured;
-impl Measure for Measured {
-    fn spot(&mut self, _page: &Page, _spot: &Drawn) -> Size {
-        Size { width: Num::int(80), height: Num::int(20) }
+// what only whoever draws the page knows, written back in passes until nothing changes
+page.settle(&mut |page| {
+    let mut writes = Vec::new();
+    for d in page.tree().iter().filter(|d| d.widget == "acme/sized") {
+        writes.push(Write { id: d.id.clone(), input: "width".into(), value: Value::Bool(true) });
     }
-    fn plane_width(&mut self, _page: &Page, _plane: &Drawn) -> Num {
-        Num::int(640)
-    }
-}
-page.layout(&mut Measured).unwrap();
+    Ok((writes, Vec::new()))
+})
+.unwrap();
 
 // the page as Markdown, with the values it has now
 println!("{}", page.markdown().unwrap());
@@ -105,7 +103,7 @@ println!("{}", page.markdown().unwrap());
 | `set_supplies(f)`, `missing()` | Which extern widgets the engine draws; one it doesn't shows its Markdown (page 6). |
 | `take_outcome()`, `take_calls()`, `take_warnings()`, `take_errors()` | What happened since the last take. |
 | `markdown()`, `markdown_blocks()` | Markdown out. |
-| `layout(&mut dyn Measure)`, `layout_write(writes)` | Planes: at most 8 passes, each one transaction; a layout that never settles is `failure.layout`, and is held until the next outside change. |
+| `settle(pass)`, `layout::lay(plane)` | What an engine measures, written back: at most 8 passes, each one transaction; one that never settles is `failure.layout` of what it was for, and is held until the next outside change. `lay` places a plane's boxes, and `xtmd-planes` is the two together. |
 | `listens(drawn, event)`, `write_type(drawn, input)` | What an engine asks while it draws. |
 | `value(expr)`, `eval(expr)`, `token_value(v)`, `equal(a, b)`, `apply(fn, args)` | Values in and out: `Value::to_ir()` gives the IR's form. `apply` runs a fn the tree holds (a `shade`'s shader), with the step limit to itself. |
 | `observe_tree()`, `observe_state()`, `observe_shaded(samples)` | What a test observes: the tree, `$state`, and what each shade draws. |
