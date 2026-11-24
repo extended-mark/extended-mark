@@ -6,3 +6,4 @@ export { pageBlocks } from "./markdown.js";
 export { writeMarkdown, writeInline } from "./write.js";
 export { lay, place, around, keepInside } from "./layout.js";
 export { Page as HostPage, apply, coreOf } from "./host.js";
+export * as maths from "./eval/maths.js";

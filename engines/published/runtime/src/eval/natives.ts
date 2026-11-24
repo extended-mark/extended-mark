@@ -4,6 +4,7 @@
 // compiler/eval/src/natives.rs.
 // Each is a fn of its own, so what holds a page holds the ones it calls.
 
+import * as maths from "./maths.js";
 import { Num } from "./num.js";
 import * as V from "./value.js";
 import type { Item, ListValue, Value } from "./value.js";
@@ -241,71 +242,71 @@ export const number_fmt: Native = (m, a) => {
 };
 
 export const number_sqrt: Native = (m, a) => {
-  return someNum(num(m, a, 0).sqrt());
+  return someNum(maths.sqrt(num(m, a, 0)));
 };
 
 export const number_pow: Native = (m, a) => {
   const x = num(m, a, 0);
   const p = num(m, a, 1);
-  return someNum(numOp(() => x.pow(p)));
+  return someNum(numOp(() => maths.pow(x, p)));
 };
 
 export const number_exp: Native = (m, a) => {
   const x = num(m, a, 0);
-  return V.num(numOp(() => x.exp()));
+  return V.num(numOp(() => maths.exp(x)));
 };
 
 export const number_ln: Native = (m, a) => {
-  return someNum(num(m, a, 0).ln());
+  return someNum(maths.ln(num(m, a, 0)));
 };
 
 export const number_sin: Native = (m, a) => {
   const x = num(m, a, 0);
-  return V.num(numOp(() => x.sin()));
+  return V.num(numOp(() => maths.sin(x)));
 };
 
 export const number_cos: Native = (m, a) => {
   const x = num(m, a, 0);
-  return V.num(numOp(() => x.cos()));
+  return V.num(numOp(() => maths.cos(x)));
 };
 
 export const number_tan: Native = (m, a) => {
   const x = num(m, a, 0);
-  return V.num(numOp(() => x.tan()));
+  return V.num(numOp(() => maths.tan(x)));
 };
 
 export const number_asin: Native = (m, a) => {
-  return someNum(num(m, a, 0).asin());
+  return someNum(maths.asin(num(m, a, 0)));
 };
 
 export const number_acos: Native = (m, a) => {
-  return someNum(num(m, a, 0).acos());
+  return someNum(maths.acos(num(m, a, 0)));
 };
 
 export const number_atan: Native = (m, a) => {
   const x = num(m, a, 0);
-  return V.num(numOp(() => x.atan()));
+  return V.num(numOp(() => maths.atan(x)));
 };
 
 export const number_atan2: Native = (m, a) => {
   const y = num(m, a, 0);
   const x = num(m, a, 1);
-  return V.num(numOp(() => y.atan2(x)));
+  return V.num(numOp(() => maths.atan2(y, x)));
 };
 
 export const number_sinh: Native = (m, a) => {
   const x = num(m, a, 0);
-  return V.num(numOp(() => x.sinh()));
+  return V.num(numOp(() => maths.sinh(x)));
 };
 
 export const number_cosh: Native = (m, a) => {
   const x = num(m, a, 0);
-  return V.num(numOp(() => x.cosh()));
+  return V.num(numOp(() => maths.cosh(x)));
 };
 
 export const number_tanh: Native = (m, a) => {
   const x = num(m, a, 0);
-  return V.num(numOp(() => x.tanh()));
+  return V.num(numOp(() => maths.tanh(x)));
 };
 
 export const list_len: Native = (m, a) => {
@@ -475,7 +476,7 @@ export const ordered_clamp: Native = (m, a) => {
 };
 
 /** Every native fn, by its full name. */
-const ALL: ReadonlyMap<string, Native> = new Map<string, Native>([
+const ALL: ReadonlyMap<string, Native> = /* @__PURE__ */ new Map<string, Native>([
   ["core/number.show", number_show],
   ["core/number.same", number_same],
   ["core/duration.same", duration_same],
@@ -542,7 +543,7 @@ const ALL: ReadonlyMap<string, Native> = new Map<string, Native>([
   ["core/ordered.clamp", ordered_clamp],
 ]);
 
-export const NATIVES: readonly string[] = [...ALL.keys()];
+export const NATIVES: readonly string[] = /* @__PURE__ */ [...ALL.keys()];
 
 export function exists(name: string): boolean {
   return ALL.has(name);

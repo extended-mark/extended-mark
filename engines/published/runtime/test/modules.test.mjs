@@ -27,8 +27,8 @@ function loads(file, out = new Set()) {
 }
 
 test("numbers, the layout and the Markdown writer load nothing of the page", () => {
-  assert.deepEqual(loads("eval/num.js"), ["decimal.js"]);
-  assert.deepEqual(loads("layout.js"), ["decimal.js", "eval/num.js"]);
+  assert.deepEqual(loads("eval/num.js"), []);
+  assert.deepEqual(loads("layout.js"), ["eval/num.js"]);
   assert.deepEqual(loads("write.js"), []);
   // and the page draws with no writer
   assert.ok(!loads("page.js").some((m) => /write|markdown|layout/.test(m)), loads("page.js").join(" "));

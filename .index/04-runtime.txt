@@ -13,7 +13,8 @@ RUNTIME (TypeScript)  engines/published/runtime    npm @extended-mark/runtime
   src/eval/text.ts      texts by code points; durations shown
   src/eval/interp.ts    Machine on Ops: statements and expressions (port of compiler/eval/src/interp.rs)
   src/eval/natives.ts   extern fns of core with no body
-  src/eval/num.ts       decimal128 (decimal.js underneath)
+  src/eval/num.ts       decimal128, on bigint
+  src/eval/maths.ts     roots, powers, logarithms, angles (decimal.js)
   src/eval/value.ts     values, and to and from the IR's form
   src/layout.ts         where boxes on a plane go: sizes in, places out; knows no page
   src/markdown.ts       the live page as Markdown blocks

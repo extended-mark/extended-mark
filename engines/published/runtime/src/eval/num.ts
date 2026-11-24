@@ -1,41 +1,18 @@
 // Extended Mark's one number type: exact base-10, IEEE 754 decimal128 with 34 significant digits,
 // rounding halves to even (page 2). A port of compiler/eval/src/num.rs, which uses IBM's
-// libdecnumber; here decimal.js does the arithmetic and every result is rounded into decimal128
-// by hand (34 digits, exponents up to 10^6144, subnormals down to 10^-6176), once, so the two
-// agree digit for digit.
+// libdecnumber; here a number is a whole number of JavaScript's own and a power of ten, and every
+// result is rounded into decimal128 (34 digits, exponents up to 10^6144, subnormals down to
+// 10^-6176), once, so the two agree digit for digit.
 //
 // There is no negative zero: every result that is zero is plain `0`, so a number has one value and
 // one spelling in every runtime. A result too large for decimal128, and a division by zero, are
-// failures (a thrown NumError); maths with no answer gives `null`.
+// failures (a thrown NumError); maths with no answer gives `null`. Roots, powers, logarithms and
+// angles are in maths.ts.
 
-import { Decimal } from "decimal.js";
-
-type Rounding = Decimal.Rounding;
-
-const ROUND_CEIL: Rounding = 2;
-const ROUND_FLOOR: Rounding = 3;
-const ROUND_HALF_UP: Rounding = 4;
-const ROUND_HALF_EVEN: Rounding = 6;
-
-/** decimal128: digits, and the largest and smallest adjusted exponents of a normal number. */
+/** decimal128: digits, the largest adjusted exponent of a number, and the smallest exponent of a digit. */
 const DIGITS = 34;
 const EMAX = 6144;
-const EMIN = -6143;
-
-// decimal.js never limits exponents itself: decimal128's limits are applied by `roundTo`.
-const unbounded = { minE: -9e15, maxE: 9e15, toExpNeg: -9e15, toExpPos: 9e15, modulo: 1 as Decimal.Modulo, crypto: false };
-/** What a Num holds: add and sub round here directly, correctly, halves to even. */
-const D34 = Decimal.clone({ ...unbounded, precision: 34, rounding: ROUND_HALF_EVEN });
-/** Products (exact: 68 digits at most) and quotients (2p+2 digits, so one more rounding is still correct). */
-const D70 = Decimal.clone({ ...unbounded, precision: 70, rounding: ROUND_HALF_EVEN });
-/** libdecnumber's working precision for `pow` with a power that isn't a small whole number. */
-const D44 = Decimal.clone({ ...unbounded, precision: 44, rounding: ROUND_HALF_EVEN });
-/** Wide enough to hold the exact product of two numbers of up to 46 digits: `pow`'s whole powers. */
-const EXACT = Decimal.clone({ ...unbounded, precision: 200, rounding: ROUND_HALF_EVEN });
-/** num.rs's `Wide`: 120 digits, rounding halves up as libdecnumber's default context does. */
-const W = Decimal.clone({ ...unbounded, precision: 120, rounding: ROUND_HALF_UP });
-/** Wide's largest exponent (num.rs's wide_cx); its smallest, -99,999, is far below the series' 10^-130. */
-const WIDE_EMAX = 99_999;
+const ETINY = -6176;
 
 export type NumErrorKind = "DivisionByZero" | "TooLarge";
 
@@ -50,98 +27,126 @@ export class NumError extends Error {
   }
 }
 
-interface Rounded {
-  v: Decimal;
-  overflow: boolean;
-  /** Subnormal and inexact, as libdecnumber's Underflow. */
-  underflow: boolean;
-}
-
-/** Rounds to a context of `digits` digits and these exponents, as libdecnumber does: a value below
- * the smallest normal number keeps only the digits down to the context's tiniest exponent. */
-function roundTo(x: Decimal, digits: number, rm: Rounding, emin: number, emax: number): Rounded {
-  if (!x.isFinite()) {
-    return { v: x, overflow: true, underflow: false };
-  }
-  if (x.isZero()) {
-    return { v: x, overflow: false, underflow: false };
-  }
-  if (x.e < emin) {
-    const r = x.toDP(digits - 1 - emin, rm);
-    return { v: r, overflow: false, underflow: !r.eq(x) };
-  }
-  // decimal.js keeps 7 digits a word: few enough words can't need rounding
-  const r = x.d.length * 7 <= digits ? x : x.toSD(digits, rm);
-  return { v: r, overflow: r.e > emax, underflow: false };
-}
-
-/** A result rounded into decimal128, or the failure of one too large. */
-function fin(x: Decimal, rm: Rounding): Num {
-  const r = roundTo(x, DIGITS, rm, EMIN, EMAX);
-  if (r.overflow) {
-    throw new NumError("TooLarge");
-  }
-  return Num.of(r.v);
-}
-
-/** `fin`, with a failure turned into "no answer", as num.rs's `from_wide(..).ok()`. */
-function finOrNull(x: Decimal, rm: Rounding): Num | null {
-  try {
-    return fin(x, rm);
-  } catch (e) {
-    if (e instanceof NumError) {
-      return null;
-    }
-    throw e;
-  }
-}
-
 const I64_MAX = 9223372036854775807n;
 const I64_MIN = -9223372036854775808n;
 
-const literalCache = new Map<string, Num | null>();
+const literalCache = /* @__PURE__ */ new Map<string, Num | null>();
+
+const TENS: bigint[] = [];
+
+/** 10 to a whole power. */
+function ten(k: number): bigint {
+  return k < 80 ? (TENS[k] ??= 10n ** BigInt(k)) : 10n ** BigInt(k);
+}
+
+function digitsOf(c: bigint): number {
+  return (c < 0n ? -c : c).toString().length;
+}
+
+/** How a whole number is divided by a power of ten: halves to the even one, halves away from zero, or down. */
+type Half = "even" | "up" | "floor" | "ceil";
+
+function shrink(c: bigint, by: number, half: Half): bigint {
+  const d = ten(by);
+  const q = c / d;
+  const r = c % d;
+  if (r === 0n) {
+    return q;
+  }
+  const away = c < 0n ? q - 1n : q + 1n;
+  if (half === "floor") {
+    return c < 0n ? away : q;
+  }
+  if (half === "ceil") {
+    return c < 0n ? q : away;
+  }
+  const twice = (r < 0n ? -r : r) * 2n;
+  if (twice > d || (twice === d && (half === "up" || q % 2n !== 0n))) {
+    return away;
+  }
+  return q;
+}
+
+/** `c` × 10^`e` rounded into decimal128, or the failure of one too large. */
+function fin(c: bigint, e: number): Num {
+  if (c === 0n) {
+    return Num.zero();
+  }
+  const drop = Math.max(digitsOf(c) - DIGITS, ETINY - e);
+  if (drop > 0) {
+    c = shrink(c, drop, "even");
+    e += drop;
+    if (c === 0n) {
+      return Num.zero();
+    }
+  }
+  // one spelling: no zeros at the end
+  const s = c.toString();
+  let z = 0;
+  while (s.charCodeAt(s.length - 1 - z) === 48) {
+    z += 1;
+  }
+  if (z > 0) {
+    c = BigInt(s.slice(0, s.length - z));
+    e += z;
+  }
+  if (e + s.length - z - (c < 0n ? 1 : 0) - 1 > EMAX) {
+    throw new NumError("TooLarge");
+  }
+  return Num.of(c, e);
+}
 
 export class Num {
-  // A Num is its decimal, made when first needed, and, when it is a whole number of at most 15
-  // digits, that number as a JS number too: exact there, so the arithmetic of counts and positions
-  // needs no decimal at all. Every result is checked to still be a safe integer before it is used.
-  #d: Decimal | undefined;
+  // A Num is a whole number and a power of ten, made when first needed, and, when it is a whole number
+  // of at most 15 digits, that number as a JS number too: exact there, so the arithmetic of counts and
+  // positions needs no bigint at all. Every result is checked to still be a safe integer before it is used.
+  #c: bigint | undefined;
+  #e: number;
   /** The whole number it is, if small; NaN when it isn't one; undefined until known. */
   #i: number | undefined;
-  static readonly #zero: Num = new Num(undefined, 0);
+  static readonly #zero: Num = new Num(undefined, 0, 0);
 
-  private constructor(d: Decimal | undefined, i: number | undefined) {
-    this.#d = d;
+  private constructor(c: bigint | undefined, e: number, i: number | undefined) {
+    this.#c = c;
+    this.#e = e;
     this.#i = i;
   }
 
-  get #dec(): Decimal {
-    if (this.#d === undefined) {
-      this.#d = new D34(this.#i as number);
-    }
-    return this.#d;
+  /** Its digits, as a whole number: it is this times ten to its exponent. */
+  get #digits(): bigint {
+    return (this.#c ??= BigInt(this.#i as number));
   }
 
   /** The small whole number it is, or NaN. */
   get #small(): number {
     if (this.#i === undefined) {
-      const d = this.#d as Decimal;
-      this.#i = d.e < 15 && d.isInteger() ? d.toNumber() : NaN;
+      const c = this.#c as bigint;
+      this.#i = this.#e >= 0 && this.#e < 15 && digitsOf(c) + this.#e <= 15 ? Number(c * ten(this.#e)) : NaN;
     }
     return this.#i;
   }
 
   /** A Num of a whole JS number known to be a safe integer. */
   static #ofSmall(i: number): Num {
-    return i === 0 ? Num.#zero : new Num(undefined, i);
+    return i === 0 ? Num.#zero : new Num(undefined, 0, i);
   }
 
-  /** @internal A Num from a finite decimal already in decimal128. */
-  static of(d: Decimal): Num {
-    if (d.isZero()) {
-      return Num.#zero;
-    }
-    return new Num(d.constructor === D34 ? d : new D34(d), undefined);
+  /** @internal `c` × 10^`e`, already in decimal128, with no zeros at its end. */
+  static of(c: bigint, e: number): Num {
+    return c === 0n ? Num.#zero : new Num(c, e, undefined);
+  }
+
+  /** @internal A number written with an exponent, however many digits it has (`1.25e-7`), rounded into decimal128. */
+  static rounded(s: string): Num {
+    const [m, e] = s.split("e");
+    const dot = m.indexOf(".");
+    const places = dot < 0 ? 0 : m.length - dot - 1;
+    return fin(BigInt(dot < 0 ? m : m.slice(0, dot) + m.slice(dot + 1)), Number(e ?? 0) - places);
+  }
+
+  /** @internal It, exactly: its digits and a power of ten. */
+  exact(): string {
+    return `${this.#digits}e${this.#c === undefined ? 0 : this.#e}`;
   }
 
   static zero(): Num {
@@ -156,7 +161,7 @@ export class Num {
     if (typeof n === "number" && Number.isSafeInteger(n) && Math.abs(n) < 1e15) {
       return Num.#ofSmall(n);
     }
-    return fin(new D34(typeof n === "bigint" ? n.toString() : n), ROUND_HALF_EVEN);
+    return typeof n === "bigint" ? fin(n, 0) : Num.rounded(String(n));
   }
 
   /** An Extended Mark number literal (`1_000`, `0.25`) or an IR number (`-7`, `3.5`): `[-] digits [. digits]`,
@@ -170,7 +175,15 @@ export class Num {
     if (!allDigits(whole) || (frac !== null && !allDigits(frac))) {
       return null;
     }
-    return finOrNull(new D34(t), ROUND_HALF_EVEN);
+    try {
+      const n = Num.rounded(body);
+      return body === t ? n : n.neg();
+    } catch (e) {
+      if (e instanceof NumError) {
+        return null;
+      }
+      throw e;
+    }
   }
 
   /** @internal `parse`, remembered: how the evaluator reads the IR's number literals. */
@@ -186,9 +199,11 @@ export class Num {
     return n;
   }
 
-  /** The value as decimal.js holds it (a copy at decimal128's precision), for a runtime's own use. */
-  toDecimal(): Decimal {
-    return new D34(this.#dec);
+  /** Two numbers' digits at the same power of ten: `f` of them, and that power. */
+  #with(o: Num, f: (a: bigint, b: bigint) => bigint): [bigint, number] {
+    const [a, b] = [this.#digits, o.#digits];
+    const e = Math.min(this.#e, o.#e);
+    return [f(this.#e > e ? a * ten(this.#e - e) : a, o.#e > e ? b * ten(o.#e - e) : b), e];
   }
 
   add(o: Num): Num {
@@ -196,7 +211,7 @@ export class Num {
     if (Number.isSafeInteger(r) && Math.abs(r) < 1e15) {
       return Num.#ofSmall(r);
     }
-    return fin(this.#dec.plus(o.#dec), ROUND_HALF_EVEN);
+    return fin(...this.#with(o, (a, b) => a + b));
   }
 
   sub(o: Num): Num {
@@ -204,7 +219,7 @@ export class Num {
     if (Number.isSafeInteger(r) && Math.abs(r) < 1e15) {
       return Num.#ofSmall(r);
     }
-    return fin(this.#dec.minus(o.#dec), ROUND_HALF_EVEN);
+    return fin(...this.#with(o, (a, b) => a - b));
   }
 
   mul(o: Num): Num {
@@ -212,7 +227,7 @@ export class Num {
     if (Number.isSafeInteger(r) && Math.abs(r) < 1e15) {
       return Num.#ofSmall(r + 0);
     }
-    return fin(new D70(this.#dec).times(o.#dec), ROUND_HALF_EVEN);
+    return fin(this.#digits * o.#digits, this.#e + o.#e);
   }
 
   div(o: Num): Num {
@@ -224,7 +239,13 @@ export class Num {
     if (a === a && b === b && a % b === 0) {
       return Num.#ofSmall(a / b + 0);
     }
-    return fin(new D70(this.#dec).div(o.#dec), ROUND_HALF_EVEN);
+    const [c, d] = [this.#digits, o.#digits];
+    // two digits more than are kept, and one that says whether anything is left, so it is rounded once
+    const k = Math.max(0, DIGITS + 2 + digitsOf(d) - digitsOf(c));
+    const n = c * ten(k);
+    const q = n / d;
+    const left = n % d !== 0n ? (c < 0n === d < 0n ? 1n : -1n) : 0n;
+    return fin(q * 10n + left, this.#e - o.#e - k - 1);
   }
 
   /** The remainder, with the sign of the left side. Like libdecnumber's, it fails (as too large)
@@ -237,10 +258,18 @@ export class Num {
     if (r === r) {
       return Num.#ofSmall(r + 0);
     }
-    if (this.#dec.abs().gte(new D70(o.#dec).abs().times("1e34"))) {
-      throw new NumError("TooLarge");
+    if (this.abs().compare(o.abs()) < 0) {
+      return this;
     }
-    return fin(this.#dec.mod(o.#dec), ROUND_HALF_EVEN);
+    return fin(
+      ...this.#with(o, (a, b) => {
+        const [x, y] = [a < 0n ? -a : a, b < 0n ? -b : b];
+        if (x >= y * ten(DIGITS)) {
+          throw new NumError("TooLarge");
+        }
+        return a % b;
+      }),
+    );
   }
 
   neg(): Num {
@@ -248,15 +277,11 @@ export class Num {
     if (a === a) {
       return Num.#ofSmall(-a + 0);
     }
-    return Num.of(this.#dec.neg());
+    return Num.of(-this.#digits, this.#e);
   }
 
   abs(): Num {
-    const a = this.#small;
-    if (a === a) {
-      return a < 0 ? Num.#ofSmall(-a) : this;
-    }
-    return Num.of(this.#dec.abs());
+    return this.isNegative() ? this.neg() : this;
   }
 
   isZero(): boolean {
@@ -266,36 +291,34 @@ export class Num {
 
   isNegative(): boolean {
     const a = this.#small;
-    if (a === a) {
-      return a < 0;
-    }
-    return this.#dec.isNeg();
+    return a === a ? a < 0 : this.#digits < 0n;
   }
 
   isInt(): boolean {
     const a = this.#small;
-    return a === a || this.#dec.isInteger();
+    return a === a || this.#e >= 0;
   }
 
   /** -1, 0 or 1. */
   sign(): Num {
-    if (this.isZero()) {
-      return ZERO;
-    }
-    return this.isNegative() ? MINUS_ONE : ONE;
+    return Num.#ofSmall(this.isZero() ? 0 : this.isNegative() ? -1 : 1);
+  }
+
+  #whole(half: Half): Num {
+    return this.isInt() ? this : fin(shrink(this.#digits, -this.#e, half), 0);
   }
 
   /** The whole number nearest, halves away from zero. */
   round(): Num {
-    return this.isInt() ? this : Num.of(this.#dec.toDP(0, ROUND_HALF_UP));
+    return this.#whole("up");
   }
 
   floor(): Num {
-    return this.isInt() ? this : Num.of(this.#dec.toDP(0, ROUND_FLOOR));
+    return this.#whole("floor");
   }
 
   ceil(): Num {
-    return this.isInt() ? this : Num.of(this.#dec.toDP(0, ROUND_CEIL));
+    return this.#whole("ceil");
   }
 
   /** The whole number it is, when it is one and fits an i64; `null` otherwise. A JS number, so
@@ -306,43 +329,23 @@ export class Num {
     if (a === a) {
       return a;
     }
-    if (!this.#dec.isInteger()) {
+    if (this.#e < 0 || this.#e > 18) {
       return null;
     }
-    if (this.#dec.isZero()) {
-      return 0;
-    }
-    const trailingZeros = this.#dec.e + 1 - this.#dec.sd();
-    if (trailingZeros > 18) {
-      return null;
-    }
-    let digits = this.#dec.abs().toFixed();
-    if (digits.length > DIGITS) {
-      digits = digits.slice(digits.length - DIGITS);
-    }
-    let v = BigInt(digits);
-    if (this.#dec.isNeg()) {
-      v = -v;
-    }
-    if (v > I64_MAX || v < I64_MIN) {
-      return null;
-    }
-    return Number(v);
+    const v = (this.#digits * ten(this.#e)) % ten(DIGITS);
+    return v > I64_MAX || v < I64_MIN ? null : Number(v);
   }
 
   /** An approximation as a JS number, for a runtime's own use (a chart's coordinates). */
   toNumber(): number {
     const a = this.#small;
-    return a === a ? a : this.#dec.toNumber();
+    return a === a ? a : Number(this.exact());
   }
 
   /** Its shortest exact form: no exponent and no trailing zeros. `42`, `3.5`, `0.3`, `-7`. */
   show(): string {
     const a = this.#small;
-    if (a === a) {
-      return String(a);
-    }
-    return this.#dec.toFixed();
+    return a === a ? String(a) : written(this.#digits, this.#e);
   }
 
   toString(): string {
@@ -353,111 +356,10 @@ export class Num {
    * (num.rs, through libdecnumber's quantize, can't do it when the result needs more than 34
    * digits, and crashes; here the text is still written.) */
   fmt(places: number): string {
-    let r = this.#dec.toDP(places, ROUND_HALF_UP);
-    if (r.isZero()) {
-      r = new D34(0);
-    }
-    return r.toFixed(places);
-  }
-
-  sqrt(): Num | null {
-    if (this.isNegative()) {
-      return null;
-    }
-    return finOrNull(new D70(this.#dec).sqrt(), ROUND_HALF_EVEN);
-  }
-
-  /** `null` for 0 to a negative power, or a negative number to a power that isn't whole.
-   * libdecnumber's decNumberPower, step for step: a whole power below 2^31 by repeated squaring
-   * at 34 + (its digits) + 2 digits, halves to even, any other as exp(ln(x) × p) at 44 digits,
-   * and the result rounded to 34 digits, halves to even, as every result is (page 2). */
-  pow(p: Num): Num | null {
-    if (this.isZero() && p.isNegative()) {
-      return null;
-    }
-    if (this.isNegative() && !p.isInt()) {
-      return null;
-    }
-    return power(this.#dec, p.#dec);
-  }
-
-  exp(): Num {
-    if (this.#dec.gt(MATH_LIMIT)) {
-      throw new NumError("TooLarge");
-    }
-    if (this.#dec.lt(-MATH_LIMIT)) {
-      return ZERO;
-    }
-    return fin(new D70(this.#dec).exp(), ROUND_HALF_EVEN);
-  }
-
-  /** `null` at 0 or below. */
-  ln(): Num | null {
-    if (this.isZero() || this.isNegative()) {
-      return null;
-    }
-    return finOrNull(new D70(this.#dec).ln(), ROUND_HALF_EVEN);
-  }
-
-  sin(): Num {
-    return fin(series.sin(series.reduce(wide(this))), ROUND_HALF_EVEN);
-  }
-
-  cos(): Num {
-    return fin(series.cos(series.reduce(wide(this))), ROUND_HALF_EVEN);
-  }
-
-  tan(): Num {
-    const r = series.reduce(wide(this));
-    const s = series.sin(r);
-    const c = series.cos(r);
-    if (c.isZero()) {
-      throw new NumError("TooLarge");
-    }
-    return fin(series.div(s, c), ROUND_HALF_EVEN);
-  }
-
-  /** `null` outside -1..1. */
-  asin(): Num | null {
-    const w = series.asin(wide(this));
-    return w === null ? null : finOrNull(w, ROUND_HALF_EVEN);
-  }
-
-  /** `null` outside -1..1. */
-  acos(): Num | null {
-    const a = series.asin(wide(this));
-    if (a === null) {
-      return null;
-    }
-    return finOrNull(series.sub(series.halfPi(), a), ROUND_HALF_EVEN);
-  }
-
-  atan(): Num {
-    return fin(series.atan(wide(this)), ROUND_HALF_EVEN);
-  }
-
-  /** `y.atan2(x)`: the angle of the point (x, y), from -π to π. */
-  atan2(x: Num): Num {
-    return fin(series.atan2(wide(this), wide(x)), ROUND_HALF_EVEN);
-  }
-
-  sinh(): Num {
-    return fin(series.hyperbolic(wide(this), "sinh"), ROUND_HALF_EVEN);
-  }
-
-  cosh(): Num {
-    return fin(series.hyperbolic(wide(this), "cosh"), ROUND_HALF_EVEN);
-  }
-
-  tanh(): Num {
-    return fin(series.hyperbolic(wide(this), "tanh"), ROUND_HALF_EVEN);
-  }
-
-  static pi(): Num {
-    if (PI === undefined) {
-      PI = fin(series.pi(), ROUND_HALF_EVEN);
-    }
-    return PI;
+    const e = this.#c === undefined ? 0 : this.#e;
+    const c = this.#digits;
+    const at = e + places;
+    return written(at >= 0 ? c * ten(at) : shrink(c, -at, "up"), -places);
   }
 
   /** -1, 0 or 1, by value. */
@@ -467,16 +369,26 @@ export class Num {
     if (a === a && b === b) {
       return a < b ? -1 : a > b ? 1 : 0;
     }
-    return this.#dec.cmp(o.#dec);
+    const [x, y] = [this.#digits, o.#digits];
+    if (x < 0n !== y < 0n || x === 0n || y === 0n) {
+      return x < y ? -1 : x > y ? 1 : 0;
+    }
+    // by how large they are first: the powers of ten may be far apart
+    const size = this.#e + digitsOf(x) - o.#e - digitsOf(y);
+    if (size !== 0) {
+      return size < 0 === x < 0n ? 1 : -1;
+    }
+    const [d] = this.#with(o, (p, q) => p - q);
+    return d < 0n ? -1 : d > 0n ? 1 : 0;
   }
 
   equals(o: Num): boolean {
     const a = this.#small;
     const b = o.#small;
-    if (a === a && b === b) {
+    if (a === a || b === b) {
       return a === b;
     }
-    return this.#dec.eq(o.#dec);
+    return this.#e === o.#e && this.#c === o.#c;
   }
 
   lt(o: Num): boolean {
@@ -488,341 +400,17 @@ export class Num {
   }
 }
 
-const ZERO: Num = Num.zero();
-const ONE: Num = Num.int(1);
-const MINUS_ONE: Num = Num.int(-1);
-let PI: Num | undefined;
-
-/** Past this, exp's result is beyond decimal128 either way: e^15000 > 10^6144, e^-15000 < 10^-6176. */
-const MATH_LIMIT = 15_000;
+/** `c` × 10^`e` written out, with every place there is when `e` is below 0. */
+function written(c: bigint, e: number): string {
+  const s = (c < 0n ? -c : c).toString();
+  const sign = c < 0n ? "-" : "";
+  if (e >= 0) {
+    return sign + s + (c === 0n ? "" : "0".repeat(e));
+  }
+  const p = s.padStart(1 - e, "0");
+  return `${sign}${p.slice(0, e)}.${p.slice(e)}`;
+}
 
 function allDigits(s: string): boolean {
-  if (s.length === 0) {
-    return false;
-  }
-  for (let k = 0; k < s.length; k++) {
-    const c = s.charCodeAt(k);
-    if (c < 48 || c > 57) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function wide(n: Num): Decimal {
-  return new W(n.toDecimal());
-}
-
-// ---- pow, as libdecnumber's decNumberPower
-
-const BADINT = "bad";
-const BIG = "big";
-
-/** decGetInt: a whole number that fits (below 10^9, or above -2·10^9), or why not. */
-function getInt(d: Decimal): number | typeof BADINT | typeof BIG {
-  if (d.isZero()) {
-    return 0;
-  }
-  if (!d.isInteger()) {
-    return BADINT;
-  }
-  const integralLength = d.e + 1;
-  if (integralLength > 10) {
-    return BIG;
-  }
-  const n = Number(d.toFixed());
-  if (integralLength === 10 && ((d.isNeg() && -n > 1999999997) || (!d.isNeg() && n > 999999999))) {
-    return BIG;
-  }
-  return n;
-}
-
-function power(lhs: Decimal, rhs: Decimal): Num | null {
-  const n = getInt(rhs);
-  if (lhs.isZero()) {
-    if (n === 0) {
-      // 0 ** 0 is an invalid operation: a NaN, which num.rs reports as too large
-      throw new NumError("TooLarge");
-    }
-    if (rhs.isNeg()) {
-      throw new NumError("TooLarge");
-    }
-    return ZERO;
-  }
-  if (typeof n !== "number") {
-    if (lhs.isNeg()) {
-      // a negative number to a whole power too big for the integer path: invalid
-      throw new NumError("TooLarge");
-    }
-    const ln = new D44(lhs).ln();
-    if (ln.isZero()) {
-      return ONE;
-    }
-    const m = ln.times(rhs);
-    if (m.gt(MATH_LIMIT)) {
-      throw new NumError("TooLarge");
-    }
-    if (m.lt(-MATH_LIMIT)) {
-      return ZERO;
-    }
-    return fin(m.exp(), ROUND_HALF_EVEN);
-  }
-  if (n === 0) {
-    return ONE;
-  }
-  // the integer path: working digits, halves to even, inside decimal128's exponents
-  const digits = DIGITS + String(Math.abs(n)).length + 2;
-  let overflow = false;
-  let underflow = false;
-  const ctx = (x: Decimal): Decimal => {
-    const r = roundTo(x, digits, ROUND_HALF_EVEN, EMIN, EMAX);
-    if (r.overflow) {
-      overflow = true;
-      return new EXACT(Infinity);
-    }
-    if (r.underflow) {
-      underflow = true;
-    }
-    return r.v;
-  };
-  let x = new EXACT(lhs);
-  if (n < 0) {
-    x = ctx(new EXACT(1).div(x));
-  }
-  let bits = Math.abs(n) | 0;
-  let dac = new EXACT(1);
-  let seen = false;
-  for (let i = 1; ; i++) {
-    if (overflow || (underflow && dac.isZero())) {
-      break;
-    }
-    bits = (bits << 1) | 0;
-    if (bits < 0) {
-      seen = true;
-      dac = ctx(dac.times(x));
-    }
-    if (i === 31) {
-      break;
-    }
-    if (!seen) {
-      continue;
-    }
-    dac = ctx(dac.times(dac));
-  }
-  if (overflow) {
-    throw new NumError("TooLarge");
-  }
-  if (underflow && !(dac.e < EMIN || dac.isZero())) {
-    // decFinalize keeps the working digits; num.rs's from_wide rounds them halves to even
-    return fin(dac, ROUND_HALF_EVEN);
-  }
-  return fin(dac, ROUND_HALF_EVEN);
-}
-
-// ---- the maths libdecnumber doesn't do, as series in 120 digits, rounded to 34 at the end
-
-namespace series {
-  /** W's operations already round to 120 digits, halves up: what is left of Wide's context is its
-   * exponent limit, which these series never reach. */
-  const c = (x: Decimal): Decimal => (x.isFinite() && x.e > WIDE_EMAX ? new W(Infinity) : x);
-
-  export function int(n: number): Decimal {
-    return new W(n);
-  }
-
-  /** Below 10^-130: past every digit that matters. */
-  function small(w: Decimal): boolean {
-    return w.isZero() || w.e + 1 < -130;
-  }
-
-  export function add(a: Decimal, b: Decimal): Decimal {
-    return c(a.plus(b));
-  }
-
-  export function sub(a: Decimal, b: Decimal): Decimal {
-    return c(a.minus(b));
-  }
-
-  function mul(a: Decimal, b: Decimal): Decimal {
-    return c(a.times(b));
-  }
-
-  export function div(a: Decimal, b: Decimal): Decimal {
-    return c(a.div(b));
-  }
-
-  /** libdecnumber's minus: 0 - x, so zero is never negative. */
-  function neg(a: Decimal): Decimal {
-    return a.isZero() ? new W(0) : a.neg();
-  }
-
-  function lt(a: Decimal, b: Decimal): boolean {
-    return a.lt(b);
-  }
-
-  function sqrt(a: Decimal): Decimal {
-    return c(a.sqrt());
-  }
-
-  function isNegative(a: Decimal): boolean {
-    // libdecnumber's sign bit: a zero from a division can be negative
-    return a.isNeg();
-  }
-
-  /** atan(1/n) for a whole n, by its series. */
-  function atanInv(n: number): Decimal {
-    const x = div(int(1), int(n));
-    const x2 = mul(x, x);
-    let term = x;
-    let sum = x;
-    for (let k = 1; ; k++) {
-      term = mul(term, x2);
-      const t = div(term, int(2 * k + 1));
-      if (small(t)) {
-        return sum;
-      }
-      sum = k % 2 === 1 ? sub(sum, t) : add(sum, t);
-    }
-  }
-
-  let PI_WIDE: Decimal | undefined;
-
-  /** π, by Machin's formula. */
-  export function pi(): Decimal {
-    if (PI_WIDE === undefined) {
-      PI_WIDE = sub(mul(int(16), atanInv(5)), mul(int(4), atanInv(239)));
-    }
-    return PI_WIDE;
-  }
-
-  export function halfPi(): Decimal {
-    return div(pi(), int(2));
-  }
-
-  /** The same angle, between -π and π. */
-  export function reduce(x: Decimal): Decimal {
-    const twoPi = mul(pi(), int(2));
-    const k = div(x, twoPi).toDP(0, ROUND_HALF_EVEN);
-    return sub(x, mul(k, twoPi));
-  }
-
-  export function sin(x: Decimal): Decimal {
-    const x2 = mul(x, x);
-    let term = x;
-    let sum = x;
-    for (let k = 1; ; k++) {
-      term = neg(div(mul(term, x2), int(2 * k * (2 * k + 1))));
-      if (small(term)) {
-        return sum;
-      }
-      sum = add(sum, term);
-    }
-  }
-
-  export function cos(x: Decimal): Decimal {
-    const x2 = mul(x, x);
-    let term = int(1);
-    let sum = int(1);
-    for (let k = 1; ; k++) {
-      term = neg(div(mul(term, x2), int((2 * k - 1) * (2 * k))));
-      if (small(term)) {
-        return sum;
-      }
-      sum = add(sum, term);
-    }
-  }
-
-  export function atan(x: Decimal): Decimal {
-    const one = int(1);
-    if (isNegative(x)) {
-      return neg(atan(neg(x)));
-    }
-    if (lt(one, x)) {
-      return sub(halfPi(), atan(div(one, x)));
-    }
-    // halve the angle until it is small: atan(x) = 2 atan(x / (1 + sqrt(1 + x²)))
-    let y = x;
-    let doublings = 0;
-    const limit = new W("0.01");
-    while (lt(limit, y)) {
-      y = div(y, add(one, sqrt(add(one, mul(y, y)))));
-      doublings += 1;
-    }
-    const y2 = mul(y, y);
-    let term = y;
-    let sum = y;
-    for (let k = 1; ; k++) {
-      term = neg(mul(term, y2));
-      const t = div(term, int(2 * k + 1));
-      if (small(t)) {
-        break;
-      }
-      sum = add(sum, t);
-    }
-    for (let k = 0; k < doublings; k++) {
-      sum = mul(sum, int(2));
-    }
-    return sum;
-  }
-
-  export function asin(x: Decimal): Decimal | null {
-    const one = int(1);
-    const ax = isNegative(x) ? neg(x) : x;
-    if (lt(one, ax)) {
-      return null;
-    }
-    if (!lt(ax, one)) {
-      const h = halfPi();
-      return isNegative(x) ? neg(h) : h;
-    }
-    return atan(div(x, sqrt(sub(one, mul(x, x)))));
-  }
-
-  export function atan2(y: Decimal, x: Decimal): Decimal {
-    if (x.isZero()) {
-      if (y.isZero()) {
-        return int(0);
-      }
-      const h = halfPi();
-      return isNegative(y) ? neg(h) : h;
-    }
-    const a = atan(div(y, x));
-    if (!isNegative(x)) {
-      return a;
-    }
-    return isNegative(y) ? sub(a, pi()) : add(a, pi());
-  }
-
-  export function hyperbolic(x: Decimal, which: "sinh" | "cosh" | "tanh"): Decimal {
-    const one = int(1);
-    const ax = isNegative(x) ? neg(x) : x;
-    const big = int(20000);
-    if (lt(big, ax)) {
-      if (which === "tanh") {
-        return isNegative(x) ? neg(one) : one;
-      }
-      throw new NumError("TooLarge");
-    }
-    let sinh: Decimal;
-    if (lt(ax, one)) {
-      // sinh near 0 by its series, to keep its digits
-      const x2 = mul(x, x);
-      let term = x;
-      let s = x;
-      for (let k = 1; ; k++) {
-        term = div(mul(term, x2), int(2 * k * (2 * k + 1)));
-        if (small(term)) {
-          break;
-        }
-        s = add(s, term);
-      }
-      sinh = s;
-    } else {
-      const e = c(x.exp());
-      sinh = div(sub(e, div(one, e)), int(2));
-    }
-    const e = c(x.exp());
-    const cosh = div(add(e, div(one, e)), int(2));
-    return which === "sinh" ? sinh : which === "cosh" ? cosh : div(sinh, cosh);
-  }
+  return /^[0-9]+$/.test(s);
 }

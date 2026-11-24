@@ -3,7 +3,8 @@
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { Num, NumError } from "../dist/internal.js";
+import { Decimal } from "decimal.js";
+import { Num, NumError, maths } from "../dist/internal.js";
 
 const n = (s) => {
   const x = Num.parse(s);
@@ -34,18 +35,18 @@ describe("num.rs's tests", () => {
     assert.equal(n("1_000").show(), "1000");
     assert.equal(n("0.25").show(), "0.25");
     assert.equal(n("0").neg().show(), "0");
-    assert.equal(n("1000").exp().show().length, 435);
+    assert.equal(maths.exp(n("1000")).show().length, 435);
   });
 
   test("failures_and_no_answer", () => {
     fails(() => n("1").div(n("0")), "DivisionByZero");
-    fails(() => n("20000").exp(), "TooLarge");
-    assert.equal(n("-4").sqrt(), null);
-    assert.equal(n("0").ln(), null);
-    assert.equal(n("2").asin(), null);
-    assert.equal(n("0").pow(n("-1")), null);
-    assert.equal(n("-8").pow(n("0.5")), null);
-    assert.equal(n("-2").pow(n("3")).show(), "-8");
+    fails(() => maths.exp(n("20000")), "TooLarge");
+    assert.equal(maths.sqrt(n("-4")), null);
+    assert.equal(maths.ln(n("0")), null);
+    assert.equal(maths.asin(n("2")), null);
+    assert.equal(maths.pow(n("0"), n("-1")), null);
+    assert.equal(maths.pow(n("-8"), n("0.5")), null);
+    assert.equal(maths.pow(n("-2"), n("3")).show(), "-8");
   });
 
   test("rounding", () => {
@@ -59,16 +60,16 @@ describe("num.rs's tests", () => {
   });
 
   test("maths_to_34_digits", () => {
-    assert.equal(Num.pi().show(), "3.141592653589793238462643383279503");
-    assert.equal(n("1").exp().show(), "2.718281828459045235360287471352662");
-    assert.equal(n("2").sqrt().show(), "1.414213562373095048801688724209698");
-    assert.equal(n("0").sin().show(), "0");
-    assert.equal(n("1").sin().show(), "0.841470984807896506652502321630299");
-    assert.equal(n("1").cos().show(), "0.5403023058681397174009366074429766");
-    assert.equal(n("1").atan().show(), "0.7853981633974483096156608458198757");
-    assert.equal(n("1").atan2(n("-1")).show(), "2.356194490192344928846982537459627");
-    assert.equal(n("1").asin().show(), "1.570796326794896619231321691639751");
-    assert.equal(n("0.5").tanh().show(), "0.4621171572600097585023184836436725");
+    assert.equal(maths.pi().show(), "3.141592653589793238462643383279503");
+    assert.equal(maths.exp(n("1")).show(), "2.718281828459045235360287471352662");
+    assert.equal(maths.sqrt(n("2")).show(), "1.414213562373095048801688724209698");
+    assert.equal(maths.sin(n("0")).show(), "0");
+    assert.equal(maths.sin(n("1")).show(), "0.841470984807896506652502321630299");
+    assert.equal(maths.cos(n("1")).show(), "0.5403023058681397174009366074429766");
+    assert.equal(maths.atan(n("1")).show(), "0.7853981633974483096156608458198757");
+    assert.equal(maths.atan2(n("1"), n("-1")).show(), "2.356194490192344928846982537459627");
+    assert.equal(maths.asin(n("1")).show(), "1.570796326794896619231321691639751");
+    assert.equal(maths.tanh(n("0.5")).show(), "0.4621171572600097585023184836436725");
   });
 });
 
@@ -143,11 +144,11 @@ describe("34 digits, halves to even", () => {
   });
 
   test("pow rounds its result halves to even, as a product does (page 2)", () => {
-    assert.equal(n("100000000000000005").pow(n("2")).show(), "10000000000000001000000000000000020");
-    assert.equal(n("100000000000000005").pow(n("2")).show(), n("100000000000000005").mul(n("100000000000000005")).show());
-    assert.equal(n("2").pow(n("10")).show(), "1024");
-    assert.equal(n("2").pow(n("-2")).show(), "0.25");
-    assert.equal(n("16").pow(n("0.5")).show(), "4");
+    assert.equal(maths.pow(n("100000000000000005"), n("2")).show(), "10000000000000001000000000000000020");
+    assert.equal(maths.pow(n("100000000000000005"), n("2")).show(), n("100000000000000005").mul(n("100000000000000005")).show());
+    assert.equal(maths.pow(n("2"), n("10")).show(), "1024");
+    assert.equal(maths.pow(n("2"), n("-2")).show(), "0.25");
+    assert.equal(maths.pow(n("16"), n("0.5")).show(), "4");
   });
 });
 
@@ -163,22 +164,22 @@ describe("failures", () => {
     fails(() => max.mul(n("10")), "TooLarge");
     fails(() => max.add(max), "TooLarge");
     fails(() => n("1").div(n("0." + "0".repeat(6150) + "1")), "TooLarge");
-    fails(() => n("15000").cosh(), "TooLarge");
-    fails(() => n("30000").sinh(), "TooLarge");
-    assert.equal(n("30000").tanh().show(), "1");
-    assert.equal(n("-30000").tanh().show(), "-1");
+    fails(() => maths.cosh(n("15000")), "TooLarge");
+    fails(() => maths.sinh(n("30000")), "TooLarge");
+    assert.equal(maths.tanh(n("30000")).show(), "1");
+    assert.equal(maths.tanh(n("-30000")).show(), "-1");
     assert.equal(Num.parse("1" + "0".repeat(6145)), null);
-    assert.equal(n("-20000").exp().show(), "0");
+    assert.equal(maths.exp(n("-20000")).show(), "0");
   });
 
   test("libdecnumber's invalid operations, which num.rs reports as too large", () => {
     // 0 to the power 0
-    fails(() => n("0").pow(n("0")), "TooLarge");
+    fails(() => maths.pow(n("0"), n("0")), "TooLarge");
     // a remainder whose quotient needs more than 34 digits
     fails(() => n("1" + "0".repeat(37)).rem(n("3")), "TooLarge");
     assert.equal(n("1" + "0".repeat(33)).rem(n("3")).show(), "1");
     // a negative number to a whole power too large for the integer path
-    fails(() => n("-2").pow(n("10000000000")), "TooLarge");
+    fails(() => maths.pow(n("-2"), n("10000000000")), "TooLarge");
   });
 
   test("below the smallest subnormal, a result is 0", () => {
@@ -221,16 +222,16 @@ describe("toI64", () => {
 
 describe("maths", () => {
   test("trig and its inverses", () => {
-    assert.equal(n("0").cos().show(), "1");
-    assert.equal(n("0").tan().show(), "0");
-    assert.equal(n("0").atan().show(), "0");
-    assert.equal(n("-1").asin().show(), "-1.570796326794896619231321691639751");
-    assert.equal(n("1").acos().show(), "0");
-    assert.equal(n("-1").acos().show(), "3.141592653589793238462643383279503");
-    assert.equal(n("0").atan2(n("-5")).show(), "3.141592653589793238462643383279503");
-    assert.equal(n("0").atan2(n("0")).show(), "0");
-    assert.equal(n("-2").atan2(n("0")).show(), "-1.570796326794896619231321691639751");
-    assert.equal(n("1.5").acos(), null);
+    assert.equal(maths.cos(n("0")).show(), "1");
+    assert.equal(maths.tan(n("0")).show(), "0");
+    assert.equal(maths.atan(n("0")).show(), "0");
+    assert.equal(maths.asin(n("-1")).show(), "-1.570796326794896619231321691639751");
+    assert.equal(maths.acos(n("1")).show(), "0");
+    assert.equal(maths.acos(n("-1")).show(), "3.141592653589793238462643383279503");
+    assert.equal(maths.atan2(n("0"), n("-5")).show(), "3.141592653589793238462643383279503");
+    assert.equal(maths.atan2(n("0"), n("0")).show(), "0");
+    assert.equal(maths.atan2(n("-2"), n("0")).show(), "-1.570796326794896619231321691639751");
+    assert.equal(maths.acos(n("1.5")), null);
   });
 
   test("sign, abs, round, floor, ceil", () => {
@@ -243,4 +244,28 @@ describe("maths", () => {
     assert.equal(n("-3.5").ceil().show(), "-3");
     assert.equal(n("1" + "0".repeat(40)).round().show(), "1" + "0".repeat(40));
   });
+});
+
+test("arithmetic is decimal.js's at 34 digits, at random", () => {
+  const D = Decimal.clone({ precision: 34, rounding: 6, minE: -9e15, maxE: 9e15, toExpNeg: -9e15, toExpPos: 9e15, modulo: 1 });
+  let a = 20261124;
+  const rnd = () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  // nines and noughts often, as halves and carries are where rounding goes wrong
+  const digits = (k) => Array.from({ length: Math.ceil(k) }, () => (rnd() < 0.3 ? (rnd() < 0.5 ? 0 : 9) : Math.floor(rnd() * 10))).join("");
+  const text = () => (rnd() < 0.3 ? "-" : "") + (rnd() < 0.3 ? String(Math.floor(rnd() * 1000)) : rnd() < 0.5 ? `${digits(1 + rnd() * 34)}` : `${digits(1 + rnd() * 10)}.${digits(1 + rnd() * 22)}`);
+  for (let k = 0; k < 4000; k++) {
+    const [s, t] = [text(), text()];
+    const [x, y, p, q] = [n(s), n(t), new D(s).plus(0), new D(t).plus(0)];
+    const same = (what, u, v) => assert.equal(u.show(), v.isZero() ? "0" : v.toFixed(), `${s} ${what} ${t}`);
+    same("+", x.add(y), p.plus(q));
+    same("-", x.sub(y), p.minus(q));
+    same("*", x.mul(y), p.times(q));
+    if (!y.isZero()) same("/", x.div(y), p.div(q));
+    assert.equal(x.compare(y), p.cmp(q), `${s} and ${t}`);
+  }
 });
