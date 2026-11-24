@@ -1,4 +1,4 @@
-//! Pages for the tests, compiled in the test with the compiler's crates and core's sources from the
+//! Pages for the tests, drawn with the set of widgets the test file gives (`set`), compiled in the test with the compiler's crates and core's sources from the
 //! repository, then drawn headless.
 
 #![allow(dead_code)]
@@ -44,7 +44,7 @@ pub fn mount(doc: &str) -> Headless {
 
 pub fn mount_with(doc: &str, packs: &[&str]) -> Headless {
     let page = Page::new(ir(doc, packs), PageOptions { fns: xtmd_egui::fns::check_fns(), ..PageOptions::default() }).unwrap();
-    let mut h = Headless::new(XtmdPage::new(page).with_measure(Box::new(Fixed)).follow_theme(false), egui::vec2(800.0, 800.0), false);
+    let mut h = Headless::new(XtmdPage::new(page).with_registry(crate::set()).with_measure(Box::new(Fixed)).follow_theme(false), egui::vec2(800.0, 800.0), false);
     h.settle().unwrap();
     h
 }
@@ -52,7 +52,7 @@ pub fn mount_with(doc: &str, packs: &[&str]) -> Headless {
 /// A page drawn with what egui measures, as a host draws it.
 pub fn mount_measured(doc: &str, packs: &[&str]) -> Headless {
     let page = Page::new(ir(doc, packs), XtmdPage::options()).unwrap();
-    let mut h = Headless::new(XtmdPage::new(page), egui::vec2(800.0, 800.0), false);
+    let mut h = Headless::new(XtmdPage::new(page).with_registry(crate::set()), egui::vec2(800.0, 800.0), false);
     h.settle().unwrap();
     h
 }

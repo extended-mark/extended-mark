@@ -6,7 +6,7 @@
 
 import { ApplicationRef, Component, ElementRef, EnvironmentInjector, EventEmitter, Input, NgZone, Output, PLATFORM_ID, Renderer2, RendererStyleFlags2, createComponent, inject, reflectComponentType, type OnChanges, type OnDestroy, type OnInit, type Type } from "@angular/core";
 import { isPlatformBrowser } from "@angular/common";
-import { Doc, Patcher, slotsOf, type Call, type Component as Drawn, type DocError, type DocProps, type Host, type Restored, type Snapshot, type Input as Given, type ir } from "@extended-mark/view";
+import { Doc, Patcher, composing, slotsOf, type Call, type Component as Drawn, type DocError, type DocProps, type Host, type Restored, type Snapshot, type Input as Given, type ir } from "@extended-mark/view";
 
 const SVG = "svg";
 
@@ -19,7 +19,6 @@ const SVG = "svg";
 export class XtmdDoc implements OnInit, OnChanges, OnDestroy {
   /** The page's IR, in hand. */
   @Input() ir?: DocProps["ir"];
-  /** Where to fetch the page's IR from. */
   /** `$state`, controlled: `[(state)]` keeps a field of the host's in step. */
   @Input() state?: DocProps["state"];
   @Input() defaultState?: DocProps["defaultState"];
@@ -67,7 +66,11 @@ export class XtmdDoc implements OnInit, OnChanges, OnDestroy {
       removeAttribute: (el, name) => r.removeAttribute(el, name),
       setStyle: (el, prop, value) => r.setStyle(el, prop, value, RendererStyleFlags2.DashCase),
       removeStyle: (el, prop) => r.removeStyle(el, prop, RendererStyleFlags2.DashCase),
-      setProperty: (el, name, value) => r.setProperty(el, name, value),
+      // what is typed stays while a person composes it
+      setProperty: (el, name, value) => {
+        if (name === "value" && composing(el as EventTarget)) return;
+        r.setProperty(el, name, value);
+      },
       // the page's listeners run inside Angular's zone, so what they change is checked
       listen: (el, event, f) => r.listen(el, event, (e: Event) => this.zone.run(() => f(e))),
       insertBefore: (parent, child, before) => r.insertBefore(parent, child, before),

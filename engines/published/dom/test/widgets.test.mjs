@@ -299,3 +299,19 @@ test("a widget nobody supplies shows its Markdown and is reported, and a host's 
   assert.equal(await mine.locator("mark.app-label").textContent(), "[Hi Grace]");
   await mine.close();
 });
+
+test("what a person is composing in a field stays while the page changes around it", async () => {
+  // the host's value goes into the field's own input too, so the field is drawn again while it is composed in
+  const page = await open(browser, "$state {\n    who: text = \"Ada\";\n    n: int = 0;\n}\n\nwidget form() {\n    view {\n        @field(label = \"Name \\{$state.n}\", value = $state.who);\n    }\n}\n@@@\n@form;\n");
+  const input = page.locator('[data-part="field.input"]');
+  await input.focus();
+  await input.evaluate((el) => {
+    el.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+    el.value = "Adaか";
+  });
+  await xtmd(page, "set", { n: { num: "1" } });
+  assert.equal(await input.inputValue(), "Adaか");
+  await input.evaluate((el) => el.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true })));
+  assert.deepEqual((await xtmd(page, "state")).who, { text: "Adaか" });
+  assert.deepEqual(page.errors, []);
+});

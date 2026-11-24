@@ -5,14 +5,24 @@
 // their element (a canvas, a plane) run as a directive. Listeners for the host are callback props:
 // `@state-change="…"` is `onStateChange`.
 
-import { defineComponent, h, markRaw, onBeforeUnmount, shallowRef, watch, withDirectives, type Directive, type Component as VueComponent, type PropType, type VNode as VueNode } from "vue";
-import { Doc, slotsOf, type Child, type DocProps, type Restored, type Snapshot, type VNode, type Input, type ir } from "@extended-mark/view";
+import { defineComponent, h, markRaw, onBeforeUnmount, shallowRef, watch, withDirectives, type Directive, type DirectiveArguments, type Component as VueComponent, type PropType, type VNode as VueNode } from "vue";
+import { Doc, composing, slotsOf, type Child, type DocProps, type Restored, type Snapshot, type VNode, type Input, type ir } from "@extended-mark/view";
 
 /** A widget's hook, run as a directive on its element: the latest render's hook each time. */
 const hooked: Directive<Element, VNode["hook"]> = {
   mounted: (el, b) => b.value?.mount?.(el),
   updated: (el, b) => b.value?.update?.(el),
   beforeUnmount: (el, b) => b.value?.unmount?.(el),
+};
+
+/** A field's value: what the page shows wins, except while a person is composing text in it. */
+const setValue = (el: HTMLInputElement, b: { value: unknown }) => {
+  if (!composing(el) && el.value !== String(b.value ?? "")) el.value = String(b.value ?? "");
+};
+const valued: Directive<HTMLInputElement, unknown> = {
+  beforeMount: setValue,
+  updated: setValue,
+  getSSRProps: (b) => ({ value: b.value }),
 };
 
 /** One of @extended-mark/view's elements as Vue's. */
@@ -22,7 +32,7 @@ export function toVue(c: Child): VueNode | string {
   if (c.key !== undefined) props.key = c.key;
   if (c.style) props.style = { ...c.style };
   // DOM properties, as Vue sets them on the live element
-  for (const [k, x] of Object.entries(c.props ?? {})) props[k] = x;
+  for (const [k, x] of Object.entries(c.props ?? {})) if (k !== "value") props[k] = x;
   // native listeners: `onCompositionstart` is the DOM's `compositionstart`, with its currentTarget
   for (const [k, f] of Object.entries(c.on ?? {})) props[`on${k[0].toUpperCase()}${k.slice(1)}`] = f;
   if (c.tag === "style") return h("style", { ...props, innerHTML: c.children.join("") });
@@ -33,14 +43,17 @@ export function toVue(c: Child): VueNode | string {
     return h(c.tag, props, [h(of as VueComponent, { ...given }, slots)]);
   }
   const v = h(c.tag, props, c.tag === "textarea" ? undefined : c.children.map(toVue));
-  return c.hook ? withDirectives(v, [[hooked, c.hook]]) : v;
+  const follow: DirectiveArguments = [];
+  if (c.props && "value" in c.props) follow.push([valued, c.props.value]);
+  if (c.hook) follow.push([hooked, c.hook]);
+  return follow.length ? withDirectives(v, follow) : v;
 }
 
 /** <XtmdDoc>'s props, for a component that wraps it (@extended-mark/vue-live). */
 export const docProps = {
   /** The page's IR, in hand. Kept as given: Vue doesn't make it reactive. */
   ir: Object as PropType<DocProps["ir"]>,
-  /** Where to fetch the page's IR from. */
+  /** `$state`, controlled. */
   state: Object as PropType<DocProps["state"]>,
   defaultState: Object as PropType<DocProps["defaultState"]>,
   defaultSnapshot: Object as PropType<DocProps["defaultSnapshot"]>,

@@ -6,7 +6,7 @@
 // widgets that draw on their element (a canvas, a plane) are attached to the real elements.
 
 import { createElement, useLayoutEffect, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore, type ComponentType, type CSSProperties, type ReactElement, type ReactNode, type Ref } from "react";
-import { Doc, type Child, type DocProps, type Restored, type Snapshot, type VNode, type Input, type WidgetProps, type ir } from "@extended-mark/view";
+import { Doc, composing, type Child, type DocProps, type Restored, type Snapshot, type VNode, type Input, type WidgetProps, type ir } from "@extended-mark/view";
 
 /** What the host holds to reach the page: `ref` on <XtmdDoc>. */
 export interface XtmdDocHandle {
@@ -114,7 +114,7 @@ function Live({ v }: { v: VNode }): ReactElement {
     const el = ref.current as (HTMLInputElement & HTMLTextAreaElement) | null;
     const p = v.props;
     if (!el || !p) return;
-    if ("value" in p && el.value !== String(p.value ?? "")) {
+    if ("value" in p && !composing(el) && el.value !== String(p.value ?? "")) {
       const focused = el.ownerDocument.activeElement === el;
       let sel: [number | null, number | null] = [null, null];
       try {

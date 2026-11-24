@@ -137,28 +137,28 @@ export const press: ViewWidget = (d, ctx) => {
 // ---- field
 
 /** Fields in the middle of composing text (an IME): they write once it is done. */
-export const composing = new WeakSet<EventTarget>();
+const typing = new WeakSet<EventTarget>();
 
 export const field: ViewWidget = (d, ctx) => {
   const p = (k: string) => d.inputs[k];
   const lines = Math.max(1, Math.min(20, Math.round(Number(str(p("lines"))) || 1)));
   const multi = lines > 1;
   const write = (el: HTMLInputElement | HTMLTextAreaElement) => {
-    if (!composing.has(el)) ctx.write("value", { text: el.value });
+    if (!typing.has(el)) ctx.write("value", { text: el.value });
   };
   const input = h(multi ? "textarea" : "input", "field.input", multi ? { rows: String(lines) } : { type: "text" });
   attr(input, "placeholder", str(p("placeholder")) || undefined);
   // the page's value wins: a write it refused shows what `$state` holds again
   prop(input, "value", str(p("value")));
   on(input, "input", (e) => write(e.currentTarget as HTMLInputElement));
-  on(input, "compositionstart", (e) => composing.add(e.currentTarget!));
+  on(input, "compositionstart", (e) => typing.add(e.currentTarget!));
   on(input, "compositionend", (e) => {
-    composing.delete(e.currentTarget!);
+    typing.delete(e.currentTarget!);
     write(e.currentTarget as HTMLInputElement);
   });
   on(input, "keydown", (e) => {
     const ke = e as KeyboardEvent;
-    if (ke.key !== "Enter" || composing.has(e.currentTarget!) || ke.isComposing) return;
+    if (ke.key !== "Enter" || typing.has(e.currentTarget!) || ke.isComposing) return;
     // Enter submits a one-line field; a longer one takes Ctrl or Cmd with it
     if (multi && !(ke.ctrlKey || ke.metaKey)) return;
     ke.preventDefault();

@@ -4,6 +4,10 @@
 
 mod common;
 
+pub fn set() -> xtmd_egui::Registry {
+    xtmd_egui::Registry::ours()
+}
+
 use xtmd_egui::doc::{DocError, DocOptions, XtmdDoc, RestoredHow, State};
 use xtmd_egui::runtime::ir::{self, Expr};
 

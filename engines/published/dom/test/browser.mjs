@@ -47,7 +47,10 @@ export function ir(source, { packs = [] } = {}) {
 let bundled;
 
 async function harness() {
-  bundled ??= build({ entryPoints: [join(here, "harness.mjs")], bundle: true, format: "iife", platform: "browser", write: false, target: "es2022" }).then((r) => r.outputFiles[0].text);
+  // the widgets pages are drawn with: ours, or the set XTMD_TEST_SET names (copied.test.mjs)
+  const set = process.env.XTMD_TEST_SET;
+  const alias = { "the-widget-set": set ?? "@extended-mark/widgets" };
+  bundled ??= build({ entryPoints: [join(here, "harness.mjs")], bundle: true, format: "iife", platform: "browser", write: false, target: "es2022", alias, nodePaths: [join(here, "../node_modules")], define: { __COPIED__: String(set !== undefined) } }).then((r) => r.outputFiles[0].text);
   return bundled;
 }
 

@@ -484,7 +484,7 @@ impl<'a> Ctx<'a> {
     }
 
     /// The words and marks of a sentence, which its widget draws, and not the other widgets in it.
-    pub(crate) fn keep_words(&mut self, nodes: &[Drawn]) {
+    pub fn keep_words(&mut self, nodes: &[Drawn]) {
         for d in nodes {
             match d.widget.as_str() {
                 "core/words" | "core/code_span" | "core/inline_math" | "core/inline_image" | "core/note_mark" | "core/line_break" => self.frame.words.push(d.clone()),

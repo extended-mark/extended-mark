@@ -13,7 +13,7 @@ widget tally(label: text) {
         @press(label = "More \{label}", click = fn() {
             k = (k + 1).clamp(0, 10);
         });
-        @field(label = "Note on \{label}", value = note);
+        @field(label = "Note on \{label}", placeholder = "Note \{k}", value = note);
     }
 
     markdown {

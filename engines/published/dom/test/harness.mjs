@@ -3,6 +3,7 @@
 
 import { mount, run } from "../dist/index.js";
 import { h, widgets } from "@extended-mark/widgets";
+import { widgets as set } from "the-widget-set";
 import { Num } from "@extended-mark/runtime";
 
 let mounted;
@@ -31,12 +32,14 @@ window.xtmd = {
     if (mounted) mounted.unmount();
     const root = document.getElementById("app");
     const file = JSON.parse(irText);
-    const extra = {};
+    // a set of the host's own, whole: what is left out of it is drawn by nobody
+    const extra = __COPIED__ ? { widgets: { ...set } } : {};
     if (opts.fixed) extra.measure = fixedMeasure();
     if (opts.count) {
       // a label that counts how often it is taken away
       window.gone = {};
       extra.widgets = {
+        ...extra.widgets,
         "core/label": (d) => ({ ...h("i"), hook: { unmount: () => (window.gone[d.id] = (window.gone[d.id] ?? 0) + 1) } }),
       };
     }
@@ -53,7 +56,7 @@ window.xtmd = {
         },
       };
     }
-    if (opts.without) extra.widgets = Object.fromEntries(opts.without.map((w) => [w, undefined]));
+    if (opts.without) extra.widgets = { ...extra.widgets, ...Object.fromEntries(opts.without.map((w) => [w, undefined])) };
     mounted = run(file, root, { page: opts.page ?? {}, state: opts.state, ...extra });
     window.mounted = mounted;
     return true;

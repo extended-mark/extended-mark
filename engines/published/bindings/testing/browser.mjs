@@ -203,18 +203,31 @@ export async function docSteps(page, { stylesheet = "page" } = {}) {
   await page.click('#app [data-xtmd-widget="core/press"]');
   await until(page, () => document.querySelector("#app").textContent.includes("Apples: 2"), null, "the tally's own count");
   assert.equal(await page.inputValue(field), "call at 5", "a redraw keeps what was typed");
+  // what a person is composing (an IME) stays, though the field is drawn again under it, and is written once done
+  const composing = (what, value) => page.evaluate(([sel, what, value]) => {
+    const el = document.querySelector(sel);
+    if (value !== undefined) el.value = value;
+    el.dispatchEvent(new CompositionEvent(what, { bubbles: true }));
+  }, [field, what, value]);
+  await composing("compositionstart", "call at 5か");
+  await page.evaluate(() => document.querySelector('#app [data-xtmd-widget="core/press"]').click());
+  await until(page, () => document.querySelector("#app").textContent.includes("Apples: 3"), null, "a change while composing");
+  assert.equal(await page.inputValue(field), "call at 5か", "what is being composed stays");
+  await composing("compositionend", "call at 5 か");
+  await until(page, () => Object.values(window.__test.handle().snapshot().own).some((o) => o.note?.text === "call at 5 か"), null, "the composed text to be written");
+  await page.fill(field, "call at 5");
   await page.click('#app [data-part="overlay.anchor"]');
   await until(page, () => document.querySelector('#app [data-part="overlay.body"]')?.matches(":popover-open"), null, "the overlay to open");
   const snap = await page.evaluate(() => window.__test.handle().snapshot());
   // the release a snapshot is taken in is @extended-mark/embed's version
   assert.equal(snap.xtmd, JSON.parse(readFileSync(new URL("../embed/package.json", import.meta.url), "utf8")).version);
-  assert.deepEqual(Object.values(snap.own).flatMap((o) => Object.entries(o)).sort(), [["k", { num: "2" }], ["note", { text: "call at 5" }], ["open", { bool: true }]].sort());
+  assert.deepEqual(Object.values(snap.own).flatMap((o) => Object.entries(o)).sort(), [["k", { num: "3" }], ["note", { text: "call at 5" }], ["open", { bool: true }]].sort());
   await page.fill(field, "never mind");
   await page.click('#app [data-xtmd-widget="core/press"]');
-  await until(page, () => document.querySelector("#app").textContent.includes("Apples: 3"), null, "the third click");
+  await until(page, () => document.querySelector("#app").textContent.includes("Apples: 4"), null, "one more click");
   const all = await page.evaluate((s) => window.__test.handle().restore(s), snap);
   assert.deepEqual(all, { restored: "all", dropped: [] });
-  await until(page, () => document.querySelector("#app").textContent.includes("Apples: 2"), null, "the restored count");
+  await until(page, () => document.querySelector("#app").textContent.includes("Apples: 3"), null, "the restored count");
   assert.equal(await page.inputValue(field), "call at 5", "the restored note");
   // from another IR, only $state can go back: its places may be other widgets now
   const other = await page.evaluate((s) => window.__test.handle().restore({ ...s, ir: "another", state: { n: { num: "7" } } }), snap);

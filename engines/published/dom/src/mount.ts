@@ -26,7 +26,7 @@ const dom: Host<Node> = {
   // that would move the caret
   setProperty: (el, name, value) => {
     const live = el as unknown as Record<string, unknown>;
-    if (name === "value" && composing.has(el)) return;
+    if (name === "value" && composing(el)) return;
     if (live[name] !== value) live[name] = value;
   },
   listen(el, event, f) {

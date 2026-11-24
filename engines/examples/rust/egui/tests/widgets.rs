@@ -1,7 +1,13 @@
 //! Our egui widgets, drawn headless: what a screen reader reads in the AccessKit tree, and what a
 //! reader's pointer and keys do to the page.
 
-mod common;
+pub mod common;
+
+/// The widgets pages are drawn with here: ours.
+#[allow(dead_code)]
+pub fn set() -> xtmd_egui::Registry {
+    xtmd_egui::Registry::ours()
+}
 
 use egui::accesskit::Role;
 use xtmd_egui::check::{self, Headless};
@@ -256,7 +262,7 @@ fn a_press_in_a_sentence_is_drawn_among_its_words_and_clicked() {
 fn an_extern_nobody_supplies_shows_its_markdown_and_is_reported() {
     let doc = std::fs::read_to_string(common::repo().join("engines/published/runtime/test/cases/packs-a-pack-supplies-its-externs.xtmd")).unwrap();
     let page = Page::new(common::ir(&doc, &["checks/packs/badge"]), PageOptions::default()).unwrap();
-    let mut h = Headless::new(XtmdPage::new(page).follow_theme(false), egui::vec2(640.0, 480.0), false);
+    let mut h = Headless::new(XtmdPage::new(page).with_registry(crate::set()).follow_theme(false), egui::vec2(640.0, 480.0), false);
     h.settle().unwrap();
     // neither of the pack's externs is ours: both show their Markdown
     assert_eq!(h.page().page().missing(), vec!["badge/badge".to_string(), "badge/seal".to_string()]);
@@ -270,7 +276,7 @@ fn an_extern_nobody_supplies_shows_its_markdown_and_is_reported() {
         });
     }
     let page = Page::new(common::ir(&doc, &["checks/packs/badge"]), PageOptions::default()).unwrap();
-    let mut h = Headless::new(XtmdPage::new(page).follow_theme(false).widget("badge/badge", || badge as fn(&mut egui::Ui, &Props<'_>, &mut Ctx<'_>)), egui::vec2(640.0, 480.0), false);
+    let mut h = Headless::new(XtmdPage::new(page).with_registry(crate::set()).follow_theme(false).widget("badge/badge", || badge as fn(&mut egui::Ui, &Props<'_>, &mut Ctx<'_>)), egui::vec2(640.0, 480.0), false);
     h.settle().unwrap();
     assert_eq!(h.page().page().missing(), vec!["badge/seal".to_string()]);
     assert_eq!(node(&h, "badge@s1/s0").label().as_deref(), Some("Votes: 2"));
@@ -292,7 +298,7 @@ fn an_apps_widget_replaces_ours() {
         }
     }
     let page = Page::new(common::ir("widget sample() {\n    view {\n        @label(value = \"quiet\");\n    }\n}\n@@@\n@sample;\n", &[]), PageOptions::default()).unwrap();
-    let mut h = Headless::new(XtmdPage::new(page).widget("core/label", || Shout), egui::vec2(320.0, 240.0), false);
+    let mut h = Headless::new(XtmdPage::new(page).with_registry(crate::set()).widget("core/label", || Shout), egui::vec2(320.0, 240.0), false);
     h.settle().unwrap();
     assert_eq!(check::text(&node(&h, "label@s0/s0")), "QUIET");
     assert!(h.page().page().missing().is_empty());
@@ -396,7 +402,7 @@ widget share() {
 #[test]
 fn the_page_follows_egui_s_theme() {
     let page = Page::new(common::ir("Hello\n", &[]), XtmdPage::options()).unwrap();
-    let mut h = Headless::new(XtmdPage::new(page), egui::vec2(320.0, 240.0), true);
+    let mut h = Headless::new(XtmdPage::new(page).with_registry(crate::set()), egui::vec2(320.0, 240.0), true);
     h.settle().unwrap();
     let md = h.page().page().eval(&xtmd_egui::runtime::ir::Expr::Get(xtmd_egui::runtime::ir::Get::Extern("core/page.theme".into()))).unwrap();
     assert_eq!(xtmd_egui::values::case(Some(&md)), Some("DARK"));
@@ -418,8 +424,8 @@ fn the_example_s_page_draws_every_widget_it_uses() {
 #[test]
 fn two_pages_share_a_window() {
     let page = |text: &str| Page::new(common::ir(text, &[]), XtmdPage::options()).unwrap();
-    let mut a = XtmdPage::new(page(PRESS)).id(egui::Id::unique("a"));
-    let mut b = XtmdPage::new(page(PRESS)).id(egui::Id::unique("b"));
+    let mut a = XtmdPage::new(page(PRESS)).with_registry(crate::set()).id(egui::Id::unique("a"));
+    let mut b = XtmdPage::new(page(PRESS)).with_registry(crate::set()).id(egui::Id::unique("b"));
     let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(640.0, 480.0)).with_accessibility_check(false).build_ui(move |ui| {
         a.show(ui);
         b.show(ui);

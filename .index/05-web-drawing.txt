@@ -10,13 +10,15 @@ engines/published/widgets    npm @extended-mark/widgets: the web's one widget se
   src/tokens.ts         tokens as CSS custom properties, both themes
   src/values.ts         reading a node's inputs
   src/planes.ts         a page's planes measured and laid out (layoutPlanes)
+  src/composing.ts      whether a person is composing text in an element (an IME)
   src/tex.ts, shade.ts, rich.ts, icons.ts, fns.ts, act.ts
   test/                 without a page or a browser
 
 engines/published/dom    npm @extended-mark/dom: the plain web's renderer
   src/mount.ts          a page drawn into an element; a host's own elements (own); focus kept
   src/api.ts            MountOptions, Mounted, OwnWidget
-  test/                 real Chromium: widgets, interact, plane; planes.test.mjs without one
+  test/                 real Chromium: widgets, interact, plane; planes.test.mjs without one;
+                        copied.test.mjs: a copied widget set passes widgets.test.mjs
 
 engines/published/bindings/view    npm @extended-mark/view: a page as a framework engine holds it
   src/doc.ts            Doc: the page, its root element, what the host is told
