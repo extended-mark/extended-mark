@@ -1,9 +1,9 @@
-// A page's tree as elements: each drawn extern widget by its widget, keyed by who it is across
-// redraws (a loop row's widgets follow its item) and marked with the place it is drawn at, as
+// A page's tree as elements: each node by its widget, keyed by its id across changes (a loop row's
+// widgets follow its item) and marked with it, as
 // @extended-mark/dom marks its own, so focus and what is being typed survive a redraw in every framework.
 
-import type { Drawn, Page, Value } from "@extended-mark/runtime";
-import { styleText, Tokens } from "@extended-mark/dom/shared";
+import type { Input, Node as Drawn, Page } from "@extended-mark/runtime";
+import { nodes, styleText, Tokens } from "@extended-mark/dom/shared";
 import { h, type Child, type VNode } from "./vnode.js";
 
 /** What a widget can do on the page it is drawn on. */
@@ -13,10 +13,12 @@ export interface ViewContext {
   /** A prefix unique to this document, for element ids (`xtmdv3-`). */
   readonly uid: string;
   /** The reader's event on this widget: runs the caller's handler, as one change. */
-  event(name: string, args?: Value[]): void;
+  event(name: string, args?: Input[]): void;
   /** This widget writing one of its `mut` inputs, as a field or a slider does: checked, then one change. */
-  write(input: string, value: Value): void;
-  /** A slot's widgets, drawn. */
+  write(input: string, value: Input): void;
+  /** A fn input called, as a shade calls its shader. */
+  call(input: string, args: Input[]): Input;
+  /** An input's widgets, drawn. */
   children(nodes: readonly Drawn[]): Child[];
   /** Asks for the plane's layout once this render is in the document. */
   layout(): void;
@@ -33,6 +35,10 @@ function notice(message: string): VNode {
 export interface Drawing {
   readonly page: Page;
   readonly registry: Record<string, ViewWidget>;
+  /** The host's own components, by the widget each draws. */
+  readonly components?: Record<string, unknown>;
+  /** What is drawn where a widget failed. */
+  readonly failed?: ViewWidget;
   readonly tokens: Tokens;
   readonly uid: string;
   /** Called when a widget asks for the plane's layout. */
@@ -41,15 +47,14 @@ export interface Drawing {
   after?(): void;
 }
 
-/** The page as one root element: its stylesheet, its tokens for the theme it has now, and every
+/** The page as one root element: its stylesheet, its tokens for both themes, and every
  * drawn widget. */
 export function renderPage(dr: Drawing): VNode {
-  const theme = dr.tokens.theme();
-  const root = h("div", undefined, { class: "xtmd-root", "data-xtmd-root": "", "data-xtmd-theme": theme.toLowerCase() }, [
-    { tag: "style", attrs: { "data-xtmd-dom": "" }, children: [styleText] },
-    ...children(dr, dr.page.tree()),
+  const sheet = dr.tokens.sheet();
+  const root = h("div", undefined, { class: `xtmd-root ${sheet.name}`, "data-xtmd-root": "", "data-xtmd-theme": dr.tokens.theme().toLowerCase() }, [
+    { tag: "style", attrs: { "data-xtmd-dom": "" }, children: [styleText + sheet.css] },
+    ...children(dr, dr.page.tree().nodes),
   ]);
-  root.style = { ...dr.tokens.properties(), "color-scheme": theme === "DARK" ? "dark" : "light" };
   return root;
 }
 
@@ -65,17 +70,42 @@ export function children(dr: Drawing, nodes: readonly Drawn[]): Child[] {
       else if (v) out.push(v);
       continue;
     }
-    v.key = d.key;
-    v.attrs["data-xtmd-site"] = d.path;
+    v.key = d.id;
+    v.attrs["data-xtmd-site"] = d.id;
     v.attrs["data-xtmd-widget"] = d.widget;
     out.push(v);
   }
   return out;
 }
 
+/** A widget drawn by the host's component: in an element of its own, which lays out nothing. */
+function componentOf(dr: Drawing, d: Drawn, of: unknown): VNode {
+  const v = h("xtmd-widget");
+  v.style = { display: "contents" };
+  v.component = {
+    of,
+    props: {
+      node: d,
+      event: (name, args = []) => {
+        dr.page.event(d.id, name, args);
+        dr.after?.();
+      },
+      write: (input, value) => {
+        dr.page.write(d.id, input, value);
+        dr.after?.();
+      },
+      call: (input, args) => dr.page.call(d.id, input, args),
+    },
+    children: (input) => children(dr, nodes(d.inputs[input])),
+  };
+  return v;
+}
+
 function draw(dr: Drawing, d: Drawn): Child {
-  if (d.failed !== undefined) return notice(`${d.widget.split("/").pop()} failed: ${d.failed}`);
-  const maker = dr.registry[d.widget];
+  if (d.failed !== undefined && !dr.failed) return notice(`${d.widget.split("/").pop()} failed: ${d.failed}`);
+  const of = d.failed === undefined ? dr.components?.[d.widget] : undefined;
+  if (of !== undefined) return componentOf(dr, d, of);
+  const maker = d.failed !== undefined ? dr.failed : dr.registry[d.widget];
   // an extern widget nobody supplies shows its Markdown instead (page 6): the page draws it with
   // the blocks we do draw, so this is only one whose supplier the page wasn't told about
   if (!maker) return notice(`Nothing draws ${d.widget} here: its widget isn't supplied.`);
@@ -84,13 +114,14 @@ function draw(dr: Drawing, d: Drawn): Child {
     tokens: dr.tokens,
     uid: dr.uid,
     event: (name, args = []) => {
-      dr.page.event(d.path, name, args);
+      dr.page.event(d.id, name, args);
       dr.after?.();
     },
     write: (input, value) => {
-      dr.page.write(d.path, input, value);
+      dr.page.write(d.id, input, value);
       dr.after?.();
     },
+    call: (input, args) => dr.page.call(d.id, input, args),
     children: (nodes) => children(dr, nodes),
     layout: () => dr.layout(),
   };

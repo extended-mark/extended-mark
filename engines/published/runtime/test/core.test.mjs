@@ -9,7 +9,7 @@ import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { Constants, Failure, Machine } from "../dist/index.js";
+import { Constants, Failure, Machine } from "../dist/internal.js";
 import { build, declarations, program, repo, workdir } from "./xtmd.mjs";
 
 const coreDir = join(repo, "checks/core");

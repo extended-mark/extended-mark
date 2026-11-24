@@ -8,7 +8,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
-import { Page, layout, pageBlocks, regionOf, toIr, childrenOf } from "../dist/index.js";
+import { Page, layout, pageBlocks, regionOf, toIr, childrenOf } from "../dist/internal.js";
 import { measure, engineFns } from "./sizes.mjs";
 import { xtmdBinary, workdir } from "./xtmd.mjs";
 

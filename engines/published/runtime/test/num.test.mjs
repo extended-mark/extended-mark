@@ -3,7 +3,7 @@
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { Num, NumError } from "../dist/index.js";
+import { Num, NumError } from "../dist/internal.js";
 
 const n = (s) => {
   const x = Num.parse(s);

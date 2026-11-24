@@ -203,7 +203,7 @@ class XtmdPageTest {
             fun find(ns: List<xtmd.android.ffi.Node>): xtmd.android.ffi.Node? = ns.firstNotNullOfOrNull { n -> if (n.widget == "core/shade") n else find(n.slots.flatMap { it.nodes }) }
             find(t)!!
         }
-        val holder = Thread { page.native.shade(shade.path, 160u, 160u) }
+        val holder = Thread { page.native.shade(shade.id, 160u, 160u) }
         send(android.view.MotionEvent.ACTION_DOWN, start)
         send(android.view.MotionEvent.ACTION_MOVE, start + Offset(20f, -10f))
         holder.start()

@@ -448,7 +448,6 @@ fn blocks_of_html(nodes: &[H]) -> Vec<Value> {
                 };
                 json!({"code": {"lang": lang, "src": src}})
             }
-            "hr" => json!({"divider": {}}),
             "table" => {
                 let mut head = Vec::new();
                 let mut rows = Vec::new();

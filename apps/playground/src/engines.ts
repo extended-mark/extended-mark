@@ -4,7 +4,7 @@
 
 import { XtmdDoc, type Snapshot } from "@extended-mark/embed";
 import { XtmdLiveDoc, type LiveDocProps } from "@extended-mark/embed-live";
-import type { ir } from "@extended-mark/runtime";
+import type { Input } from "@extended-mark/runtime";
 import { mountReact } from "./engines-react.js";
 
 function el<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -14,7 +14,7 @@ function el<T extends HTMLElement = HTMLElement>(id: string): T {
 }
 
 /** `$state` as one line: `n = 2, label = "x"`. */
-function stateLine(s: Record<string, ir.Expr>): string {
+function stateLine(s: Record<string, Input>): string {
   return Object.entries(s)
     .map(([k, x]) => `${k} = ${"num" in x ? x.num : "text" in x ? JSON.stringify(x.text) : JSON.stringify(x)}`)
     .join(", ");

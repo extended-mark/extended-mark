@@ -4,10 +4,10 @@
 // on each spot's own size, which the transform never changes. Dragging pans; the wheel, a pinch or
 // + and - zoom; each writes `center` or `zoom` through a checked write.
 
-import { around, ptValue, regionOf, type Drawn, type Region } from "@extended-mark/runtime";
+import { around, type Node as Drawn, type Region } from "@extended-mark/runtime";
 import type { Widget, WidgetView } from "../api.js";
 import { attr, claim, css, h, isClaimed, kit, s } from "../kit.js";
-import { flag, inner, kase, num, placesFor, point, str, toNum, type XY } from "../values.js";
+import { flag, kase, nodes, num, placesFor, point, pointInput, range, regionExact, str, toNum, type XY } from "../values.js";
 import { anchorShift, inSpace, type Space } from "./gfx.js";
 
 /** How far a pointer moves before a press becomes a drag. */
@@ -53,11 +53,11 @@ export const plane: Widget = (d, ctx) => {
   const move = (center: XY, zoom = z) => {
     if (zoom !== z) {
       const nz = toNum(zoom, 3);
-      if (nz.toNumber() !== z) ctx.write("zoom", { kind: "num", n: nz });
+      if (nz.toNumber() !== z) ctx.write("zoom", { num: nz.show() });
     }
     const p = placesFor(1 / zoom);
     const next = { x: toNum(center.x, p), y: toNum(center.y, p) };
-    if (next.x.toNumber() !== c.x || next.y.toNumber() !== c.y) ctx.write("center", ptValue(next));
+    if (next.x.toNumber() !== c.x || next.y.toNumber() !== c.y) ctx.write("center", pointInput(next));
   };
 
   /** Zooms about a point on the screen, which stays under the pointer. */
@@ -128,7 +128,7 @@ export const plane: Widget = (d, ctx) => {
     const at = space.unit(e.clientX, e.clientY);
     if (!at) return;
     const p = placesFor(1 / z);
-    ctx.event("click", [ptValue({ x: toNum(at.x, p), y: toNum(at.y, p) })]);
+    ctx.event("click", [pointInput({ x: toNum(at.x, p), y: toNum(at.y, p) })]);
   });
   view.addEventListener(
     "wheel",
@@ -175,7 +175,7 @@ export const plane: Widget = (d, ctx) => {
   const self: WidgetView = {
     el,
     update(d: Drawn) {
-      const p = (k: string) => d.props.get(k);
+      const p = (k: string) => d.inputs[k];
       const t = kit(ctx).tokens;
       z = num(p("zoom")) ?? 1;
       c = point(p("center")) ?? { x: 0, y: 0 };
@@ -186,23 +186,23 @@ export const plane: Widget = (d, ctx) => {
       css(el, "width", t.length(p("width")));
       css(view, "aspect-ratio", String(aspect));
       css(inner_, "transform", `scale(${z}) translate(${-c.x}px, ${c.y}px)`);
-      listens = ctx.page.listens ? ctx.page.listens(d, "click") : d.events.has("click");
+      listens = !!d.events?.includes("click");
       // how far the reader may zoom: zoom_range, counted from the zoom that fits bounds with `fit`
-      const range = inner(p("zoom_range"));
+      const zooms = range(p("zoom_range"));
       let base = 1;
-      const spots = (d.slots.get("items") ?? []).filter((n) => n.widget === "core/spot");
-      const bounds = regionNumbers(regionOf(p("bounds")) ?? around(spots.map((n) => regionOf(n.props.get("box"))).filter((r): r is Region => !!r)));
+      const spots = nodes(d.inputs.items).filter((n) => n.widget === "core/spot");
+      const bounds = regionNumbers(regionExact(p("bounds")) ?? around(spots.map((n) => regionExact(n.inputs.box)).filter((r): r is Region => !!r)));
       const width = t.number(p("width")) ?? view.clientWidth;
       if (flag(p("fit")) && bounds && width > 0) {
         const bw = bounds.to.x - bounds.from.x;
         const bh = bounds.to.y - bounds.from.y;
         if (bw && bh) base = Math.min(width / bw, width / aspect / bh);
       }
-      low = Math.max(0.1, (range && range.kind === "range" ? (num(range.low ?? undefined) ?? 1) : 1) * base);
-      high = Math.min(10, (range && range.kind === "range" ? (num(range.high ?? undefined) ?? 1) : 1) * base);
+      low = Math.max(0.1, (num(zooms?.low) ?? 1) * base);
+      high = Math.min(10, (num(zooms?.high) ?? 1) * base);
       el.classList.toggle("xtmd-zoomable", high > low);
-      inSpace(space, () => ctx.children(bg, d.slots.get("background") ?? []));
-      ctx.children(items, d.slots.get("items") ?? []);
+      inSpace(space, () => ctx.children(bg, nodes(d.inputs.background)));
+      ctx.children(items, nodes(d.inputs.items));
       if (ro) {
         const now = new Set(items.children);
         for (const x of observed) if (!now.has(x)) (ro.unobserve(x), observed.delete(x));
@@ -227,13 +227,13 @@ export const spot: Widget = (d, ctx) => {
   const view: WidgetView = {
     el,
     update(d) {
-      const at = point(d.props.get("at")) ?? { x: 0, y: 0 };
-      const nudge = point(d.props.get("nudge")) ?? { x: 0, y: 0 };
+      const at = point(d.inputs.at) ?? { x: 0, y: 0 };
+      const nudge = point(d.inputs.nudge) ?? { x: 0, y: 0 };
       // at its point in the plane's units, y up; the anchor's part of it on the point
       css(el, "left", `${at.x + nudge.x}px`);
       css(el, "top", `${-(at.y + nudge.y)}px`);
-      css(el, "transform", anchorShift(kase(d.props.get("anchor")) ?? "CENTER"));
-      ctx.children(el, d.slots.get("child") ?? []);
+      css(el, "transform", anchorShift(kase(d.inputs.anchor) ?? "CENTER"));
+      ctx.children(el, nodes(d.inputs.child));
     },
   };
   view.update(d);

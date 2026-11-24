@@ -516,7 +516,7 @@ impl Checker {
                     })));
                 }
                 DefKind::Widget { external: true, inputs, slots, events } => {
-                    let levels = out.extern_uses.get(&d).filter(|l| !l.is_empty()).cloned().unwrap_or_else(|| vec![ir::Level::CoreDraw]);
+                    let levels = out.extern_uses.get(&d).filter(|l| !l.is_empty()).cloned().unwrap_or_default();
                     decls.push(decl(ir::Decl::Extern(ir::Extern::Widget(ir::ExternWidget {
                         name: def.full.clone(),
                         generics: self.ir_generics(&def.generics),
@@ -607,7 +607,6 @@ impl Checker {
             needs: ir::Needs { core: core_needs, packs: self.pack_needs(), host: host_needs },
             declarations: decls,
             templates,
-            bindings: Vec::new(),
             handlers: std::mem::take(&mut self.handlers),
         };
         crate::levels::compute(&mut m);

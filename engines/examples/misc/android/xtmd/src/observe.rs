@@ -10,13 +10,13 @@ use serde_json::{json, Map, Value as Json};
 
 use crate::{failed, XtmdError};
 
-/// Where each spot landed, by its path.
+/// Where each spot landed, by its id.
 fn boxes(nodes: &[Drawn], out: &mut Map<String, Json>) {
     for n in nodes {
         if n.widget == "core/spot" {
             if let Some(r) = region_of(n.props.get("box")) {
                 let num = |x: Num| json!({ "num": x.show() });
-                out.insert(n.path.clone(), json!({ "from": { "x": num(r.from.x), "y": num(r.from.y) }, "to": { "x": num(r.to.x), "y": num(r.to.y) } }));
+                out.insert(n.id.clone(), json!({ "from": { "x": num(r.from.x), "y": num(r.from.y) }, "to": { "x": num(r.to.x), "y": num(r.to.y) } }));
             }
         }
         for kids in n.slots.values() {

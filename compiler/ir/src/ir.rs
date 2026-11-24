@@ -15,16 +15,6 @@ fn is_false(b: &bool) -> bool {
     !*b
 }
 
-/// A prop that isn't constant: its value, and everything it reads.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Binding {
-    pub id: String,
-    /// `cell:n`, `input:t.title`, `$state:spent`, `let:doc/open`, `extern:core/page.width`. Never too few.
-    pub reads: Vec<String>,
-    pub value: Expr,
-}
-
 /// Both ends are included; a missing one is open.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -39,6 +29,7 @@ pub struct Bounds {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Call {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub args: Vec<Expr>,
     pub name: String,
     #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
@@ -57,7 +48,7 @@ pub struct CaseDecl {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CondOpen {
-    #[serde(rename = "mut")]
+    #[serde(rename = "mut", default, skip_serializing_if = "is_false")]
     pub mutable: bool,
     pub name: String,
     pub opt: Expr,
@@ -138,6 +129,7 @@ pub struct Enum {
     /// A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`).
     pub name: String,
     /// Its cases carry nothing, so they are ordered as written.
+    #[serde(default, skip_serializing_if = "is_false")]
     pub ordered: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub params: Vec<TypeParam>,
@@ -147,6 +139,7 @@ pub struct Enum {
 #[serde(deny_unknown_fields)]
 pub struct Event {
     pub name: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub params: Vec<Param>,
 }
 
@@ -169,6 +162,7 @@ pub struct Expose {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExprRecord {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Expr>,
     #[serde(rename = "type")]
     pub ty: String,
@@ -303,9 +297,6 @@ pub enum Expr {
     View(ViewValue),
     #[serde(rename = "get")]
     Get(Get),
-    /// A prop worked out by a binding.
-    #[serde(rename = "bind")]
-    Bind(String),
     #[serde(rename = "field")]
     Field(Box<ExprField>),
     #[serde(rename = "call")]
@@ -338,6 +329,7 @@ pub struct ExternFn {
     pub default: Vec<Stmt>,
     /// A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`).
     pub name: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub params: Vec<Param>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub returns: Option<Type>,
@@ -356,6 +348,7 @@ pub struct ExternChannelFns {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExternChannel {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fns: Vec<ExternChannelFns>,
     /// A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`).
     pub name: String,
@@ -363,6 +356,7 @@ pub struct ExternChannel {
     /// The tokens the page itself is drawn with, from the block's `tokens` line.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tokens: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub values: Vec<Field>,
 }
 
@@ -394,11 +388,14 @@ pub enum Extern {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExternWidget {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub events: Vec<Event>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub generics: Vec<TypeParam>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inputs: Vec<Field>,
-    /// The levels drawing this widget needs: core.draw, and those its `uses` names.
+    /// The levels drawing this widget needs beyond core.draw: those its `uses` names.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub levels: Vec<Level>,
     /// What it writes as Markdown, from its markdown block. Left out when it writes nothing, or when it is a piece of Markdown.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -411,6 +408,7 @@ pub struct ExternWidget {
     /// What it expects of its inputs and slots: its `require` and `warn` blocks.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requires: Vec<Require>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub slots: Vec<Slot>,
     pub supplier: Supplier,
     /// The tokens its look comes from: a case by its full name (`core/color.LINE`).
@@ -447,6 +445,7 @@ pub struct FnDecl {
     pub generics: Vec<TypeParam>,
     /// A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`).
     pub name: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub params: Vec<Param>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub returns: Option<Type>,
@@ -494,14 +493,18 @@ pub struct Handler {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Interface {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub events: Vec<Event>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fields: Vec<Field>,
     /// The names of its fns. A call of one is sent to the fn of the value's own type.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fns: Vec<String>,
     /// A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`).
     pub name: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub params: Vec<TypeParam>,
+    #[serde(default, skip_serializing_if = "is_false")]
     pub widget: bool,
 }
 
@@ -509,6 +512,7 @@ pub struct Interface {
 #[serde(deny_unknown_fields)]
 pub struct Lambda {
     pub body: Vec<Stmt>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub params: Vec<Param>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub returns: Option<Type>,
@@ -548,11 +552,11 @@ pub struct Local {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Module {
-    pub bindings: Vec<Binding>,
     pub declarations: Vec<Declaration>,
     /// A document's YAML front matter, without its --- lines, passed to the host untouched (page 1).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub front_matter: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub handlers: Vec<Handler>,
     /// Every level the page needs: the union of its calls'.
     pub levels: Vec<Level>,
@@ -578,9 +582,9 @@ pub struct NeedsPacks {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Needs {
-    /// core's externs, supplied by the engine: widgets, fns and channels.
+    /// core's externs, supplied by the engine: widgets and fns.
     pub core: Vec<String>,
-    /// The document's own channels' fns and values, supplied by the host when it mounts the page.
+    /// Every value and fn taken from the host, by its full name: a value of core's page (`core/page.width`), and the values and fns of the document's own channels (`doc/scores.unit`).
     pub host: Vec<String>,
     pub packs: Vec<NeedsPacks>,
 }
@@ -591,10 +595,11 @@ pub struct Needs {
 pub struct NodeExtern {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub events: BTreeMap<String, String>,
-    /// The levels this call needs (page 6), its slots' included.
+    /// The levels this call needs beyond core.draw (page 6), its slots' included.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub levels: Vec<Level>,
     pub name: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub props: BTreeMap<String, Expr>,
     pub site: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -608,10 +613,11 @@ pub struct NodeExtern {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NodeUse {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub args: BTreeMap<String, Expr>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub events: BTreeMap<String, String>,
-    /// The levels this call needs (page 6), its slots' included.
+    /// The levels this call needs beyond core.draw (page 6), its slots' included.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub levels: Vec<Level>,
     pub name: String,
@@ -635,7 +641,7 @@ pub struct NodeFor {
     pub body: Vec<Node>,
     /// Rows of a list follow their items; rows of a range are keyed by their number.
     pub key: NodeForKey,
-    #[serde(rename = "mut")]
+    #[serde(rename = "mut", default, skip_serializing_if = "is_false")]
     pub mutable: bool,
     pub name: String,
     pub over: Expr,
@@ -657,7 +663,7 @@ pub struct NodeIfBranches {
 #[serde(deny_unknown_fields)]
 pub struct NodeIf {
     pub branches: Vec<NodeIfBranches>,
-    #[serde(rename = "else")]
+    #[serde(rename = "else", default, skip_serializing_if = "Vec::is_empty")]
     pub else_: Vec<Node>,
     pub site: String,
 }
@@ -788,6 +794,7 @@ pub enum Pattern {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Place {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub path: Vec<Step>,
     pub root: Root,
 }
@@ -801,6 +808,7 @@ pub struct Record {
     /// Type parameters.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub params: Vec<TypeParam>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requires: Vec<Require>,
     /// The fn `==` and `!=` call, when the record's pack writes one. Left out, records compare field by field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -852,6 +860,7 @@ pub struct Slot {
 #[serde(deny_unknown_fields)]
 pub struct State {
     pub fields: Vec<Field>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requires: Vec<Require>,
 }
 
@@ -908,7 +917,7 @@ pub struct StmtIfBranches {
 #[serde(deny_unknown_fields)]
 pub struct StmtIf {
     pub branches: Vec<StmtIfBranches>,
-    #[serde(rename = "else")]
+    #[serde(rename = "else", default, skip_serializing_if = "Vec::is_empty")]
     pub else_: Vec<Stmt>,
 }
 
@@ -916,7 +925,7 @@ pub struct StmtIf {
 #[serde(deny_unknown_fields)]
 pub struct StmtFor {
     pub body: Vec<Stmt>,
-    #[serde(rename = "mut")]
+    #[serde(rename = "mut", default, skip_serializing_if = "is_false")]
     pub mutable: bool,
     pub name: String,
     pub over: Expr,
@@ -1000,19 +1009,27 @@ pub enum Supplier {
 #[serde(deny_unknown_fields)]
 pub struct Template {
     /// Its own variables, each with its starting value.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cells: Vec<Field>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub events: Vec<Event>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fns: Vec<FnDecl>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub generics: Vec<TypeParam>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inputs: Vec<Field>,
-    /// The levels this widget needs wherever it is called: its own variables need core.live, and it needs every level its view's calls need.
+    /// The levels this widget needs wherever it is called, beyond core.draw: its own variables need core.live, and it needs every level its view's calls need.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub levels: Vec<Level>,
-    /// Its markdown block, lowered onto core's extern Markdown blocks; built from the view for a document's widget that has none. Empty when it writes nothing.
-    pub markdown: Vec<Node>,
+    /// Its markdown block, lowered onto core's extern Markdown blocks; built from the view for a document's widget that has none. Left out when it is the view itself, and empty when it writes nothing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markdown: Option<Vec<Node>>,
     /// A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`).
     pub name: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requires: Vec<Require>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub slots: Vec<Slot>,
     pub view: Vec<Node>,
 }
@@ -1065,6 +1082,7 @@ pub struct TypeParam {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ViewValue {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub args: BTreeMap<String, Expr>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub events: BTreeMap<String, String>,

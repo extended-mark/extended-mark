@@ -26,8 +26,9 @@ impl Schema {
 pub fn generate(repo: &Path) -> Vec<(PathBuf, String)> {
     let ir = Schema::load(&repo.join("schemas/ir.schema.json"), "ir");
     let check = Schema::load(&repo.join("schemas/check.schema.json"), "check");
+    let tree = Schema::load(&repo.join("schemas/tree.schema.json"), "tree");
     let mut out = Vec::new();
-    for s in [&ir, &check] {
+    for s in [&ir, &check, &tree] {
         let mut g = Gen::new(s);
         g.run();
         out.push((PathBuf::from(format!("compiler/ir/src/{}.rs", s.module)), g.rust()));
@@ -107,6 +108,8 @@ enum Item {
 }
 
 struct FieldOut {
+    /// `x-option`: left out is not the same as empty.
+    option: bool,
     key: String,
     ty: Ty,
     required: bool,
@@ -161,7 +164,7 @@ impl<'a> Gen<'a> {
             for (key, fv) in v["properties"].as_object().unwrap() {
                 let ty = self.ty(fv, &format!("{}{}", name, pascal(key)));
                 self.edge(name, &ty);
-                fields.push(FieldOut { key: key.clone(), ty, required: required.contains(key), doc: doc(fv) });
+                fields.push(FieldOut { key: key.clone(), ty, required: required.contains(key), doc: doc(fv), option: fv.get("x-option").is_some() });
             }
             self.items.push(Item::Struct { name: name.into(), doc: doc(v), fields });
         } else {
@@ -275,7 +278,10 @@ impl<'a> Gen<'a> {
         } else {
             o.push_str("\nuse crate::ir::Empty;\n");
         }
-        o.push_str("\nfn is_false(b: &bool) -> bool {\n    !*b\n}\n");
+        let optional_bool = self.items.iter().any(|i| matches!(i, Item::Struct { fields, .. } if fields.iter().any(|f| !f.required && matches!(f.ty, Ty::Bool))));
+        if optional_bool {
+            o.push_str("\nfn is_false(b: &bool) -> bool {\n    !*b\n}\n");
+        }
         for item in &self.items {
             o.push('\n');
             match item {
@@ -299,11 +305,11 @@ impl<'a> Gen<'a> {
                             base
                         } else {
                             match &f.ty {
-                                Ty::Vec(_) => {
+                                Ty::Vec(_) if !f.option => {
                                     attrs.push("default, skip_serializing_if = \"Vec::is_empty\"".into());
                                     base
                                 }
-                                Ty::Map(_) => {
+                                Ty::Map(_) if !f.option => {
                                     attrs.push("default, skip_serializing_if = \"BTreeMap::is_empty\"".into());
                                     base
                                 }

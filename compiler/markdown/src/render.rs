@@ -427,7 +427,7 @@ impl<'p> Writer<'p> {
                 };
                 self.shared.borrow_mut().instances.get_mut(&id).unwrap().cells.insert(c.name.clone(), v);
             }
-            return self.nodes(&t.markdown, &env);
+            return self.nodes(t.markdown(), &env);
         }
         // an extern widget: its markdown block, with its inputs
         if let Some(w) = self.externs.get(name).cloned() {
@@ -602,7 +602,7 @@ pub fn page(m: &ir::Module) -> R<Vec<Block>> {
         }
     }
     let Some(doc) = m.templates.iter().find(|t| t.name == "doc").cloned() else { return Ok(Vec::new()) };
-    let pieces = w.nodes(&doc.markdown, &none)?;
+    let pieces = w.nodes(doc.markdown(), &none)?;
     Ok(blocks_of(pieces))
 }
 

@@ -5,7 +5,7 @@
 import type * as ir from "./generated/ir.js";
 import { Failure, type Binding } from "./eval/index.js";
 import type { Value as V } from "./eval/value.js";
-import { type Env, Page, checkSentence, setMarkdownWriter } from "./page.js";
+import { type Env, Core, checkSentence, setMarkdownWriter } from "./page.js";
 
 export type Inline =
   | { text: { value: string; bold?: boolean; italic?: boolean; strike?: boolean; link?: string } }
@@ -128,7 +128,7 @@ function join(path: string, part: string): string {
 
 class Writer {
   depth = 0;
-  constructor(private readonly page: Page) {}
+  constructor(private readonly page: Core) {}
 
   nodes(nodes: ir.Node[], env0: Env): Piece[] {
     let env = env0;
@@ -163,11 +163,11 @@ class Writer {
         out.push(...this.view(v, join(env.path, n.place.site), join(env.key ?? env.path, n.place.site)));
       } else if ("extern" in n) {
         const props = new Map<string, V>();
-        for (const [k, e] of Object.entries(n.extern.props)) props.set(k, this.page.evalIn(env, e));
+        for (const [k, e] of Object.entries(n.extern.props ?? {})) props.set(k, this.page.evalIn(env, e));
         for (const [k, p] of Object.entries(n.extern.writes ?? {})) props.set(k, this.page.machine.evalWith(env.bindings, env.owner, { place: p } as ir.Expr));
         out.push(...this.widget(n.extern.name, join(env.path, n.extern.site), props, props, n.extern.slots ?? {}, env, join(env.key ?? env.path, n.extern.site)));
       } else if ("use" in n) {
-        out.push(...this.widget(n.use.name, join(env.path, n.use.site), new Map(), n.use.args, n.use.slots ?? {}, env, join(env.key ?? env.path, n.use.site), n.use.events ?? {}));
+        out.push(...this.widget(n.use.name, join(env.path, n.use.site), new Map(), n.use.args ?? {}, n.use.slots ?? {}, env, join(env.key ?? env.path, n.use.site), n.use.events ?? {}));
       }
     }
     return out;
@@ -288,7 +288,7 @@ class Writer {
     if (t) {
       // a widget written in Extended Mark: its markdown, in its instance
       const own = this.page.enterUse(t, path, args, slots, events, env, key);
-      return this.nodes(t.markdown, own);
+      return this.nodes(t.markdown ?? t.view, own);
     }
     const w = this.page.externWidget(name);
     if (w) {
@@ -312,10 +312,10 @@ function plain(b: Block): string {
 }
 
 /** The page's blocks, with the values it has now. */
-export function pageBlocks(page: Page): Block[] {
+export function pageBlocks(page: Core): Block[] {
   const doc = page.templateOf("doc");
   if (!doc) return [];
-  return blocksOf(new Writer(page).nodes(doc.markdown, { owner: undefined, bindings: [], path: "" }));
+  return blocksOf(new Writer(page).nodes(doc.markdown ?? doc.view, { owner: undefined, bindings: [], path: "" }));
 }
 
 // ---- the one spelling (page 1, Markdown out)

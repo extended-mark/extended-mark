@@ -1,13 +1,13 @@
-// Where a widget that failed is written: the page draws a notice in its place, at its site path
-// (`s1/s0`, a loop's row `s3[2]`), and the compile says where each call in the document is written
+// Where a widget that failed is written: the page has a node that says why, whose id is its call's sites
+// (`s1/s0`, a loop's row `s3[7]`), and the compile says where each call in the document is written
 // (`Built.sites`, by template and site; no IR holds it). The path is walked through the IR's
 // templates from the page's own, `doc`: a call to a widget written in Extended Mark takes the walk into its
 // template, and the last call on the way that is written in the document is the one to mark.
 
-import type { Page, ir } from "@extended-mark/runtime";
+import { everyNode, type Page, type ir } from "@extended-mark/runtime";
 import type { Built, Written } from "@extended-mark/wasm";
 
-/** A notice on the page, and where in the document its call is written. */
+/** A widget that failed, and where in the document its call is written. */
 export interface Failed {
   message: string;
   written: Written;
@@ -16,16 +16,16 @@ export interface Failed {
 /** Every widget on the page that failed, with where in the document to mark it. */
 export function failedCalls(page: Page, file: ir.File, sites: Built["sites"]): Failed[] {
   const out: Failed[] = [];
-  for (const [path, n] of Object.entries(page.observeTree())) {
+  for (const n of everyNode(page.tree().nodes)) {
     if (n.failed === undefined) continue;
-    const written = writtenAt(path, file, sites);
+    const written = writtenAt(n.id, file, sites);
     const message = `${n.widget.split("/").pop()} failed: ${n.failed}`;
     if (written) out.push({ message, written });
   }
   return out;
 }
 
-/** The call a site path ends at, or the last one on the way written in the document. */
+/** The call an id ends at, or the last one on the way written in the document. */
 export function writtenAt(path: string, file: ir.File, sites: Built["sites"]): Written | undefined {
   const templates = new Map(file.ir.templates.map((t) => [t.name, t]));
   let template = "doc";

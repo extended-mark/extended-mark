@@ -38,6 +38,8 @@ pub(crate) const USAGE: &str = "usage: xtmd migrate [<file|folder>…] [--pack a
   moves too: MKP named a document name.mkp.md, and Extended Mark names it name.xtmd.
   xtmd.toml's xtmd = \"0.3.x\" says the release the tree is written for (0.3.0 when it says none),
   and [uses] each pack's version; a run that moves the tree writes both.
+  An IR file (xtmd migrate page.ir.json) is brought to the version this xtmd's engines run, one way,
+  in place; one that can't be keeps its file, and is told what is missing.
   --format json prints a JSON line for each file, note and question, then the summary, and asks
   nothing.
   exit: 0 done, or nothing to do; 1 something is left: a file refused or skipped, a question open,
@@ -173,6 +175,14 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    // an IR: a document's is found by its name, and never among documents
+    if targets.iter().any(|t| t.ends_with(".json")) {
+        if let Some(other) = targets.iter().find(|t| !t.ends_with(".json")) {
+            eprintln!("{}: xtmd migrate moves IR files (.json) and documents in runs of their own", other);
+            return ExitCode::from(2);
+        }
+        return crate::migrate_ir::run(&targets, json, dry || diff, check, stdout, yes);
+    }
     let targets = if targets.is_empty() { vec![".".to_string()] } else { targets };
     if stdout && (json || targets.len() != 1 || !is_doc(&targets[0])) {
         eprintln!("--stdout prints one document's result: name one .xtmd file{}", if json { ", and leave out --format json" } else { "" });

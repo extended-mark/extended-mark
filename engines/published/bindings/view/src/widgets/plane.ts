@@ -10,8 +10,8 @@
 // zoom and centre a gesture moves from are read from the page as the event comes, so a framework
 // that renders later than the page changes still pans and zooms from where the page is now.
 
-import { around, ptValue, regionOf, type Drawn, type Page, type Region } from "@extended-mark/runtime";
-import { flag, inner, kase, num, placesFor, point, region, str, toNum, type XY } from "@extended-mark/dom/shared";
+import { around, type Node as Drawn, type Page, type Region } from "@extended-mark/runtime";
+import { flag, kase, nodes, num, placesFor, point, pointInput, range, region, regionExact, str, toNum, type XY } from "@extended-mark/dom/shared";
 import type { ViewContext, ViewWidget } from "../render.js";
 import type { Act } from "../act.js";
 import { cls, css, h, on, s, type Hook } from "../vnode.js";
@@ -38,33 +38,33 @@ interface Look {
 }
 
 function lookOf(d: Drawn): Look {
-  return { z: num(d.props.get("zoom")) ?? 1, c: point(d.props.get("center")) ?? { x: 0, y: 0 } };
+  return { z: num(d.inputs.zoom) ?? 1, c: point(d.inputs.center) ?? { x: 0, y: 0 } };
 }
 
 /** How far the reader may zoom: zoom_range, counted from the zoom that fits bounds with `fit`,
  * for a plane `measured` pixels wide when it gives no width of its own. */
 function limitsOf(d: Drawn, ctx: ViewContext, measured: number): { low: number; high: number } {
-  const p = (k: string) => d.props.get(k);
+  const p = (k: string) => d.inputs[k];
   const aspect = num(p("aspect")) ?? 1.5;
-  const range = inner(p("zoom_range"));
+  const zooms = range(p("zoom_range"));
   let base = 1;
-  const spots = (d.slots.get("items") ?? []).filter((n) => n.widget === "core/spot");
-  const bounds = regionNumbers(regionOf(p("bounds")) ?? around(spots.map((n) => regionOf(n.props.get("box"))).filter((r): r is Region => !!r)));
+  const spots = nodes(d.inputs.items).filter((n) => n.widget === "core/spot");
+  const bounds = regionNumbers(regionExact(p("bounds")) ?? around(spots.map((n) => regionExact(n.inputs.box)).filter((r): r is Region => !!r)));
   const width = ctx.tokens.number(p("width")) ?? measured;
   if (flag(p("fit")) && bounds && width > 0) {
     const bw = bounds.to.x - bounds.from.x;
     const bh = bounds.to.y - bounds.from.y;
     if (bw && bh) base = Math.min(width / bw, width / aspect / bh);
   }
-  const low = Math.max(0.1, (range && range.kind === "range" ? (num(range.low ?? undefined) ?? 1) : 1) * base);
-  const high = Math.min(10, (range && range.kind === "range" ? (num(range.high ?? undefined) ?? 1) : 1) * base);
+  const low = Math.max(0.1, (num(zooms?.low) ?? 1) * base);
+  const high = Math.min(10, (num(zooms?.high) ?? 1) * base);
   return { low, high };
 }
 
 /** The width the plane drew at its last layout, from the region it wrote it draws: what
  * @extended-mark/dom reads from its view's clientWidth while it updates, without an element to read. */
 function drawnWidth(d: Drawn, z: number): number {
-  const r = region(d.props.get("drawn"));
+  const r = region(d.inputs.drawn);
   return r ? Math.max(0, Math.round((r.to.x - r.from.x) * z)) : 0;
 }
 
@@ -106,7 +106,7 @@ function setPanning(view: Element, st: Live, panning: boolean): void {
   view.classList.toggle("xtmd-panning", panning);
 }
 
-/** The outside change each plane last asked for the layout after, by page and place. */
+/** The outside change each plane last asked for the layout after, by page and node. */
 const asked = new WeakMap<Page, Map<string, number>>();
 
 /** Asks for the plane's layout once this render is in the document, after every change but the
@@ -117,8 +117,8 @@ const asked = new WeakMap<Page, Map<string, number>>();
 function askLayout(d: Drawn, ctx: ViewContext): void {
   let m = asked.get(ctx.page);
   if (!m) asked.set(ctx.page, (m = new Map()));
-  if (m.get(d.path) === ctx.page.changes) return;
-  m.set(d.path, ctx.page.changes);
+  if (m.get(d.id) === ctx.page.changes) return;
+  m.set(d.id, ctx.page.changes);
   ctx.layout();
 }
 
@@ -148,17 +148,17 @@ function watchItems(view: Element, st: Live): void {
 
 export const plane: ViewWidget = (d, ctx) => {
   askLayout(d, ctx);
-  const p = (k: string) => d.props.get(k);
+  const p = (k: string) => d.inputs[k];
   const t = ctx.tokens;
   const { z, c } = lookOf(d);
   const aspect = num(p("aspect")) ?? 1.5;
   const label = str(p("label"));
-  const listens = ctx.page.listens ? ctx.page.listens(d, "click") : d.events.has("click");
+  const listens = !!d.events?.includes("click");
   const { low, high } = limitsOf(d, ctx, drawnWidth(d, z));
 
   /** The plane as the page has it now, for an event: the latest render may not be in yet. */
   const current = (): Drawn => {
-    const n = ctx.page.find(d.path);
+    const n = ctx.page.node(d.id);
     return n && n.widget === d.widget ? n : d;
   };
   const lookNow = (): Look => lookOf(current());
@@ -184,11 +184,11 @@ export const plane: ViewWidget = (d, ctx) => {
   const move = (at: Look, center: XY, zoom = at.z) => {
     if (zoom !== at.z) {
       const nz = toNum(zoom, 3);
-      if (nz.toNumber() !== at.z) ctx.write("zoom", { kind: "num", n: nz });
+      if (nz.toNumber() !== at.z) ctx.write("zoom", { num: nz.show() });
     }
     const places = placesFor(1 / zoom);
     const next = { x: toNum(center.x, places), y: toNum(center.y, places) };
-    if (next.x.toNumber() !== at.c.x || next.y.toNumber() !== at.c.y) ctx.write("center", ptValue(next));
+    if (next.x.toNumber() !== at.c.x || next.y.toNumber() !== at.c.y) ctx.write("center", pointInput(next));
   };
 
   /** Zooms about a point on the screen, which stays under the pointer. */
@@ -272,7 +272,7 @@ export const plane: ViewWidget = (d, ctx) => {
     const at = space.unit(m.clientX, m.clientY, me);
     if (!at) return;
     const places = placesFor(space.unitsPerPx(me));
-    ctx.event("click", [ptValue({ x: toNum(at.x, places), y: toNum(at.y, places) })]);
+    ctx.event("click", [pointInput({ x: toNum(at.x, places), y: toNum(at.y, places) })]);
   });
   on(view, "keydown", (e) => {
     if (e.target !== e.currentTarget) return;
@@ -344,9 +344,9 @@ export const plane: ViewWidget = (d, ctx) => {
   view.hook = hook;
   css(view, "aspect-ratio", String(aspect));
 
-  const background = inSpace(space, () => ctx.children(d.slots.get("background") ?? []));
+  const background = inSpace(space, () => ctx.children(nodes(d.inputs.background)));
   const bg = s("svg", "plane.background", { width: "1", height: "1" }, background);
-  const items = h("div", "plane.items", {}, ctx.children(d.slots.get("items") ?? []));
+  const items = h("div", "plane.items", {}, ctx.children(nodes(d.inputs.items)));
   const inner_ = h("div", "plane.inner", {}, [bg, items]);
   css(inner_, "transform", `scale(${z}) translate(${-c.x}px, ${c.y}px)`);
   view.children = [inner_];
@@ -359,13 +359,13 @@ export const plane: ViewWidget = (d, ctx) => {
 // ---- spot
 
 export const spot: ViewWidget = (d, ctx) => {
-  const at = point(d.props.get("at")) ?? { x: 0, y: 0 };
-  const nudge = point(d.props.get("nudge")) ?? { x: 0, y: 0 };
-  const el = h("div", "spot", {}, ctx.children(d.slots.get("child") ?? []));
+  const at = point(d.inputs.at) ?? { x: 0, y: 0 };
+  const nudge = point(d.inputs.nudge) ?? { x: 0, y: 0 };
+  const el = h("div", "spot", {}, ctx.children(nodes(d.inputs.child)));
   // at its point in the plane's units, y up; the anchor's part of it on the point
   css(el, "left", `${at.x + nudge.x}px`);
   css(el, "top", `${-(at.y + nudge.y)}px`);
-  css(el, "transform", anchorShift(kase(d.props.get("anchor")) ?? "CENTER"));
+  css(el, "transform", anchorShift(kase(d.inputs.anchor) ?? "CENTER"));
   return el;
 };
 

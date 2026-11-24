@@ -12,8 +12,8 @@ export interface Kit {
   readonly uid: string;
   /** Runs the plane's layout now: after a ResizeObserver says a spot changed size. */
   layout(): void;
-  /** The view drawn at a path, for the layout's measure. */
-  view(path: string): WidgetView | undefined;
+  /** A node's view, for the layout's measure. */
+  view(id: string): WidgetView | undefined;
   /** Forgets the views drawn into containers inside an element, before it is emptied by hand. */
   release(el: Element): void;
 }

@@ -5,28 +5,36 @@
 // focus and what is being typed survive a change. Listeners, live DOM properties and the hooks of
 // widgets that draw on their element (a canvas, a plane) are attached to the real elements.
 
-import { createElement, useLayoutEffect, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement, type ReactNode, type Ref } from "react";
-import { Doc, type Child, type DocProps, type Restored, type Snapshot, type VNode, type Value, type ir } from "@extended-mark/view";
+import { createElement, useLayoutEffect, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore, type ComponentType, type CSSProperties, type ReactElement, type ReactNode, type Ref } from "react";
+import { Doc, type Child, type DocProps, type Restored, type Snapshot, type VNode, type Input, type WidgetProps, type ir } from "@extended-mark/view";
 
 /** What the host holds to reach the page: `ref` on <XtmdDoc>. */
 export interface XtmdDocHandle {
   /** The running document. */
   readonly doc: Doc;
   /** Writes `$state` fields as one change, checked: refused whole (and told to `onError`), or done. */
-  set(changes: Record<string, ir.Expr | Value>): void;
+  set(changes: Record<string, Input>): void;
   /** `$state` now. */
-  state(): Record<string, ir.Expr>;
+  state(): Record<string, Input>;
   /** The page as Markdown, with the values it has now. */
   markdown(): string;
   /** Calls a fn the document exposes: `expose("tracker", "clear_done")`. */
-  expose(channel: string, name: string, ...args: (ir.Expr | Value)[]): void;
+  expose(channel: string, name: string, ...args: Input[]): void;
   /** Everything the page holds now: `$state` and every widget's own variables. */
   snapshot(): Snapshot;
   /** Puts a snapshot back: all of it with the same IR, `$state` only with another. */
   restore(snap: Snapshot): Restored;
 }
 
-export interface XtmdDocProps extends DocProps {
+/** What a React component that draws a widget is given. */
+export interface ReactWidgetProps extends WidgetProps {
+  /** An input's widgets: a slot's, or a rich_text's. */
+  slot(input: string): ReactNode;
+}
+
+export interface XtmdDocProps extends Omit<DocProps, "components"> {
+  /** React components as widgets, by full name: `{ "acme/chart": Chart }`. */
+  components?: Record<string, ComponentType<ReactWidgetProps>>;
   ref?: Ref<XtmdDocHandle | null>;
   id?: string;
   className?: string;
@@ -148,6 +156,10 @@ function Live({ v }: { v: VNode }): ReactElement {
 /** One of @extended-mark/view's elements as React's. */
 export function toReact(c: Child): ReactNode {
   if (typeof c === "string") return c;
+  if (c.component) {
+    const { of, props, children } = c.component;
+    return createElement(c.tag, reactProps(c), createElement(of as ComponentType<ReactWidgetProps>, { ...props, slot: (input) => children(input).map(toReact) }));
+  }
   if (live(c)) return createElement(Live, { v: c, key: c.key });
   return createElement(c.tag, reactProps(c), ...kids(c));
 }

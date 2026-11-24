@@ -37,7 +37,7 @@ branch [`legacy-0.2.x`](https://github.com/extended-mark/extended-mark/tree/lega
 - `engines/published`: the engines on npm, for the web, React, Vue, Svelte, Solid and Angular. Each comes in two kinds: run time, which draws an IR built ahead, and real time, which compiles in place.
 - `engines/examples`: engines that show how one is made (egui, Android's Compose, a native runtime). They are never published.
 - `ide/`: `xtmd lsp`, the language server, and the VS Code extension.
-- `apps/playground`: the playground. `brand/`: the logo and icons.
+- `apps/playground`: the playground. `apps/example-host`: a host written from the spec alone. `brand/`: the logo and icons.
 
 ## The syntax
 

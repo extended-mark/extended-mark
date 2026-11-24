@@ -197,7 +197,7 @@ test("rows keep their elements by key: typing in a row keeps focus and caret whe
     const a = document.activeElement;
     return { mine: a.dataset.mine, value: a.value, caret: a.selectionStart, site: a.closest("[data-xtmd-site]").getAttribute("data-xtmd-site") };
   });
-  assert.deepEqual({ ...focused, site: /\[0\]/.test(focused.site) }, { mine: "yes", value: "test it", caret: 2, site: true });
+  assert.deepEqual({ ...focused, site: /\[\d+\]/.test(focused.site) }, { mine: "yes", value: "test it", caret: 2, site: true });
   await page.keyboard.type("X");
   assert.equal((await xtmd(page, "state")).tasks.list[0].record.fields.title.text, "teXst it");
   assert.equal(await xtmd(page, "markdown"), "- teXst it\n- ship\n");
@@ -209,9 +209,9 @@ test("rows keep their elements by key: typing in a row keeps focus and caret whe
 });
 
 test("the theme: core's tokens are custom properties on the root, and colours follow page.theme", async () => {
-  const page = await open(browser, '\nwidget sample() {\n    view {\n        @label(value = "Toned", tone = color.OK);\n    }\n}\n@@@\n# Themes\n\n@sample;\n', { page: { theme: "LIGHT" } });
+  const page = await open(browser, '\nwidget sample() {\n    view {\n        @row(gap = space.M) {\n            @label(value = "Toned", tone = color.OK);\n        }\n    }\n}\n@@@\n# Themes\n\n@sample;\n', { page: { theme: "LIGHT" } });
   const root = page.locator("#app");
-  const look = () => root.evaluate((el) => ({ bg: getComputedStyle(el).backgroundColor, ink: getComputedStyle(el).color, theme: el.dataset.xtmdTheme, ok: getComputedStyle(el.querySelector(".xtmd-label")).color, space: el.style.getPropertyValue("--xtmd-space-m") }));
+  const look = () => root.evaluate((el) => ({ bg: getComputedStyle(el).backgroundColor, ink: getComputedStyle(el).color, theme: el.dataset.xtmdTheme, ok: getComputedStyle(el.querySelector(".xtmd-label")).color, space: getComputedStyle(el).getPropertyValue("--xtmd-space-m") }));
   assert.deepEqual(await look(), { bg: "rgb(255, 255, 255)", ink: "rgb(26, 28, 31)", theme: "light", ok: "rgb(21, 128, 61)", space: "8px" });
   await xtmd(page, "setPage", { theme: "DARK" });
   assert.deepEqual(await look(), { bg: "rgb(21, 23, 26)", ink: "rgb(236, 238, 241)", theme: "dark", ok: "rgb(74, 222, 128)", space: "8px" });

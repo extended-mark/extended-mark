@@ -2,7 +2,7 @@
 //! what it prints where, its exit codes and an example.
 
 /// `xtmd` with no command, `xtmd --help` and `xtmd help`.
-pub(crate) const TOP: &str = "xtmd, the Extended Mark 0.3 compiler.
+pub(crate) const TOP: &str = "xtmd, the Extended Mark compiler.
 
 usage: xtmd <command> [arguments] [flags]
   xtmd fmt <file|folder>…        rewrite each file in the canonical layout, in place (the formatter)
@@ -90,11 +90,12 @@ const LSP: &str = "usage: xtmd lsp
   exit: 0 after the editor's shutdown and exit; 1 when the input ends first
   e.g.  xtmd lsp";
 
-const BUILD: &str = "usage: xtmd build <file> [--pack a,b] [--config xtmd.toml] [--rir [--core]] [--out out.ir.json] [--format json]
+const BUILD: &str = "usage: xtmd build <file> [--pack a,b] [--config xtmd.toml] [--rir [--core]] [--pretty] [--out out.ir.json] [--format json]
   Writes a document's IR, what a runtime draws: the document, and only what it uses of core and
   its packs. The IR's top-level \"levels\" are what the page needs.
   --rir          the resolved IR instead: every name and type resolved and nothing lowered, for
                  editor tools (schemas/rir.schema.json); its \"levels\" are the document's too
+  --pretty       JSON over several lines, for a person to read; without it, as small as it goes
   --core         with --rir: core's own files first, resolved too, for an editor that completes
                  core's widgets and goes to their declarations
   --out f        writes it to f, its folder made if need be; without it, it goes to stdout

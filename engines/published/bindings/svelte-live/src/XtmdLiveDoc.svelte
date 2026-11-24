@@ -10,7 +10,7 @@
   import { onDestroy } from "svelte";
   import { XtmdDoc } from "@extended-mark/svelte";
   import { Live, type LiveProps } from "@extended-mark/live";
-  import type { Doc, DocProps, Restored, Snapshot, Value, ir as Ir } from "@extended-mark/view";
+  import type { Doc, DocProps, Restored, Snapshot, Input, ir as Ir } from "@extended-mark/view";
 
   let { source, path = undefined, packs = undefined, wasm = undefined, compiler = undefined, ...props }: Omit<DocProps, "ir" | "src"> & LiveProps & { class?: string; id?: string } = $props();
 
@@ -31,16 +31,16 @@
   export function document(): Doc {
     return view!.document();
   }
-  export function set(changes: Record<string, Ir.Expr | Value>): void {
+  export function set(changes: Record<string, Input>): void {
     view?.set(changes);
   }
-  export function getState(): Record<string, Ir.Expr> {
+  export function getState(): Record<string, Input> {
     return view?.getState() ?? {};
   }
   export function markdown(): string {
     return view?.markdown() ?? "";
   }
-  export function expose(channel: string, name: string, ...args: (Ir.Expr | Value)[]): void {
+  export function expose(channel: string, name: string, ...args: (Input)[]): void {
     view?.expose(channel, name, ...args);
   }
   export function snapshot(): Snapshot {

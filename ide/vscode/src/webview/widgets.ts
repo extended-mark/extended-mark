@@ -8,7 +8,7 @@
 
 import { notice, widgets as web, type Widget, type WidgetView } from "@extended-mark/dom";
 import { kase, str, Tokens } from "@extended-mark/dom/shared";
-import type { Drawn } from "@extended-mark/runtime";
+import type { Node as Drawn } from "@extended-mark/runtime";
 import { CODICONS } from "./codicons.js";
 
 /** A web widget, with VS Code's look: its element gets the engine's classes, and `decorate` adds
@@ -34,7 +34,7 @@ function look(name: string, classes: string[], decorate?: (el: HTMLElement, d: D
 /** A press's kind, as VS Code's component for it: a button (primary or secondary), a checkbox, a
  * radio, a toggle switch, a tab or a list option. */
 function pressLook(el: HTMLElement, d: Drawn): void {
-  const kind = (kase(d.props.get("kind")) ?? "BUTTON").toLowerCase();
+  const kind = (kase(d.inputs.kind) ?? "BUTTON").toLowerCase();
   el.classList.toggle("vsc-button", kind === "button" || kind === "toggle");
   // a plain press is VS Code's secondary button; a button, its primary one
   el.classList.toggle("vsc-secondary", kind === "plain");
@@ -78,12 +78,12 @@ const icon: Widget = (d, ctx) => {
       // the drawing is decoration inside this element, which has the name
       for (const a of ["role", "aria-label"]) (drawn.el as Element).removeAttribute(a);
       (drawn.el as Element).setAttribute("aria-hidden", "true");
-      const glyph = kase(next.props.get("name")) ?? "";
+      const glyph = kase(next.inputs.name) ?? "";
       const codicon = CODICONS[glyph];
       el.className = codicon ? `vsc vsc-icon codicon codicon-${codicon}` : "vsc vsc-icon";
       el.dataset.glyph = glyph;
-      el.dataset.size = (kase(next.props.get("size")) ?? "NORMAL").toLowerCase();
-      const label = str(next.props.get("label"));
+      el.dataset.size = (kase(next.inputs.size) ?? "NORMAL").toLowerCase();
+      const label = str(next.inputs.label);
       if (label) {
         el.setAttribute("role", "img");
         el.setAttribute("aria-label", label);
@@ -93,7 +93,7 @@ const icon: Widget = (d, ctx) => {
         el.removeAttribute("aria-label");
         el.setAttribute("aria-hidden", "true");
       }
-      const tone = tokens.color(next.props.get("tone"));
+      const tone = tokens.color(next.inputs.tone);
       if (tone) el.style.color = tone;
       else el.style.removeProperty("color");
     },

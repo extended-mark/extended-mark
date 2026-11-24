@@ -182,8 +182,6 @@ pub struct Program {
     pub interfaces: HashMap<String, Rc<ir::Interface>>,
     /// Constant lets, already worked out.
     pub lets: HashMap<String, Value>,
-    /// A lowered page's bindings: what a call's input is worked out from.
-    pub bindings: HashMap<String, Rc<Expr>>,
 }
 
 impl Program {
@@ -226,9 +224,6 @@ impl Program {
         for d in &m.declarations {
             p.add(&d.declare);
         }
-        for b in &m.bindings {
-            p.bindings.insert(b.id.clone(), Rc::new(b.value.clone()));
-        }
         p
     }
 }
@@ -236,6 +231,8 @@ impl Program {
 pub struct Machine<'p> {
     pub prog: &'p Program,
     pub steps: u64,
+    /// How many of a view's expressions were worked out, for a test that counts them.
+    pub worked: u64,
     pub depth: u32,
     pub next_id: u64,
     frames: Vec<Frame>,
@@ -248,7 +245,7 @@ pub struct Machine<'p> {
 
 impl<'p> Machine<'p> {
     pub fn new(prog: &'p Program, host: Box<dyn Host + 'p>) -> Machine<'p> {
-        Machine { prog, steps: 0, depth: 0, next_id: 0, frames: vec![Frame { vars: Vec::new(), owner: None }], host: Rc::from(host), last_rule: None, warned: Vec::new() }
+        Machine { prog, steps: 0, worked: 0, depth: 0, next_id: 0, frames: vec![Frame { vars: Vec::new(), owner: None }], host: Rc::from(host), last_rule: None, warned: Vec::new() }
     }
 
     /// Starts counting steps again, for one redraw, one event or one constant.
@@ -307,6 +304,7 @@ impl<'p> Machine<'p> {
     // (a `mut for` row's item, an `if (mut …)`), each run as the fn statements run
 
     fn with_frame<T>(&mut self, bindings: &[(Rc<str>, Binding)], owner: Option<u64>, f: impl FnOnce(&mut Self) -> R<T>) -> R<T> {
+        self.worked += 1;
         self.frames.push(Frame { vars: bindings.to_vec(), owner });
         let out = f(self);
         self.frames.pop();
@@ -1000,10 +998,6 @@ impl<'p> Machine<'p> {
                 Value::View(Rc::new(ViewValue { widget: Rc::from(v.widget.as_str()), args, slots: v.slots.clone(), events: v.events.clone(), exprs: v.args.clone(), captured, owner: self.owner(), at: None }))
             }
             Expr::Get(g) => self.get(g)?,
-            Expr::Bind(id) => {
-                let x = self.prog.bindings.get(id).cloned().ok_or_else(|| Failure::ir(format!("no binding {}", id)))?;
-                self.eval(&x)?
-            }
             Expr::Field(f) => {
                 let v = self.eval(&f.value)?;
                 self.field(&v, &f.name)?

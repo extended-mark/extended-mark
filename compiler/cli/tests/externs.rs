@@ -22,7 +22,7 @@ fn every_bodyless_core_extern_fn_is_native_or_target_only() {
         }
         seen += 1;
         let name = f["name"].as_str().unwrap();
-        if !xtmd_eval::natives::exists(name) && !xtmd_eval::natives::TARGET_ONLY.contains(&name) {
+        if !xtmd_eval::natives::exists(name) && !xtmd_eval::natives::ENGINE_ONLY.contains(&name) {
             missing.push(name.to_string());
         }
     }

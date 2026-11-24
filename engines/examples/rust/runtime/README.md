@@ -9,7 +9,7 @@ An example engine (engines/README.md): CI builds it and runs its tests, and it i
 - **Transactions.** Every change (a reader's event, a widget's write, the host's write to
   `$state`, an exposed fn, a channel's values, the page's values) is one transaction: checked
   against contracts and `$state`'s rules, undone whole when it fails, then drawn once.
-- **Identity.** A widget written in Extended Mark keeps its own variables across redraws by its key: a loop
+- **Identity.** A widget written in Extended Mark keeps its own variables across redraws by its id: a loop
   row's widgets follow their item, not their position.
 - **Failures** are contained (page 6): a widget that fails while drawing stays a node that
   says why (`failed`), a
@@ -19,8 +19,8 @@ An example engine (engines/README.md): CI builds it and runs its tests, and it i
 - **Layout**: `layout(&mut measure)` lays planes out from what the engine measured.
 - **No drawing** and no UI dependency. Its tree holds every prop already worked out, so an engine
   that draws every frame (egui) only reads it: nothing is evaluated per frame.
-- **Only what read what changed is drawn again** (plan tab 2). Each widget instance and extern
-  call drawn keeps what it read (each `$state` field, channel value, cell and own value, by
+- **Only what reads what changed is worked out again.** Each widget instance, extern call, loop, branch
+  and local drawn keeps what it read (each `$state` field, channel value, cell and own value, by
   version), its arguments and the locals around it; a redraw reuses its subtree when none of
   them changed, and an undo or new supplies drop every memo. A reused node is the very same
   `Drawn` (`Drawn::same`), so an engine skips it without comparing anything.
@@ -96,9 +96,11 @@ println!("{}", page.markdown().unwrap());
 
 | | |
 |---|---|
-| `Page::from_json(json, opts)`, `Page::new(ir::File, opts)`, `Page::from_module` | Mount a page and draw it once. `PageOptions { page, state, externs, fns, supplies, defects }`. |
-| `tree() -> &[Drawn]`, `find(path)`, `revision()`, `on_change(f)` / `off_change(id)` | The drawn extern widgets: shared nodes that never change, read through `Deref` as `DrawnNode`s. `revision()` moves at every redraw; `Drawn::same(a, b)` says a node is the one drawn before, reused with everything in it. |
-| `event(path, name, args)`, `write(path, input, value)` | The reader's changes, on a drawn widget by its path. |
+| `Page::from_json(json, opts)`, `Page::new(ir::File, opts)`, `Page::from_module` | Mount a page and draw it once. `PageOptions { page, state, externs, fns, supplies, memo }`. |
+| `tree() -> &[Drawn]`, `find(id)`, `at(place)`, `revision()`, `on_change(f)` / `off_change(id)` | The drawn extern widgets: shared nodes that never change, read through `Deref` as `DrawnNode`s. `revision()` moves at every redraw; `Drawn::same(a, b)` says a node is the one drawn before, reused with everything in it. |
+| `event(id, name, args)`, `write(id, input, value)` | The reader's changes, on a drawn widget by its id. |
+| `host_tree()`, `host_changes(&last)`, `call(id, input, args)`, `data()`, `host::apply(tree, changes)` | The host's side as JSON (docs/specs/06): the same tree and changes as every engine's, for a host in another process or language. |
+| `lacking()` | What the page's `needs` lists that nobody gives. |
 | `set(changes)`, `expose(channel, fn, args)`, `set_extern(channel, values)`, `set_page(PageValues)` | The host's changes: `$state` checked for type, then contract, then rules. |
 | `set_supplies(f)`, `missing()` | Which extern widgets the engine draws; one it doesn't shows its Markdown (page 6). |
 | `take_outcome()`, `take_calls()`, `take_warnings()`, `take_errors()` | What happened since the last take. |

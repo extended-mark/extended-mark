@@ -1,0 +1,735 @@
+{
+  "nodes": [
+    {
+      "id": "m0",
+      "widget": "core/heading",
+      "inputs": {
+        "level": {
+          "num": "1"
+        },
+        "value": {
+          "nodes": [
+            {
+              "id": "m0/value/t0",
+              "widget": "core/words",
+              "inputs": {
+                "value": {
+                  "text": "Tasks for "
+                }
+              }
+            },
+            {
+              "id": "m0/value/t1",
+              "widget": "core/words",
+              "inputs": {
+                "value": {
+                  "text": "Tuesday"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "m1",
+      "widget": "core/paragraph",
+      "inputs": {
+        "value": {
+          "nodes": [
+            {
+              "id": "m1/value/t0",
+              "widget": "core/words",
+              "inputs": {
+                "value": {
+                  "text": "There are "
+                }
+              }
+            },
+            {
+              "id": "m1/value/t1",
+              "widget": "core/bold",
+              "inputs": {
+                "body": {
+                  "nodes": [
+                    {
+                      "id": "m1/value/t2",
+                      "widget": "core/words",
+                      "inputs": {
+                        "value": {
+                          "text": "2"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "id": "m1/value/t3",
+              "widget": "core/words",
+              "inputs": {
+                "value": {
+                  "text": " of them, "
+                }
+              }
+            },
+            {
+              "id": "m1/value/t4",
+              "widget": "core/italic",
+              "inputs": {
+                "body": {
+                  "nodes": [
+                    {
+                      "id": "m1/value/t5",
+                      "widget": "core/words",
+                      "inputs": {
+                        "value": {
+                          "text": "each"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "id": "m1/value/t6",
+              "widget": "core/words",
+              "inputs": {
+                "value": {
+                  "text": " with "
+                }
+              }
+            },
+            {
+              "id": "m1/value/t7",
+              "widget": "core/code_span",
+              "inputs": {
+                "src": {
+                  "text": "a title"
+                }
+              }
+            },
+            {
+              "id": "m1/value/t8",
+              "widget": "core/words",
+              "inputs": {
+                "value": {
+                  "text": " and a "
+                }
+              }
+            },
+            {
+              "id": "m1/value/t9",
+              "widget": "core/link",
+              "inputs": {
+                "to": {
+                  "text": "https://extendedmark.org"
+                },
+                "body": {
+                  "nodes": [
+                    {
+                      "id": "m1/value/t10",
+                      "widget": "core/words",
+                      "inputs": {
+                        "value": {
+                          "text": "link"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "id": "m1/value/t11",
+              "widget": "core/words",
+              "inputs": {
+                "value": {
+                  "text": "."
+                }
+              }
+            }
+          ]
+        },
+        "tone": {
+          "none": {}
+        },
+        "align": {
+          "case": {
+            "enum": "core/align",
+            "name": "START"
+          }
+        }
+      }
+    },
+    {
+      "id": "s2/s0/s0",
+      "widget": "core/flex",
+      "inputs": {
+        "align": {
+          "case": {
+            "enum": "core/align",
+            "name": "STRETCH"
+          }
+        },
+        "axis": {
+          "case": {
+            "enum": "core/axis",
+            "name": "Y"
+          }
+        },
+        "edge": {
+          "case": {
+            "enum": "core/edge",
+            "name": "ALL"
+          }
+        },
+        "fill": {
+          "none": {}
+        },
+        "gap": {
+          "some": {
+            "token": "core/space.S"
+          }
+        },
+        "justify": {
+          "case": {
+            "enum": "core/justify",
+            "name": "START"
+          }
+        },
+        "pad": {
+          "none": {}
+        },
+        "radius": {
+          "none": {}
+        },
+        "shadow": {
+          "none": {}
+        },
+        "stroke": {
+          "none": {}
+        },
+        "wrap": {
+          "bool": false
+        },
+        "label": {
+          "text": ""
+        },
+        "children": {
+          "nodes": [
+            {
+              "id": "s2/s1[1]/s3/s0/s0",
+              "widget": "core/flex",
+              "inputs": {
+                "align": {
+                  "case": {
+                    "enum": "core/align",
+                    "name": "STRETCH"
+                  }
+                },
+                "axis": {
+                  "case": {
+                    "enum": "core/axis",
+                    "name": "X"
+                  }
+                },
+                "edge": {
+                  "case": {
+                    "enum": "core/edge",
+                    "name": "ALL"
+                  }
+                },
+                "fill": {
+                  "none": {}
+                },
+                "gap": {
+                  "some": {
+                    "token": "core/space.S"
+                  }
+                },
+                "justify": {
+                  "case": {
+                    "enum": "core/justify",
+                    "name": "START"
+                  }
+                },
+                "pad": {
+                  "none": {}
+                },
+                "radius": {
+                  "none": {}
+                },
+                "shadow": {
+                  "none": {}
+                },
+                "stroke": {
+                  "none": {}
+                },
+                "wrap": {
+                  "bool": true
+                },
+                "label": {
+                  "text": ""
+                },
+                "children": {
+                  "nodes": [
+                    {
+                      "id": "s2/s1[1]/s3/s1",
+                      "widget": "core/press",
+                      "inputs": {
+                        "kind": {
+                          "case": {
+                            "enum": "core/press_kind",
+                            "name": "CHECK"
+                          }
+                        },
+                        "label": {
+                          "text": "Read the spec"
+                        },
+                        "selected": {
+                          "bool": false
+                        },
+                        "disabled": {
+                          "bool": false
+                        },
+                        "tone": {
+                          "none": {}
+                        }
+                      },
+                      "events": [
+                        "click"
+                      ]
+                    },
+                    {
+                      "id": "s2/s1[1]/s3/s2",
+                      "widget": "core/press",
+                      "inputs": {
+                        "kind": {
+                          "case": {
+                            "enum": "core/press_kind",
+                            "name": "PLAIN"
+                          }
+                        },
+                        "label": {
+                          "text": "More"
+                        },
+                        "selected": {
+                          "bool": false
+                        },
+                        "disabled": {
+                          "bool": false
+                        },
+                        "tone": {
+                          "none": {}
+                        }
+                      },
+                      "events": [
+                        "click"
+                      ]
+                    },
+                    {
+                      "id": "s2/s1[1]/s3/s3",
+                      "widget": "core/press",
+                      "inputs": {
+                        "kind": {
+                          "case": {
+                            "enum": "core/press_kind",
+                            "name": "PLAIN"
+                          }
+                        },
+                        "label": {
+                          "text": "Drop"
+                        },
+                        "selected": {
+                          "bool": false
+                        },
+                        "disabled": {
+                          "bool": false
+                        },
+                        "tone": {
+                          "none": {}
+                        }
+                      },
+                      "events": [
+                        "click"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "id": "s2/s1[2]/s3/s0/s0",
+              "widget": "core/flex",
+              "inputs": {
+                "align": {
+                  "case": {
+                    "enum": "core/align",
+                    "name": "STRETCH"
+                  }
+                },
+                "axis": {
+                  "case": {
+                    "enum": "core/axis",
+                    "name": "X"
+                  }
+                },
+                "edge": {
+                  "case": {
+                    "enum": "core/edge",
+                    "name": "ALL"
+                  }
+                },
+                "fill": {
+                  "none": {}
+                },
+                "gap": {
+                  "some": {
+                    "token": "core/space.S"
+                  }
+                },
+                "justify": {
+                  "case": {
+                    "enum": "core/justify",
+                    "name": "START"
+                  }
+                },
+                "pad": {
+                  "none": {}
+                },
+                "radius": {
+                  "none": {}
+                },
+                "shadow": {
+                  "none": {}
+                },
+                "stroke": {
+                  "none": {}
+                },
+                "wrap": {
+                  "bool": true
+                },
+                "label": {
+                  "text": ""
+                },
+                "children": {
+                  "nodes": [
+                    {
+                      "id": "s2/s1[2]/s3/s1",
+                      "widget": "core/press",
+                      "inputs": {
+                        "kind": {
+                          "case": {
+                            "enum": "core/press_kind",
+                            "name": "CHECK"
+                          }
+                        },
+                        "label": {
+                          "text": "Write a host"
+                        },
+                        "selected": {
+                          "bool": false
+                        },
+                        "disabled": {
+                          "bool": false
+                        },
+                        "tone": {
+                          "none": {}
+                        }
+                      },
+                      "events": [
+                        "click"
+                      ]
+                    },
+                    {
+                      "id": "s2/s1[2]/s3/s2",
+                      "widget": "core/press",
+                      "inputs": {
+                        "kind": {
+                          "case": {
+                            "enum": "core/press_kind",
+                            "name": "PLAIN"
+                          }
+                        },
+                        "label": {
+                          "text": "More"
+                        },
+                        "selected": {
+                          "bool": false
+                        },
+                        "disabled": {
+                          "bool": false
+                        },
+                        "tone": {
+                          "none": {}
+                        }
+                      },
+                      "events": [
+                        "click"
+                      ]
+                    },
+                    {
+                      "id": "s2/s1[2]/s3/s3",
+                      "widget": "core/press",
+                      "inputs": {
+                        "kind": {
+                          "case": {
+                            "enum": "core/press_kind",
+                            "name": "PLAIN"
+                          }
+                        },
+                        "label": {
+                          "text": "Drop"
+                        },
+                        "selected": {
+                          "bool": false
+                        },
+                        "disabled": {
+                          "bool": false
+                        },
+                        "tone": {
+                          "none": {}
+                        }
+                      },
+                      "events": [
+                        "click"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "s3",
+      "widget": "core/field",
+      "inputs": {
+        "label": {
+          "text": "Next"
+        },
+        "value": {
+          "text": ""
+        },
+        "placeholder": {
+          "text": ""
+        },
+        "lines": {
+          "num": "1"
+        }
+      },
+      "events": [
+        "submit"
+      ],
+      "writes": {
+        "value": {}
+      }
+    },
+    {
+      "id": "s4",
+      "widget": "core/slider",
+      "inputs": {
+        "label": {
+          "text": "Size"
+        },
+        "value": {
+          "num": "2"
+        },
+        "range": {
+          "none": {}
+        },
+        "disabled": {
+          "bool": false
+        }
+      },
+      "writes": {
+        "value": {
+          "range": {
+            "low": {
+              "num": "1"
+            },
+            "high": {
+              "num": "5"
+            }
+          },
+          "step": {
+            "num": "1"
+          }
+        }
+      }
+    },
+    {
+      "id": "s5/s0",
+      "widget": "core/label",
+      "inputs": {
+        "tone": {
+          "some": {
+            "token": "core/color.MUTED"
+          }
+        },
+        "value": {
+          "text": "Each task is 50 percent"
+        },
+        "size": {
+          "case": {
+            "enum": "core/text_size",
+            "name": "NORMAL"
+          }
+        },
+        "weight": {
+          "case": {
+            "enum": "core/weight",
+            "name": "REGULAR"
+          }
+        },
+        "font": {
+          "none": {}
+        },
+        "align": {
+          "case": {
+            "enum": "core/align",
+            "name": "START"
+          }
+        },
+        "wrap": {
+          "bool": true
+        },
+        "clip": {
+          "bool": false
+        },
+        "halo": {
+          "bool": false
+        }
+      }
+    },
+    {
+      "id": "m6",
+      "widget": "core/quote",
+      "inputs": {
+        "body": {
+          "nodes": [
+            {
+              "id": "m7",
+              "widget": "core/paragraph",
+              "inputs": {
+                "value": {
+                  "nodes": [
+                    {
+                      "id": "m7/value/t0",
+                      "widget": "core/words",
+                      "inputs": {
+                        "value": {
+                          "text": "Drawn by a host of its own."
+                        }
+                      }
+                    }
+                  ]
+                },
+                "tone": {
+                  "none": {}
+                },
+                "align": {
+                  "case": {
+                    "enum": "core/align",
+                    "name": "START"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "m8",
+      "widget": "core/table",
+      "inputs": {
+        "align": {
+          "list": [
+            {
+              "case": {
+                "enum": "core/cell_align",
+                "name": "START"
+              }
+            },
+            {
+              "case": {
+                "enum": "core/cell_align",
+                "name": "START"
+              }
+            }
+          ]
+        },
+        "head": {
+          "list": [
+            {
+              "nodes": [
+                {
+                  "id": "m8/head[0]/t0",
+                  "widget": "core/words",
+                  "inputs": {
+                    "value": {
+                      "text": "What"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "nodes": [
+                {
+                  "id": "m8/head[1]/t0",
+                  "widget": "core/words",
+                  "inputs": {
+                    "value": {
+                      "text": "Who"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "rows": {
+          "list": [
+            {
+              "list": [
+                {
+                  "nodes": [
+                    {
+                      "id": "m8/rows[0][0]/t0",
+                      "widget": "core/words",
+                      "inputs": {
+                        "value": {
+                          "text": "This table"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "nodes": [
+                    {
+                      "id": "m8/rows[0][1]/t0",
+                      "widget": "core/words",
+                      "inputs": {
+                        "value": {
+                          "text": "has no drawing here, so it is its Markdown"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

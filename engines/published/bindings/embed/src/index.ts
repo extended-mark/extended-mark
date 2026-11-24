@@ -4,11 +4,11 @@
 // Everything else is here, so the bindings agree: how a page is made from the props, what a change
 // of props does to it, and when the host hears what the page did.
 
-import { toIr, type Call, type Outcome, type Page, type PageOptions, type PageValues, type Value, type ir } from "@extended-mark/runtime";
+import { type Call, type Outcome, type Page, type PageOptions, type PageValues, type Input, type ir } from "@extended-mark/runtime";
 import { mount, type MountOptions, type Mounted, type Widget } from "@extended-mark/dom";
-import { channelName, channelsOf, empty, isValue, makePage, moduleOf, type Given, type Ir } from "./page.js";
+import { channelName, channelsOf, empty, makePage, moduleOf, sameIr, type Given, type Ir } from "./page.js";
 
-export { channelName, makePage, stateFields, type Given, type Ir } from "./page.js";
+export { channelName, irText, makePage, sameIr, stateFields, type Given, type Ir } from "./page.js";
 export { RELEASE, hash, type DocError, type Restored, type Snapshot } from "./snapshot.js";
 export { XtmdDoc, type DocProps } from "./doc.js";
 
@@ -18,23 +18,25 @@ export interface PageProps {
   ir: Ir;
   /** `$state` to start from, in the IR's form, over its starting values. Read when the page is
    * mounted, and checked as a host's write is: a field that doesn't fit keeps its starting value. */
-  state?: Record<string, ir.Expr>;
+  state?: Record<string, Input>;
   /** The page's own values: its width and theme. A change calls `page.setPage`. */
   page?: PageValues;
   /** Each extern channel's values, in the IR's form, by its name in the document (`tracker`) or
    * its full name (`doc/tracker`). A changed channel calls `page.setExtern`. */
-  externs?: Record<string, Record<string, ir.Expr>>;
-  /** Value fns the host supplies, by full name (`acme/rate`). The latest are always the ones called. */
+  externs?: Record<string, Record<string, Input>>;
+  /** Input fns the host supplies, by full name (`acme/rate`). The latest are always the ones called. */
   fns?: PageOptions["fns"];
   /** The host's widgets by full name (`core/press`), in place of @extended-mark/dom's. A change remounts. */
   widgets?: Record<string, Widget>;
+  /** What is drawn where a widget failed, in place of @extended-mark/dom's notice. */
+  failed?: Widget;
   /** How the plane's spots are measured, for the page it is given: left out, from the DOM. The
    * checks give fixed sizes. */
   measure?: (page: Page) => NonNullable<MountOptions["measure"]>;
   /** The host's extern fns the page called, after each change that called any. */
   onCalls?: (calls: Call[], handle: Handle) => void;
   /** `$state`, in the IR's form, after each change to it. */
-  onState?: (state: Record<string, ir.Expr>, handle: Handle) => void;
+  onState?: (state: Record<string, Input>, handle: Handle) => void;
   /** Writes that were refused and failures, after each change that had any. */
   onOutcome?: (outcome: Outcome, handle: Handle) => void;
   /** The page was drawn: when it is mounted, and again after each remount. */
@@ -55,12 +57,12 @@ export interface Handle {
   /** Gives a channel's extern values. They are kept when the page is remounted. */
   extern(channel: string, values: Record<string, Given>): void;
   /** `$state` now, in the IR's form. */
-  state(): Record<string, ir.Expr>;
+  state(): Record<string, Input>;
   /** The page as Markdown, with the values it has now. */
   markdown(): string;
 }
 
-type Channels = Record<string, Record<string, ir.Expr>>;
+type Channels = Record<string, Record<string, Input>>;
 
 function sameRecord(a: object | undefined, b: object | undefined): boolean {
   if (a === b) return true;
@@ -130,13 +132,13 @@ export class Embed implements Handle {
         this.channels[full] = { ...this.channels[full], ...values };
       }
     }
-    if (next.ir !== prev.ir || !sameRecord(next.widgets, prev.widgets)) {
+    if (!sameIr(next.ir, prev.ir) || !sameRecord(next.widgets, prev.widgets)) {
       // a new page: $state carried over where its fields still exist, the host's values given again
-      this.start(this.page.observeState(), false);
+      this.start(this.page.state(), false);
       return;
     }
     if (next.page && !sameRecord(next.page, prev.page)) this.page.setPage(next.page);
-    for (const [c, values] of Object.entries(changed)) this.page.setExtern(c, this.values(values));
+    for (const [c, values] of Object.entries(changed)) this.page.setExtern(c, values);
   }
 
   /** Unmounts the page and empties the element. The embed can't be used again. */
@@ -150,24 +152,23 @@ export class Embed implements Handle {
   // ---- the handle
 
   set(changes: Record<string, Given>): void {
-    this.page.set(this.values(changes));
+    this.page.set(changes);
     // a refused write doesn't redraw, so nothing else would tell the host
     this.changed();
   }
 
   expose(channel: string, name: string, ...args: Given[]): void {
-    this.page.expose(channelName(this.page.module, channel), name, args.map((a) => this.value(a)));
+    this.page.expose(channelName(this.page.ir, channel), name, args);
   }
 
   extern(name: string, values: Record<string, Given>): void {
-    const channel = channelName(this.page.module, name);
-    const vs = this.values(values);
-    this.channels[channel] = { ...this.channels[channel], ...Object.fromEntries(Object.entries(vs).map(([k, v]) => [k, toIr(v)])) };
-    this.page.setExtern(channel, vs);
+    const channel = channelName(this.page.ir, name);
+    this.channels[channel] = { ...this.channels[channel], ...values };
+    this.page.setExtern(channel, values);
   }
 
-  state(): Record<string, ir.Expr> {
-    return this.page.observeState();
+  state(): Record<string, Input> {
+    return this.page.state();
   }
 
   markdown(): string {
@@ -176,15 +177,7 @@ export class Embed implements Handle {
 
   // ---- inside
 
-  private value(x: Given): Value {
-    return isValue(x) ? x : this.page.value(x);
-  }
-
-  private values(xs: Record<string, Given>): Record<string, Value> {
-    return Object.fromEntries(Object.entries(xs).map(([k, x]) => [k, this.value(x)]));
-  }
-
-  private start(given: Record<string, ir.Expr> | undefined, first: boolean): void {
+  private start(given: Record<string, Input> | undefined, first: boolean): void {
     const p = this.props;
     this.stop();
     const { page, outcome } = makePage(p.ir, { page: p.page, externs: this.channels, fns: this.fns }, given, first);
@@ -192,10 +185,10 @@ export class Embed implements Handle {
     this.held.outcome.failures.push(...outcome.failures);
     // whatever was in the element (a server's pre-rendered Markdown) gives way to the page
     this.root.replaceChildren();
-    const mounted = mount(page, this.root, { widgets: p.widgets, measure: p.measure?.(page) });
+    const mounted = mount(page, this.root, { widgets: p.widgets, failed: p.failed, measure: p.measure?.(page) });
     this.current = mounted;
     this.unlisten = page.onChange(() => this.changed());
-    if (first) this.shown = JSON.stringify(page.observeState());
+    if (first) this.shown = JSON.stringify(page.state());
     p.onMount?.(mounted, this);
     this.changed();
   }
@@ -227,7 +220,7 @@ export class Embed implements Handle {
   private deliver(): void {
     const p = this.props;
     const page = this.page;
-    const state = page.observeState();
+    const state = page.state();
     const json = JSON.stringify(state);
     if (json !== this.shown) {
       this.shown = json;
@@ -252,5 +245,5 @@ export function embed(root: HTMLElement, props: PageProps): Embed {
   return new Embed(root, props);
 }
 
-export type { Call, Outcome, Page, PageValues, Value, ir } from "@extended-mark/runtime";
+export type { Call, Outcome, Page, PageValues, Input, ir } from "@extended-mark/runtime";
 export type { Mounted, Widget } from "@extended-mark/dom";

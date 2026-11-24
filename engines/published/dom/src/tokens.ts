@@ -1,9 +1,9 @@
-// The page's tokens as CSS custom properties on the root, so a widget names a token
-// (`var(--xtmd-color-ink)`) and a theme change is one set of properties, not a redraw of every
-// colour. Values come from the build's tokens block, as the evaluator gives them.
+// The page's tokens as CSS: each a custom property (`var(--xtmd-color-ink)`), both themes' values in one
+// stylesheet, so a theme change is one attribute on the root (`data-xtmd-theme`) and redraws nothing.
+// Values come from the IR's tokens.
 
-import { Value as V, type Page, type Value } from "@extended-mark/runtime";
-import { field, inner, num, str } from "./values.js";
+import type { Input, Page, ir } from "@extended-mark/runtime";
+import { field, inner, kase, num, str } from "./values.js";
 
 export type Theme = "LIGHT" | "DARK";
 
@@ -17,107 +17,111 @@ export function tokenVar(ty: string, name: string): string {
   return `--xtmd-${short(ty)}-${name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
 }
 
+/** A short name for a text: the same text, the same name, on a server as in a browser. */
+function hashOf(text: string): string {
+  let h = 0x811c9dc5;
+  for (let k = 0; k < text.length; k++) h = Math.imul(h ^ text.charCodeAt(k), 0x01000193);
+  return (h >>> 0).toString(36);
+}
+
+/** A page's tokens, worked out once. */
+interface Sheet {
+  /** The class its rules are under. */
+  readonly name: string;
+  readonly css: string;
+}
+
+const sheets = new WeakMap<ir.Module, Sheet>();
+
 export class Tokens {
   private readonly page: Page;
   private readonly named = new Set<string>();
-  /** The theme each root's properties were last written for: one page may be mounted twice. */
-  private readonly applied = new WeakMap<HTMLElement, Theme>();
+  private readonly types = new Set<string>();
 
   constructor(page: Page) {
     this.page = page;
-    for (const t of page.program.tokens.values()) for (const name of Object.keys(t.values)) this.named.add(`${t.name}.${name}`);
+    for (const t of tokensOf(page.ir)) {
+      this.types.add(t.name);
+      for (const name of Object.keys(t.values)) this.named.add(`${t.name}.${name}`);
+    }
   }
 
   /** The page's theme now: core/page.theme, given by the host. */
   theme(): Theme {
-    const t = inner(this.page.externsNow().get("core/page.theme"));
-    return t && t.kind === "case" && t.name === "DARK" ? "DARK" : "LIGHT";
+    return kase(this.page.given()["core/page.theme"]) === "DARK" ? "DARK" : "LIGHT";
   }
 
-  /** A token case's value: a number, a colour's text for the theme, or a record. Anything that
-   * isn't a token is itself; none is undefined. */
-  value(v: Value | undefined): Value | undefined {
+  /** A token case's value: a number, a colour for both themes, or a record. Anything that isn't a token
+   * is itself; none is undefined. */
+  value(v: Input | undefined): Input | undefined {
     v = inner(v);
-    if (!v || v.kind !== "case" || !this.page.program.tokens.has(v.ty)) return v;
-    let out: Value;
+    if (!v || !("token" in v || "tokval" in v)) return v;
     try {
-      out = this.page.machine.defaultTokenValue(v);
+      return this.page.token(v);
     } catch {
       return undefined;
     }
-    if (out.kind === "record" && out.ty === "core/color_value") return field(out, this.theme() === "DARK" ? "dark" : "light");
-    return out;
   }
 
   /** A token's number: `space.M` is 8. */
-  number(v: Value | undefined): number | undefined {
+  number(v: Input | undefined): number | undefined {
     return num(this.value(v));
   }
 
-  /** A colour token as CSS: its custom property when the build names it, else its value. */
-  color(v: Value | undefined): string | undefined {
+  /** A colour token as CSS: its custom property when the IR names it, else its value. */
+  color(v: Input | undefined): string | undefined {
     v = inner(v);
     if (!v) return undefined;
-    if (v.kind === "case" && this.named.has(`${v.ty}.${v.name}`)) return `var(${tokenVar(v.ty, v.name)})`;
-    const t = this.value(v);
-    return t && t.kind === "text" ? t.s : undefined;
+    return this.variable(v) ?? colorOf(this.value(v));
   }
 
   /** A length token (space, size, radius) as CSS. */
-  length(v: Value | undefined): string | undefined {
+  length(v: Input | undefined): string | undefined {
     v = inner(v);
     if (!v) return undefined;
-    if (v.kind === "case" && this.named.has(`${v.ty}.${v.name}`)) return `var(${tokenVar(v.ty, v.name)})`;
-    const n = this.number(v);
-    return n === undefined ? undefined : `${n}px`;
+    const n = this.variable(v) ? undefined : this.number(v);
+    return this.variable(v) ?? (n === undefined ? undefined : `${n}px`);
   }
 
-  /** Writes every token's property on the root, for the theme the page has now. Cheap when the
-   * theme hasn't changed since the last time. */
-  apply(root: HTMLElement): void {
-    const theme = this.theme();
-    if (theme === this.applied.get(root)) return;
-    this.applied.set(root, theme);
-    root.setAttribute("data-xtmd-theme", theme.toLowerCase());
-    root.style.colorScheme = theme === "DARK" ? "dark" : "light";
-    for (const [prop, css] of Object.entries(this.properties())) root.style.setProperty(prop, css);
+  private variable(v: Input): string | undefined {
+    if (!("token" in v) || !this.named.has(v.token)) return undefined;
+    const dot = v.token.lastIndexOf(".");
+    return `var(${tokenVar(v.token.slice(0, dot), v.token.slice(dot + 1))})`;
   }
 
-  /** Every token's custom property and its CSS, for the theme the page has now: what `apply` writes
-   * on a root, for an engine that renders the root's style itself. */
-  properties(): Record<string, string> {
+  /** Every token's custom property, for both themes, under a class of the page's own. */
+  sheet(): Sheet {
+    let s = sheets.get(this.page.ir);
+    if (!s) {
+      const both = { LIGHT: this.properties("LIGHT"), DARK: this.properties("DARK") };
+      const body = (p: Record<string, string>) => Object.entries(p).map(([k, v]) => `${k}:${safe(v)};`).join("");
+      const name = `xtmd-t${hashOf(body(both.LIGHT) + body(both.DARK))}`;
+      const of = (t: Theme) => `.${name}[data-xtmd-theme="${t.toLowerCase()}"]{color-scheme:${t.toLowerCase()};${body(both[t])}}`;
+      sheets.set(this.page.ir, (s = { name, css: of("LIGHT") + of("DARK") }));
+    }
+    return s;
+  }
+
+  /** Every token's custom property and its CSS in a theme. */
+  private properties(theme: Theme): Record<string, string> {
     const out: Record<string, string> = {};
-    for (const t of this.page.program.tokens.values()) {
+    for (const t of tokensOf(this.page.ir)) {
       for (const name of Object.keys(t.values)) {
-        let v: Value;
-        try {
-          v = this.page.machine.defaultTokenValue(V.caseOf(t.name, name));
-        } catch {
-          continue;
-        }
-        const prop = tokenVar(t.name, name);
-        for (const [suffix, css] of this.cssOf(v)) out[prop + suffix] = css;
+        const v = this.value({ token: `${t.name}.${name}` });
+        if (v) for (const [suffix, css] of this.cssOf(v, theme)) out[tokenVar(t.name, name) + suffix] = css;
       }
     }
     return out;
   }
 
-  /** Removes what apply wrote, when the page is unmounted. */
-  clear(root: HTMLElement): void {
-    for (const p of [...root.style].filter((p) => p.startsWith("--xtmd-"))) root.style.removeProperty(p);
-    root.style.colorScheme = "";
-    root.removeAttribute("data-xtmd-theme");
-    this.applied.delete(root);
-  }
-
   /** A token's value as CSS: one property, or one per field for a font. */
-  private cssOf(v: Value): [string, string][] {
-    if (v.kind === "num") return [["", `${v.n.toNumber()}px`]];
-    if (v.kind === "text") return [["", v.s]];
-    if (v.kind !== "record") return [];
-    switch (v.ty) {
+  private cssOf(v: Input, theme: Theme): [string, string][] {
+    if ("num" in v) return [["", `${Number(v.num)}px`]];
+    if ("text" in v) return [["", v.text]];
+    if (!("record" in v)) return [];
+    switch (v.record.type) {
       case "core/color_value":
-        return [["", str(field(v, this.theme() === "DARK" ? "dark" : "light"))]];
+        return [["", str(field(v, theme === "DARK" ? "dark" : "light"))]];
       case "core/font_value":
         return [
           ["-family", str(field(v, "family"))],
@@ -127,9 +131,27 @@ export class Tokens {
         ];
       case "core/shadow_value": {
         const tone = this.value(field(v, "tone"));
-        return [["", `${num(field(v, "x")) ?? 0}px ${num(field(v, "y")) ?? 0}px ${num(field(v, "blur")) ?? 0}px ${tone?.kind === "text" ? tone.s : "#0000001f"}`]];
+        const at = (k: string) => `${num(field(v, k)) ?? 0}px`;
+        const color = tone && "record" in tone ? str(field(tone, theme === "DARK" ? "dark" : "light")) : str(tone);
+        return [["", `${at("x")} ${at("y")} ${at("blur")} ${color || "#0000001f"}`]];
       }
     }
     return [];
   }
+}
+
+function tokensOf(m: ir.Module): ir.Token[] {
+  return m.declarations.flatMap((d) => ("token" in d.declare ? [d.declare.token] : []));
+}
+
+/** A colour's value as CSS, for the theme it is drawn in. */
+function colorOf(v: Input | undefined): string | undefined {
+  if (!v) return undefined;
+  if ("text" in v) return v.text;
+  return "record" in v && v.record.type === "core/color_value" ? `light-dark(${str(field(v, "light"))}, ${str(field(v, "dark"))})` : undefined;
+}
+
+/** A token's value can't end the rule it is in. */
+function safe(css: string): string {
+  return css.replace(/[;{}<>]/g, "");
 }

@@ -1,6 +1,8 @@
 <!-- The test host for <XtmdDoc>: drawn by Svelte itself, $state controlled by the host, with the controls the shared doc steps use (testing/browser.mjs, docSteps). -->
 <script>
   import { XtmdDoc } from "@extended-mark/svelte";
+  import Press from "./Press.svelte";
+  import Title from "./Title.svelte";
 
   const heard = { states: [], errors: [], calls: [] };
   let which = $state("v1");
@@ -33,6 +35,7 @@
     bind:this={view}
     ir={window.__IR[which]}
     state={docState}
+    components={window.__mine ? { "core/press": Press, "core/heading": Title } : undefined}
     page={{ theme }}
     externs={{ app: { unit: { text: unit } } }}
     onStateChange={(s) => {

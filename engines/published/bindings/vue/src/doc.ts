@@ -5,8 +5,8 @@
 // their element (a canvas, a plane) run as a directive. Listeners for the host are callback props:
 // `@state-change="…"` is `onStateChange`.
 
-import { defineComponent, h, markRaw, onBeforeUnmount, shallowRef, watch, withDirectives, type Directive, type PropType, type VNode as VueNode } from "vue";
-import { Doc, type Child, type DocProps, type Restored, type Snapshot, type VNode, type Value, type ir } from "@extended-mark/view";
+import { defineComponent, h, markRaw, onBeforeUnmount, shallowRef, watch, withDirectives, type Directive, type Component as VueComponent, type PropType, type VNode as VueNode } from "vue";
+import { Doc, slotsOf, type Child, type DocProps, type Restored, type Snapshot, type VNode, type Input, type ir } from "@extended-mark/view";
 
 /** A widget's hook, run as a directive on its element: the latest render's hook each time. */
 const hooked: Directive<Element, VNode["hook"]> = {
@@ -26,6 +26,12 @@ export function toVue(c: Child): VueNode | string {
   // native listeners: `onCompositionstart` is the DOM's `compositionstart`, with its currentTarget
   for (const [k, f] of Object.entries(c.on ?? {})) props[`on${k[0].toUpperCase()}${k.slice(1)}`] = f;
   if (c.tag === "style") return h("style", { ...props, innerHTML: c.children.join("") });
+  if (c.component) {
+    const { of, props: given, children } = c.component;
+    // its slots by name: `<slot name="body" />` is the widgets of the input `body`
+    const slots = Object.fromEntries(slotsOf(given.node).map((s) => [s, () => children(s).map(toVue)]));
+    return h(c.tag, props, [h(of as VueComponent, { ...given }, slots)]);
+  }
   const v = h(c.tag, props, c.tag === "textarea" ? undefined : c.children.map(toVue));
   return c.hook ? withDirectives(v, [[hooked, c.hook]]) : v;
 }
@@ -43,6 +49,8 @@ export const docProps = {
   externs: Object as PropType<DocProps["externs"]>,
   fns: Object as PropType<DocProps["fns"]>,
   widgets: Object as PropType<DocProps["widgets"]>,
+  /** Vue components as widgets, by full name: each is given `node`, `event`, `write` and `call`, and its slots by name. */
+  components: Object as PropType<Record<string, VueComponent>>,
   /** How the plane's spots are measured: left out, from their elements. */
   measure: Function as PropType<DocProps["measure"]>,
   onStateChange: Function as PropType<DocProps["onStateChange"]>,
@@ -53,10 +61,10 @@ export const docProps = {
 /** What a template ref to <XtmdDoc> holds. */
 export interface XtmdDocRef {
   doc: Doc;
-  set(changes: Record<string, ir.Expr | Value>): void;
-  state(): Record<string, ir.Expr>;
+  set(changes: Record<string, Input>): void;
+  state(): Record<string, Input>;
   markdown(): string;
-  expose(channel: string, name: string, ...args: (ir.Expr | Value)[]): void;
+  expose(channel: string, name: string, ...args: Input[]): void;
   snapshot(): Snapshot;
   restore(snap: Snapshot): Restored;
 }
@@ -81,6 +89,7 @@ export const XtmdDoc = defineComponent({
       externs: p.externs,
       fns: p.fns,
       widgets: p.widgets,
+      components: p.components,
       measure: p.measure,
       onStateChange: (s) => p.onStateChange?.(s),
       onError: (e) => p.onError?.(e),

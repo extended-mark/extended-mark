@@ -2,7 +2,7 @@
 // blockquote, pre>code, table, footnotes and hr. Props are read as markdown.ts reads them, so the
 // page's words and its Markdown agree.
 
-import type { Drawn } from "@extended-mark/runtime";
+import type { Node as Drawn } from "@extended-mark/runtime";
 import type { Widget, WidgetContext, WidgetView } from "../api.js";
 import { attr, css, h, kit, text } from "../kit.js";
 import { noteId, texOf } from "../rich.js";
@@ -22,9 +22,9 @@ export const paragraph: Widget = (d, ctx) => {
   const view: WidgetView = {
     el,
     update(d) {
-      ctx.children(el, nodes(d.props.get("value")));
-      css(el, "color", kit(ctx).tokens.color(d.props.get("tone")));
-      const a = kase(d.props.get("align")) ?? "START";
+      ctx.children(el, nodes(d.inputs.value));
+      css(el, "color", kit(ctx).tokens.color(d.inputs.tone));
+      const a = kase(d.inputs.align) ?? "START";
       css(el, "text-align", a === "START" ? undefined : ALIGN[a]);
     },
   };
@@ -33,7 +33,7 @@ export const paragraph: Widget = (d, ctx) => {
 };
 
 export const heading: Widget = (d, ctx) => {
-  const level = () => Math.min(6, Math.max(1, Math.round(num(d.props.get("level")) ?? 1)));
+  const level = () => Math.min(6, Math.max(1, Math.round(num(d.inputs.level) ?? 1)));
   let at = level();
   let el: HTMLElement = sentence(h(`h${at}` as "h1", "heading"));
   const view = {
@@ -49,7 +49,7 @@ export const heading: Widget = (d, ctx) => {
         el = sentence(h(`h${l}` as "h1", "heading"));
         at = l;
       }
-      ctx.children(el, nodes(d.props.get("value")));
+      ctx.children(el, nodes(d.inputs.value));
     },
   };
   view.update(d);
@@ -57,7 +57,7 @@ export const heading: Widget = (d, ctx) => {
 };
 
 export const bullets: Widget = (d, ctx) => {
-  const ordered = () => flag(d.props.get("ordered"));
+  const ordered = () => flag(d.inputs.ordered);
   let isOl = ordered();
   let el: HTMLElement = h(isOl ? "ol" : "ul", "bullets");
   const view = {
@@ -72,10 +72,10 @@ export const bullets: Widget = (d, ctx) => {
         kit(ctx).release(el);
         el = h(isOl ? "ol" : "ul", "bullets");
       }
-      const start = num(d.props.get("start")) ?? 1;
+      const start = num(d.inputs.start) ?? 1;
       attr(el, "start", isOl && start !== 1 ? String(start) : undefined);
-      const items = d.slots.get("items") ?? [];
-      el.classList.toggle("xtmd-tasks", items.some((i) => i.widget === "core/item" && inner(i.props.get("done")) !== undefined));
+      const items = nodes(d.inputs.items);
+      el.classList.toggle("xtmd-tasks", items.some((i) => i.widget === "core/item" && inner(i.inputs.done) !== undefined));
       ctx.children(el, items);
     },
   };
@@ -91,23 +91,23 @@ export const item: Widget = (d, ctx) => {
   const view: WidgetView = {
     el,
     update(d) {
-      const done = inner(d.props.get("done"));
-      if (done && done.kind === "bool") {
+      const done = inner(d.inputs.done);
+      if (done && "bool" in done) {
         if (!box) {
           // a task box shows the item's state; ticking it is for a press, so it can't be changed here
           box = h("input", "item.check", { type: "checkbox", disabled: "" });
-          box.setAttribute("aria-label", done.b ? "Done" : "Not done");
+          box.setAttribute("aria-label", done.bool ? "Done" : "Not done");
           el.prepend(box);
         }
-        box.checked = done.b;
-        attr(box, "aria-label", done.b ? "Done" : "Not done");
+        box.checked = done.bool;
+        attr(box, "aria-label", done.bool ? "Done" : "Not done");
         el.classList.add("xtmd-task");
       } else if (box) {
         box.remove();
         box = undefined;
         el.classList.remove("xtmd-task");
       }
-      ctx.children(body, d.slots.get("body") ?? []);
+      ctx.children(body, nodes(d.inputs.body));
     },
   };
   view.update(d);
@@ -119,7 +119,7 @@ export const quote: Widget = (d, ctx) => {
   const view: WidgetView = {
     el,
     update(d) {
-      ctx.children(el, d.slots.get("body") ?? []);
+      ctx.children(el, nodes(d.inputs.body));
     },
   };
   view.update(d);
@@ -133,11 +133,11 @@ export const code: Widget = (d) => {
   const view: WidgetView = {
     el,
     update(d) {
-      const lang = str(d.props.get("lang")).trim().split(/\s+/)[0] ?? "";
+      const lang = str(d.inputs.lang).trim().split(/\s+/)[0] ?? "";
       const cls = lang ? `xtmd-code-text language-${lang.replace(/[^\w+#.-]/g, "")}` : "xtmd-code-text";
       if (c.className !== cls) c.className = cls;
       attr(el, "data-lang", lang || undefined);
-      text(c, str(d.props.get("src")));
+      text(c, str(d.inputs.src));
     },
   };
   view.update(d);
@@ -150,7 +150,7 @@ export const math: Widget = (d) => {
   const view: WidgetView = {
     el,
     update(d) {
-      drawTex(el, texOf(d.props.get("tex")), true);
+      drawTex(el, texOf(d.inputs.tex), true);
     },
   };
   view.update(d);
@@ -167,8 +167,8 @@ export const table: Widget = (d, ctx) => {
   const view: WidgetView = {
     el,
     update(d) {
-      const rows = [list(d.props.get("head")), ...list(d.props.get("rows")).map((r) => list(r))];
-      const align = list(d.props.get("align")).map((a) => kase(a));
+      const rows = [list(d.inputs.head), ...list(d.inputs.rows).map((r) => list(r))];
+      const align = list(d.inputs.align).map((a) => kase(a));
       // the same rows and columns keep their cells, and what is in each follows the page
       const now = JSON.stringify([rows.map((r) => r.length), align]);
       if (now !== shape) {
@@ -206,14 +206,14 @@ export const footnote: Widget = (d, ctx) => {
   const view: WidgetView = {
     el,
     update(d) {
-      const m = str(d.props.get("mark"));
+      const m = str(d.inputs.mark);
       const uid = kit(ctx).uid;
       attr(el, "id", noteId(uid, m));
       attr(el, "aria-label", `Footnote ${m}`);
       // back to where the note is marked
       attr(mark, "href", `#${uid}fnref-${encodeURIComponent(m)}`);
       text(mark, m);
-      ctx.children(body, d.slots.get("body") ?? []);
+      ctx.children(body, nodes(d.inputs.body));
     },
   };
   view.update(d);

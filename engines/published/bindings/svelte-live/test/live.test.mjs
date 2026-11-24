@@ -32,7 +32,7 @@ test("<XtmdLiveDoc> on a server, given a compiler, compiles the text and renders
   const { body } = render(XtmdLiveDoc, { props: { source: pageSources().v1, compiler: await compiler(), defaultState: { n: { num: "2" } }, externs: { app: { unit: { text: "items" } } } } });
   // Svelte marks its blocks with comments for hydration
   const html = body.replace(/<!--[^>]*-->/g, "");
-  assert.match(html, /<div[^>]* class="xtmd-root"/);
+  assert.match(html, /<div[^>]* class="xtmd-root[^"]*"/);
   assert.ok(html.includes("Count: 2 items"), html);
 });
 

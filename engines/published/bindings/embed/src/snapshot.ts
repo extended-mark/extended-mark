@@ -1,7 +1,7 @@
 // What every document engine shares of a snapshot, and of what it tells the host went wrong: the
 // plain web's XtmdDoc here, and @extended-mark/view's for the frameworks.
 
-import type { ir } from "@extended-mark/runtime";
+import type { Input } from "@extended-mark/runtime";
 
 /** What went wrong, for `onError`. */
 export type DocError =
@@ -15,8 +15,8 @@ export interface Snapshot {
   xtmd: string;
   /** A hash of the IR it was taken from: its places mean the same widgets only in the same IR. */
   ir: string;
-  state: Record<string, ir.Expr>;
-  own: Record<string, Record<string, ir.Expr>>;
+  state: Record<string, Input>;
+  own: Record<string, Record<string, Input>>;
 }
 
 /** What `restore` did. */

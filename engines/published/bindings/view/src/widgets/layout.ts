@@ -2,8 +2,8 @@
 // the flex item whose grow, shrink, basis and limits it says, as @extended-mark/dom draws them (the same
 // parts and classes, so the same stylesheet). Lengths are core's tokens, as custom properties.
 
-import type { Drawn } from "@extended-mark/runtime";
-import { field, flag, inner, kase, list, num, str } from "@extended-mark/dom/shared";
+import type { Node as Drawn } from "@extended-mark/runtime";
+import { field, flag, inner, kase, list, nodes, num, str } from "@extended-mark/dom/shared";
 import type { ViewContext, ViewWidget } from "../render.js";
 import type { Act } from "../act.js";
 import { attr, cls, css, h, on, type VNode } from "../vnode.js";
@@ -27,7 +27,7 @@ const EDGES: Record<string, [boolean, boolean, boolean, boolean]> = {
 /** The look flex and grid share: padding, fill, stroke on its edges, radius and shadow. */
 function box(el: VNode, d: Drawn, ctx: ViewContext): void {
   const t = ctx.tokens;
-  const p = (k: string) => d.props.get(k);
+  const p = (k: string) => d.inputs[k];
   css(el, "gap", t.length(p("gap")));
   css(el, "padding", t.length(p("pad")));
   css(el, "background", t.color(p("fill")));
@@ -41,7 +41,7 @@ function box(el: VNode, d: Drawn, ctx: ViewContext): void {
 /** A container whose click does something: clickable, and reachable from the keyboard. A click a
  * control inside already took is left to it. */
 function clickable(el: VNode, d: Drawn, ctx: ViewContext): void {
-  const listens = ctx.page.listens ? ctx.page.listens(d, "click") : d.events.has("click");
+  const listens = !!d.events?.includes("click");
   cls(el, "xtmd-clickable", listens);
   attr(el, "tabindex", listens ? "0" : undefined);
   if (!listens) return;
@@ -60,17 +60,17 @@ function clickable(el: VNode, d: Drawn, ctx: ViewContext): void {
 }
 
 /** The ARIA group a run of tabs, options or radios makes. */
-function groupRole(nodes: Drawn[]): string | undefined {
+function groupRole(nodes: readonly Drawn[]): string | undefined {
   if (!nodes.length || !nodes.every((n) => n.widget === "core/press")) return undefined;
-  const kinds = new Set(nodes.map((n) => kase(n.props.get("kind"))));
+  const kinds = new Set(nodes.map((n) => kase(n.inputs.kind)));
   if (kinds.size !== 1) return undefined;
   return ({ TAB: "tablist", OPTION: "listbox", RADIO: "radiogroup" } as Record<string, string>)[[...kinds][0] ?? ""];
 }
 
 export const flex: ViewWidget = (d, ctx) => {
-  const p = (k: string) => d.props.get(k);
+  const p = (k: string) => d.inputs[k];
   const across = kase(p("axis")) === "X";
-  const kids = d.slots.get("children") ?? [];
+  const kids = nodes(d.inputs.children);
   const label = str(p("label"));
   const role = groupRole(kids);
   const el = h("div", "flex", {
@@ -90,8 +90,8 @@ export const flex: ViewWidget = (d, ctx) => {
 /** A grid's columns: equal shares, or tracks of their own. */
 function columns(v: ReturnType<typeof inner>, ctx: ViewContext): string {
   const c = inner(v);
-  if (!c || c.kind !== "case") return "minmax(0, 1fr)";
-  if (c.name === "EQUAL") return `repeat(${Math.max(1, Math.round(num(field(c, "count")) ?? 1))}, minmax(0, 1fr))`;
+  if (!c || !("case" in c)) return "minmax(0, 1fr)";
+  if (c.case.name === "EQUAL") return `repeat(${Math.max(1, Math.round(num(field(c, "count")) ?? 1))}, minmax(0, 1fr))`;
   const t = ctx.tokens;
   return list(field(c, "of"))
     .map((track) => {
@@ -110,8 +110,8 @@ function columns(v: ReturnType<typeof inner>, ctx: ViewContext): string {
 }
 
 export const grid: ViewWidget = (d, ctx) => {
-  const p = (k: string) => d.props.get(k);
-  const el = h("div", "grid", {}, ctx.children(d.slots.get("children") ?? []));
+  const p = (k: string) => d.inputs[k];
+  const el = h("div", "grid", {}, ctx.children(nodes(d.inputs.children)));
   css(el, "grid-template-columns", columns(p("cols"), ctx));
   css(el, "align-items", SELF[kase(p("align")) ?? "STRETCH"]);
   const j = kase(p("justify")) ?? "START";
@@ -124,8 +124,8 @@ export const grid: ViewWidget = (d, ctx) => {
 };
 
 export const cell: ViewWidget = (d, ctx) => {
-  const p = (k: string) => d.props.get(k);
-  const el = h("div", "cell", {}, ctx.children(d.slots.get("child") ?? []));
+  const p = (k: string) => d.inputs[k];
+  const el = h("div", "cell", {}, ctx.children(nodes(d.inputs.child)));
   const span = Math.max(1, Math.round(num(p("span")) ?? 1));
   const row = num(p("row"));
   const col = num(p("col"));
@@ -138,9 +138,9 @@ export const cell: ViewWidget = (d, ctx) => {
 
 export const sizing: ViewWidget = (d, ctx) => {
   const t = ctx.tokens;
-  const p = (k: string) => d.props.get(k);
+  const p = (k: string) => d.inputs[k];
   const n = (k: string) => num(p(k));
-  const el = h("div", "sizing", {}, ctx.children(d.slots.get("child") ?? []));
+  const el = h("div", "sizing", {}, ctx.children(nodes(d.inputs.child)));
   css(el, "flex-grow", n("grow") !== undefined ? String(n("grow")) : undefined);
   css(el, "flex-shrink", n("shrink") !== undefined ? String(n("shrink")) : undefined);
   css(el, "flex-basis", t.length(p("basis")));

@@ -80,24 +80,24 @@ fn each_call_widget_and_page_carries_its_levels() {
     let t = |name: &str| -> &ir::Template { m.templates.iter().find(|t| t.name == name).unwrap_or_else(|| panic!("no template {}", name)) };
     let (draw, live, gfx) = (Level::CoreDraw, Level::CoreLive, Level::CoreGfx);
     // a widget's own variables need core.live; an event declared and never set needs nothing
-    assert_eq!(t("doc/counter").levels, vec![draw, live]);
-    assert_eq!(t("doc/quiet").levels, vec![draw]);
+    assert_eq!(t("doc/counter").levels, vec![live]);
+    assert!(t("doc/quiet").levels.is_empty());
     // placing a call that needs core.live needs it too
-    assert_eq!(t("doc/holder").levels, vec![draw, live]);
+    assert_eq!(t("doc/holder").levels, vec![live]);
     let mut found = Vec::new();
     calls(&t("doc").view, &mut found);
     let levels = |name: &str, k: usize| found.iter().filter(|(n, _)| n == name).nth(k).map(|(_, l)| l.clone()).unwrap_or_else(|| panic!("no call {} #{}", name, k));
-    assert_eq!(levels("core/heading", 0), vec![draw]);
-    assert_eq!(levels("core/label", 0), vec![draw]);
-    assert_eq!(levels("doc/counter", 0), vec![draw, live]);
-    assert_eq!(levels("doc/quiet", 0), vec![draw]);
+    assert_eq!(levels("core/heading", 0), Vec::new());
+    assert_eq!(levels("core/label", 0), Vec::new());
+    assert_eq!(levels("doc/counter", 0), vec![live]);
+    assert_eq!(levels("doc/quiet", 0), Vec::new());
     // a variable given to a mut input, a handler that changes something; one that changes nothing
-    assert_eq!(levels("core/slider", 0), vec![draw, live]);
+    assert_eq!(levels("core/slider", 0), vec![live]);
     let mut presses = Vec::new();
     calls(&t("doc/buttons").view, &mut presses);
-    assert_eq!(presses.iter().map(|(_, l)| l.clone()).collect::<Vec<_>>(), vec![vec![draw, live], vec![draw]]);
-    assert_eq!(levels("doc/buttons", 0), vec![draw, live]);
+    assert_eq!(presses.iter().map(|(_, l)| l.clone()).collect::<Vec<_>>(), vec![vec![live], Vec::new()]);
+    assert_eq!(levels("doc/buttons", 0), vec![live]);
     // the canvas widgets need core.gfx, and the canvas holding them
-    assert_eq!(levels("core/canvas", 0), vec![draw, gfx]);
+    assert_eq!(levels("core/canvas", 0), vec![gfx]);
     assert_eq!(m.levels, vec![draw, live, gfx]);
 }

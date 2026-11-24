@@ -34,7 +34,7 @@ fn core() -> Vec<Source> {
 fn find(nodes: &[Drawn], widget: &str) -> Option<String> {
     for n in nodes {
         if n.widget == widget {
-            return Some(n.path.clone());
+            return Some(n.id.clone());
         }
         for kids in n.slots.values() {
             if let Some(p) = find(kids, widget) {

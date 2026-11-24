@@ -309,7 +309,7 @@ impl<'a> Ctx<'a> {
 
     /// Its path on the page: `s0/s1[2]/s3`.
     pub fn path(&self) -> &'a str {
-        &self.at.path
+        &self.at.id
     }
 
     /// Its egui id: the same across frames, following its key, so a loop row's widget keeps its
@@ -325,19 +325,19 @@ impl<'a> Ctx<'a> {
 
     /// The reader's event on this widget: runs the caller's handler, as one change.
     pub fn event(&mut self, name: &str, args: Vec<Value>) {
-        if let Err(f) = self.page.event(&self.at.path, name, args) {
-            self.frame.errors.push(format!("{} {}: {}", self.at.path, name, f.message));
+        if let Err(f) = self.page.event(&self.at.id, name, args) {
+            self.frame.errors.push(format!("{} {}: {}", self.at.id, name, f.message));
         }
     }
 
     /// This widget writing one of its `mut` inputs, as a slider does: checked, then one change.
     /// Whether it took: a refused write leaves the value as it was.
     pub fn write(&mut self, input: &str, value: Value) -> bool {
-        if let Err(f) = self.page.write(&self.at.path, input, value.clone()) {
-            self.frame.errors.push(format!("{} {}: {}", self.at.path, input, f.message));
+        if let Err(f) = self.page.write(&self.at.id, input, value.clone()) {
+            self.frame.errors.push(format!("{} {}: {}", self.at.id, input, f.message));
             return false;
         }
-        match self.page.find(&self.at.path).and_then(|n| n.props.get(input)) {
+        match self.page.find(&self.at.id).and_then(|n| n.props.get(input)) {
             Some(now) => self.page.equal(now, &value).unwrap_or(false),
             None => false,
         }
@@ -365,7 +365,7 @@ impl<'a> Ctx<'a> {
 
     /// Puts back an act this widget can't do itself.
     pub fn decline(&mut self, act: Act) {
-        self.frame.left.push((self.at.path.clone(), act));
+        self.frame.left.push((self.at.id.clone(), act));
     }
 
     /// Draws one widget of the page into a ui.
@@ -411,8 +411,8 @@ impl<'a> Ctx<'a> {
     }
 
     fn keep_node(&mut self, d: &Drawn) {
-        self.frame.shown.insert(d.path.clone());
-        self.frame.used.insert((d.key.clone(), d.widget.clone()));
+        self.frame.shown.insert(d.id.clone());
+        self.frame.used.insert((d.id.clone(), d.widget.clone()));
     }
 
     /// The page's tokens, for its theme.
@@ -439,7 +439,7 @@ impl<'a> Ctx<'a> {
     /// AccessKit tree (`press@s0/s0`), its bounds set once it is drawn.
     pub fn root<R>(&mut self, ui: &mut Ui, builder: UiBuilder, add: impl FnOnce(&mut Ui, &mut Ctx<'a>) -> R) -> InnerResponse<R> {
         let id = self.id;
-        let author = a11y::root_id(&self.at.widget, &self.at.path);
+        let author = a11y::root_id(&self.at.widget, &self.at.id);
         ui.scope_builder(builder.scope_id(id), |ui| {
             a11y::part(ui, ui.unique_id(), &author);
             let r = add(ui, self);
@@ -468,12 +468,12 @@ impl<'a> Ctx<'a> {
 
     /// A spot's size as drawn, in the plane's units, for the plane's layout.
     pub fn measured_spot(&mut self, size: egui::Vec2) {
-        self.frame.measured.spots.insert(self.at.path.clone(), size);
+        self.frame.measured.spots.insert(self.at.id.clone(), size);
     }
 
     /// A plane's width as drawn, in points, for its layout.
     pub fn measured_plane(&mut self, width: f32) {
-        self.frame.measured.planes.insert(self.at.path.clone(), width);
+        self.frame.measured.planes.insert(self.at.id.clone(), width);
     }
 
     /// Something went wrong drawing: kept for the host's log ([`XtmdPage::take_errors`]).
@@ -484,11 +484,11 @@ impl<'a> Ctx<'a> {
 
 /// Draws one widget: its instance, made the first time its key is seen and kept while it is.
 fn draw(page: &mut Page, frame: &mut Frame, ui: &mut Ui, d: &Drawn) {
-    frame.shown.insert(d.path.clone());
-    let mut key = d.key.clone();
+    frame.shown.insert(d.id.clone());
+    let mut key = d.id.clone();
     let mut n = 2;
     while frame.used.contains(&(key.clone(), d.widget.clone())) {
-        key = format!("{}#{}", d.key, n);
+        key = format!("{}#{}", d.id, n);
         n += 1;
     }
     // a widget that failed is drawn by another, and is another when it draws again
@@ -498,14 +498,14 @@ fn draw(page: &mut Page, frame: &mut Frame, ui: &mut Ui, d: &Drawn) {
         Some(w) => w,
         None => frame.registry.make(&d.widget, d.failed.is_some()),
     };
-    let acts = frame.acts.remove(&d.path).unwrap_or_default();
+    let acts = frame.acts.remove(&d.id).unwrap_or_default();
     let id = frame.page_id.with((&k.0, &k.1));
     let props = Props { d };
     let mut ctx = Ctx { page, frame, at: d, id, acts };
     w.show(ui, &props, &mut ctx);
     let left = std::mem::take(&mut ctx.acts);
     for a in left {
-        frame.left.push((d.path.clone(), a));
+        frame.left.push((d.id.clone(), a));
     }
     frame.instances.insert(k, w);
 }

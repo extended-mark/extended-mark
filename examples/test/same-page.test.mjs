@@ -96,7 +96,7 @@ function observe(page) {
     const markdown = window.__xtmd.page.markdown();
     return {
       markdown,
-      state: window.__xtmd.page.observeState(),
+      state: window.__xtmd.page.state(),
       // what the page shows: a stylesheet in it (XtmdDoc's) isn't text the reader sees
       text: [...shop.childNodes].filter((n) => n.nodeName !== "STYLE").map((n) => n.textContent).join("").replace(/\s+/g, " ").trim(),
       widgets: [...shop.querySelectorAll("[data-xtmd-site]")].map((e) => `${e.getAttribute("data-xtmd-site")} ${e.getAttribute("data-xtmd-widget")}`),
@@ -129,7 +129,7 @@ const slide = (page, value) =>
   }, String(value));
 
 /** Whether a `$state` field holds a number now. */
-const holds = ([field, n]) => window.__xtmd?.page.observeState()[field]?.num === n;
+const holds = ([field, n]) => window.__xtmd?.page.state()[field]?.num === n;
 
 /** The steps, the same in each host; what each step should leave, to check they agree on it. */
 const STEPS = [
@@ -170,7 +170,7 @@ const STEPS = [
       await page.evaluate(() => window.__xtmd.page.takeOutcome());
       await slide(page, 20);
     },
-    wait: (page) => until(page, "the refusal", () => window.__xtmd.page.observeState().budget.num === "45" && document.querySelector('#shop [data-xtmd-widget="core/slider"] input[type="range"]')?.value === "45"),
+    wait: (page) => until(page, "the refusal", () => window.__xtmd.page.state().budget.num === "45" && document.querySelector('#shop [data-xtmd-widget="core/slider"] input[type="range"]')?.value === "45"),
     check: (o) => {
       assert.deepEqual(o.state.budget, { num: "45" });
       assert.match(o.markdown, /of a 45 € budget\./);
@@ -179,7 +179,7 @@ const STEPS = [
   {
     name: "removed Honey",
     act: (page) => press(page, "Remove Honey"),
-    wait: (page) => until(page, "the row to go", () => window.__xtmd.page.observeState().items.list.length === 2),
+    wait: (page) => until(page, "the row to go", () => window.__xtmd.page.state().items.list.length === 2),
     check: (o) => {
       assert.match(o.markdown, /The basket holds 2 items for 18 € of a 45 € budget\.\n\n- Tea: 12 €\n- Bread: 6 €\n/);
       assert.ok(!o.text.includes("Honey"));

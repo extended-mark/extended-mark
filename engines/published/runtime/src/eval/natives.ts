@@ -35,7 +35,7 @@ const NATIVE_SET: ReadonlySet<string> = new Set(NATIVES);
 
 /** core's bodyless `extern fn`s that only an engine can supply, from what it runs on (page 5,
  * plan tab 14): every other bodyless one is a native. */
-export const TARGET_ONLY: readonly string[] = ["core/moment.local"];
+export const ENGINE_ONLY: readonly string[] = ["core/moment.local"];
 
 export function exists(name: string): boolean {
   return NATIVE_SET.has(name);

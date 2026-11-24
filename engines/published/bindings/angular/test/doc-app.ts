@@ -1,23 +1,33 @@
 // The test host for <xtmd-doc>: drawn by Angular itself through Renderer2, zoneless, `$state`
 // controlled by the host, with the controls the shared doc steps use (testing/browser.mjs).
 import "@angular/compiler";
-import { Component, ViewChild, computed, provideZonelessChangeDetection, signal } from "@angular/core";
+import { Component, Input, ViewChild, computed, provideZonelessChangeDetection, signal } from "@angular/core";
 import { bootstrapApplication } from "@angular/platform-browser";
 import { XtmdDoc } from "@extended-mark/angular";
 
 const heard = { states: [] as unknown[], errors: [] as unknown[], calls: [] as unknown[] };
 const irs = (window as any).__IR;
 
+@Component({ selector: "my-press", standalone: true, template: `<button class="mine" (click)="event('click')">{{ node.inputs.label.text }}</button>` })
+class Press {
+  @Input() node: any;
+  @Input() event!: (name: string) => void;
+}
+
+@Component({ selector: "my-title", standalone: true, template: `<section class="title"><ng-content select="[data-xtmd-slot=value]" /></section>` })
+class Title {}
+
 @Component({
   selector: "test-app",
   standalone: true,
   imports: [XtmdDoc],
   template: `@if (shown()) {
-    <xtmd-doc #view [ir]="ir()" [state]="state()" [page]="pageValues()" [externs]="externs()" (stateChange)="changed($event)" (error)="heard.errors.push($event)" (calls)="heard.calls.push($event)" />
+    <xtmd-doc #view [ir]="ir()" [state]="state()" [components]="components" [page]="pageValues()" [externs]="externs()" (stateChange)="changed($event)" (error)="heard.errors.push($event)" (calls)="heard.calls.push($event)" />
   }`,
 })
 class TestApp {
   heard = heard;
+  components = (window as any).__mine ? { "core/press": Press, "core/heading": Title } : undefined;
   which = signal<"v1" | "v2" | "notes">("v1");
   theme = signal<"LIGHT" | "DARK">("LIGHT");
   shown = signal(true);

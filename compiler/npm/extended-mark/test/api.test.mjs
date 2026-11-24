@@ -25,7 +25,8 @@ test("build gives the lowered IR", async () => {
   const ir = await build(page);
   assert.equal(ir.ir.module, "doc");
   assert.deepEqual(ir.ir.levels, ["core.draw"]);
-  assert.ok(Array.isArray(ir.ir.bindings) && ir.ir.bindings.length > 0, "a sentence that reads $state is a binding");
+  assert.equal(ir.ir.version, 4);
+  assert.deepEqual(ir.ir.needs.host, []);
   await assert.rejects(build(bad), XtmdError);
 });
 

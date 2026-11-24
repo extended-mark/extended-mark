@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import * as esbuild from "esbuild";
 import { chromium } from "playwright-core";
 import * as cli from "extended-mark";
-import { bundle, compilePages, docSteps, launch, open } from "../../testing/browser.mjs";
+import { bundle, compilePages, componentSteps, docSteps, launch, open } from "../../testing/browser.mjs";
 
 const irs = await compilePages(cli);
 const decorators = { tsconfigRaw: { compilerOptions: { experimentalDecorators: true, useDefineForClassFields: false } } };
@@ -20,7 +20,7 @@ test("<xtmd-doc> on a server renders the page itself, through Angular's Renderer
   writeFileSync(file, r.outputFiles[0].text);
   const { render } = await import(pathToFileURL(file).href);
   const html = await render(irs.v1);
-  assert.match(html, /<div[^>]*class="xtmd-root"/);
+  assert.match(html, /<div[^>]*class="xtmd-root[^"]*"/);
   assert.ok(html.includes("Count: 2 items"), html);
   assert.match(html, /data-part="press\.label"[^>]*>Add one</);
 });
@@ -31,6 +31,18 @@ test("<xtmd-doc> in Chromium: controlled $state, refusals, props, snapshots", as
   try {
     const { page, errors } = await open(browser, { js, irs });
     await docSteps(page);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+  }
+});
+
+test("the host's own components as widgets, with their slots", async () => {
+  const js = await bundle(esbuild, fileURLToPath(new URL("./doc-app.ts", import.meta.url)), decorators);
+  const browser = await launch(chromium);
+  try {
+    const { page, errors } = await open(browser, { js, irs, mine: true });
+    await componentSteps(page);
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

@@ -2,7 +2,7 @@
 // window.xtmd that take and give values in the IR's form, as the checks do.
 
 import { mount, run, widgets } from "../dist/index.js";
-import { Num, toIr } from "@extended-mark/runtime";
+import { Num } from "@extended-mark/runtime";
 
 let mounted;
 
@@ -10,14 +10,14 @@ let mounted;
 function fixedMeasure(page) {
   const text = (d) => {
     for (const k of ["value", "label"]) {
-      const v = d.props.get(k);
-      if (v && v.kind === "text") return v.s;
+      const v = d.inputs[k];
+      if (v && "text" in v) return v.text;
     }
     return undefined;
   };
   return {
     spot(s) {
-      const kid = [...s.slots.values()].flat()[0];
+      const kid = Object.values(s.inputs).flatMap((x) => x.nodes ?? [])[0];
       const t = kid ? text(kid) : undefined;
       return { width: Num.int(t === undefined ? 80 : 8 * [...t].length), height: Num.int(20) };
     },
@@ -38,7 +38,7 @@ window.xtmd = {
         "core/label": (d) => {
           const el = document.createElement("mark");
           el.className = "app-label";
-          const show = (d) => (el.textContent = `[${d.props.get("value").s}]`);
+          const show = (d) => (el.textContent = `[${d.inputs.value.text}]`);
           show(d);
           return { el, update: show };
         },
@@ -50,33 +50,35 @@ window.xtmd = {
     return true;
   },
   page: () => mounted.page,
-  state: () => mounted.page.observeState(),
+  state: () => mounted.page.state(),
   markdown: () => mounted.page.markdown(),
   outcome: () => mounted.page.takeOutcome(),
   errors: () => mounted.page.errors.map((e) => String(e?.stack ?? e)),
-  tree: () => mounted.page.observeTree(),
+  tree: () => mounted.page.tree(),
   paths() {
     const out = [];
     const walk = (nodes) => {
       for (const n of nodes) {
-        out.push({ path: n.path, widget: n.widget });
-        for (const kids of n.slots.values()) walk(kids);
+        out.push({ path: n.id, widget: n.widget });
+        Object.values(n.inputs).forEach(inside);
       }
     };
-    walk(mounted.page.tree());
+    const inside = (x) => {
+      if (x.nodes) walk(x.nodes);
+      else if (x.list) x.list.forEach(inside);
+      else if (x.some) inside(x.some);
+    };
+    walk(mounted.page.tree().nodes);
     return out;
   },
   act(path, action) {
-    const p = mounted.page;
-    if ("event" in action) mounted.act(path, { event: action.event, args: (action.args ?? []).map((a) => p.value(a)) });
-    else mounted.act(path, { write: action.write, value: p.value(action.value) });
+    mounted.act(path, action);
   },
-  event: (path, name, args = []) => mounted.page.event(path, name, args.map((a) => mounted.page.value(a))),
-  write: (path, input, value) => mounted.page.write(path, input, mounted.page.value(value)),
-  set: (changes) => mounted.page.set(Object.fromEntries(Object.entries(changes).map(([k, v]) => [k, mounted.page.value(v)]))),
+  event: (path, name, args = []) => mounted.page.event(path, name, args),
+  write: (path, input, value) => mounted.page.write(path, input, value),
+  set: (changes) => mounted.page.set(changes),
   setPage: (values) => mounted.page.setPage(values),
   unmount: () => mounted.unmount(),
   widgets: () => Object.keys(widgets),
   mount,
-  toIr,
 };

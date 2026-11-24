@@ -1,7 +1,9 @@
-// @extended-mark/runtime: runs the IR the xtmd compiler writes, on the web, agreeing with the native runtime.
+// @extended-mark/runtime: runs the IR the xtmd compiler writes, on the web, agreeing with the native
+// runtime. A host gives a page its IR, draws the tree it gives, and tells it what the reader does.
 
-export * from "./eval/index.js";
-export { Page, childrenOf, type PageOptions, type PageValues, type Drawn, type Env, type Broken, type Outcome, type Call } from "./page.js";
-export { pageBlocks, writeMarkdown, writeInline, type Block, type Inline } from "./markdown.js";
-export { layout, planes, planeWrites, place, around, keepInside, ptOf, regionOf, ptValue, regionValue, MAX_LAYOUT_PASSES, type Measure, type Size, type Pt, type Region, type LayoutWrite } from "./layout.js";
+export { Page, IR_VERSION, apply, everyNode, nodesIn, type PageOptions, type PageValues, type Broken, type Outcome, type Call } from "./host.js";
+export type { Change, Child, Contract, Data, Ends, Input, Node, Tree } from "./generated/tree.js";
+export { Num } from "./eval/num.js";
+export { writeMarkdown, writeInline, type Block, type Inline } from "./markdown.js";
+export { layout, place, around, keepInside, MAX_LAYOUT_PASSES, type Measure, type Size, type Pt, type Region } from "./layout.js";
 export type * as ir from "./generated/ir.js";

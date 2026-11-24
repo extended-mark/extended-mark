@@ -4,17 +4,17 @@
 // that did, and its errors come out of (error) ({ kind: "compile", diagnostics }). The static
 // engine, @extended-mark/angular, ships no WebAssembly; this one does.
 
-import { ChangeDetectorRef, Component, EventEmitter, Input, Output, ViewChild, inject, type OnChanges, type OnDestroy } from "@angular/core";
+import { ChangeDetectorRef, Component, EventEmitter, Input, Output, ViewChild, inject, type OnChanges, type OnDestroy, type Type } from "@angular/core";
 import { XtmdDoc } from "@extended-mark/angular";
 import { Live, type Builds, type PackFile, type WasmSource } from "@extended-mark/live";
-import type { Call, DocError, DocProps, Restored, Snapshot, Value, ir } from "@extended-mark/view";
+import type { Call, DocError, DocProps, Restored, Snapshot, Input as Given, ir } from "@extended-mark/view";
 
 @Component({
   selector: "xtmd-live-doc",
   standalone: true,
   imports: [XtmdDoc],
   host: { style: "display: contents" },
-  template: `<xtmd-doc [ir]="ir" [state]="state" [defaultState]="defaultState" [defaultSnapshot]="defaultSnapshot" [page]="page" [externs]="externs" [fns]="fns" [widgets]="widgets" [measure]="measure" (stateChange)="stateChange.emit($event)" (error)="error.emit($event)" (calls)="calls.emit($event)" />`,
+  template: `<xtmd-doc [ir]="ir" [state]="state" [defaultState]="defaultState" [defaultSnapshot]="defaultSnapshot" [page]="page" [externs]="externs" [fns]="fns" [widgets]="widgets" [components]="components" [measure]="measure" (stateChange)="stateChange.emit($event)" (error)="error.emit($event)" (calls)="calls.emit($event)" />`,
 })
 export class XtmdLiveDoc implements OnChanges, OnDestroy {
   /** The document's text. */
@@ -34,9 +34,10 @@ export class XtmdLiveDoc implements OnChanges, OnDestroy {
   @Input() externs?: DocProps["externs"];
   @Input() fns?: DocProps["fns"];
   @Input() widgets?: DocProps["widgets"];
+  @Input() components?: Record<string, Type<unknown>>;
   @Input() measure?: DocProps["measure"];
 
-  @Output() readonly stateChange = new EventEmitter<Record<string, ir.Expr>>();
+  @Output() readonly stateChange = new EventEmitter<Record<string, Given>>();
   /** A text that didn't compile, as well as everything <xtmd-doc>'s (error) says. */
   @Output() readonly error = new EventEmitter<DocError>();
   @Output() readonly calls = new EventEmitter<Call[]>();
@@ -64,16 +65,16 @@ export class XtmdLiveDoc implements OnChanges, OnDestroy {
   get document() {
     return this.inner?.document;
   }
-  set(changes: Record<string, ir.Expr | Value>): void {
+  set(changes: Record<string, Given>): void {
     this.inner?.set(changes);
   }
-  getState(): Record<string, ir.Expr> {
+  getState(): Record<string, Given> {
     return this.inner?.getState() ?? {};
   }
   markdown(): string {
     return this.inner?.markdown() ?? "";
   }
-  expose(channel: string, name: string, ...args: (ir.Expr | Value)[]): void {
+  expose(channel: string, name: string, ...args: Given[]): void {
     this.inner?.expose(channel, name, ...args);
   }
   snapshot(): Snapshot {

@@ -637,12 +637,10 @@ impl Checker {
             if let Some((c, b)) = &view_ast {
                 self.warn_built_markdown(c, &b.stmts);
             }
-            markdown = Some(view.clone());
         }
         let mut full_view = prefix.clone();
         full_view.extend(view);
-        let mut md = prefix;
-        md.extend(markdown.unwrap_or_default());
+        let md = markdown.map(|m| prefix.into_iter().chain(m).collect());
         let t = ir::Template {
             name: self.defs[d].full.clone(),
             generics: self.ir_generics(&self.defs[d].generics),

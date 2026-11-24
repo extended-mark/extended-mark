@@ -2,7 +2,7 @@
 // checked before use, and nothing in a value is ever read as HTML. TeX is given as its text, and drawn
 // as MathML by a hook once the element is live.
 
-import { noteId, safeHref, safeSrc, str, texOf, texToMathML } from "@extended-mark/dom/shared";
+import { nodes, noteId, safeHref, safeSrc, str, texOf, texToMathML } from "@extended-mark/dom/shared";
 import type { ViewWidget } from "../render.js";
 import { cls, h, type Hook, type VNode } from "../vnode.js";
 
@@ -45,9 +45,9 @@ export function withTex(v: VNode, tex: string, display: boolean): VNode {
 }
 
 /** Words are text, with no element of their own. */
-export const words: ViewWidget = (d) => str(d.props.get("value"));
+export const words: ViewWidget = (d) => str(d.inputs.value);
 
-const mark = (tag: string): ViewWidget => (d, ctx) => h(tag, undefined, {}, ctx.children(d.slots.get("body") ?? []));
+const mark = (tag: string): ViewWidget => (d, ctx) => h(tag, undefined, {}, ctx.children(nodes(d.inputs.body)));
 
 export const bold = mark("strong");
 export const italic = mark("em");
@@ -55,19 +55,19 @@ export const strike = mark("s");
 
 /** A link that may be followed is an `a`, and any other its words alone. */
 export const link: ViewWidget = (d, ctx) => {
-  const safe = safeHref(str(d.props.get("to")));
-  const body = ctx.children(d.slots.get("body") ?? []);
+  const safe = safeHref(str(d.inputs.to));
+  const body = ctx.children(nodes(d.inputs.body));
   return safe ? h("a", undefined, { href: safe, rel: /^https?:/i.test(safe) ? "noopener noreferrer" : undefined }, body) : h("span", undefined, { "data-unsafe-link": "" }, body);
 };
 
-export const codeSpan: ViewWidget = (d) => h("code", undefined, {}, [str(d.props.get("src"))]);
+export const codeSpan: ViewWidget = (d) => h("code", undefined, {}, [str(d.inputs.src)]);
 
-export const inlineMath: ViewWidget = (d) => withTex(h("span", undefined, { class: "xtmd-math" }), texOf(d.props.get("tex")), false);
+export const inlineMath: ViewWidget = (d) => withTex(h("span", undefined, { class: "xtmd-math" }), texOf(d.inputs.tex), false);
 
-export const inlineImage: ViewWidget = (d) => h("img", undefined, { alt: str(d.props.get("alt")), src: safeSrc(str(d.props.get("src"))) });
+export const inlineImage: ViewWidget = (d) => h("img", undefined, { alt: str(d.inputs.alt), src: safeSrc(str(d.inputs.src)) });
 
 export const noteMark: ViewWidget = (d, ctx) => {
-  const note = str(d.props.get("mark"));
+  const note = str(d.inputs.mark);
   return h("sup", undefined, { class: "xtmd-note-ref" }, [h("a", undefined, { href: `#${noteId(ctx.uid, note)}`, id: `${ctx.uid}fnref-${encodeURIComponent(note)}`, "aria-label": `Footnote ${note}` }, [note])]);
 };
 

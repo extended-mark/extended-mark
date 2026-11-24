@@ -13,7 +13,7 @@ mounted.page.setPage({ theme: "LIGHT" }); // the page redraws itself; the DOM fo
 ```
 
 - **`mount(page, root, opts?)`** draws a `Page` into an element and keeps it drawn. It returns a
-  `Mounted`: `view(path)`, `act(path, action)`, `layout()` and `unmount()`.
+  `Mounted`: `view(id)`, `act(id, action)`, `layout()` and `unmount()`.
 - **`run(irFile, root, opts?)`** makes the `Page` from an IR file (an object or its JSON text),
   then mounts it. `opts` takes `PageOptions` and `MountOptions` together.
 - **`widgets`** are ours, by full name (`core/press` …). `MountOptions.widgets` replaces any of
@@ -28,17 +28,18 @@ The API is in [src/api.ts](src/api.ts), and is fixed: the bindings and the playg
 
 ## How a page is drawn
 
-- **Keyed.** Each drawn extern widget is one `WidgetView`, kept by its `Drawn.key` and updated in
-  place after every change, so a loop row's elements follow its item. Views whose key is gone are
+- **Keyed.** Each node of the page's tree (docs/specs/06, The host's side) is one `WidgetView`, kept by
+  its id and updated in place after every change, so a loop row's elements follow its item. Views whose id is gone are
   destroyed; the rest are put in the tree's order, moving only what is out of place. Focus, the
   caret, typing in progress and scroll survive a redraw.
 - **On the page, always.** Every node of `page.tree()` has an element with its `data-xtmd-site`,
   a closed overlay's body included: it is hidden, never left out.
 - **Tokens** are custom properties on the root (`--xtmd-color-ink`, `--xtmd-space-m`,
-  `--xtmd-font-body-size`, …) for the page's `core/page.theme`; a theme change rewrites them.
+  `--xtmd-font-body-size`, …), both themes' in one stylesheet under a class of the page's own: a theme
+  change is the root's `data-xtmd-theme`, and redraws nothing.
 - **Writes** go through the page as checked writes, with exact numbers: a slider snaps to its
   grid with decimal arithmetic, and a pan or zoom writes numbers rounded to a sub-pixel.
-- **`act(path, action)`** does what a person would, through the widget's own DOM when it can: a
+- **`act(id, action)`** does what a person would, through the widget's own DOM when it can: a
   real click, typing into the input, moving the slider, opening the overlay from its anchor. A
   value the DOM can't reach (off a slider's grid, past its ends, a line break in a one-line
   field, an exact point for a handle or a plane) goes through the page instead.
@@ -49,15 +50,15 @@ The API is in [src/api.ts](src/api.ts), and is fixed: the bindings and the playg
   a spot or the view change size. Dragging pans, the wheel, a pinch or `+`/`-` zoom within
   `zoom_range`, and the arrow keys pan.
 - **core.gfx** is SVG in the surface's own units, y up. `shade` is a 2D `<canvas>` painted from
-  its shader: at most 65,536 sampled pixels, scaled up, fewer when the shader is Extended Mark code so the
-  whole shade stays within the step limit, worked out in slices of a few milliseconds.
+  its shader: at most 65,536 sampled pixels, scaled up, fewer when the shader is slow, worked out in slices of a few milliseconds, and
+  again only when the shader, or what it reads, changes.
 - **Maths** is MathML from a small TeX reader (scripts, fractions, roots, fences, Greek,
   operators, accents, `\text`), with the TeX as its accessible text (`role=math`,
   `aria-label`). TeX it doesn't know is shown as itself.
 
 ## Parts
 
-Every widget's root has `data-xtmd-site` (its path), `data-xtmd-widget` (its full name) and
+Every widget's root has `data-xtmd-site` (its id), `data-xtmd-widget` (its full name) and
 `data-part` (its short name). Its other elements have `data-part` names too, which tests find
 them by. A class `xtmd-<part>` (dots as dashes) goes with each.
 

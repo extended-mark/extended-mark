@@ -53,14 +53,15 @@ export async function bundle(esbuild, entry, opts = {}) {
 
 /** A browser tab with the IR as `window.__IR`, and the bundle run in it (@extended-mark/dom puts its own
  * stylesheet in when it mounts). */
-export async function open(browser, { js, irs }) {
+export async function open(browser, { js, irs, mine = false }) {
   const page = await browser.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e));
   await page.setContent(`<!doctype html><html><head><meta charset="utf-8"></head><body><div id="app"></div></body></html>`);
-  await page.evaluate((irs) => {
+  await page.evaluate(([irs, mine]) => {
+    window.__mine = mine;
     window.__IR = irs;
-  }, irs);
+  }, [irs, mine]);
   await page.addScriptTag({ content: js });
   await page.waitForFunction(() => window.__test !== undefined, null, { timeout: 10000 });
   return { page, errors };
@@ -125,13 +126,13 @@ export async function steps(page) {
 
   // a new `page` prop: page.setPage
   await page.evaluate(() => window.__test.setTheme("DARK"));
-  await until(page, () => window.__test.handle().page.externsNow().get("core/page.theme")?.name === "DARK", null, "the theme");
+  await until(page, () => window.__test.handle().page.given()["core/page.theme"]?.case.name === "DARK", null, "the theme");
 
   // a new `ir` prop: remounted, $state kept where its fields still exist
   await page.evaluate(() => window.__test.setIr("v2"));
   await until(page, (m) => document.querySelector("#app").textContent.includes("Total: 3 beans, by 2") && window.__test.heard.mounts === m + 1, mounts, "the new IR");
   assert.deepEqual(await page.evaluate(() => window.__test.handle().state()), { n: { num: "3" }, stride: { num: "2" } });
-  assert.equal(await page.evaluate(() => window.__test.handle().page.externsNow().get("core/page.theme")?.name), "DARK", "the page's values survive a remount");
+  assert.equal(await page.evaluate(() => window.__test.handle().page.given()["core/page.theme"]?.case.name), "DARK", "the page's values survive a remount");
 
   // gone: unmounted, and nothing left in the element
   await page.evaluate(() => window.__test.unmount());
@@ -290,4 +291,19 @@ export async function liveSteps(page) {
   await page.evaluate(() => window.__test.handle().set({ n: { num: "3" } }));
   await until(page, () => document.querySelector("#app").textContent.includes("Count: 3 items"), null, "the handle's write");
   assert.equal(await page.evaluate(() => window.__test.handle().markdown()), "# Count: 3 items\n\nAdd one\n");
+}
+
+/** What an app with `components` for `core/press` (a `button.mine`) and `core/heading` (a `section.title`
+ * around its sentence) shows and does: the host's own components, on the host's contract. */
+export async function componentSteps(page) {
+  await until(page, () => document.querySelector("section.title")?.textContent.includes("Count: 0 items"), null, "the heading's own component, its sentence in it");
+  assert.equal(await page.evaluate(() => document.querySelectorAll("button.mine").length), 1);
+  assert.equal(await page.evaluate(() => document.querySelector("button.mine").textContent), "Add one");
+  assert.equal(await page.evaluate(() => document.querySelector("button.mine").closest("[data-xtmd-widget]").getAttribute("data-xtmd-widget")), "core/press");
+  await page.evaluate(() => (document.querySelector("section.title").dataset.kept = "yes"));
+  await page.click("button.mine");
+  await until(page, () => document.querySelector("section.title")?.textContent.includes("Count: 1 items"), null, "an event from a component");
+  assert.equal(await page.evaluate(() => document.querySelector("section.title").dataset.kept), "yes", "the component is kept");
+  await page.evaluate(() => window.__test.unmount());
+  await until(page, () => document.querySelector("button.mine") === null, null, "the unmount");
 }

@@ -1,6 +1,6 @@
 // What sentences need wherever they are drawn: links and pictures checked before use, and TeX as text.
 
-import type { Value } from "@extended-mark/runtime";
+import type { Input } from "@extended-mark/runtime";
 import { field, list, str } from "./values.js";
 
 /** Whether a link may be followed: http, https and mailto, or a relative one. Whitespace and
@@ -23,14 +23,14 @@ export function safeSrc(url: string): string | undefined {
 }
 
 /** A template's text: its pieces with each hole's shown text between them. */
-export function templateText(v: Value | undefined): string {
+export function templateText(v: Input | undefined): string {
   const pieces = list(field(v, "pieces"));
   const holes = list(field(v, "holes"));
   return pieces.map((p, k) => str(p) + (holes[k] ? str(field(holes[k], "value")) : "")).join("");
 }
 
 /** A latex value's TeX: the text markdown.ts writes between dollars. */
-export function texOf(latex: Value | undefined): string {
+export function texOf(latex: Input | undefined): string {
   return templateText(field(latex, "tex"));
 }
 

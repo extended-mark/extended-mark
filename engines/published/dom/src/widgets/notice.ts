@@ -1,6 +1,6 @@
 // Notices: a widget that failed, one nobody supplies, and one whose own drawing threw. Each says so where the widget would be, as an alert.
 
-import type { Drawn } from "@extended-mark/runtime";
+import type { Node as Drawn } from "@extended-mark/runtime";
 import type { Widget, WidgetView } from "../api.js";
 import { h, text } from "../kit.js";
 

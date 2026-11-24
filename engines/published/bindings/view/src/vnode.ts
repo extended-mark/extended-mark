@@ -4,6 +4,8 @@
 // children; what can't be said that way (a canvas drawn on, a plane measured) is a hook the
 // renderer calls with the real element once it is in the document.
 
+import type { Input, Node } from "@extended-mark/runtime";
+
 /** One element. `svg` puts it in SVG's namespace; `key` keeps it across redraws among its siblings. */
 export interface VNode {
   tag: string;
@@ -19,6 +21,33 @@ export interface VNode {
   on?: Record<string, (e: Event) => void>;
   children: Child[];
   hook?: Hook;
+  /** The host's own component, drawn inside this element by the framework it is written in. */
+  component?: Component;
+}
+
+/** What a host's component is given for the widget it draws: the same in every framework. */
+export interface WidgetProps {
+  /** The widget: its id, its inputs, its events and the inputs it may write. */
+  node: Node;
+  /** The reader's event on it: what the page does with it. */
+  event(name: string, args?: Input[]): void;
+  /** Writes one of its `mut` inputs. */
+  write(input: string, value: Input): void;
+  /** Calls a fn input. */
+  call(input: string, args: Input[]): Input;
+}
+
+/** A component of the host's framework, with the widget it draws. */
+export interface Component {
+  of: unknown;
+  props: WidgetProps;
+  /** An input's widgets, for the framework to draw where the component puts them. */
+  children(input: string): Child[];
+}
+
+/** The inputs of a widget that hold widgets: what its component may place. */
+export function slotsOf(node: Node): string[] {
+  return Object.entries(node.inputs).flatMap(([k, x]) => ("nodes" in x ? [k] : []));
 }
 
 export type Child = VNode | string;

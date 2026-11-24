@@ -104,7 +104,7 @@ class Props(val node: Node) {
     fun slot(name: String): List<Node> = node.slots.firstOrNull { it.name == name }?.nodes ?: emptyList()
     /** The widgets an input holds, a rich_text's or a view's, in order. */
     fun nodes(v: Val?): List<Node> = (v.inner() as? Val.Nodes)?.let { slot(it.slot) } ?: emptyList()
-    val path: String get() = node.path
+    val id: String get() = node.id
     val widget: String get() = node.widget
 }
 
@@ -112,24 +112,24 @@ class Props(val node: Node) {
 class WidgetContext internal constructor(val page: CompiledPage, internal val scope: XtmdScope, node: Node) {
     var node: Node = node
         internal set
-    val path: String get() = node.path
+    val id: String get() = node.id
 
     /** The reader's event on this widget: runs the caller's handler, as one change. */
     fun event(name: String, args: List<Val> = emptyList()) {
-        page.watcher?.event(path, name, args)
-        page.change { it.event(path, name, args) }
+        page.watcher?.event(id, name, args)
+        page.change { it.event(id, name, args) }
     }
 
     /** This widget writing one of its `mut` inputs, as a slider does: checked, then one change.
      * A refused write leaves the value as it was. */
     fun write(input: String, value: Val) {
-        page.watcher?.write(path, input, value)
-        page.change { it.write(path, input, value) }
+        page.watcher?.write(id, input, value)
+        page.change { it.write(id, input, value) }
     }
 
     /** [write], off the main thread: a drag's write (see [FrameWriter]). */
     suspend fun writeAway(input: String, value: Val) {
-        page.writeAway(path, input, value)
+        page.writeAway(id, input, value)
     }
 
     /** Whether the caller set this event to a handler that does something: what makes it clickable. */
@@ -138,13 +138,13 @@ class WidgetContext internal constructor(val page: CompiledPage, internal val sc
     /** A slot's widgets, drawn one after another, each kept by its key. */
     @Composable
     fun Children(nodes: List<Node>) {
-        for (n in nodes) key(n.key) { DrawNode(n) }
+        for (n in nodes) key(n.id) { DrawNode(n) }
     }
 
     /** One widget of a slot. */
     @Composable
     fun Child(n: Node) {
-        key(n.key) { DrawNode(n) }
+        key(n.id) { DrawNode(n) }
     }
 
     /** Blocks as a flow: each after the one before, with the page's space between them (12 dp, as
@@ -152,7 +152,7 @@ class WidgetContext internal constructor(val page: CompiledPage, internal val sc
     @Composable
     fun Flow(nodes: List<Node>, modifier: Modifier = Modifier) {
         Column(modifier, verticalArrangement = FLOW) {
-            nodes.forEachIndexed { k, n -> key(n.key) { Block(n, k > 0) } }
+            nodes.forEachIndexed { k, n -> key(n.id) { Block(n, k > 0) } }
         }
     }
 
@@ -179,7 +179,7 @@ val XtmdSite = SemanticsPropertyKey<String>("XtmdSite")
 var SemanticsPropertyReceiver.xtmdSite by XtmdSite
 
 /** A widget's root: its site, and its part name (`slider`, `press`). */
-fun Modifier.site(ctx: WidgetContext, part: String): Modifier = this.semantics { xtmdSite = ctx.path }.testTag(part)
+fun Modifier.site(ctx: WidgetContext, part: String): Modifier = this.semantics { xtmdSite = ctx.id }.testTag(part)
 
 /**
  * A page from an IR file in the host's assets, read and mounted off the main thread: `null` until
@@ -198,9 +198,9 @@ fun DrawNode(node: Node) {
     scope.page.stats.draws++
     val ctx = remember(scope) { WidgetContext(scope.page, scope, node) }
     ctx.node = node
-    DisposableEffect(scope.page, node.path) {
-        scope.page.entered(node.path)
-        onDispose { scope.page.left(node.path) }
+    DisposableEffect(scope.page, node.id) {
+        scope.page.entered(node.id)
+        onDispose { scope.page.left(node.id) }
     }
     val w = scope.widgets[node.widget]
     val failed = node.failed
@@ -249,13 +249,13 @@ class SpotSizes {
     /** Whether Compose has measured every spot and plane in a tree: the layout waits for it, so
      * its first boxes are the real ones, not a size of nothing written and then put right. */
     internal fun ready(nodes: List<Node>): Boolean = nodes.all { n ->
-        (n.widget != "core/spot" || spots.containsKey(n.path)) && (n.widget != "core/plane" || planes.containsKey(n.path)) && n.slots.all { ready(it.nodes) }
+        (n.widget != "core/spot" || spots.containsKey(n.id)) && (n.widget != "core/plane" || planes.containsKey(n.id)) && n.slots.all { ready(it.nodes) }
     }
 
     /** The measure Compose's own sizes give. */
     val measure: Measure = object : Measure {
-        override fun spot(spot: Node): Extent = spots[spot.path] ?: Extent(0.0, 0.0)
-        override fun planeWidth(plane: Node): Double = planes[plane.path] ?: 0.0
+        override fun spot(spot: Node): Extent = spots[spot.id] ?: Extent(0.0, 0.0)
+        override fun planeWidth(plane: Node): Double = planes[plane.id] ?: 0.0
     }
 }
 

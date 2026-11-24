@@ -1,10 +1,12 @@
-//! The IR every engine runs, the compiler's cases and what a runtime says of a page, as Rust types.
+//! The IR every engine runs, the tree it gives a host to draw, the compiler's cases and what a runtime
+//! says of a page, as Rust types.
 //!
-//! Both modules are generated from the JSON Schemas in `schemas/`, which are the source:
+//! The modules are generated from the JSON Schemas in `schemas/`, which are the source:
 //! change a schema, then run `cargo run -p xtmd-schemagen`.
 
 pub mod check;
 pub mod ir;
+pub mod tree;
 
 impl ir::Type {
     /// A type by its name, with nothing else: `core/number`, `doc/task`.
@@ -15,5 +17,12 @@ impl ir::Type {
     /// A type with its type arguments: `core/list` of `doc/task`.
     pub fn of(name: &str, args: Vec<ir::Type>) -> ir::Type {
         ir::Type { args, ..ir::Type::named(name) }
+    }
+}
+
+impl ir::Template {
+    /// What it writes as Markdown: its markdown block, or its view.
+    pub fn markdown(&self) -> &[ir::Node] {
+        self.markdown.as_deref().unwrap_or(&self.view)
     }
 }

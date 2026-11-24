@@ -2,7 +2,7 @@
 // search engines and readers without JavaScript get the page's content, with the values it starts
 // with, and @extended-mark/dom replaces it when the page mounts. No DOM: it runs in Node, on a server.
 
-import { pageBlocks, type Block, type Inline, type PageOptions } from "@extended-mark/runtime";
+import { type Block, type Inline, type PageOptions } from "@extended-mark/runtime";
 import { makePage, type Ir } from "./page.js";
 
 /** The page's blocks as HTML: everything escaped, links and images only to safe addresses. */
@@ -14,7 +14,7 @@ export function blocksHtml(blocks: Block[]): string {
 export function pageHtml(irFile: Ir, opts: PageOptions = {}): string {
   const { state, ...rest } = opts;
   const { page } = makePage(irFile, rest, state);
-  return blocksHtml(pageBlocks(page));
+  return blocksHtml(page.blocks());
 }
 
 const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };

@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Page, Num, childrenOf, layout, place, keepInside, around } from "../dist/index.js";
+import { Page, Num, childrenOf, layout, place, keepInside, around } from "../dist/internal.js";
 import { xtmdBinary, workdir, repo as repoRoot } from "./xtmd.mjs";
 
 const dir = workdir();
@@ -412,4 +412,22 @@ test("an undone change leaves no reused node behind", () => {
   p.event("s0/s1", "click");
   assert.deepEqual(p.observeTree()["s0/s0"].props.value, { text: "0 of 10" });
   assert.equal(p.takeOutcome().failures.length, 1);
+});
+
+const TAKES = "extern scores {\n    best: int;\n    worst: int = 0;\n}\n@@@\n\\{scores.best} \\{scores.worst}\n";
+
+test("an IR of another version is refused, and told what to do", () => {
+  const ir = page("Hi.\n").module;
+  assert.throws(() => new Page({ ir: { ...ir, version: 3 } }), /this page is IR 3, this engine reads IR 4: run xtmd migrate/);
+  assert.throws(() => new Page({ ir: { ...ir, version: 5 } }), /this page is IR 5, this engine reads IR 4: use a later engine/);
+});
+
+test("a page's needs are checked when it loads: core's fns the engine has, and what the host gives", () => {
+  const ir = page("Hi.\n").module;
+  assert.throws(() => new Page({ ir: { ...ir, needs: { ...ir.needs, core: [...ir.needs.core, "core/text.backwards"] } } }), /this page needs `core\/text.backwards`, which this engine doesn't have/);
+  assert.deepEqual(page("Hi.\n").lacking(), []);
+  assert.deepEqual(page(TAKES, { externs: { "doc/scores": { best: num(3) } } }).lacking(), []);
+  // a value the host gives later is lacked until then
+  const p = page("extern scores {\n    best: int;\n    worst: int = 0;\n}\n@@@\n@if (scores.worst > 0) {\n    \\{scores.best}\n}\n");
+  assert.deepEqual(p.lacking(), ["doc/scores.best"]);
 });

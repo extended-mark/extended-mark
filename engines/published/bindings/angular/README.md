@@ -38,6 +38,8 @@ The same in every framework (@extended-mark/view's `DocProps`):
 | `onCalls` | The host's extern fns the page called. |
 | `externs`, `fns` | Each channel's values, by its name in the document or in full; the host's value fns, by full name. |
 | `page`, `widgets`, `measure` | The page's width and theme; a pack's own extern widgets, drawn the way core's are; how the plane's spots are measured. |
+| `components` | Angular components as widgets, by full name. Each is given the inputs it declares of `node`, `event`, `write` and `call`, and an input's widgets where `<ng-content select="[data-xtmd-slot=body]" />` is. |
+| `failed` | What is drawn where a widget failed, in place of our notice. |
 
 Outputs are `(stateChange)`, `(error)` and `(calls)`. The handle is the component: `document`, `set`, `getState`, `markdown`, `expose`, `snapshot`, `restore`. A snapshot is opaque JSON: with the same IR, `restore` puts all of
 it back; with another, `$state` only.

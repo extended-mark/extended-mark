@@ -33,6 +33,11 @@ impl Set {
         Set(self.0 | o.0)
     }
 
+    /// The levels beyond core.draw, as a call or a widget lists them.
+    fn beyond(self) -> Vec<Level> {
+        Set(self.0 & !1).list()
+    }
+
     fn list(self) -> Vec<Level> {
         let mut out = Vec::new();
         if self.0 & 1 != 0 {
@@ -201,7 +206,7 @@ impl<'m> Levels<'m> {
             let s = self.node(n);
             match n {
                 Node::Extern(e) => {
-                    e.levels = s.list();
+                    e.levels = s.beyond();
                     for x in e.props.values_mut() {
                         self.write_held(x);
                     }
@@ -210,7 +215,7 @@ impl<'m> Levels<'m> {
                     }
                 }
                 Node::Use(u) => {
-                    u.levels = s.list();
+                    u.levels = s.beyond();
                     for x in u.args.values_mut() {
                         self.write_held(x);
                     }
@@ -252,14 +257,14 @@ pub fn compute(m: &mut ir::Module) {
         };
         // each node's levels, worked out against the module as it is
         let mut views: Vec<Vec<Node>> = m.templates.iter().map(|t| t.view.clone()).collect();
-        let mut marks: Vec<Vec<Node>> = m.templates.iter().map(|t| t.markdown.clone()).collect();
-        for v in views.iter_mut().chain(marks.iter_mut()) {
+        let mut marks: Vec<Option<Vec<Node>>> = m.templates.iter().map(|t| t.markdown.clone()).collect();
+        for v in views.iter_mut().chain(marks.iter_mut().flatten()) {
             lv.write(v);
         }
         (per.into_iter().zip(views.into_iter().zip(marks)).collect::<Vec<_>>(), page)
     };
     for (t, (s, (view, md))) in m.templates.iter_mut().zip(per_template) {
-        t.levels = s.list();
+        t.levels = s.beyond();
         t.view = view;
         t.markdown = md;
     }

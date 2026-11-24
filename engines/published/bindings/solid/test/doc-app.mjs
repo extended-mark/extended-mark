@@ -1,7 +1,7 @@
 // The test host for <XtmdDoc>: drawn by Solid itself, `$state` controlled by the host, with the
 // controls the shared doc steps use (testing/browser.mjs, docSteps).
 import { createComponent, createSignal, Show } from "solid-js";
-import { render } from "solid-js/web";
+import { Dynamic, render } from "solid-js/web";
 import { XtmdDoc } from "@extended-mark/solid";
 
 const heard = { states: [], errors: [], calls: [] };
@@ -11,6 +11,15 @@ const [unit, setUnit] = createSignal("items");
 const [state, setState] = createSignal(undefined);
 const [shown, setShown] = createSignal(true);
 let handle;
+
+const components = {
+  "core/press": (p) => createComponent(Dynamic, { component: "button", class: "mine", "on:click": () => p.event("click"), get children() {
+    return p.node.inputs.label.text;
+  } }),
+  "core/heading": (p) => createComponent(Dynamic, { component: "section", class: "title", get children() {
+    return p.slot("value");
+  } }),
+};
 
 render(
   () =>
@@ -27,6 +36,7 @@ render(
           get state() {
             return state();
           },
+          components: window.__mine ? components : undefined,
           get page() {
             return { theme: theme() };
           },

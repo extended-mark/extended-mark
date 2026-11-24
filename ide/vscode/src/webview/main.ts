@@ -8,7 +8,7 @@ import { XtmdLiveDoc, Compiler, type PackFile } from "@extended-mark/embed-live"
 import type { ir } from "@extended-mark/runtime";
 import type { Built } from "@extended-mark/wasm";
 import { failedCalls } from "../../../../apps/playground/src/failures.js";
-import { widgets } from "./widgets.js";
+import { failed, widgets } from "./widgets.js";
 
 declare function acquireVsCodeApi(): { postMessage(m: unknown): void; getState(): unknown; setState(s: unknown): void };
 const vscode = acquireVsCodeApi();
@@ -65,6 +65,7 @@ function draw(src: Source): void {
     packs: src.packs,
     compiler: builds,
     widgets,
+    failed,
     page: { theme },
     onError: (e: { kind: string; message?: string }) => {
       if (e.kind !== "compile") vscode.postMessage({ type: "log", text: `${e.kind}: ${e.message ?? ""}` });

@@ -174,7 +174,7 @@ pub fn plane_writes(page: &Page, plane: &Drawn, measure: &mut dyn Measure, start
         let size = measure.spot(page, s);
         let b = place(at, &anchor, nudge, size)?;
         boxes.push(b);
-        writes.push(LayoutWrite { path: s.path.clone(), input: "box".into(), value: Value::some(region_value(&b)) });
+        writes.push(LayoutWrite { id: s.id.clone(), input: "box".into(), value: Value::some(region_value(&b)) });
     }
     let bounds = region_of(plane.props.get("bounds")).or_else(|| around(&boxes));
     let aspect = num_of(plane.props.get("aspect"), Num::parse("1.5").unwrap());
@@ -197,8 +197,8 @@ pub fn plane_writes(page: &Page, plane: &Drawn, measure: &mut dyn Measure, start
         }
     }
     let mut zoom = was_zoom;
-    if !started.contains(&plane.key) {
-        started.insert(plane.key.clone());
+    if !started.contains(&plane.id) {
+        started.insert(plane.id.clone());
         if fit {
             zoom = base;
         }
@@ -233,7 +233,7 @@ pub fn plane_writes(page: &Page, plane: &Drawn, measure: &mut dyn Measure, start
         zoom = most;
     }
     if zoom != was_zoom {
-        writes.push(LayoutWrite { path: plane.path.clone(), input: "zoom".into(), value: Value::Num(zoom) });
+        writes.push(LayoutWrite { id: plane.id.clone(), input: "zoom".into(), value: Value::Num(zoom) });
     }
     // the drawn area, in the plane's units: the widget's size on the page over the zoom
     let half_size = Pt { x: width.div(zoom)?.mul(half())?, y: width.div(aspect)?.div(zoom)?.mul(half())? };
@@ -243,10 +243,10 @@ pub fn plane_writes(page: &Page, plane: &Drawn, measure: &mut dyn Measure, start
         None => was,
     };
     if center.x != was.x || center.y != was.y {
-        writes.push(LayoutWrite { path: plane.path.clone(), input: "center".into(), value: pt_value(&center) });
+        writes.push(LayoutWrite { id: plane.id.clone(), input: "center".into(), value: pt_value(&center) });
     }
     let drawn = Region { from: Pt { x: center.x.sub(half_size.x)?, y: center.y.sub(half_size.y)? }, to: Pt { x: center.x.add(half_size.x)?, y: center.y.add(half_size.y)? } };
-    writes.push(LayoutWrite { path: plane.path.clone(), input: "drawn".into(), value: Value::some(region_value(&drawn)) });
+    writes.push(LayoutWrite { id: plane.id.clone(), input: "drawn".into(), value: Value::some(region_value(&drawn)) });
     Ok(writes)
 }
 
@@ -287,8 +287,8 @@ impl Page {
                 return Ok(());
             }
         }
-        let paths: Vec<String> = planes(self.tree()).iter().map(|p| p.path.clone()).collect();
-        for p in paths {
+        let ids: Vec<String> = planes(self.tree()).iter().map(|p| p.id.clone()).collect();
+        for p in ids {
             self.layout_failed(&p);
         }
         self.held_layout = Some(self.changes());

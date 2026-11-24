@@ -3,8 +3,8 @@
 // the same stylesheet). What only the live element can do (moving focus along a group of tabs,
 // showing a popover) is done in its listeners and hooks.
 
-import { Num, Value as V, type Drawn, type Page, type ir } from "@extended-mark/runtime";
-import { exact, FILLED, flag, GLYPHS, inner, kase, safeSrc, str } from "@extended-mark/dom/shared";
+import { Num, type Node as Drawn } from "@extended-mark/runtime";
+import { exact, FILLED, flag, GLYPHS, kase, nodes, range, safeSrc, str } from "@extended-mark/dom/shared";
 import type { ViewWidget } from "../render.js";
 import type { Act } from "../act.js";
 import { attr, cls, css, h, on, prop, s, type Child, type VNode } from "../vnode.js";
@@ -12,9 +12,9 @@ import { attr, cls, css, h, on, prop, s, type Child, type VNode } from "../vnode
 const ALIGN: Record<string, string> = { START: "start", CENTER: "center", END: "end", STRETCH: "justify", BASELINE: "start" };
 
 /** An id unique on the document and the same at every render: the document's prefix and the
- * widget's place. */
+ * widget's own. */
 export function idOf(uid: string, what: string, d: Drawn): string {
-  return `${uid}${what}-${d.path.replace(/[^A-Za-z0-9_-]/g, "_")}`;
+  return `${uid}${what}-${d.id.replace(/[^A-Za-z0-9_-]/g, "_")}`;
 }
 
 /** A DOM event a control handled, so a clickable flex around it lets it be (as @extended-mark/dom's claim). */
@@ -27,7 +27,7 @@ export const isClaimed = (e: Event): boolean => claimed.has(e);
 // ---- label, image, icon
 
 export const label: ViewWidget = (d, ctx) => {
-  const p = (k: string) => d.props.get(k);
+  const p = (k: string) => d.inputs[k];
   const value = str(p("value"));
   const font = kase(p("font"));
   const a = kase(p("align")) ?? "START";
@@ -47,9 +47,9 @@ export const label: ViewWidget = (d, ctx) => {
 };
 
 export const image: ViewWidget = (d, ctx) => {
-  const safe = safeSrc(str(d.props.get("src")));
-  const el = h("img", "image", { loading: "lazy", decoding: "async", alt: str(d.props.get("alt")), src: safe, "data-unsafe-src": safe ? undefined : "" });
-  css(el, "width", ctx.tokens.length(d.props.get("width")));
+  const safe = safeSrc(str(d.inputs.src));
+  const el = h("img", "image", { loading: "lazy", decoding: "async", alt: str(d.inputs.alt), src: safe, "data-unsafe-src": safe ? undefined : "" });
+  css(el, "width", ctx.tokens.length(d.inputs.width));
   return el;
 };
 
@@ -60,14 +60,14 @@ export function glyph(name: string | undefined, part = "icon"): VNode {
 }
 
 export const icon: ViewWidget = (d, ctx) => {
-  const el = glyph(kase(d.props.get("name")));
-  const lbl = str(d.props.get("label"));
+  const el = glyph(kase(d.inputs.name));
+  const lbl = str(d.inputs.label);
   // labelled, it is a picture with a name; otherwise decoration
   attr(el, "role", lbl ? "img" : undefined);
   attr(el, "aria-label", lbl || undefined);
   attr(el, "aria-hidden", lbl ? undefined : "true");
-  attr(el, "data-size", (kase(d.props.get("size")) ?? "NORMAL").toLowerCase());
-  css(el, "color", ctx.tokens.color(d.props.get("tone")));
+  attr(el, "data-size", (kase(d.inputs.size) ?? "NORMAL").toLowerCase());
+  css(el, "color", ctx.tokens.color(d.inputs.tone));
   return el;
 };
 
@@ -88,18 +88,18 @@ const KINDS: Record<string, { role?: string; state?: string }> = {
 const GROUPED = new Set(["TAB", "OPTION", "RADIO"]);
 
 export const press: ViewWidget = (d, ctx) => {
-  const p = (k: string) => d.props.get(k);
+  const p = (k: string) => d.inputs[k];
   const kind = kase(p("kind")) ?? "BUTTON";
   const k = KINDS[kind] ?? KINDS.BUTTON;
   const selected = flag(p("selected"));
   const disabled = flag(p("disabled"));
-  const nodes = d.slots.get("content") ?? [];
+  const inside = nodes(d.inputs.content);
   // with content of its own, the label is its accessible name; with none, its text
   const name = str(p("label"));
   const tone = ctx.tokens.color(p("tone"));
-  const lbl = prop(h("span", "press.label", {}, nodes.length ? [] : [name]), "hidden", nodes.length > 0);
-  const content = prop(h("span", "press.content", {}, ctx.children(nodes)), "hidden", nodes.length === 0);
-  const el = h("button", "press", { type: "button", "data-kind": kind.toLowerCase(), role: k.role, "aria-label": nodes.length ? name : undefined }, [
+  const lbl = prop(h("span", "press.label", {}, inside.length ? [] : [name]), "hidden", inside.length > 0);
+  const content = prop(h("span", "press.content", {}, ctx.children(inside)), "hidden", inside.length === 0);
+  const el = h("button", "press", { type: "button", "data-kind": kind.toLowerCase(), role: k.role, "aria-label": inside.length ? name : undefined }, [
     h("span", "press.indicator", { "aria-hidden": "true" }),
     lbl,
     content,
@@ -137,11 +137,11 @@ export const press: ViewWidget = (d, ctx) => {
 const composing = new WeakSet<EventTarget>();
 
 export const field: ViewWidget = (d, ctx) => {
-  const p = (k: string) => d.props.get(k);
+  const p = (k: string) => d.inputs[k];
   const lines = Math.max(1, Math.min(20, Math.round(Number(str(p("lines"))) || 1)));
   const multi = lines > 1;
   const write = (el: HTMLInputElement | HTMLTextAreaElement) => {
-    if (!composing.has(el)) ctx.write("value", V.text(el.value));
+    if (!composing.has(el)) ctx.write("value", { text: el.value });
   };
   const input = h(multi ? "textarea" : "input", "field.input", multi ? { rows: String(lines) } : { type: "text" });
   attr(input, "placeholder", str(p("placeholder")) || undefined);
@@ -173,37 +173,12 @@ interface Ends {
   step: Num;
 }
 
-/** The ends and step a variable's type gives, its aliases' included: `int 0..10` is 0, 10, 1. */
-function contractEnds(page: Page, t: ir.Type | undefined): { low?: Num; high?: Num; step?: Num } {
-  const out: { low?: Num; high?: Num; step?: Num } = {};
-  const n = (x: ir.Expr | undefined): Num | undefined => {
-    if (!x) return undefined;
-    try {
-      return exact(page.value(x));
-    } catch {
-      return undefined;
-    }
-  };
-  for (let k = 0; t && k < 16; k++) {
-    const c = t.contract;
-    out.low ??= n(c?.range?.low);
-    out.high ??= n(c?.range?.high);
-    out.step ??= n(c?.step);
-    t = page.program.aliases.get(t.name);
-  }
-  return out;
-}
-
 /** A slider's ends: from `range` when it is given, then from its variable's contract, then 0..1. */
-export function endsOf(d: Drawn, page: Page): Ends {
-  const r = inner(d.props.get("range"));
-  const given = r && r.kind === "range" ? { low: exact(r.low ?? undefined), high: exact(r.high ?? undefined), step: exact(r.step ?? undefined) } : {};
-  let c: { low?: Num; high?: Num; step?: Num } = {};
-  try {
-    c = contractEnds(page, page.writeType(d, "value"));
-  } catch {
-    // a type it can't read: the defaults
-  }
+export function endsOf(d: Drawn): Ends {
+  const r = range(d.inputs.range);
+  const given = { low: exact(r?.low), high: exact(r?.high), step: exact(r?.step) };
+  const w = d.writes?.value;
+  const c = { low: exact(w?.range?.low), high: exact(w?.range?.high), step: exact(w?.step) };
   const low = given.low ?? c.low ?? Num.zero();
   let high = given.high ?? c.high;
   let step = given.step ?? c.step;
@@ -224,8 +199,8 @@ export function snap(x: Num, e: Ends): Num {
 
 export const slider: ViewWidget = (d, ctx) => {
   const id = idOf(ctx.uid, "slider", d);
-  const ends = endsOf(d, ctx.page);
-  const value = exact(d.props.get("value"));
+  const ends = endsOf(d);
+  const value = exact(d.inputs.value);
   const shown = value?.show() ?? "";
   const input = h("input", "slider.input", {
     type: "range",
@@ -239,16 +214,16 @@ export const slider: ViewWidget = (d, ctx) => {
     "aria-valuetext": shown || undefined,
   });
   if (value) prop(input, "value", shown);
-  prop(input, "disabled", flag(d.props.get("disabled")));
+  prop(input, "disabled", flag(d.inputs.disabled));
   on(input, "input", (e) => {
     const x = Num.parse((e.currentTarget as HTMLInputElement).value);
     if (!x) return;
     const v = snap(x, ends);
     if (value && v.equals(value)) return;
-    ctx.write("value", { kind: "num", n: v });
+    ctx.write("value", { num: v.show() });
   });
   on(input, "click", claim);
-  return h("div", "slider", {}, [h("label", "slider.label", { for: id }, [str(d.props.get("label"))]), input, h("output", "slider.value", { for: id, "aria-hidden": "true" }, [shown])]);
+  return h("div", "slider", {}, [h("label", "slider.label", { for: id }, [str(d.inputs.label)]), input, h("output", "slider.value", { for: id, "aria-hidden": "true" }, [shown])]);
 };
 
 // ---- overlay
@@ -261,18 +236,18 @@ function showing(body: Element): boolean {
 }
 
 export const overlay: ViewWidget = (d, ctx) => {
-  const mode = kase(d.props.get("mode")) ?? "POPOVER";
-  const open = flag(d.props.get("open"));
-  const name = str(d.props.get("label"));
+  const mode = kase(d.inputs.mode) ?? "POPOVER";
+  const open = flag(d.inputs.open);
+  const name = str(d.inputs.label);
   const id = idOf(ctx.uid, "overlay", d);
   const tooltip = mode === "TOOLTIP";
   /** The reader opening or closing it: written to `open`, then told as `open_changed`. */
   const setOpen = (want: boolean) => {
     if (want === open) return;
-    ctx.write("open", V.bool(want));
+    ctx.write("open", { bool: want });
     ctx.event("open_changed");
   };
-  const anchorKids: Child[] = ctx.children(d.slots.get("anchor") ?? []);
+  const anchorKids: Child[] = ctx.children(nodes(d.inputs.anchor));
   const anchor = h("span", "overlay.anchor", {}, anchorKids);
   css(anchor, "anchor-name", `--${id}`);
   let pressedWhileOpen = false;
@@ -297,7 +272,7 @@ export const overlay: ViewWidget = (d, ctx) => {
   if (tooltip) {
     for (const [type, want] of [["pointerenter", true], ["pointerleave", false], ["focusin", true], ["focusout", false]] as const) on(anchor, type, () => setOpen(want));
   }
-  const bodyKids = ctx.children(d.slots.get("body") ?? []);
+  const bodyKids = ctx.children(nodes(d.inputs.body));
   const body =
     mode === "DIALOG"
       ? h("dialog", "overlay.body", { id, "data-mode": "dialog", role: "dialog", "aria-label": name || undefined }, bodyKids)
@@ -394,11 +369,11 @@ export const acts: Record<string, Act> = {
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, ctrlKey: input instanceof HTMLTextAreaElement }));
       return true;
     }
-    if (a.write !== "value" || a.value.kind !== "text") return false;
+    if (a.write !== "value" || !("text" in a.value)) return false;
     // a one-line input can't hold a line break: that write goes through the page
-    if (input instanceof HTMLInputElement && /[\r\n]/.test(a.value.s)) return false;
+    if (input instanceof HTMLInputElement && /[\r\n]/.test(a.value.text)) return false;
     input.focus();
-    setNative(input, a.value.s);
+    setNative(input, a.value.text);
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.dispatchEvent(new Event("change", { bubbles: true }));
     return true;
@@ -406,10 +381,10 @@ export const acts: Record<string, Act> = {
   "core/slider": (el, a, page, path) => {
     if (!("write" in a) || a.write !== "value") return false;
     const input = el.querySelector<HTMLInputElement>("[data-part='slider.input']");
-    const d = page.find(path);
+    const d = page.node(path);
     if (!input || !d) return false;
-    const ends = endsOf(d, page);
-    const x = a.value.kind === "num" ? a.value.n : undefined;
+    const ends = endsOf(d);
+    const x = exact(a.value);
     // only what a drag can reach: on the grid, between the ends
     if (!x || x.lt(ends.low) || x.gt(ends.high) || !snap(x, ends).equals(x)) return false;
     if (input.disabled) return true;
@@ -419,14 +394,14 @@ export const acts: Record<string, Act> = {
     return true;
   },
   "core/overlay": (el, a) => {
-    if (!("write" in a) || a.write !== "open" || a.value.kind !== "bool") return false;
+    if (!("write" in a) || a.write !== "open" || !("bool" in a.value)) return false;
     const open = el.getAttribute("data-open") === "true";
-    if (a.value.b === open) return true;
+    if (a.value.bool === open) return true;
     const anchor = el.querySelector<HTMLElement>(":scope > [data-part='overlay.anchor']");
     const body = el.querySelector<HTMLElement>(":scope > [data-part='overlay.body']");
     if (!anchor || !body) return false;
-    if (body.getAttribute("data-mode") === "tooltip") anchor.dispatchEvent(new FocusEvent(a.value.b ? "focusin" : "focusout", { bubbles: true }));
-    else if (a.value.b || !showing(body)) (anchor.querySelector<HTMLElement>(FOCUSABLE) ?? anchor).click();
+    if (body.getAttribute("data-mode") === "tooltip") anchor.dispatchEvent(new FocusEvent(a.value.bool ? "focusin" : "focusout", { bubbles: true }));
+    else if (a.value.bool || !showing(body)) (anchor.querySelector<HTMLElement>(FOCUSABLE) ?? anchor).click();
     else if (body instanceof HTMLDialogElement) body.close();
     else body.hidePopover();
     return true;

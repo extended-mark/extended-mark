@@ -67,9 +67,8 @@ type Res<T> = Result<T, XtmdError>;
 #[derive(Clone, Debug, uniffi::Record)]
 pub struct Node {
     /// Who it is on this draw: the sites of the instances it is in, loop rows by position.
-    pub path: String,
-    /// Who it is across redraws: a loop row's widgets follow its item. Compose keys by this.
-    pub key: String,
+    /// Who it is: its own on the page, and the same for as long as it is there.
+    pub id: String,
     /// Its full name: `core/press`.
     pub widget: String,
     pub props: HashMap<String, Val>,
@@ -85,7 +84,7 @@ pub struct Node {
     pub failed: Option<String>,
     /// From [`NativePage::tree_update`]: this widget and everything in its slots are as they were
     /// when the tree was last read, so this node is a stub (its props and slots left out) for the
-    /// node with this key that the reader holds.
+    /// node with this id that the reader holds.
     pub same: bool,
 }
 
@@ -201,7 +200,7 @@ impl Inner {
     fn sent_now(&mut self) {
         fn walk(page: &Page, nodes: &[Drawn], out: &mut HashMap<String, Vec<String>>) {
             for d in nodes {
-                out.insert(d.key.clone(), d.events.keys().filter(|e| page.listens(d, e)).cloned().collect());
+                out.insert(d.id.clone(), d.events.keys().filter(|e| page.listens(d, e)).cloned().collect());
                 for kids in d.slots.values().chain(&d.held) {
                     walk(page, kids, out);
                 }
@@ -285,8 +284,7 @@ fn supplies_fn(list: Option<Vec<String>>) -> Option<xtmd_runtime::Supplies> {
 /// A drawn widget as Kotlin reads it, without its slots.
 pub(crate) fn node_shallow(page: &Page, d: &Drawn) -> Node {
     Node {
-        path: d.path.clone(),
-        key: d.key.clone(),
+        id: d.id.clone(),
         widget: d.widget.clone(),
         props: d.props.iter().map(|(k, v)| (k.clone(), convert::val(page, v))).collect(),
         slots: Vec::new(),
@@ -465,7 +463,7 @@ impl NativePage {
 
     /// The drawn widgets, as [`NativePage::tree`] gives them, but with each widget that is as it
     /// was when the tree was read at revision `since` (and everything in its slots) left as a stub,
-    /// `same: true`, for the node with its key the reader holds. Read at any other revision than
+    /// `same: true`, for the node with its id the reader holds. Read at any other revision than
     /// the last one this page sent, every node is whole.
     pub fn tree_update(&self, since: u64) -> Res<Vec<Node>> {
         self.with(|i| {
@@ -488,9 +486,9 @@ impl NativePage {
         self.lock().map(|g| g.guard.0.timings).unwrap_or_default()
     }
 
-    /// The drawn widget at a path.
-    pub fn node(&self, path: String) -> Res<Option<Node>> {
-        self.with(|i| Ok(i.page.find(&path).map(|d| node(&i.page, d))))
+    /// The drawn widget of an id.
+    pub fn node(&self, id: String) -> Res<Option<Node>> {
+        self.with(|i| Ok(i.page.find(&id).map(|d| node(&i.page, d))))
     }
 
     /// The page as Markdown, with the values it has now: the same text on every engine.
@@ -559,10 +557,10 @@ impl NativePage {
     }
 
     /// A slider's ends and step, worked out exactly.
-    pub fn slider_ends(&self, path: String) -> Res<Ends> {
+    pub fn slider_ends(&self, id: String) -> Res<Ends> {
         self.with(|i| {
             let page = &i.page;
-            let d = page.find(&path).ok_or_else(|| failed(format!("nothing is drawn at {}", path)))?;
+            let d = page.find(&id).ok_or_else(|| failed(format!("no widget is {}", id)))?;
             let mut low = None;
             let mut high = None;
             let mut step = None;
@@ -613,25 +611,25 @@ impl NativePage {
     /// The colours a `shade` paints: `cols` by `rows` pixels over its area, each worked out by
     /// its shader at the pixel's middle, as ARGB, row by row from the top. A pixel whose shader
     /// fails is transparent.
-    pub fn shade(&self, path: String, cols: u32, rows: u32) -> Res<Vec<i32>> {
-        self.with(|i| fns::shade(&i.page, &path, cols, rows))
+    pub fn shade(&self, id: String, cols: u32, rows: u32) -> Res<Vec<i32>> {
+        self.with(|i| fns::shade(&i.page, &id, cols, rows))
     }
 
     // ---- changing it: each call is one change
 
     /// The reader's event on a drawn widget: runs its caller's handler.
-    pub fn event(&self, path: String, name: String, args: Vec<Val>) -> Res<()> {
+    pub fn event(&self, id: String, name: String, args: Vec<Val>) -> Res<()> {
         self.change(|i| {
             let args = args.iter().map(|a| i.page.value(&convert::expr(a))).collect::<Result<Vec<_>, _>>()?;
-            Ok(i.page.event(&path, &name, args)?)
+            Ok(i.page.event(&id, &name, args)?)
         })
     }
 
     /// A drawn widget writing one of its `mut` inputs, as a slider does: checked, then one change.
-    pub fn write(&self, path: String, input: String, value: Val) -> Res<()> {
+    pub fn write(&self, id: String, input: String, value: Val) -> Res<()> {
         self.change(|i| {
             let v = i.page.value(&convert::expr(&value))?;
-            Ok(i.page.write(&path, &input, v)?)
+            Ok(i.page.write(&id, &input, v)?)
         })
     }
 
@@ -685,19 +683,19 @@ impl NativePage {
     }
 
     /// `event`, its arguments in the IR's form (a JSON list).
-    pub fn event_json(&self, path: String, name: String, args_json: String) -> Res<()> {
+    pub fn event_json(&self, id: String, name: String, args_json: String) -> Res<()> {
         self.change(|i| {
             let xs: Vec<Expr> = serde_json::from_str(&args_json).map_err(|e| failed(format!("not values: {}", e)))?;
             let args = xs.iter().map(|x| i.page.value(x)).collect::<Result<Vec<_>, _>>()?;
-            Ok(i.page.event(&path, &name, args)?)
+            Ok(i.page.event(&id, &name, args)?)
         })
     }
 
     /// `write`, its value in the IR's form.
-    pub fn write_json(&self, path: String, input: String, value_json: String) -> Res<()> {
+    pub fn write_json(&self, id: String, input: String, value_json: String) -> Res<()> {
         self.change(|i| {
             let v = i.page.value(&expr_json(&value_json)?)?;
-            Ok(i.page.write(&path, &input, v)?)
+            Ok(i.page.write(&id, &input, v)?)
         })
     }
 

@@ -5,8 +5,8 @@
 // A surface draws its slots inside its space, so the shapes read it as they are drawn; where the
 // space needs the surface on the screen (a pointer in units) it is measured in the listener.
 
-import { MAX_STEPS, Num, ptValue, toIr, type Drawn, type Page, type Value } from "@extended-mark/runtime";
-import { exact, field, flag, inner, kase, list, num, placesFor, point, region, str, toNum, type XY } from "@extended-mark/dom/shared";
+import { type Input, type Node as Drawn } from "@extended-mark/runtime";
+import { exact, field, flag, kase, list, nodes, num, paint, placesFor, point, pointInput, range, region, sig, str, toNum, type XY } from "@extended-mark/dom/shared";
 import type { ViewContext, ViewWidget } from "../render.js";
 import type { Act } from "../act.js";
 import { attr, cls, css, h, on, s, type VNode } from "../vnode.js";
@@ -47,30 +47,13 @@ function currentSpace(): Space {
   return spaces[spaces.length - 1] ?? loose;
 }
 
-/** A value's identity for "did it change": its IR form, with fns by their code (as @extended-mark/dom's). */
-function sig(v: Value | undefined): string {
-  if (!v) return "";
-  if (v.kind === "fn") return `fn:${fnId(v)}`;
-  return JSON.stringify(toIr(v));
-}
-
-const fnIds = new WeakMap<object, number>();
-let nextFn = 0;
-
-/** A fn value's code, as a number: the same lambda keeps it across redraws. */
-function fnId(v: Value & { kind: "fn" }): number {
-  let id = fnIds.get(v.body);
-  if (id === undefined) fnIds.set(v.body, (id = ++nextFn));
-  return id;
-}
-
 /** Whether a shape has the pointer or the keyboard's focus now, as it last told the page. */
 const inside = new WeakMap<Element, boolean>();
 
 /** A shape's events: clicks, and the pointer or the focus entering and leaving. Only events that
  * do something make a shape interactive. */
 function shapeEvents(el: VNode, d: Drawn, ctx: ViewContext, name: string): VNode {
-  const has = (e: string) => (ctx.page.listens ? ctx.page.listens(d, e) : d.events.has(e));
+  const has = (e: string) => !!d.events?.includes(e);
   const click = has("click");
   const hover = has("enter") || has("leave");
   const live = click || hover;
@@ -112,13 +95,13 @@ function shapeEvents(el: VNode, d: Drawn, ctx: ViewContext, name: string): VNode
 }
 
 /** A stroke's width in pixels: a stroke token, or stroke.PX's number. */
-function strokeWidth(v: Value | undefined, ctx: ViewContext): number {
+function strokeWidth(v: Input | undefined, ctx: ViewContext): number {
   return num(ctx.tokens.value(v)) ?? 1;
 }
 
 /** An opacity as its attribute: left off at 1. */
 function opacity(el: VNode, d: Drawn): VNode {
-  const o = num(d.props.get("opacity")) ?? 1;
+  const o = num(d.inputs.opacity) ?? 1;
   return attr(el, "opacity", o === 1 ? undefined : String(o));
 }
 
@@ -127,14 +110,14 @@ function opacity(el: VNode, d: Drawn): VNode {
 const SURFACE = "[data-part='canvas.surface']";
 
 export const canvas: ViewWidget = (d, ctx) => {
-  const ends = (v: Value | undefined) => {
-    const r = inner(v);
-    return r && r.kind === "range" ? { lo: num(r.low ?? undefined) ?? -1, hi: num(r.high ?? undefined) ?? 1 } : { lo: -1, hi: 1 };
+  const ends = (v: Input | undefined) => {
+    const r = range(v);
+    return { lo: num(r?.low) ?? -1, hi: num(r?.high) ?? 1 };
   };
-  const xr = ends(d.props.get("x"));
-  const yr = ends(d.props.get("y"));
-  const w = ctx.tokens.number(d.props.get("width")) ?? 320;
-  const aspect = num(d.props.get("aspect")) ?? (xr.hi - xr.lo) / (yr.hi - yr.lo || 1);
+  const xr = ends(d.inputs.x);
+  const yr = ends(d.inputs.y);
+  const w = ctx.tokens.number(d.inputs.width) ?? 320;
+  const aspect = num(d.inputs.aspect) ?? (xr.hi - xr.lo) / (yr.hi - yr.lo || 1);
   const ht = w / (aspect > 0 ? aspect : 1);
   /** The canvas's SVG on the screen, from anything drawn in it. */
   const surface = (from: Element): Element => from.closest(SURFACE) ?? from;
@@ -153,8 +136,8 @@ export const canvas: ViewWidget = (d, ctx) => {
     },
     keep: (p) => ({ x: Math.min(xr.hi, Math.max(xr.lo, p.x)), y: Math.min(yr.hi, Math.max(yr.lo, p.y)) }),
   };
-  const listens = ctx.page.listens ? ctx.page.listens(d, "click") : d.events.has("click");
-  const layers = inSpace(space, () => ctx.children(d.slots.get("layers") ?? []));
+  const listens = !!d.events?.includes("click");
+  const layers = inSpace(space, () => ctx.children(nodes(d.inputs.layers)));
   const svg = s("svg", "canvas.surface", { preserveAspectRatio: "none", viewBox: `0 0 ${w} ${ht}` }, layers);
   on(svg, "click", (e) => {
     if (!listens || isClaimed(e)) return;
@@ -163,9 +146,9 @@ export const canvas: ViewWidget = (d, ctx) => {
     const at = space.unit(me.clientX, me.clientY, from);
     if (!at) return;
     const p = placesFor(space.unitsPerPx(from));
-    ctx.event("click", [ptValue({ x: toNum(at.x, p), y: toNum(at.y, p) })]);
+    ctx.event("click", [pointInput({ x: toNum(at.x, p), y: toNum(at.y, p) })]);
   });
-  const el = h("figure", "canvas", { role: "group", "aria-label": str(d.props.get("label")) || undefined }, [svg]);
+  const el = h("figure", "canvas", { role: "group", "aria-label": str(d.inputs.label) || undefined }, [svg]);
   css(el, "width", `${w}px`);
   css(el, "aspect-ratio", `${w} / ${ht}`);
   return cls(el, "xtmd-clickable", listens);
@@ -177,13 +160,13 @@ export const layer: ViewWidget = (d, ctx) => {
   const space = currentSpace();
   const id = idOf(ctx.uid, "clip", d);
   const rect = s("rect");
-  const r = region(d.props.get("clip"));
+  const r = region(d.inputs.clip);
   if (r) {
     const [x0, x1] = [space.x(r.from.x), space.x(r.to.x)].sort((a, b) => a - b);
     const [y0, y1] = [space.y(r.from.y), space.y(r.to.y)].sort((a, b) => a - b);
     for (const [k, v] of [["x", x0], ["y", y0], ["width", x1 - x0], ["height", y1 - y0]] as const) attr(rect, k, String(v));
   }
-  const shapes = s("g", "layer.shapes", { "clip-path": r ? `url(#${id})` : undefined }, ctx.children(d.slots.get("shapes") ?? []));
+  const shapes = s("g", "layer.shapes", { "clip-path": r ? `url(#${id})` : undefined }, ctx.children(nodes(d.inputs.shapes)));
   return opacity(s("g", "layer", {}, [s("clipPath", undefined, { id }, [rect]), shapes]), d);
 };
 
@@ -192,36 +175,36 @@ export const layer: ViewWidget = (d, ctx) => {
 export const circle: ViewWidget = (d, ctx) => {
   const space = currentSpace();
   const t = ctx.tokens;
-  const at = point(d.props.get("at")) ?? { x: 0, y: 0 };
+  const at = point(d.inputs.at) ?? { x: 0, y: 0 };
   const el = s("circle", "circle", {
     cx: String(space.x(at.x)),
     cy: String(space.y(at.y)),
-    r: String(Math.abs(space.len(num(d.props.get("r")) ?? 0))),
+    r: String(Math.abs(space.len(num(d.inputs.r) ?? 0))),
   });
-  css(el, "fill", t.color(d.props.get("fill")) ?? "none");
-  css(el, "stroke", t.color(d.props.get("stroke")));
-  css(el, "stroke-width", `${strokeWidth(d.props.get("width"), ctx)}px`);
+  css(el, "fill", t.color(d.inputs.fill) ?? "none");
+  css(el, "stroke", t.color(d.inputs.stroke));
+  css(el, "stroke-width", `${strokeWidth(d.inputs.width, ctx)}px`);
   opacity(el, d);
-  return shapeEvents(el, d, ctx, str(d.props.get("label")));
+  return shapeEvents(el, d, ctx, str(d.inputs.label));
 };
 
 export const path: ViewWidget = (d, ctx) => {
   const space = currentSpace();
   const t = ctx.tokens;
-  const pts = list(d.props.get("points"))
+  const pts = list(d.inputs.points)
     .map(point)
     .filter((p): p is XY => !!p)
     .map((p) => ({ x: space.x(p.x), y: space.y(p.y) }));
-  const closed = flag(d.props.get("closed"));
+  const closed = flag(d.inputs.closed);
   const line = s("path", "path.line", { d: pts.map((p, k) => `${k ? "L" : "M"}${p.x} ${p.y}`).join("") + (closed ? "Z" : "") });
-  const color = t.color(d.props.get("stroke"));
-  const w = strokeWidth(d.props.get("width"), ctx);
-  css(line, "fill", closed ? (t.color(d.props.get("fill")) ?? "none") : "none");
+  const color = t.color(d.inputs.stroke);
+  const w = strokeWidth(d.inputs.width, ctx);
+  css(line, "fill", closed ? (t.color(d.inputs.fill) ?? "none") : "none");
   css(line, "stroke", color ?? "none");
   css(line, "stroke-width", `${w}px`);
-  css(line, "stroke-dasharray", flag(d.props.get("dash")) ? `${w * 4} ${w * 3}` : undefined);
+  css(line, "stroke-dasharray", flag(d.inputs.dash) ? `${w * 4} ${w * 3}` : undefined);
   // the head at the last point, along the last segment, in the stroke's colour
-  const kind = kase(d.props.get("head")) ?? "NONE";
+  const kind = kase(d.inputs.head) ?? "NONE";
   const [a, b] = [pts[pts.length - 2], pts[pts.length - 1]];
   let hd = "";
   if (a && b && kind !== "NONE") {
@@ -239,7 +222,7 @@ export const path: ViewWidget = (d, ctx) => {
   const head = s("path", "path.head", { d: hd || undefined });
   css(head, "fill", hd ? (color ?? "none") : undefined);
   const el = opacity(s("g", "path", {}, [line, head]), d);
-  return shapeEvents(el, d, ctx, str(d.props.get("label")));
+  return shapeEvents(el, d, ctx, str(d.inputs.label));
 };
 
 /** A shape acted on by the checks: a click is a real click; entering and leaving are the pointer's. */
@@ -262,12 +245,12 @@ export function anchorShift(anchor: string): string {
 
 export const place: ViewWidget = (d, ctx) => {
   const space = currentSpace();
-  const at = point(d.props.get("at")) ?? { x: 0, y: 0 };
-  const nudge = point(d.props.get("nudge")) ?? { x: 0, y: 0 };
-  const name = str(d.props.get("label"));
+  const at = point(d.inputs.at) ?? { x: 0, y: 0 };
+  const nudge = point(d.inputs.nudge) ?? { x: 0, y: 0 };
+  const name = str(d.inputs.label);
   // the foreignObject sits on the point; its box hangs from it by the anchor, nudged in pixels, y up
-  const box = h("div", "place.box", { role: name ? "group" : undefined, "aria-label": name || undefined }, ctx.children(d.slots.get("child") ?? []));
-  css(box, "transform", anchorShift(kase(d.props.get("anchor")) ?? "CENTER"));
+  const box = h("div", "place.box", { role: name ? "group" : undefined, "aria-label": name || undefined }, ctx.children(nodes(d.inputs.child)));
+  css(box, "transform", anchorShift(kase(d.inputs.anchor) ?? "CENTER"));
   const el = s("foreignObject", "place", { width: "1", height: "1", x: String(space.x(at.x) + nudge.x), y: String(space.y(at.y) - nudge.y) }, [box]);
   return opacity(el, d);
 };
@@ -279,21 +262,21 @@ const drags = new WeakMap<Element, number>();
 
 export const handle: ViewWidget = (d, ctx) => {
   const space = currentSpace();
-  const at = point(d.props.get("at")) ?? { x: 0, y: 0 };
+  const at = point(d.inputs.at) ?? { x: 0, y: 0 };
   const write = (p: XY, from: Element) => {
     const k = space.keep(p);
     const places = placesFor(space.unitsPerPx(from));
-    ctx.write("at", ptValue({ x: toNum(k.x, places), y: toNum(k.y, places) }));
+    ctx.write("at", pointInput({ x: toNum(k.x, places), y: toNum(k.y, places) }));
   };
   const dot = s("circle", "handle.dot", { r: "7", cx: String(space.x(at.x)), cy: String(space.y(at.y)) });
-  css(dot, "fill", ctx.tokens.color(d.props.get("tone")) ?? "var(--xtmd-color-accent)");
-  const shown = `(${exact(field(d.props.get("at"), "x"))?.show() ?? 0}, ${exact(field(d.props.get("at"), "y"))?.show() ?? 0})`;
+  css(dot, "fill", ctx.tokens.color(d.inputs.tone) ?? "var(--xtmd-color-accent)");
+  const shown = `(${exact(field(d.inputs.at, "x"))?.show() ?? 0}, ${exact(field(d.inputs.at, "y"))?.show() ?? 0})`;
   const el = s("g", "handle", { tabindex: "0", role: "slider", "aria-roledescription": "handle" }, [
     s("circle", "handle.hit", { r: "14", cx: String(space.x(at.x)), cy: String(space.y(at.y)) }),
     dot,
   ]);
   opacity(el, d);
-  attr(el, "aria-label", str(d.props.get("label")) || undefined);
+  attr(el, "aria-label", str(d.inputs.label) || undefined);
   attr(el, "aria-valuetext", shown);
   on(el, "pointerdown", (e) => {
     const pe = e as PointerEvent;
@@ -335,17 +318,14 @@ export const handle: ViewWidget = (d, ctx) => {
 
 // ---- shade: pixels from a shader
 
-/** At most this many pixels are worked out per shade, scaled up to its size. */
-export const MAX_SHADE_PIXELS = 65536;
-
 /** A shade's paint, by its element: what it last painted, and which paint is the current one. */
 const paints = new WeakMap<Element, { was: string; job: number }>();
 
 export const shade: ViewWidget = (d, ctx) => {
   const space = currentSpace();
-  const el = s("foreignObject", "shade", { role: "img", "aria-label": str(d.props.get("label")) || undefined }, [h("canvas", "shade.pixels")]);
+  const el = s("foreignObject", "shade", { role: "img", "aria-label": str(d.inputs.label) || undefined }, [h("canvas", "shade.pixels")]);
   opacity(el, d);
-  const area = d.props.get("area");
+  const area = d.inputs.area;
   const r = region(area);
   let run: ((root: Element) => void) | undefined;
   if (r) {
@@ -355,8 +335,7 @@ export const shade: ViewWidget = (d, ctx) => {
     attr(el, "y", String(y0));
     attr(el, "width", String(Math.max(0, x1 - x0)));
     attr(el, "height", String(Math.max(0, y1 - y0)));
-    const now = [sig(area), sig(d.props.get("shader")), sig(d.props.get("args")), x1 - x0, y1 - y0, ctx.tokens.theme()].join("|");
-    const page = ctx.page;
+    const now = [sig(area), sig(d.inputs.shader), sig(d.inputs.args), x1 - x0, y1 - y0].join("|");
     run = (root) => {
       let st = paints.get(root);
       if (!st) paints.set(root, (st = { was: "", job: 0 }));
@@ -365,7 +344,7 @@ export const shade: ViewWidget = (d, ctx) => {
       if (!cv) return;
       st.was = now;
       const mine = st;
-      paint(cv, root, d, x1 - x0, y1 - y0, page, ++mine.job, () => mine.job);
+      paint(cv, root, d, x1 - x0, y1 - y0, { call: (a) => ctx.call("shader", a), fail: (f) => ctx.page.errors.push(f) }, ++mine.job, () => mine.job);
     };
   }
   el.hook = {
@@ -381,113 +360,6 @@ export const shade: ViewWidget = (d, ctx) => {
   };
   return el;
 };
-
-/**
- * Paints a shade: a coarse pass now, so something shows at once, then every sampled pixel in
- * slices of a few milliseconds, so the page stays responsive. At most MAX_SHADE_PIXELS are worked
- * out, and fewer when the shader is Extended Mark code: the whole shade keeps within the step limit.
- */
-function paint(cv: HTMLCanvasElement, el: Element, d: Drawn, wPx: number, hPx: number, page: Page, id: number, current: () => number): void {
-  const machine = page.machine;
-  const shader = inner(d.props.get("shader"));
-  const args = d.props.get("args") ?? { kind: "opt", value: null };
-  const area = d.props.get("area");
-  const from = { x: exact(field(field(area, "from"), "x")), y: exact(field(field(area, "from"), "y")) };
-  const to = { x: exact(field(field(area, "to"), "x")), y: exact(field(field(area, "to"), "y")) };
-  const g = cv.getContext("2d");
-  el.setAttribute("data-state", "painting");
-  if (!shader || shader.kind !== "fn" || !g || !from.x || !from.y || !to.x || !to.y || wPx <= 0 || hPx <= 0) {
-    el.setAttribute("data-state", shader && shader.kind === "fn" ? "empty" : "no-shader");
-    return;
-  }
-  const [lx, hx] = from.x.lt(to.x) ? [from.x, to.x] : [to.x, from.x];
-  const [ly, hy] = from.y.lt(to.y) ? [from.y, to.y] : [to.y, from.y];
-  /** One pass of cols × rows samples: each one's colour, from the top-left, row by row. */
-  const pass = (cols: number, rows: number) => {
-    const px = hx.sub(lx).div(Num.int(cols));
-    const py = hy.sub(ly).div(Num.int(rows));
-    const half = Num.parse("0.5")!;
-    const xs = Array.from({ length: cols }, (_, i) => ({ kind: "num", n: lx.add(px.mul(Num.int(i).add(half))) }) as Value);
-    const ys = Array.from({ length: rows }, (_, j) => ({ kind: "num", n: hy.sub(py.mul(Num.int(j).add(half))) }) as Value);
-    const size: Value = { kind: "num", n: px };
-    const data = new ImageData(cols, rows);
-    let j = 0;
-    const row = () => {
-      for (let i = 0; i < cols; i++) {
-        const at: Value = { kind: "record", ty: "core/point", fields: [["x", xs[i]], ["y", ys[j]]] };
-        const c = machine.apply(shader, [{ value: at }, { value: size }, { value: args }]);
-        const k = (j * cols + i) * 4;
-        const ch = (n: string, or: number) => Math.round(255 * Math.min(1, Math.max(0, num(field(c, n)) ?? or)));
-        data.data[k] = ch("r", 0);
-        data.data[k + 1] = ch("g", 0);
-        data.data[k + 2] = ch("b", 0);
-        data.data[k + 3] = ch("a", 1);
-      }
-      j++;
-    };
-    return { data, row, done: () => j >= rows };
-  };
-  const show = (data: ImageData) => {
-    cv.width = data.width;
-    cv.height = data.height;
-    g.putImageData(data, 0, 0);
-  };
-  const fail = (f: unknown) => {
-    page.errors.push(f);
-    el.setAttribute("data-state", "failed");
-  };
-  // the coarse pass, and what one sample costs in steps
-  const dpr = typeof devicePixelRatio === "number" ? Math.min(2, devicePixelRatio) : 1;
-  const scale = Math.min(dpr, Math.sqrt(MAX_SHADE_PIXELS / (wPx * hPx)));
-  let cols = Math.max(1, Math.round(wPx * scale));
-  let rows = Math.max(1, Math.round(hPx * scale));
-  const c0 = Math.min(cols, 16);
-  const r0 = Math.min(rows, 16);
-  machine.resetSteps();
-  let perSample: number;
-  try {
-    const coarse = pass(c0, r0);
-    while (!coarse.done()) coarse.row();
-    perSample = Math.max(1, machine.steps / (c0 * r0));
-    show(coarse.data);
-  } catch (f) {
-    fail(f);
-    return;
-  }
-  const budget = Math.floor((MAX_STEPS * 0.9) / perSample);
-  if (cols * rows > budget) {
-    const k = Math.sqrt(budget / (cols * rows));
-    cols = Math.max(1, Math.floor(cols * k));
-    rows = Math.max(1, Math.floor(rows * k));
-  }
-  el.setAttribute("data-samples", `${cols}x${rows}`);
-  if (cols <= c0 && rows <= r0) {
-    el.setAttribute("data-state", "done");
-    return;
-  }
-  const full = pass(cols, rows);
-  let steps = 0;
-  const slice = () => {
-    if (current() !== id) return;
-    const until = performance.now() + 12;
-    try {
-      while (!full.done() && performance.now() < until) {
-        machine.resetSteps();
-        full.row();
-        steps += machine.steps;
-        if (steps > MAX_STEPS) throw new Error("the shader took more than the step limit");
-      }
-    } catch (f) {
-      fail(f);
-      return;
-    }
-    if (full.done()) {
-      show(full.data);
-      el.setAttribute("data-state", "done");
-    } else setTimeout(slice, 0);
-  };
-  setTimeout(slice, 0);
-}
 
 // ---- acting through the element, for the checks
 

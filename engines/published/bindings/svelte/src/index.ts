@@ -4,5 +4,6 @@
 
 export { default as XtmdDoc } from "./XtmdDoc.svelte";
 export { default as XtmdNode } from "./XtmdNode.svelte";
+export type { SvelteWidgetProps } from "./node.js";
 export type { DocError, DocProps, Restored, Snapshot, ViewContext, ViewWidget } from "@extended-mark/view";
-export type { Call, Given, Ir, Outcome, Page, PageValues, Value, ir } from "@extended-mark/embed";
+export type { Call, Given, Ir, Outcome, Page, PageValues, Input, ir } from "@extended-mark/embed";

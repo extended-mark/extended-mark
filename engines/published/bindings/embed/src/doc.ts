@@ -6,9 +6,9 @@
 // compiles a document's text.
 
 import type { Mounted, Widget } from "@extended-mark/dom";
-import type { Call, Page, PageOptions, PageValues, Value, ir } from "@extended-mark/runtime";
+import type { Call, Page, PageOptions, PageValues, Input, ir } from "@extended-mark/runtime";
 import { Embed, type PageProps } from "./index.js";
-import type { Given, Ir } from "./page.js";
+import { irText, sameIr, type Given, type Ir } from "./page.js";
 import { RELEASE, hash, type DocError, type Restored, type Snapshot } from "./snapshot.js";
 
 /** What a document is given: the same in the plain web as in every framework. */
@@ -18,23 +18,25 @@ export interface DocProps {
   /** Where to fetch the page's IR from, when it isn't in hand. */
   src?: string;
   /** `$state`, controlled: the page shows this, and every change goes through `onStateChange`. */
-  state?: Record<string, ir.Expr>;
+  state?: Record<string, Input>;
   /** `$state` to start from, when the host doesn't control it. */
-  defaultState?: Record<string, ir.Expr>;
+  defaultState?: Record<string, Input>;
   /** A snapshot to start from: `$state` and every widget's own variables. */
   defaultSnapshot?: Snapshot;
   /** The page's own values: its width and theme. */
   page?: PageValues;
   /** Each extern channel's values, by its name in the document (`tracker`) or in full. */
-  externs?: Record<string, Record<string, ir.Expr>>;
-  /** Value fns the host supplies, by full name (`acme/rate`). */
+  externs?: Record<string, Record<string, Input>>;
+  /** Input fns the host supplies, by full name (`acme/rate`). */
   fns?: PageOptions["fns"];
   /** The host's widgets by full name, in place of @extended-mark/dom's, or a pack's. */
   widgets?: Record<string, Widget>;
+  /** What is drawn where a widget failed, in place of @extended-mark/dom's notice. */
+  failed?: Widget;
   /** How the plane's spots are measured: left out, from the DOM. The checks give fixed sizes. */
   measure?: PageProps["measure"];
   /** `$state` after each change to it. */
-  onStateChange?: (state: Record<string, ir.Expr>) => void;
+  onStateChange?: (state: Record<string, Input>) => void;
   /** A write xtmd refused, a widget that failed, or an IR that couldn't be had. */
   onError?: (error: DocError) => void;
   /** The host's extern fns the page called, after each change that called any. */
@@ -77,9 +79,9 @@ export class XtmdDoc {
     const prev = this.props;
     this.props = next;
     if (this.gone) return;
-    if (next.ir && next.ir !== prev.ir) {
+    if (next.ir && !sameIr(next.ir, this.loadedIr)) {
       this.loadedIr = next.ir;
-      this.irHash = hash(JSON.stringify(next.ir));
+      this.irHash = hash(irText(next.ir));
       // a new page: `$state` carried over where its fields still exist (Embed's own rule)
       if (this.embed) this.embed.update(this.embedProps(next, next.ir));
       else this.start(next.ir);
@@ -112,8 +114,8 @@ export class XtmdDoc {
   }
 
   /** `$state` now. */
-  state(): Record<string, ir.Expr> {
-    return this.running?.observeState() ?? {};
+  state(): Record<string, Input> {
+    return this.running?.state() ?? {};
   }
 
   /** The page as Markdown, with the values it has now. */
@@ -133,7 +135,7 @@ export class XtmdDoc {
 
   /** Everything the page holds now: `$state`, and every widget's own variables by place. */
   snapshot(): Snapshot {
-    return { xtmd: RELEASE, ir: this.irHash, state: this.state(), own: this.running?.observeOwn() ?? {} };
+    return { xtmd: RELEASE, ir: this.irHash, state: this.state(), own: this.running?.data().own ?? {} };
   }
 
   /** Puts a snapshot back. With the same IR, all of it; with another, `$state` only, as widgets'
@@ -144,7 +146,7 @@ export class XtmdDoc {
     if (!snap || typeof snap !== "object" || snap.xtmd !== RELEASE || typeof snap.state !== "object") {
       return { restored: "none", dropped: [], why: `a snapshot this xtmd (${RELEASE}) can't read` };
     }
-    page.set(Object.fromEntries(Object.entries(snap.state).map(([k, x]) => [k, page.value(x) as Value])));
+    page.set(snap.state);
     const o = page.takeOutcome();
     for (const f of o.failures) this.props.onError?.({ kind: "failed", ...f });
     if (o.refused.length) {
@@ -182,6 +184,7 @@ export class XtmdDoc {
       externs: p.externs,
       fns: p.fns,
       widgets: p.widgets,
+      failed: p.failed,
       measure: p.measure,
       onState: (s) => this.props.onStateChange?.(s),
       onCalls: (c) => this.props.onCalls?.(c),
@@ -195,7 +198,7 @@ export class XtmdDoc {
 
   private start(irFile: Ir): void {
     this.loadedIr = irFile;
-    this.irHash = hash(JSON.stringify(irFile));
+    this.irHash = hash(irText(irFile));
     this.embed = new Embed(this.root, this.embedProps(this.props, irFile));
     const snap = this.props.defaultSnapshot;
     if (snap && !this.props.state) this.restore(snap);
@@ -220,7 +223,7 @@ export class XtmdDoc {
     this.loading = undefined;
     if (this.embed) {
       this.loadedIr = irFile;
-      this.irHash = hash(JSON.stringify(irFile));
+      this.irHash = hash(irText(irFile));
       this.embed.update(this.embedProps(this.props, irFile));
     } else this.start(irFile);
   }

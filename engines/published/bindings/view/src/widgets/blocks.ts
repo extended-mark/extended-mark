@@ -15,83 +15,83 @@ const ALIGN: Record<string, string> = { START: "start", CENTER: "center", END: "
 const sentence = (v: VNode): VNode => cls(v, "xtmd-sentence");
 
 export const paragraph: ViewWidget = (d, ctx) => {
-  const el = sentence(h("p", "paragraph", {}, ctx.children(nodes(d.props.get("value")))));
-  css(el, "color", ctx.tokens.color(d.props.get("tone")));
-  const a = kase(d.props.get("align")) ?? "START";
+  const el = sentence(h("p", "paragraph", {}, ctx.children(nodes(d.inputs.value))));
+  css(el, "color", ctx.tokens.color(d.inputs.tone));
+  const a = kase(d.inputs.align) ?? "START";
   css(el, "text-align", a === "START" ? undefined : ALIGN[a]);
   return el;
 };
 
 export const heading: ViewWidget = (d, ctx) => {
   // another level is another element: the renderer puts the new one in the old one's place
-  const level = Math.min(6, Math.max(1, Math.round(num(d.props.get("level")) ?? 1)));
-  return sentence(h(`h${level}`, "heading", {}, ctx.children(nodes(d.props.get("value")))));
+  const level = Math.min(6, Math.max(1, Math.round(num(d.inputs.level) ?? 1)));
+  return sentence(h(`h${level}`, "heading", {}, ctx.children(nodes(d.inputs.value))));
 };
 
 export const bullets: ViewWidget = (d, ctx) => {
   // ul and ol are different elements: the items are drawn again into the new one
-  const ordered = flag(d.props.get("ordered"));
-  const start = num(d.props.get("start")) ?? 1;
-  const items = d.slots.get("items") ?? [];
+  const ordered = flag(d.inputs.ordered);
+  const start = num(d.inputs.start) ?? 1;
+  const items = nodes(d.inputs.items);
   const el = h(ordered ? "ol" : "ul", "bullets", { start: ordered && start !== 1 ? String(start) : undefined }, ctx.children(items));
-  return cls(el, "xtmd-tasks", items.some((i) => i.widget === "core/item" && inner(i.props.get("done")) !== undefined));
+  return cls(el, "xtmd-tasks", items.some((i) => i.widget === "core/item" && inner(i.inputs.done) !== undefined));
 };
 
 export const item: ViewWidget = (d, ctx) => {
-  const done = inner(d.props.get("done"));
-  const body = h("div", "item.body", {}, ctx.children(d.slots.get("body") ?? []));
+  const done = inner(d.inputs.done);
+  const body = h("div", "item.body", {}, ctx.children(nodes(d.inputs.body)));
   // keyed, so the body is kept as the task box comes and goes before it
   body.key = "body";
   const el = h("li", "item", {}, [body]);
-  if (done && done.kind === "bool") {
+  if (done && "bool" in done) {
     // a task box shows the item's state; ticking it is for a press, so it can't be changed here
-    const box = h("input", "item.check", { type: "checkbox", "aria-label": done.b ? "Done" : "Not done" });
+    const box = h("input", "item.check", { type: "checkbox", "aria-label": done.bool ? "Done" : "Not done" });
     box.key = "check";
     prop(box, "disabled", true);
-    prop(box, "checked", done.b);
+    prop(box, "checked", done.bool);
     el.children.unshift(box);
     cls(el, "xtmd-task");
   }
   return el;
 };
 
-export const quote: ViewWidget = (d, ctx) => h("blockquote", "quote", {}, ctx.children(d.slots.get("body") ?? []));
+export const quote: ViewWidget = (d, ctx) => h("blockquote", "quote", {}, ctx.children(nodes(d.inputs.body)));
 
 export const code: ViewWidget = (d) => {
-  const lang = str(d.props.get("lang")).trim().split(/\s+/)[0] ?? "";
-  const c = h("code", "code.text", {}, [str(d.props.get("src"))]);
+  const lang = str(d.inputs.lang).trim().split(/\s+/)[0] ?? "";
+  const c = h("code", "code.text", {}, [str(d.inputs.src)]);
   cls(c, `language-${lang.replace(/[^\w+#.-]/g, "")}`, !!lang);
   return h("pre", "code", { tabindex: "0", "data-lang": lang || undefined }, [c]);
 };
 
-export const math: ViewWidget = (d) => withTex(h("div", "math"), texOf(d.props.get("tex")), true);
+export const math: ViewWidget = (d) => withTex(h("div", "math"), texOf(d.inputs.tex), true);
 
 export const table: ViewWidget = (d, ctx) => {
-  const align = list(d.props.get("align")).map((a) => kase(a));
+  const align = list(d.inputs.align).map((a) => kase(a));
   const place = (cell: VNode, k: number): VNode => {
     const a = align[k];
     return css(cell, "text-align", a === "CENTER" ? "center" : a === "END" ? "end" : undefined);
   };
   const head = h("thead", undefined, {}, [
-    h("tr", undefined, {}, list(d.props.get("head")).map((c, k) => place(sentence(h("th", "table.header", { scope: "col" }, ctx.children(nodes(c)))), k))),
+    h("tr", undefined, {}, list(d.inputs.head).map((c, k) => place(sentence(h("th", "table.header", { scope: "col" }, ctx.children(nodes(c)))), k))),
   ]);
   const body = h(
     "tbody",
     undefined,
     {},
-    list(d.props.get("rows")).map((r) => h("tr", undefined, {}, list(r).map((c, k) => place(sentence(h("td", "table.cell", {}, ctx.children(nodes(c)))), k)))),
+    list(d.inputs.rows).map((r) => h("tr", undefined, {}, list(r).map((c, k) => place(sentence(h("td", "table.cell", {}, ctx.children(nodes(c)))), k)))),
   );
   // the wrapper scrolls a wide table on a narrow screen, the page itself never does
   return h("div", "table", { tabindex: "0" }, [h("table", "table.grid", {}, [head, body])]);
 };
 
 export const footnote: ViewWidget = (d, ctx) => {
-  const m = str(d.props.get("mark"));
+  const m = str(d.inputs.mark);
   const uid = ctx.uid;
   return h("div", "footnote", { role: "note", id: noteId(uid, m), "aria-label": `Footnote ${m}` }, [
     // back to where the note is marked
     h("a", "footnote.mark", { href: `#${uid}fnref-${encodeURIComponent(m)}` }, [m]),
-    h("div", "footnote.body", {}, ctx.children(d.slots.get("body") ?? [])),
+    h("div", "footnote.body", {}, ctx.children(nodes(d.inputs.body))),
   ]);
 };
 

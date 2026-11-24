@@ -4,9 +4,9 @@
 // changed is set on it, so focus and what is being typed survive a change. On a server the same
 // components render the page's HTML. Written without JSX, so it needs no Solid compiler.
 
-import { createComponent, createEffect, createMemo, createSignal, mapArray, mergeProps, onCleanup, onMount, untrack, type Accessor, type JSX } from "solid-js";
+import { createComponent, createEffect, createMemo, createSignal, mapArray, mergeProps, onCleanup, onMount, untrack, type Accessor, type Component, type JSX } from "solid-js";
 import { Dynamic, isServer } from "solid-js/web";
-import { Doc, type Child, type DocProps, type Restored, type Snapshot, type VNode, type Value, type ir } from "@extended-mark/view";
+import { Doc, type Child, type DocProps, type Restored, type Snapshot, type VNode, type Input, type WidgetProps, type ir } from "@extended-mark/view";
 
 /** A child's key among its siblings: its own, or its place, with its tag (a new tag is a new element). */
 function keyOf(c: Child, i: number): string {
@@ -27,6 +27,12 @@ function solidProps(v: VNode): Record<string, unknown> {
   }
   if (!isServer) for (const [k, f] of Object.entries(v.on ?? {})) out[`on:${k}`] = f;
   return out;
+}
+
+/** The props of a custom element, whose own Solid would set as properties: attributes, by name. */
+function attributes(v: VNode): Record<string, unknown> {
+  const p = solidProps(v);
+  return isServer ? p : Object.fromEntries(Object.entries(p).map(([k, x]) => [k === "style" ? k : `attr:${k}`, x]));
 }
 
 /** Children followed by key: each kept while its key is, its element told what changed. */
@@ -72,6 +78,24 @@ function Node(props: { v: Accessor<VNode> }): JSX.Element {
       return props.v().children.join("");
     } } as never);
   }
+  if (first.component) {
+    // made once, its node followed
+    const part = () => props.v().component ?? first.component!;
+    const given = {
+      get node() {
+        return part().props.node;
+      },
+      event: (name: string, args?: Input[]) => part().props.event(name, args),
+      write: (input: string, value: Input) => part().props.write(input, value),
+      call: (input: string, args: Input[]) => part().props.call(input, args),
+      slot: (input: string) => children(() => part().children(input)),
+    };
+    return createComponent(Dynamic, mergeProps({ component: first.tag }, () => attributes(props.v()), {
+      get children() {
+        return createComponent(first.component!.of as Component<SolidWidgetProps>, given);
+      },
+    }) as never);
+  }
   const textarea = first.tag === "textarea";
   return createComponent(
     Dynamic,
@@ -93,15 +117,23 @@ export function XtmdNode(props: { v: Accessor<VNode> }): JSX.Element {
 /** What `ref` on <XtmdDoc> is given. */
 export interface XtmdDocHandle {
   readonly doc: Doc;
-  set(changes: Record<string, ir.Expr | Value>): void;
-  state(): Record<string, ir.Expr>;
+  set(changes: Record<string, Input>): void;
+  state(): Record<string, Input>;
   markdown(): string;
-  expose(channel: string, name: string, ...args: (ir.Expr | Value)[]): void;
+  expose(channel: string, name: string, ...args: Input[]): void;
   snapshot(): Snapshot;
   restore(snap: Snapshot): Restored;
 }
 
-export interface XtmdDocProps extends DocProps {
+/** What a Solid component that draws a widget is given. */
+export interface SolidWidgetProps extends WidgetProps {
+  /** An input's widgets: a slot's, or a rich_text's. */
+  slot(input: string): JSX.Element;
+}
+
+export interface XtmdDocProps extends Omit<DocProps, "components"> {
+  /** Solid components as widgets, by full name: `{ "acme/chart": Chart }`. */
+  components?: Record<string, Component<SolidWidgetProps>>;
   ref?: (handle: XtmdDocHandle) => void;
   id?: string;
   class?: string;
@@ -118,6 +150,7 @@ function current(p: XtmdDocProps): DocProps {
     externs: p.externs,
     fns: p.fns,
     widgets: p.widgets,
+    components: p.components,
     measure: p.measure,
     onStateChange: p.onStateChange,
     onError: p.onError,

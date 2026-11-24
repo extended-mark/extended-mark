@@ -10,7 +10,7 @@ import { bundle, launch, liveSteps, openLive, pageSources } from "../../testing/
 
 test("<XtmdLiveDoc> on a server, given a compiler, compiles the text and renders the page", async () => {
   const html = renderToString(h(XtmdLiveDoc, { source: pageSources().v1, compiler: await compiler(), defaultState: { n: { num: "2" } }, externs: { app: { unit: { text: "items" } } } }));
-  assert.match(html, /^<div class="xtmd-root" data-xtmd-root=""/);
+  assert.match(html, /^<div class="xtmd-root[^"]*" data-xtmd-root=""/);
   assert.ok(html.replace(/<!-- -->/g, "").includes("Count: 2 items"), html);
 });
 

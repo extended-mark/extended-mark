@@ -1,0 +1,476 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/tree.schema.json",
+  "title": "Extended Mark drawn tree",
+  "description": "What a host is given to draw (docs/specs/06, The host): the page's calls of extern widgets, worked out, as a tree, and what changed in it. Every engine gives the same tree. It is never stored: it is made again from the IR and the page's data.",
+  "$ref": "#/$defs/tree",
+  "$defs": {
+    "tree": {
+      "type": "object",
+      "description": "The page now: its extern widgets in order, each with everything in it.",
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        }
+      },
+      "required": [
+        "nodes"
+      ],
+      "additionalProperties": false
+    },
+    "node": {
+      "type": "object",
+      "description": "A widget to draw.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Who it is: its own on the page, and the same for as long as it is there. A loop's widget follows its item, so a row moved keeps its id."
+        },
+        "widget": {
+          "type": "string",
+          "description": "The extern widget it calls, by its full name: `core/press`. Of a widget that failed, the one that did."
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/input"
+          },
+          "description": "Every input and slot by its name, worked out, each with its default when the call gave none. A slot's is the widgets in it."
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "description": "The events the page does something with."
+        },
+        "writes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/contract"
+          },
+          "description": "The `mut` inputs, which the host may write, with what a write has to fit: the variable's the call gave, or the input's own."
+        },
+        "failed": {
+          "type": "string",
+          "description": "It couldn't be drawn, and why. Its inputs are empty, and it is drawn again once it can be."
+        }
+      },
+      "required": [
+        "id",
+        "widget",
+        "inputs"
+      ],
+      "additionalProperties": false
+    },
+    "input": {
+      "description": "An input's value, as the IR writes one; and what only a drawn page holds: widgets, and a fn to call.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "num": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "num"
+          ],
+          "additionalProperties": false,
+          "description": "A number, exact: `0.1`."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "bool": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "bool"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "duration": {
+              "type": "string",
+              "description": "Milliseconds."
+            }
+          },
+          "required": [
+            "duration"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "list": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/input"
+              }
+            }
+          },
+          "required": [
+            "list"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "record": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string"
+                },
+                "fields": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/$defs/input"
+                  }
+                }
+              },
+              "required": [
+                "type",
+                "fields"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "record"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "case": {
+              "type": "object",
+              "properties": {
+                "enum": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "values": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/$defs/input"
+                  }
+                }
+              },
+              "required": [
+                "enum",
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "case"
+          ],
+          "additionalProperties": false,
+          "description": "An enum's case."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "some": {
+              "$ref": "#/$defs/input"
+            }
+          },
+          "required": [
+            "some"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "none": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "none"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "range": {
+              "type": "object",
+              "properties": {
+                "low": {
+                  "$ref": "#/$defs/input"
+                },
+                "high": {
+                  "$ref": "#/$defs/input"
+                },
+                "step": {
+                  "$ref": "#/$defs/input"
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "range"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "token": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "token"
+          ],
+          "additionalProperties": false,
+          "description": "A token, by its name: `core/color.OK`. What it stands for is the IR's, or the host's own."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "tokval": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "value": {
+                  "$ref": "#/$defs/input"
+                }
+              },
+              "required": [
+                "type",
+                "name",
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "tokval"
+          ],
+          "additionalProperties": false,
+          "description": "A token made from a plain value: `stroke.PX(2.5)`."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "nodes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/node"
+              }
+            }
+          },
+          "required": [
+            "nodes"
+          ],
+          "additionalProperties": false,
+          "description": "Widgets: a slot's, a rich_text's or a view's. A rich_text's are drawn among words."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "fn": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "type": "integer",
+                  "description": "Moves when the fn may answer otherwise: what it was given, or what it read, changed."
+                }
+              },
+              "required": [
+                "version"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "fn"
+          ],
+          "additionalProperties": false,
+          "description": "A fn the host may call, by the node's id and the input's name."
+        }
+      ]
+    },
+    "contract": {
+      "type": "object",
+      "description": "What a value has to fit. Every part that is given has to hold.",
+      "properties": {
+        "range": {
+          "$ref": "#/$defs/ends"
+        },
+        "step": {
+          "$ref": "#/$defs/input"
+        },
+        "length": {
+          "$ref": "#/$defs/ends"
+        },
+        "only": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/input"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ends": {
+      "type": "object",
+      "description": "Both ends are included; a missing one is open.",
+      "properties": {
+        "low": {
+          "$ref": "#/$defs/input"
+        },
+        "high": {
+          "$ref": "#/$defs/input"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "change": {
+      "type": "object",
+      "description": "What changed in one node. What isn't here is as it was. A widget that failed, or draws again, is another node to its parent.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The node, or the page itself, whose id is empty and whose one input is `nodes`."
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/input"
+          },
+          "description": "The inputs that changed, whole."
+        },
+        "children": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/child"
+            }
+          },
+          "description": "The inputs whose widgets are others now, or in another order."
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "description": "The events now, when they changed.",
+          "x-option": true
+        },
+        "writes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/contract"
+          },
+          "description": "The `mut` inputs now, when what a write has to fit changed.",
+          "x-option": true
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "child": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "keep": {
+              "type": "string",
+              "description": "The node of this id, which was in this input before."
+            }
+          },
+          "required": [
+            "keep"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "node": {
+              "$ref": "#/$defs/node"
+            }
+          },
+          "required": [
+            "node"
+          ],
+          "additionalProperties": false,
+          "description": "A node drawn anew."
+        }
+      ]
+    },
+    "data": {
+      "type": "object",
+      "description": "The page's data: what a host keeps to put a page back as it was. Plain values only.",
+      "properties": {
+        "state": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/input"
+          },
+          "description": "`$state`, by field."
+        },
+        "own": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/$defs/input"
+            }
+          },
+          "description": "Each widget's own variables, by the place it is drawn at."
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

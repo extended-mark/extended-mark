@@ -7,7 +7,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Page } from "../dist/index.js";
+import { Page } from "../dist/internal.js";
 import { xtmdBinary, workdir, repo } from "./xtmd.mjs";
 
 const dir = workdir();

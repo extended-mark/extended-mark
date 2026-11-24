@@ -108,6 +108,11 @@ impl Drawn {
         Drawn(Rc::new(node))
     }
 
+    /// A node of nothing: where a value holds no widgets.
+    pub(crate) fn nothing() -> Drawn {
+        Drawn::new(DrawnNode { path: String::new(), id: String::new(), widget: String::new(), props: BTreeMap::new(), slots: BTreeMap::new(), events: BTreeMap::new(), writes: BTreeMap::new(), levels: Vec::new(), failed: None, held: Vec::new() })
+    }
+
     /// Whether two are the very same node: the page reused it, and nothing in it changed.
     pub fn same(a: &Drawn, b: &Drawn) -> bool {
         Rc::ptr_eq(&a.0, &b.0)
@@ -125,9 +130,11 @@ impl std::ops::Deref for Drawn {
 /// What a drawn widget holds. Its props are worked out: an engine only reads them.
 #[derive(Clone, Debug)]
 pub struct DrawnNode {
+    /// Where it is drawn, loop rows by their position: how its own variables are kept (`observe_own`).
     pub path: String,
-    /// Who it is across redraws: a loop row's widgets follow its item, not its position.
-    pub key: String,
+    /// Who it is: its own on the page, and the same for as long as it is there. A loop row's widgets
+    /// follow its item, not its position.
+    pub id: String,
     pub widget: String,
     pub props: BTreeMap<String, Value>,
     pub slots: BTreeMap<String, Vec<Drawn>>,
@@ -303,6 +310,11 @@ impl Shared {
         self.stable.externs.get(&addr(x)).copied()
     }
 
+    /// The node of a view this is, when the page owns it.
+    fn node_id(&self, n: &Node) -> Option<usize> {
+        self.stable.nodes.get(&addr(n)).copied()
+    }
+
     /// Whether two slots hold the same content: the same shared copy, or nodes that are equal.
     fn same_slot(&self, held: &Nodes, now: &Vec<Node>) -> bool {
         match self.stable.lists.get(&addr(now)) {
@@ -311,6 +323,14 @@ impl Shared {
         }
     }
 
+}
+
+/// The values a call made as a value was given.
+fn arg_values(args: Args) -> Vec<Value> {
+    match args {
+        Args::Values(v) => v.values().cloned().collect(),
+        Args::Exprs(_) => Vec::new(),
+    }
 }
 
 fn addr<T>(x: &T) -> usize {
@@ -327,6 +347,8 @@ struct Stable {
     lists: HashMap<usize, Nodes>,
     /// Each extern call the page owns, by where it is, to the original it stands for.
     externs: HashMap<usize, usize>,
+    /// Each node the same way: a loop, a branch, a place, a local.
+    nodes: HashMap<usize, usize>,
 }
 
 impl Stable {
@@ -345,6 +367,8 @@ impl Stable {
     /// copy of it (or `orig` itself): each copy's to its original's.
     fn link(&mut self, orig: &[Node], copy: &[Node]) {
         for (o, c) in orig.iter().zip(copy) {
+            self.nodes.insert(addr(o), addr(o));
+            self.nodes.insert(addr(c), addr(o));
             match (o, c) {
                 (Node::Extern(xo), Node::Extern(xc)) => {
                     self.externs.insert(addr(xo), addr(xo));
@@ -393,6 +417,8 @@ struct Frame {
     missed: Vec<String>,
     /// The extern calls drawn inside it, whose memos a reuse keeps.
     ext: Vec<String>,
+    /// The loops, branches, places and locals inside it, whose memos a reuse keeps.
+    held: Vec<String>,
     /// It failed, or asked the host for a value: drawn anew every time.
     dirty: bool,
 }
@@ -422,6 +448,19 @@ struct ExternMemo {
     bindings: Bindings,
     epoch: u64,
     drawn: Vec<Drawn>,
+}
+
+/// What a loop, a branch, a place or a local of a view gave, with what it read.
+struct NodeMemo {
+    frame: Frame,
+    node: usize,
+    keep: Option<Arc<Vec<Node>>>,
+    path: String,
+    owner: Option<u64>,
+    bindings: Bindings,
+    epoch: u64,
+    drawn: Vec<Drawn>,
+    value: Option<Value>,
 }
 
 /// Whether two values are the very same one, as `===` says on the web: shared, not equal.
@@ -499,6 +538,7 @@ pub(crate) struct World {
     warns: HashSet<String>,
     /// The machine's step count and its last identity, kept between the machines a page makes.
     steps: u64,
+    worked: u64,
     next_id: u64,
     /// Each outside value's version, bumped when it is written, and the epoch, bumped when every
     /// memo must go (an undo, what the engine supplies).
@@ -508,6 +548,10 @@ pub(crate) struct World {
     extern_memo: HashMap<String, Rc<ExternMemo>>,
     /// The extern calls drawn this redraw: the memos of the rest are dropped after it.
     extern_seen: HashSet<String>,
+    node_memo: HashMap<String, Rc<NodeMemo>>,
+    node_seen: HashSet<String>,
+    /// `$state`'s rules, by their place among them: whether each held, with what it read.
+    rule_memo: HashMap<usize, (HashMap<String, u64>, u64, bool)>,
     /// What each widget being drawn has read and made so far, outermost first.
     frames: Vec<Frame>,
     memo_on: bool,
@@ -786,16 +830,40 @@ impl Rt {
 
     /// The message of the first of `$state`'s rules that no longer holds.
     fn state_rule_broken(&self, m: &mut Machine) -> R<Option<String>> {
-        for (body, message, warn) in self.s.state_rules.iter() {
-            if *warn {
-                continue;
-            }
-            let ok = self.run_body(m, &[], body.clone(), &Env::default(), Vec::new())?;
-            if let Some(Value::Bool(false)) = ok {
+        let rules = self.s.state_rules.clone();
+        for (k, (_, message, warn)) in rules.iter().enumerate() {
+            if !*warn && !self.state_rule(m, k)? {
                 return Ok(Some(message.clone()));
             }
         }
         Ok(None)
+    }
+
+    /// Whether one of `$state`'s rules holds: worked out again only when something it read changed.
+    fn state_rule(&self, m: &mut Machine, k: usize) -> R<bool> {
+        {
+            let w = self.w.borrow();
+            if let Some((deps, epoch, holds)) = w.rule_memo.get(&k) {
+                if *epoch == w.epoch && w.current(deps) {
+                    return Ok(*holds);
+                }
+            }
+        }
+        let body = self.s.state_rules[k].0.clone();
+        let (ok, deps) = self.reading(|| self.run_body(m, &[], body, &Env::default(), Vec::new()));
+        let holds = !matches!(ok?, Some(Value::Bool(false)));
+        let mut w = self.w();
+        let epoch = w.epoch;
+        w.rule_memo.insert(k, (deps, epoch, holds));
+        Ok(holds)
+    }
+
+    /// What some code read, for whoever holds what it gave.
+    fn reading<T>(&self, f: impl FnOnce() -> T) -> (T, HashMap<String, u64>) {
+        self.w().frames.push(Frame::default());
+        let out = f();
+        let frame = self.w().frames.pop().unwrap_or_default();
+        (out, frame.deps)
     }
 
     fn run_handler(&self, m: &mut Machine, id: &str, env: &Env, args: Vec<Value>) -> R<Option<Value>> {
@@ -836,11 +904,60 @@ impl Rt {
         for n in nodes {
             match n {
                 Node::Declare(d) => {
-                    let v = self.eval_in(m, &env, &d.let_.value)?;
-                    env.bindings.push((Rc::from(d.let_.name.as_str()), Binding::Value(v)));
+                    let (_, v) = self.hold(m, n, &format!("let {}", d.let_.name), &env, |m| Ok((Vec::new(), Some(self.eval_in(m, &env, &d.let_.value)?))))?;
+                    env.bindings.push((Rc::from(d.let_.name.as_str()), Binding::Value(v.unwrap_or_else(Value::none))));
                 }
+                Node::Extern(_) | Node::Use(_) => out.extend(self.draw_node(m, n, &env)?),
+                Node::For(ir::NodeFor { site, .. }) | Node::If(ir::NodeIf { site, .. }) | Node::Match(ir::NodeMatch { site, .. }) | Node::Place(ir::NodePlace { site, .. }) => {
+                    out.extend(self.hold(m, n, site, &env, |m| Ok((self.draw_node(m, n, &env)?, None)))?.0);
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    /// What a loop, a branch, a place or a local gives: as it was, when it is the same one with the
+    /// same locals around it and nothing it read has changed.
+    fn hold(&self, m: &mut Machine, node: &Node, site: &str, env: &Env, work: impl FnOnce(&mut Machine) -> R<(Vec<Drawn>, Option<Value>)>) -> R<(Vec<Drawn>, Option<Value>)> {
+        let Some(id) = self.s.node_id(node).or_else(|| env.keep.as_ref().map(|_| addr(node))) else { return work(m) };
+        let key = format!("{}|{}", env.key_or_path(), site);
+        let (hit, twice) = {
+            let mut w = self.w();
+            // the same content placed twice in one redraw is two
+            let twice = !w.node_seen.insert(key.clone());
+            for f in w.frames.iter_mut() {
+                f.held.push(key.clone());
+            }
+            let hit = if w.memo_on && !twice { w.node_memo.get(&key).filter(|x| x.node == id && x.epoch == w.epoch && x.path == env.path && x.owner == env.owner && same_keep(&x.keep, &env.keep) && w.current(&x.frame.deps)).cloned() } else { None };
+            (hit, twice)
+        };
+        if let Some(x) = hit {
+            if self.same_bindings(m, &x.bindings, &env.bindings) {
+                self.replay(&x.frame);
+                return Ok((x.drawn.clone(), x.value.clone()));
+            }
+        }
+        self.w().frames.push(Frame::default());
+        let made = work(m);
+        let frame = self.w().frames.pop().unwrap_or_default();
+        let (drawn, value) = made?;
+        let mut w = self.w();
+        if w.memo_on && !frame.dirty && !twice {
+            let epoch = w.epoch;
+            w.node_memo.insert(key, Rc::new(NodeMemo { frame, node: id, keep: env.keep.clone(), path: env.path.clone(), owner: env.owner, bindings: env.bindings.clone(), epoch, drawn: drawn.clone(), value: value.clone() }));
+        } else if !twice {
+            w.node_memo.remove(&key);
+        }
+        Ok((drawn, value))
+    }
+
+    fn draw_node(&self, m: &mut Machine, n: &Node, env: &Env) -> R<Vec<Drawn>> {
+        let mut out = Vec::new();
+        {
+            match n {
+                Node::Declare(_) => {}
                 Node::For(f) => {
-                    let rows = self.loop_rows(m, f, &env)?;
+                    let rows = self.loop_rows(m, f, env)?;
                     for (k, row) in rows.into_iter().enumerate() {
                         let key = row.key;
                         let mut bindings = env.bindings.clone();
@@ -850,11 +967,11 @@ impl Rt {
                     }
                 }
                 Node::If(i) => {
-                    let (nodes, inner) = self.pick_branch(m, i, &env)?;
+                    let (nodes, inner) = self.pick_branch(m, i, env)?;
                     out.extend(self.draw_nodes(m, nodes, &inner)?);
                 }
                 Node::Match(mt) => {
-                    let v = self.eval_in(m, &env, &mt.value)?;
+                    let v = self.eval_in(m, env, &mt.value)?;
                     let mut done = false;
                     for c in &mt.cases {
                         if let Some(binds) = self.matches(m, &v, &c.when)? {
@@ -866,21 +983,21 @@ impl Rt {
                         }
                     }
                     if !done {
-                        out.extend(self.draw_nodes(m, &mt.else_, &env)?);
+                        out.extend(self.draw_nodes(m, &mt.else_, env)?);
                     }
                 }
                 Node::Place(p) => {
-                    let v = self.eval_in(m, &env, &p.view)?;
+                    let v = self.eval_in(m, env, &p.view)?;
                     if p.sentence {
                         check_sentence(&v)?;
                     }
                     out.extend(self.draw_view(m, &v, &join(&env.path, &p.site), &join(env.key_or_path(), &p.site))?);
                 }
-                Node::Extern(x) => out.extend(self.draw_extern(m, self.s.call_id(x).or_else(|| env.keep.as_ref().map(|_| addr(x))), &x.name, &x.site, Args::Exprs(&x.props), &x.slots, &x.events, &x.writes, &x.levels, &env)?),
+                Node::Extern(x) => out.extend(self.draw_extern(m, self.s.call_id(x).or_else(|| env.keep.as_ref().map(|_| addr(x))), &x.name, &x.site, Args::Exprs(&x.props), &x.slots, &x.events, &x.writes, &x.levels, env)?),
                 Node::Use(u) => {
                     let path = join(&env.path, &u.site);
                     let key = join(env.key_or_path(), &u.site);
-                    out.extend(self.draw_use(m, &u.name, &path, Args::Exprs(&u.args), &u.slots, &u.events, &env, &u.levels, &key)?);
+                    out.extend(self.draw_use(m, &u.name, &path, Args::Exprs(&u.args), &u.slots, &u.events, env, &u.levels, &key)?);
                 }
             }
         }
@@ -1023,6 +1140,7 @@ impl Rt {
         w.missed.extend(f.missed.iter().cloned());
         w.extern_seen.extend(f.ext.iter().cloned());
         w.claimed.extend(f.ext.iter().cloned());
+        w.node_seen.extend(f.held.iter().cloned());
         for fr in w.frames.iter_mut() {
             for (k, v) in &f.deps {
                 if !fr.deps.contains_key(k) {
@@ -1033,6 +1151,7 @@ impl Rt {
             fr.own.extend(f.own.iter().cloned());
             fr.missed.extend(f.missed.iter().cloned());
             fr.ext.extend(f.ext.iter().cloned());
+            fr.held.extend(f.held.iter().cloned());
         }
     }
 
@@ -1047,15 +1166,6 @@ impl Rt {
                         _ => false,
                     }
             })
-    }
-
-    /// A call's arguments as values, in their names' order.
-    fn arg_values(&self, m: &mut Machine, args: Args, env: &Env) -> R<Vec<Value>> {
-        let args = match args {
-            Args::Values(v) => return Ok(v.values().cloned().collect()),
-            Args::Exprs(args) => args,
-        };
-        args.values().map(|e| if let Expr::Place(_) = e { m.eval_with(&env.bindings, env.owner, e) } else { self.eval_in(m, env, e) }).collect()
     }
 
     /// The widget's subtree from the last redraw, when it is called the same way at the same
@@ -1081,7 +1191,8 @@ impl Rt {
         if !self.w.borrow().current(&memo.frame.deps) || !self.same_bindings(m, &memo.bindings, &env.bindings) {
             return None;
         }
-        let now = self.arg_values(m, args, env).ok()?;
+        // an input worked out here is the same while what it read and the locals around it are
+        let now = arg_values(args);
         if now.len() != memo.args.len() {
             return None;
         }
@@ -1179,7 +1290,7 @@ impl Rt {
         let mut inside = Vec::new();
         self.draw_inputs(m, w.as_deref(), &mut props, &mut inside, &path, &key)?;
         let events = events.iter().map(|(e, h)| (e.clone(), Handle { handler: h.clone(), env: env.clone() })).collect();
-        Ok(vec![Drawn::new(DrawnNode { path, key, widget: name.to_string(), props, slots: drawn_slots, events, writes: written, levels: levels.to_vec(), failed: None, held: inside })])
+        Ok(vec![Drawn::new(DrawnNode { path, id: key, widget: name.to_string(), props, slots: drawn_slots, events, writes: written, levels: levels.to_vec(), failed: None, held: inside })])
     }
 
     /// The calls an input holds, drawn: a rich_text's and a view's, wherever in its value they are.
@@ -1282,17 +1393,15 @@ impl Rt {
             let w = self.w.borrow();
             (w.memo_on, w.by_path.contains_key(key))
         };
-        // its arguments are worked out again outside its frame, as the web does: a failure there
-        // only means it isn't kept
-        let args = if memo_on && !frame.dirty && kept { self.arg_values(m, args, env).ok() } else { None };
-        match args {
-            Some(args) => {
+        match memo_on && !frame.dirty && kept {
+            true => {
+                let args = arg_values(args);
                 let slots = slots.iter().map(|(k, v)| (k.clone(), self.s.nodes_rc(v))).collect();
                 let mut w = self.w();
                 let epoch = w.epoch;
                 w.memo.insert(key.to_string(), Rc::new(Memo { frame, template: name.to_string(), path: path.to_string(), owner: env.owner, args, bindings: env.bindings.clone(), slots, events: events.clone(), epoch, drawn: drawn.clone() }));
             }
-            None => {
+            false => {
                 self.w().memo.remove(key);
             }
         }
@@ -1302,19 +1411,19 @@ impl Rt {
     /// A widget that failed: reported once, and in its place (page 6).
     fn failed(&self, name: &str, path: &str, key: &str, f: &Failure) -> Drawn {
         let broken = match (&f.kind, &f.rule) {
-            (FailKind::Rule, Some(rule)) => Broken { code: None, rule: Some(rule.clone()), site: Some(path.to_string()) },
-            _ => broken_code(&failure_code(f), path),
+            (FailKind::Rule, Some(rule)) => Broken { code: None, rule: Some(rule.clone()), site: Some(key.to_string()) },
+            _ => broken_code(&failure_code(f), key),
         };
         {
             let mut w = self.w();
             for fr in w.frames.iter_mut() {
                 fr.dirty = true;
             }
-            if !w.outcome.failures.iter().any(|b| b.site.as_deref() == Some(path) && b.code == broken.code && b.rule == broken.rule) {
+            if !w.outcome.failures.iter().any(|b| b.site.as_deref() == Some(key) && b.code == broken.code && b.rule == broken.rule) {
                 w.outcome.failures.push(broken);
             }
         }
-        Drawn::new(DrawnNode { path: path.to_string(), key: key.to_string(), widget: name.to_string(), props: BTreeMap::new(), slots: BTreeMap::new(), events: BTreeMap::new(), writes: BTreeMap::new(), levels: Vec::new(), failed: Some(f.message.clone()), held: Vec::new() })
+        Drawn::new(DrawnNode { path: path.to_string(), id: key.to_string(), widget: name.to_string(), props: BTreeMap::new(), slots: BTreeMap::new(), events: BTreeMap::new(), writes: BTreeMap::new(), levels: Vec::new(), failed: Some(f.message.clone()), held: Vec::new() })
     }
 
     /// A widget's instance at a key, made or kept, with its inputs, slots and events from this
@@ -1544,7 +1653,7 @@ struct Snapshot {
 /// One write a layout makes: a `mut` input of a drawn widget.
 #[derive(Clone, Debug)]
 pub struct LayoutWrite {
-    pub path: String,
+    pub id: String,
     pub input: String,
     pub value: Value,
 }
@@ -1565,11 +1674,28 @@ pub struct Page {
     pub(crate) started: HashSet<String>,
     /// The outside change a layout that didn't settle is held at.
     pub(crate) held_layout: Option<u64>,
+    /// The fns a host calls.
+    held_fns: crate::host::HeldFns,
+}
+
+/// The IR this runtime runs: a whole number of its own, apart from its release.
+pub const IR_VERSION: i64 = 4;
+
+/// An IR of another version is refused, and told what to do.
+fn check_version(version: i64) -> R<()> {
+    if version == IR_VERSION {
+        return Ok(());
+    }
+    Err(Failure::ir(format!("this page is IR {}, this engine reads IR {}: {}", version, IR_VERSION, if version > IR_VERSION { "use a later engine" } else { "run xtmd migrate" })))
 }
 
 impl Page {
     /// A page from the IR file `xtmd build` writes, as JSON.
     pub fn from_json(json: &str, opts: PageOptions) -> R<Page> {
+        // its version first: another's may not read
+        if let Some(v) = serde_json::from_str::<serde_json::Value>(json).ok().and_then(|v| v["ir"]["version"].as_i64()) {
+            check_version(v)?;
+        }
         let file: ir::File = serde_json::from_str(json).map_err(|e| Failure::ir(format!("the IR doesn't read: {}", e)))?;
         Page::new(file, opts)
     }
@@ -1580,6 +1706,7 @@ impl Page {
     }
 
     pub fn from_module(module: ir::Module, opts: PageOptions) -> R<Page> {
+        check_version(module.version)?;
         let mut program = Program::from_module(&module);
         let mut templates = HashMap::new();
         let mut template_rules = HashMap::new();
@@ -1590,7 +1717,9 @@ impl Page {
             }
             let t = Rc::new(t.clone());
             nodes.link(&t.view, &t.view);
-            nodes.link(&t.markdown, &t.markdown);
+            if let Some(md) = &t.markdown {
+                nodes.link(md, md);
+            }
             template_rules.insert(t.name.clone(), rules_of(t.requires.iter()));
             templates.insert(t.name.clone(), t);
         }
@@ -1631,7 +1760,7 @@ impl Page {
                             requires: Vec::new(),
                             fns: Vec::new(),
                             view: Vec::new(),
-                            markdown: Vec::new(),
+                            markdown: Some(Vec::new()),
                             levels: w.levels.clone(),
                         }),
                     );
@@ -1642,6 +1771,11 @@ impl Page {
                 }
                 _ => {}
             }
+        }
+        // core's fns are the engine's: one it doesn't have is another core's
+        let supplied = |n: &str| opts.fns.contains_key(n) || xtmd_eval::natives::exists(n) || xtmd_eval::natives::ENGINE_ONLY.contains(&n) || program.externs.get(n).map_or(false, |x| !x.default.is_empty());
+        if let Some(n) = module.needs.core.iter().find(|n| !extern_widgets.contains_key(*n) && !supplied(n)) {
+            return Err(Failure::ir(format!("this page needs `{}`, which this engine doesn't have", n)));
         }
         let state_rules = rules_of(state_decl.iter().flat_map(|s: &ir::State| s.requires.iter()));
         let shared = Shared {
@@ -1669,6 +1803,7 @@ impl Page {
             next_listener: 0,
             started: HashSet::new(),
             held_layout: None,
+            held_fns: Default::default(),
         };
         // the page's values, then $state's starting values, then what the host gives
         let s = page.rt.s.clone();
@@ -1717,6 +1852,7 @@ impl Page {
         let out = f(&rt, &mut m);
         let mut w = rt.w.borrow_mut();
         w.steps = m.steps;
+        w.worked += m.worked;
         w.next_id = m.next_id;
         w.records_warned(std::mem::take(&mut m.warned));
         out
@@ -1826,18 +1962,22 @@ impl Page {
     /// and an extern widget's own values for `mut` inputs its caller gave no variable. With
     /// `$state`, what a snapshot holds.
     pub fn observe_own(&self) -> BTreeMap<String, BTreeMap<String, Expr>> {
+        self.own_values().into_iter().map(|(p, vs)| (p, vs.into_iter().map(|(k, v)| (k, v.to_ir())).collect())).collect()
+    }
+
+    pub(crate) fn own_values(&self) -> BTreeMap<String, BTreeMap<String, Value>> {
         let w = self.rt.w.borrow();
-        let mut out: BTreeMap<String, BTreeMap<String, Expr>> = BTreeMap::new();
+        let mut out: BTreeMap<String, BTreeMap<String, Value>> = BTreeMap::new();
         for (path, id) in &w.at_path {
             if let Some(i) = w.instances.get(id).filter(|i| !i.cells.is_empty()) {
-                out.insert(path.clone(), i.cells.iter().map(|(k, v)| (k.clone(), v.to_ir())).collect());
+                out.insert(path.clone(), i.cells.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
             }
         }
-        fn walk(nodes: &[Drawn], w: &World, out: &mut BTreeMap<String, BTreeMap<String, Expr>>) {
+        fn walk(nodes: &[Drawn], w: &World, out: &mut BTreeMap<String, BTreeMap<String, Value>>) {
             for n in nodes {
-                if let Some(own) = w.own.get(&n.key) {
+                if let Some(own) = w.own.get(&n.id) {
                     for (k, v) in own.iter().filter(|(k, _)| !n.writes.contains_key(*k)) {
-                        out.entry(n.path.clone()).or_default().insert(k.clone(), v.to_ir());
+                        out.entry(n.path.clone()).or_default().insert(k.clone(), v.clone());
                     }
                 }
                 for kids in n.slots.values().chain(n.held.iter()) {
@@ -1875,7 +2015,7 @@ impl Page {
                         continue;
                     }
                 }
-                let input = node.as_ref().filter(|n| !n.writes.contains_key(name)).and_then(|n| self.rt.s.extern_widgets.get(&n.widget).and_then(|w| w.inputs.iter().find(|f| f.name == *name && f.mutable)).map(|f| (n.key.clone(), f.ty.clone())));
+                let input = node.as_ref().filter(|n| !n.writes.contains_key(name)).and_then(|n| self.rt.s.extern_widgets.get(&n.widget).and_then(|w| w.inputs.iter().find(|f| f.name == *name && f.mutable)).map(|f| (n.id.clone(), f.ty.clone())));
                 if let Some((key, ty)) = input {
                     if self.with_machine(|_, m| m.fits(&v, &ty))? {
                         let mut w = self.rt.w();
@@ -1917,6 +2057,22 @@ impl Page {
         self.rt.w.borrow().missed.iter().cloned().collect()
     }
 
+    /// What the page takes (its IR's `needs`) and nobody gives: the engine's fns and a pack's, and the
+    /// host's values. The page runs without them until it reads one.
+    pub fn lacking(&self) -> Vec<String> {
+        let s = &self.rt.s;
+        let needs = &s.module.needs;
+        let fns = needs.core.iter().chain(needs.packs.iter().flat_map(|p| &p.externs)).filter(|n| match s.program.externs.get(*n) {
+            Some(x) => !s.engine_fns.contains_key(*n) && !xtmd_eval::natives::exists(n) && x.default.is_empty() && !s.host_fns.contains(*n),
+            None => false,
+        });
+        let w = self.rt.w.borrow();
+        let values = needs.host.iter().filter(|n| !s.program.externs.contains_key(*n) && !w.externs.contains_key(*n));
+        let mut out: Vec<String> = fns.chain(values).cloned().collect();
+        out.sort();
+        out
+    }
+
     /// Called after every redraw, with nothing: the listener reads the page again. Returns an
     /// id for [`Page::off_change`].
     pub fn on_change(&mut self, listener: impl FnMut() + 'static) -> usize {
@@ -1931,23 +2087,23 @@ impl Page {
 
     // ---- changing it: every change is one transaction, checked, and undone when it fails
 
-    /// A reader's event on a drawn widget, by its path.
-    pub fn event(&mut self, path: &str, name: &str, args: Vec<Value>) -> R<()> {
-        let Some(ev) = self.find(path).and_then(|n| n.events.get(name).cloned()) else { return Ok(()) };
-        self.transaction(path, move |rt, m| rt.run_handler(m, &ev.handler, &ev.env, args).map(|_| ()))
+    /// A reader's event on a drawn widget, by its id.
+    pub fn event(&mut self, id: &str, name: &str, args: Vec<Value>) -> R<()> {
+        let Some(ev) = self.find(id).and_then(|n| n.events.get(name).cloned()) else { return Ok(()) };
+        self.transaction(id, move |rt, m| rt.run_handler(m, &ev.handler, &ev.env, args).map(|_| ()))
     }
 
     /// A drawn widget writing one of its `mut` inputs, as a slider does.
-    pub fn write(&mut self, path: &str, input: &str, value: Value) -> R<()> {
+    pub fn write(&mut self, id: &str, input: &str, value: Value) -> R<()> {
         self.changes += 1;
         self.reset_steps();
-        let Some(node) = self.find(path) else { return Ok(()) };
-        let (to, widget, key) = (node.writes.get(input).cloned(), node.widget.clone(), node.key.clone());
+        let Some(node) = self.find(id) else { return Ok(()) };
+        let (to, widget, key) = (node.writes.get(input).cloned(), node.widget.clone(), node.id.clone());
         let Some(to) = to else {
             // a widget's own value: kept by the page for it, checked against the input's type
             let Some(f) = self.rt.s.extern_widgets.get(&widget).and_then(|w| w.inputs.iter().find(|f| f.name == input && f.mutable)).cloned() else { return Ok(()) };
             if !self.with_machine(|_, m| m.fits(&value, &f.ty))? {
-                self.rt.w().outcome.refused.push(broken_code("contracts.outside", path));
+                self.rt.w().outcome.refused.push(broken_code("contracts.outside", id));
                 return Ok(());
             }
             {
@@ -1977,7 +2133,7 @@ impl Page {
             }
             Ok(Some(Refused::Contract)) | Err(_) => {
                 self.restore(snap);
-                self.rt.w().outcome.refused.push(broken_code("contracts.outside", path));
+                self.rt.w().outcome.refused.push(broken_code("contracts.outside", id));
             }
         }
         self.redraw()
@@ -1992,14 +2148,14 @@ impl Page {
         let own_before = self.rt.w.borrow().own.clone();
         let mut changed = false;
         let mut shared = false;
-        for LayoutWrite { path, input, value } in writes {
-            let Some(node) = self.find(&path) else { continue };
+        for LayoutWrite { id, input, value } in writes {
+            let Some(node) = self.find(&id) else { continue };
             if let Some(now) = node.props.get(&input) {
                 if self.with_machine(|_, m| m.equal(now, &value))? {
                     continue;
                 }
             }
-            let (to, key) = (node.writes.get(&input).cloned(), node.key.clone());
+            let (to, key) = (node.writes.get(&input).cloned(), node.id.clone());
             let r = match to {
                 Some(to) => {
                     let r = self.with_machine(|rt, m| -> R<()> {
@@ -2025,7 +2181,7 @@ impl Page {
                 self.restore(snap);
                 let mut w = self.rt.w();
                 w.own = own_before;
-                w.outcome.refused.push(broken_code("contracts.outside", &path));
+                w.outcome.refused.push(broken_code("contracts.outside", &id));
                 return Ok(false);
             }
             changed = true;
@@ -2050,10 +2206,10 @@ impl Page {
     }
 
     /// A plane whose layout didn't settle (page 6, failures).
-    pub fn layout_failed(&mut self, path: &str) {
+    pub fn layout_failed(&mut self, id: &str) {
         let mut w = self.rt.w();
-        if !w.outcome.failures.iter().any(|b| b.site.as_deref() == Some(path) && b.code.as_deref() == Some("failure.layout")) {
-            w.outcome.failures.push(broken_code("failure.layout", path));
+        if !w.outcome.failures.iter().any(|b| b.site.as_deref() == Some(id) && b.code.as_deref() == Some("failure.layout")) {
+            w.outcome.failures.push(broken_code("failure.layout", id));
         }
     }
 
@@ -2186,6 +2342,54 @@ impl Page {
     pub fn apply(&self, f: &Value, args: Vec<Value>) -> R<Option<Value>> {
         self.reset_steps();
         self.with_machine(|_, m| m.apply(f, args.into_iter().map(Binding::Value).collect()))
+    }
+
+    // ---- for the host's side (host.rs)
+
+    pub(crate) fn held_fns(&mut self) -> &mut crate::host::HeldFns {
+        &mut self.held_fns
+    }
+
+    pub(crate) fn state_values(&self) -> Vec<(String, Value)> {
+        self.rt.w.borrow().state.clone()
+    }
+
+    pub(crate) fn is_token(&self, ty: &str) -> bool {
+        self.rt.s.program.tokens.contains_key(ty)
+    }
+
+    pub(crate) fn alias(&self, name: &str) -> Option<ir::Type> {
+        self.rt.s.program.aliases.get(name).cloned()
+    }
+
+    /// An extern widget's `mut` inputs, with their types.
+    pub(crate) fn mut_inputs(&self, widget: &str) -> Vec<(String, ir::Type)> {
+        self.rt.s.extern_widgets.get(widget).map(|w| w.inputs.iter().filter(|f| f.mutable).map(|f| (f.name.clone(), f.ty.clone())).collect()).unwrap_or_default()
+    }
+
+    pub(crate) fn is_current(&self, deps: &HashMap<String, u64>) -> bool {
+        self.rt.w.borrow().current(deps)
+    }
+
+    /// Whether two fns are the same code with the same values around it.
+    pub(crate) fn same_fn(&self, a: &Value, b: &Value) -> bool {
+        match (a, b) {
+            (Value::Fn(x), Value::Fn(y)) => Rc::ptr_eq(x, y) || (Rc::ptr_eq(&x.body, &y.body) && x.owner == y.owner && self.with_machine(|rt, m| rt.same_bindings(m, &x.captured, &y.captured))),
+            _ => false,
+        }
+    }
+
+    /// A fn called, with what it read.
+    pub(crate) fn apply_reading(&self, f: &Value, args: Vec<Value>) -> (R<Option<Value>>, HashMap<String, u64>) {
+        self.with_machine(|rt, m| {
+            m.reset_steps();
+            rt.reading(|| m.apply(f, args.into_iter().map(Binding::Value).collect()))
+        })
+    }
+
+    /// How many of its views' expressions the page has worked out, for a test that counts them.
+    pub fn worked(&self) -> u64 {
+        self.rt.w.borrow().worked
     }
 
     /// Whether a drawn widget's event runs anything. A handler that only passes the event on, as
@@ -2366,22 +2570,14 @@ impl Page {
         self.redraw()
     }
 
-    /// The drawn widget at a path.
-    pub fn find(&self, path: &str) -> Option<&Drawn> {
-        fn walk<'a>(nodes: &'a [Drawn], path: &str) -> Option<&'a Drawn> {
-            for n in nodes {
-                if n.path == path {
-                    return Some(n);
-                }
-                for kids in n.slots.values().chain(n.held.iter()) {
-                    if let Some(f) = walk(kids, path) {
-                        return Some(f);
-                    }
-                }
-            }
-            None
-        }
-        walk(&self.drawn, path)
+    /// The drawn widget of an id.
+    pub fn find(&self, id: &str) -> Option<&Drawn> {
+        find_node(&self.drawn, &|n| n.id == id)
+    }
+
+    /// The widget drawn at a place, loop rows by their position.
+    pub fn at(&self, path: &str) -> Option<&Drawn> {
+        find_node(&self.drawn, &|n| n.path == path)
     }
 
     /// Draws the whole page again: once per change.
@@ -2399,11 +2595,13 @@ impl Page {
                 w.at_path.clear();
                 w.own_seen.clear();
                 w.extern_seen.clear();
+                w.node_seen.clear();
                 w.frames.clear();
             }
-            for (body, message, _) in rt.s.state_rules.iter().filter(|r| r.2) {
-                let ok = rt.run_body(m, &[], body.clone(), &Env::default(), Vec::new())?;
-                rt.w().warned("$state", message, !matches!(ok, Some(Value::Bool(false))));
+            let rules = rt.s.state_rules.clone();
+            for (k, (_, message, _)) in rules.iter().enumerate().filter(|(_, r)| r.2) {
+                let holds = rt.state_rule(m, k)?;
+                rt.w().warned("$state", message, holds);
             }
             let drawn = match rt.s.templates.get("doc") {
                 Some(doc) => rt.draw_nodes(m, &doc.view, &Env::default())?,
@@ -2426,6 +2624,9 @@ impl Page {
             let seen = std::mem::take(&mut w.extern_seen);
             w.extern_memo.retain(|k, _| seen.contains(k));
             w.extern_seen = seen;
+            let seen = std::mem::take(&mut w.node_seen);
+            w.node_memo.retain(|k, _| seen.contains(k));
+            w.node_seen = seen;
             Ok(drawn)
         })?;
         self.drawn = drawn;
@@ -2435,6 +2636,20 @@ impl Page {
         }
         Ok(())
     }
+}
+
+fn find_node<'a>(nodes: &'a [Drawn], is: &dyn Fn(&Drawn) -> bool) -> Option<&'a Drawn> {
+    for n in nodes {
+        if is(n) {
+            return Some(n);
+        }
+        for kids in n.slots.values().chain(n.held.iter()) {
+            if let Some(f) = find_node(kids, is) {
+                return Some(f);
+            }
+        }
+    }
+    None
 }
 
 /// A shader's name: a named fn is lowered to a lambda that calls it with its own parameters.

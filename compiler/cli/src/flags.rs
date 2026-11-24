@@ -9,7 +9,7 @@ fn known(cmd: &str) -> &'static [&'static str] {
         "fmt" => &["--check", "--diff", "--stdout", "--stdin", "--format", "--out", "--help"],
         "parse" => &["--format", "--out", "--help"],
         "check" => &["--pack", "--config", "--format", "--out", "--help"],
-        "build" => &["--rir", "--core", "--pack", "--config", "--format", "--out", "--help"],
+        "build" => &["--rir", "--core", "--pretty", "--pack", "--config", "--format", "--out", "--help"],
         "md" => &["--pack", "--config", "--format", "--out", "--help"],
         "surface" => &["--check", "--diff", "--stdout", "--force", "--pack", "--config", "--format", "--out", "--help"],
         "migrate" => &[

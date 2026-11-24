@@ -1,0 +1,1 @@
+it shows a rich_text as text: IR 4 has nothing for it, so build the page again from its source, moved by `xtmd migrate`

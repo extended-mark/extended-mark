@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Constants, Machine, Program } from "../dist/index.js";
+import { Constants, Machine, Program } from "../dist/internal.js";
 
 export const repo = join(dirname(fileURLToPath(import.meta.url)), "../../../..");
 

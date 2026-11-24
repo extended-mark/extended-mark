@@ -98,11 +98,11 @@ pub struct Measured {
 
 impl Measure for Measured {
     fn spot(&mut self, _page: &Page, spot: &Drawn) -> Size {
-        let s = self.spots.get(&spot.path).copied().unwrap_or(egui::Vec2::ZERO);
+        let s = self.spots.get(&spot.id).copied().unwrap_or(egui::Vec2::ZERO);
         Size { width: whole(s.x.max(0.0).round() as f64), height: whole(s.y.max(0.0).round() as f64) }
     }
 
     fn plane_width(&mut self, _page: &Page, plane: &Drawn) -> Num {
-        whole(self.planes.get(&plane.path).copied().unwrap_or(PAGE_WIDTH as f32).max(0.0).round() as f64)
+        whole(self.planes.get(&plane.id).copied().unwrap_or(PAGE_WIDTH as f32).max(0.0).round() as f64)
     }
 }

@@ -7,6 +7,7 @@
 
 import type * as ir from "./generated/ir.js";
 import { Constants, Failure, Machine, Num, Program, type Binding, type Host, type Outer } from "./eval/index.js";
+import { ENGINE_ONLY, exists as native } from "./eval/natives.js";
 import { Value, caseOf, none, toIr, type Value as V } from "./eval/value.js";
 
 /** What the host tells the page about where it is read. */
@@ -16,17 +17,19 @@ export interface PageValues {
 }
 
 /** How a page is mounted: what the host and the engine give it. */
-export interface PageOptions {
+export interface CoreOptions {
   page?: PageValues;
   /** `$state`'s values, in the IR's form, over its starting ones. */
   state?: Record<string, ir.Expr>;
   /** Each channel's values, in the IR's form. */
   externs?: Record<string, Record<string, ir.Expr>>;
   /** The value fns the engine supplies, by full name. */
-  fns?: Record<string, (args: readonly V[]) => V | null>;
+  fns?: Record<string, (args: readonly ir.Expr[]) => ir.Expr | null>;
   /** Whether the engine draws an extern widget, by full name. One it doesn't shows its Markdown
    * instead (page 6), and is reported in `missing()`. Left out, every one is drawn. */
   supplies?: (widget: string) => boolean;
+  /** How a value is given to the fns and the host: the IR's form. */
+  json?: (v: V) => ir.Expr;
   /** Reuse a widget's drawn subtree when nothing it read has changed (on by default). Off
    * draws every widget anew on every change, for comparing the two. */
   memo?: boolean;
@@ -109,6 +112,8 @@ interface Frame {
   missed: string[];
   /** The extern calls drawn inside it, whose memos a reuse keeps. */
   ext: string[];
+  /** The loops, branches, places and locals inside it, whose memos a reuse keeps. */
+  held: string[];
   /** It failed, or asked the host for a value: drawn anew every time. */
   dirty: boolean;
 }
@@ -125,11 +130,21 @@ interface Memo extends Frame {
   drawn: Drawn[];
 }
 
+const NO_ARGS: Record<string, ir.Expr> = {};
 const NO_NODES: Record<string, ir.Node[]> = {};
 const NO_EVENTS: Record<string, string> = {};
 
 function join(path: string, part: string): string {
   return path ? `${path}/${part}` : part;
+}
+
+function newFrame(): Frame {
+  return { deps: new Map(), nested: [], own: [], missed: [], ext: [], held: [], dirty: false };
+}
+
+/** The values a call made as a value was given. */
+function argValues(args: Args): V[] {
+  return args instanceof Map ? [...args.keys()].sort().map((k) => args.get(k)!) : [];
 }
 
 function failureCode(f: unknown): string {
@@ -140,8 +155,18 @@ function message(f: unknown): string {
   return f instanceof Error ? f.message : String(f);
 }
 
-/** The page: mount it, read its tree, its `$state` and its Markdown, and change it. */
-export class Page {
+/** The IR this runtime runs: a whole number of its own, apart from its release. */
+export const IR_VERSION = 4;
+
+/** What an IR of another version is told. */
+function otherVersion(version: unknown): string {
+  const other = typeof version === "number" && version > IR_VERSION;
+  return `this page is IR ${version}, this engine reads IR ${IR_VERSION}: ${other ? "use a later engine" : "run xtmd migrate"}`;
+}
+
+/** A page running: what `Page`, the host's side of it, is made on. Its tree has the runtime's own values
+ * in it, and its changes are told with nothing. */
+export class Core {
   readonly module: ir.Module;
   readonly program: Program;
   readonly machine: Machine;
@@ -172,6 +197,11 @@ export class Page {
   private epoch = 0;
   private memo = new Map<string, Memo>();
   private externMemo = new Map<string, Frame & { node: ir.NodeExtern; path: string; owner: number | undefined; bindings: [string, Binding][]; epoch: number; drawn: Drawn[] }>();
+  /** What each loop, branch, place and local of a view gave, with what it read. */
+  private nodeMemo = new Map<string, Frame & { node: ir.Node; path: string; owner: number | undefined; bindings: [string, Binding][]; epoch: number; drawn: Drawn[]; value?: V }>();
+  private nodeSeen = new Set<string>();
+  /** The page's rules that held or didn't, with what they read. */
+  private ruleMemo = new Map<ir.Require, { deps: Map<string, number>; epoch: number; holds: boolean }>();
   /** The extern calls drawn this redraw: the memos of the rest are dropped after it. */
   private externSeen = new Set<string>();
   private frames: Frame[] = [];
@@ -190,20 +220,24 @@ export class Page {
   private supplies: (widget: string) => boolean;
   /** Extern widgets drawn as their Markdown because the engine doesn't supply them. */
   private readonly missed = new Set<string>();
+  /** A value as whoever the page is given to reads it. */
+  readonly json: (v: V) => ir.Expr;
   /** The value fns the engine supplies, by full name: `core/moment.local`. */
-  private readonly engineFns: Record<string, (args: readonly V[]) => V | null>;
+  private readonly engineFns: Record<string, (args: readonly ir.Expr[]) => ir.Expr | null>;
 
-  constructor(ir: ir.File | ir.Module, opts: PageOptions = {}) {
+  constructor(ir: ir.File | ir.Module, opts: CoreOptions = {}) {
     this.engineFns = opts.fns ?? {};
+    this.json = opts.json ?? toIr;
     this.supplies = opts.supplies ?? (() => true);
     this.memoOn = opts.memo ?? true;
     this.module = "ir" in ir ? ir.ir : ir;
+    if (this.module.version !== IR_VERSION) throw Failure.ir(otherVersion(this.module.version));
     this.program = Program.fromModule(this.module);
     for (const t of this.module.templates) {
       this.templates.set(t.name, t);
-      for (const f of t.fns) this.program.fns.set(f.name, f);
+      for (const f of (t.fns ?? [])) this.program.fns.set(f.name, f);
     }
-    for (const h of this.module.handlers) this.handlers.set(h.id, h);
+    for (const h of this.module.handlers ?? []) this.handlers.set(h.id, h);
     this.hostFns = new Set(this.module.needs.host);
     let state: ir.State | undefined;
     for (const d of this.module.declarations) {
@@ -215,6 +249,9 @@ export class Page {
       }
     }
     this.stateDecl = state;
+    // core's fns are the engine's: one it doesn't have is another core's
+    const unknown = this.module.needs.core.find((n) => !this.externWidgets.has(n) && !this.supplied(n));
+    if (unknown !== undefined) throw Failure.ir(`this page needs \`${unknown}\`, which this engine doesn't have`);
     this.machine = new Machine(this.program, this.host());
     // the page's values, then $state's starting values, then what the host gives
     for (const d of this.module.declarations) {
@@ -223,7 +260,7 @@ export class Page {
       const x = decl.extern as Record<string, unknown>;
       if (!("channel" in x)) continue;
       const c = x.channel as ir.ExternChannel;
-      for (const f of c.values) {
+      for (const f of (c.values ?? [])) {
         if (f.default) this.externs.set(`${c.name}.${f.name}`, this.constant(f.default));
       }
     }
@@ -344,7 +381,7 @@ export class Page {
     const node = this.find(path);
     const ev = node?.events.get(name);
     if (!node || !ev) return;
-    this.transaction(path, () => this.runHandler(ev.handler, ev.env, args));
+    this.transaction(node.key, () => this.runHandler(ev.handler, ev.env, args));
   }
 
   /** A drawn widget writing one of its `mut` inputs, as a slider does. */
@@ -356,10 +393,10 @@ export class Page {
     const w = node.writes.get(input);
     if (!w) {
       // a widget's own value: kept by the page for it, checked against the input's type
-      const f = this.externWidgets.get(node.widget)?.inputs.find((f) => f.name === input && f.mut);
+      const f = this.externWidgets.get(node.widget)?.inputs?.find((f) => f.name === input && f.mut);
       if (!f) return;
       if (!this.machine.fits(value, f.type)) {
-        this.outcome.refused.push({ code: "contracts.outside", site: path });
+        this.outcome.refused.push({ code: "contracts.outside", site: node.key });
         return;
       }
       if (!this.own.has(node.key)) this.own.set(node.key, new Map());
@@ -374,7 +411,7 @@ export class Page {
       const broken = this.contractBroken(w.place, w.env);
       if (broken) {
         this.restore(snap);
-        this.outcome.refused.push({ code: "contracts.outside", site: path });
+        this.outcome.refused.push({ code: "contracts.outside", site: node.key });
         this.redraw();
         return;
       }
@@ -385,7 +422,7 @@ export class Page {
       }
     } catch (f) {
       this.restore(snap);
-      this.outcome.refused.push({ code: "contracts.outside", site: path });
+      this.outcome.refused.push({ code: "contracts.outside", site: node.key });
     }
     this.redraw();
   }
@@ -420,7 +457,7 @@ export class Page {
       } catch {
         this.restore(snap);
         this.own = ownBefore;
-        this.outcome.refused.push({ code: "contracts.outside", site: path });
+        this.outcome.refused.push({ code: "contracts.outside", site: node.key });
         return false;
       }
     }
@@ -471,8 +508,8 @@ export class Page {
   }
 
   /** A plane whose layout didn't settle (page 6, failures). */
-  layoutFailed(path: string): void {
-    if (!this.outcome.failures.some((b) => b.site === path && b.code === "failure.layout")) this.outcome.failures.push({ code: "failure.layout", site: path });
+  layoutFailed(id: string): void {
+    if (!this.outcome.failures.some((b) => b.site === id && b.code === "failure.layout")) this.outcome.failures.push({ code: "failure.layout", site: id });
   }
 
   /** A host's write to `$state`: one change, checked once. */
@@ -546,6 +583,20 @@ export class Page {
     return [...this.missed].sort();
   }
 
+  /** Whether something gives a fn: the engine, or its own body. */
+  private supplied(name: string): boolean {
+    return !!this.engineFns[name] || native(name) || ENGINE_ONLY.includes(name) || !!this.program.externs.get(name)?.default?.length;
+  }
+
+  /** What the page takes (its IR's `needs`) and nobody gives: the engine's fns and a pack's, and the
+   * host's values. The page runs without them until it reads one. */
+  lacking(): string[] {
+    const { core, packs, host } = this.module.needs;
+    const fns = [...core, ...packs.flatMap((p) => p.externs)].filter((n) => this.program.externs.has(n) && !this.engineFns[n] && !native(n) && !this.program.externs.get(n)?.default?.length && !this.hostFns.has(n));
+    const values = host.filter((n) => !this.program.externs.has(n) && !this.externs.has(n));
+    return [...fns, ...values].sort();
+  }
+
   // ---- the page's Markdown
 
   /** The page as Markdown, with the values it has now. */
@@ -559,15 +610,15 @@ export class Page {
 
   /** Every drawn widget's own variables now, by the place it is drawn at (`s0/s4[2]/s1`): a widget
    * written in Extended Mark, its variables; an extern widget, the `mut` inputs no caller gave a variable. */
-  observeOwn(): Record<string, Record<string, ir.Expr>> {
-    const out: Record<string, Record<string, ir.Expr>> = {};
+  observeOwn<T = ir.Expr>(as: (v: V) => T = toIr as (v: V) => T): Record<string, Record<string, T>> {
+    const out: Record<string, Record<string, T>> = {};
     for (const [path, inst] of this.atPath) {
-      if (inst.cells.size) out[path] = Object.fromEntries([...inst.cells].map(([k, v]) => [k, toIr(v)]));
+      if (inst.cells.size) out[path] = Object.fromEntries([...inst.cells].map(([k, v]) => [k, as(v)]));
     }
     const walk = (nodes: readonly Drawn[]) => {
       for (const n of nodes) {
         const own = [...(this.own.get(n.key) ?? [])].filter(([k]) => !n.writes.has(k));
-        if (own.length) out[n.path] = { ...out[n.path], ...Object.fromEntries(own.map(([k, v]) => [k, toIr(v)])) };
+        if (own.length) out[n.path] = { ...out[n.path], ...Object.fromEntries(own.map(([k, v]) => [k, as(v)])) };
         for (const kids of childrenOf(n)) walk(kids);
       }
     };
@@ -601,12 +652,12 @@ export class Page {
           left.push(`${path}.${name}`);
           continue;
         }
-        const cell = inst?.template.cells.find((c) => c.name === name);
+        const cell = inst?.template.cells?.find((c) => c.name === name);
         if (inst && cell && this.machine.fits(v, cell.type)) {
           inst.cells.set(name, v);
           continue;
         }
-        const input = node ? this.externWidgets.get(node.widget)?.inputs.find((f) => f.name === name && f.mut) : undefined;
+        const input = node ? this.externWidgets.get(node.widget)?.inputs?.find((f) => f.name === name && f.mut) : undefined;
         if (node && input && !node.writes.has(name) && this.machine.fits(v, input.type)) {
           if (!this.own.has(node.key)) this.own.set(node.key, new Map());
           this.own.get(node.key)!.set(name, v);
@@ -728,7 +779,7 @@ export class Page {
             // read as an input is: whoever reads it is out of date when the caller gives it anew
             page.track(`l:${inst.id}:${what.name}`);
             const s = inst.slots.get(what.name);
-            const decl = inst.template.slots.find((x) => x.name === what.name);
+            const decl = (inst.template.slots ?? []).find((x) => x.name === what.name);
             if (!s) {
               // only an `opt` slot may be left out (page 3): the runtime makes up no value
               if (decl?.type.name === "core/opt") return none();
@@ -750,7 +801,7 @@ export class Page {
           case "cell": {
             const inst = owner === undefined ? undefined : page.instances.get(owner);
             if (!inst) throw new Failure("Ir", `no variable ${what.name} here`);
-            const c = inst.template.cells.find((c) => c.name === what.name);
+            const c = (inst.template.cells ?? []).find((c) => c.name === what.name);
             if (c && !m.fits(value, c.type)) throw new Failure("Rule", `${what.name} is outside its contract`);
             inst.cells.set(what.name, value);
             page.bump(`c:${inst.id}:${what.name}`);
@@ -769,10 +820,13 @@ export class Page {
       },
       callExtern(_m: Machine, name: string, args: V[]): V | null | undefined {
         const own = page.engineFns[name];
-        if (own) return own(args);
+        if (own) {
+          const out = own(args.map(page.json));
+          return out === null ? null : page.constant(out);
+        }
         if (!page.hostFns.has(name)) return undefined;
         for (const f of page.frames) f.dirty = true;
-        page.calls.push({ call: { name, args: args.map(toIr) } });
+        page.calls.push({ call: { name, args: args.map(page.json) } });
         return null;
       },
       invoke(_m: Machine, event: string, args: V[], owner: number | undefined): void {
@@ -794,14 +848,14 @@ export class Page {
   /** Whether the variable a place writes now breaks its own contract. */
   private contractBroken(place: ir.Place, env: Env): boolean {
     const root = place.root as Record<string, string>;
-    if ("$state" in root && place.path.length === 0) {
+    if ("$state" in root && (place.path ?? []).length === 0) {
       const f = this.stateDecl?.fields.find((f) => f.name === root["$state"]);
       const v = this.state.get(root["$state"]);
       return !!f && !!v && !this.machine.fits(v, f.type);
     }
-    if ("cell" in root && place.path.length === 0 && env.owner !== undefined) {
+    if ("cell" in root && (place.path ?? []).length === 0 && env.owner !== undefined) {
       const inst = this.instances.get(env.owner);
-      const c = inst?.template.cells.find((c) => c.name === root.cell);
+      const c = inst?.template.cells?.find((c) => c.name === root.cell);
       const v = inst?.cells.get(root.cell);
       return !!c && !!v && !this.machine.fits(v, c.type);
     }
@@ -811,11 +865,19 @@ export class Page {
   /** The message of the first of `$state`'s rules that no longer holds. */
   private stateRuleBroken(): string | undefined {
     for (const r of this.stateDecl?.requires ?? []) {
-      if (r.warn) continue;
-      const ok = this.runBody([], r.body, { owner: undefined, bindings: [], path: "" }, []);
-      if (ok && ok.kind === "bool" && !ok.b) return r.message;
+      if (!r.warn && !this.stateRule(r)) return r.message;
     }
     return undefined;
+  }
+
+  /** Whether one of `$state`'s rules holds: worked out again only when something it read changed. */
+  private stateRule(r: ir.Require): boolean {
+    const m = this.ruleMemo.get(r);
+    if (m && m.epoch === this.epoch && this.current(m.deps)) return m.holds;
+    const { value, deps } = this.reading(() => this.runBody([], r.body, { owner: undefined, bindings: [], path: "" }, []), false);
+    const holds = !(value && value.kind === "bool" && !value.b);
+    this.ruleMemo.set(r, { deps, epoch: this.epoch, holds });
+    return holds;
   }
 
   private runHandler(id: string, env: Env, args: V[]): void {
@@ -837,7 +899,7 @@ export class Page {
     };
   }
 
-  private restore(s: ReturnType<Page["snapshot"]>): void {
+  private restore(s: ReturnType<Core["snapshot"]>): void {
     this.epoch++;
     this.state = s.state;
     for (const [id, cells] of s.cells) {
@@ -892,7 +954,8 @@ export class Page {
     this.atPath = new Map();
     this.ownSeen = new Set();
     this.externSeen = new Set();
-    this.checkRules((this.stateDecl?.requires ?? []).filter((r) => r.warn), { owner: undefined, bindings: [], path: "" }, "$state");
+    this.nodeSeen = new Set();
+    for (const r of this.stateDecl?.requires ?? []) if (r.warn) this.warned("$state", r.message, this.stateRule(r));
     const doc = this.templates.get("doc");
     this.drawn = doc ? this.drawNodes(doc.view, { owner: undefined, bindings: [], path: "" }) : [];
     // a widget that left the page leaves with its variables
@@ -908,6 +971,7 @@ export class Page {
     }
     for (const k of [...this.own.keys()]) if (!this.ownSeen.has(k)) this.own.delete(k);
     for (const k of [...this.externMemo.keys()]) if (!this.externSeen.has(k)) this.externMemo.delete(k);
+    for (const k of [...this.nodeMemo.keys()]) if (!this.nodeSeen.has(k)) this.nodeMemo.delete(k);
     for (const l of this.listeners) l();
   }
 
@@ -922,7 +986,7 @@ export class Page {
         if (opened) return { nodes: b.then, env: { ...env, bindings: [...env.bindings, [(w.open as ir.CondOpen).name, opened]] } };
       }
     }
-    return { nodes: n.else, env };
+    return { nodes: n.else ?? [], env };
   }
 
   drawNodes(nodes: ir.Node[], env0: Env): Drawn[] {
@@ -931,8 +995,50 @@ export class Page {
     for (const n of nodes) {
       if ("declare" in n) {
         const l = n.declare.let;
-        env = { ...env, bindings: [...env.bindings, [l.name, { value: this.evalIn(env, l.value) }]] };
-      } else if ("for" in n) {
+        const at = env;
+        const m = this.hold(n, `let ${l.name}`, at, () => ({ drawn: [], value: this.evalIn(at, l.value) }));
+        env = { ...env, bindings: [...env.bindings, [l.name, { value: m.value! }]] };
+      } else if ("extern" in n || "use" in n) {
+        out.push(...this.drawNode(n, env));
+      } else {
+        const site = "for" in n ? n.for.site : "if" in n ? n.if.site : "match" in n ? n.match.site : n.place.site;
+        const at = env;
+        out.push(...this.hold(n, site, at, () => ({ drawn: this.drawNode(n, at) })).drawn);
+      }
+    }
+    return out;
+  }
+
+  /** What a loop, a branch, a place or a local gives: as it was, when it is the same one with the same
+   * locals around it and nothing it read has changed. */
+  private hold(node: ir.Node, site: string, env: Env, work: () => { drawn: Drawn[]; value?: V }): { drawn: Drawn[]; value?: V } {
+    const key = `${env.key ?? env.path}|${site}`;
+    // the same content placed twice in one redraw is two
+    const twice = this.nodeSeen.has(key);
+    this.nodeSeen.add(key);
+    for (const f of this.frames) f.held.push(key);
+    const m = twice ? undefined : this.nodeMemo.get(key);
+    if (this.memoOn && m && m.node === node && m.epoch === this.epoch && m.path === env.path && m.owner === env.owner && this.current(m.deps) && this.sameBindings(m.bindings, env.bindings)) {
+      this.replay(m);
+      return m;
+    }
+    const frame: Frame = newFrame();
+    this.frames.push(frame);
+    let made: { drawn: Drawn[]; value?: V };
+    try {
+      made = work();
+    } finally {
+      this.frames.pop();
+    }
+    if (this.memoOn && !frame.dirty && !twice) this.nodeMemo.set(key, { ...frame, node, path: env.path, owner: env.owner, bindings: env.bindings, epoch: this.epoch, ...made });
+    else if (!twice) this.nodeMemo.delete(key);
+    return made;
+  }
+
+  private drawNode(n: ir.Node, env: Env): Drawn[] {
+    const out: Drawn[] = [];
+    {
+      if ("for" in n) {
         const rows = this.machine.loopRows(env.bindings, env.owner, n.for);
         rows.forEach((row, k) =>
           out.push(...this.drawNodes(n.for.body, { owner: env.owner, bindings: [...env.bindings, ...row.bindings], path: join(env.path, `${n.for.site}[${k}]`), key: join(env.key ?? env.path, `${n.for.site}[${row.key}]`) })),
@@ -959,7 +1065,7 @@ export class Page {
       } else if ("extern" in n) {
         out.push(...this.drawExtern(n.extern, env));
       } else if ("use" in n) {
-        out.push(...this.drawUse(n.use.name, join(env.path, n.use.site), n.use.args, n.use.slots ?? {}, n.use.events ?? {}, env, n.use.levels, join(env.key ?? env.path, n.use.site)));
+        out.push(...this.drawUse(n.use.name, join(env.path, n.use.site), n.use.args ?? NO_ARGS, n.use.slots ?? NO_NODES, n.use.events ?? NO_EVENTS, env, n.use.levels, join(env.key ?? env.path, n.use.site)));
       }
     }
     return out;
@@ -985,13 +1091,13 @@ export class Page {
   private drawExtern(x: ir.NodeExtern & { given?: ReadonlyMap<string, V> }, env: Env, path: string = join(env.path, x.site), as: string = join(env.key ?? env.path, x.site)): Drawn[] {
     const key = this.claim(as);
     const m = this.externMemo.get(key);
-    if (this.memoOn && m && m.node === x && m.epoch === this.epoch && m.path === path && m.owner === env.owner && [...m.deps].every(([k, v]) => (this.versions.get(k) ?? 0) === v) && this.sameBindings(m.bindings, env.bindings)) {
+    if (this.memoOn && m && m.node === x && m.epoch === this.epoch && m.path === path && m.owner === env.owner && this.current(m.deps) && this.sameBindings(m.bindings, env.bindings)) {
       this.replay(m);
       this.externSeen.add(key);
       for (const f of this.frames) f.ext.push(key);
       return m.drawn;
     }
-    const frame: Frame = { deps: new Map(), nested: [], own: [], missed: [], ext: [], dirty: false };
+    const frame = newFrame();
     this.frames.push(frame);
     let drawn: Drawn[];
     try {
@@ -1028,18 +1134,20 @@ export class Page {
       this.externSeen.add(k);
       this.claimed.add(k);
     }
+    for (const k of m.held) this.nodeSeen.add(k);
     for (const f of this.frames) {
       for (const [k, v] of m.deps) if (!f.deps.has(k)) f.deps.set(k, v);
       f.nested.push(...m.nested);
       f.own.push(...m.own);
       f.missed.push(...m.missed);
       f.ext.push(...m.ext);
+      f.held.push(...m.held);
     }
   }
 
   private drawExternNow(x: ir.NodeExtern & { given?: ReadonlyMap<string, V> }, env: Env, path: string, key: string): Drawn[] {
     const props = x.given ? new Map(x.given) : new Map<string, V>();
-    if (!x.given) for (const [k, e] of Object.entries(x.props)) props.set(k, this.evalIn(env, e));
+    if (!x.given) for (const [k, e] of Object.entries(x.props ?? {})) props.set(k, this.evalIn(env, e));
     const writes = new Map<string, { place: ir.Place; env: Env }>();
     for (const [k, p] of Object.entries(x.writes ?? {})) {
       props.set(k, this.machine.evalWith(env.bindings, env.owner, { place: p } as ir.Expr));
@@ -1143,7 +1251,7 @@ export class Page {
       reused = undefined;
     }
     if (reused) return reused;
-    const frame: Frame = { deps: new Map(), nested: [], own: [], missed: [], ext: [], dirty: false };
+    const frame = newFrame();
     this.frames.push(frame);
     let drawn: Drawn[];
     try {
@@ -1156,7 +1264,7 @@ export class Page {
     }
     const inst = this.byPath.get(key);
     if (this.memoOn && !frame.dirty && inst) {
-      this.memo.set(key, { ...frame, template: name, path, owner: env.owner, args: this.argValues(args, env), bindings: env.bindings, slots, events, epoch: this.epoch, drawn });
+      this.memo.set(key, { ...frame, template: name, path, owner: env.owner, args: argValues(args), bindings: env.bindings, slots, events, epoch: this.epoch, drawn });
     } else {
       this.memo.delete(key);
     }
@@ -1177,14 +1285,27 @@ export class Page {
     this.versions.set(key, (this.versions.get(key) ?? 0) + 1);
   }
 
-  private argValues(args: Args, env: Env): V[] {
-    if (args instanceof Map) return [...args.keys()].sort().map((k) => args.get(k)!);
-    return Object.keys(args)
-      .sort()
-      .map((k) => {
-        const e = args[k];
-        return "place" in e ? this.machine.evalWith(env.bindings, env.owner, e) : this.evalIn(env, e);
-      });
+  /** What a fn's calls read, for whoever holds what they gave. */
+  reading<T>(f: () => T, fresh = true): { value: T; deps: Map<string, number> } {
+    const frame = newFrame();
+    this.frames.push(frame);
+    try {
+      if (fresh) this.machine.resetSteps();
+      return { value: f(), deps: frame.deps };
+    } finally {
+      this.frames.pop();
+    }
+  }
+
+  /** Whether nothing read has changed since. */
+  current(deps: ReadonlyMap<string, number>): boolean {
+    for (const [k, v] of deps) if ((this.versions.get(k) ?? 0) !== v) return false;
+    return true;
+  }
+
+  /** Whether two fns are the same code with the same values around it. */
+  sameFn(a: V & { kind: "fn" }, b: V & { kind: "fn" }): boolean {
+    return a === b || (a.body === b.body && a.owner === b.owner && this.sameBindings(a.captured as [string, Binding][], b.captured as [string, Binding][]));
   }
 
   /** The widget's subtree from the last redraw, when it is called the same way at the same place
@@ -1196,7 +1317,8 @@ export class Page {
     if (!sameRecord(m.slots, slots) || !sameRecord(m.events, events)) return undefined;
     for (const [k, v] of m.deps) if ((this.versions.get(k) ?? 0) !== v) return undefined;
     if (!this.sameBindings(m.bindings, env.bindings)) return undefined;
-    const now = this.argValues(args, env);
+    // an input worked out here is the same while what it read and the locals around it are
+    const now = argValues(args);
     if (now.length !== m.args.length || now.some((v, k) => !this.machine.equal(v, m.args[k]))) return undefined;
     this.replay(m);
     return m.drawn;
@@ -1217,8 +1339,8 @@ export class Page {
   /** A widget that failed: reported once, and in its place (page 6). */
   private failed(name: string, path: string, key: string, f: unknown): Drawn {
     for (const fr of this.frames) fr.dirty = true;
-    const broken: Broken = f instanceof Failure && f.kind === "Rule" && f.rule ? { rule: f.rule, site: path } : { code: failureCode(f), site: path };
-    if (!this.outcome.failures.some((b) => b.site === path && b.code === broken.code && b.rule === broken.rule)) this.outcome.failures.push(broken);
+    const broken: Broken = f instanceof Failure && f.kind === "Rule" && f.rule ? { rule: f.rule, site: key } : { code: failureCode(f), site: key };
+    if (!this.outcome.failures.some((b) => b.site === key && b.code === broken.code && b.rule === broken.rule)) this.outcome.failures.push(broken);
     return { path, key, widget: name, props: new Map(), slots: new Map(), events: new Map(), writes: new Map(), levels: [], failed: message(f) };
   }
 
@@ -1246,7 +1368,7 @@ export class Page {
       else it.inputs.set(k, this.evalIn(env, e));
     }
     const own: Env = { owner: it.id, bindings: [], path, key };
-    for (const f of t.inputs) {
+    for (const f of (t.inputs ?? [])) {
       if (!it.inputs.has(f.name) && !it.places.has(f.name)) it.inputs.set(f.name, f.default ? this.evalIn(own, f.default) : none());
     }
     // an input given a new value: whatever read it, in the widget's slots too, is out of date
@@ -1267,8 +1389,8 @@ export class Page {
     }
     it.events.clear();
     for (const [e, h] of Object.entries(events)) it.events.set(e, { handler: h, env });
-    if (fresh) for (const c of t.cells) it.cells.set(c.name, c.default ? this.evalIn(own, c.default) : none());
-    this.checkRules(t.requires, own, path);
+    if (fresh) for (const c of (t.cells ?? [])) it.cells.set(c.name, c.default ? this.evalIn(own, c.default) : none());
+    this.checkRules(t.requires ?? [], own, path);
     return own;
   }
 
@@ -1277,7 +1399,7 @@ export class Page {
     const t = { name: w.name, generics: [], inputs: w.inputs, slots: w.slots, events: w.events, cells: [], requires: [], fns: [], view: [], markdown: w.markdown, levels: w.levels } as unknown as ir.Template;
     const id = this.machine.newId();
     const inst: Instance = { id, path: `${path}#md`, template: t, inputs: new Map(props), places: new Map(), cells: new Map(), slots: new Map(), events: new Map(), seen: true };
-    for (const f of w.inputs) {
+    for (const f of (w.inputs ?? [])) {
       if (!inst.inputs.has(f.name)) inst.inputs.set(f.name, f.default ? this.evalIn(env, f.default) : none());
     }
     for (const [s, nodes] of Object.entries(slots)) inst.slots.set(s, { nodes, env });
@@ -1320,14 +1442,14 @@ export class Page {
    * variable; undefined for a local, whose type the IR doesn't keep. */
   writeType(d: Drawn, input: string): ir.Type | undefined {
     const w = d.writes.get(input);
-    if (!w) return this.externWidgets.get(d.widget)?.inputs.find((f) => f.name === input)?.type;
+    if (!w) return this.externWidgets.get(d.widget)?.inputs?.find((f) => f.name === input)?.type;
     const root = w.place.root as Record<string, string>;
     const inst = w.env.owner === undefined ? undefined : this.instances.get(w.env.owner);
     let t: ir.Type | undefined;
     if ("$state" in root) t = this.stateDecl?.fields.find((f) => f.name === root["$state"])?.type;
-    else if ("cell" in root) t = inst?.template.cells.find((c) => c.name === root.cell)?.type;
-    else if ("input" in root) t = inst?.template.inputs.find((f) => f.name === root.input)?.type;
-    for (const s of w.place.path) {
+    else if ("cell" in root) t = inst?.template.cells?.find((c) => c.name === root.cell)?.type;
+    else if ("input" in root) t = inst?.template.inputs?.find((f) => f.name === root.input)?.type;
+    for (const s of (w.place.path ?? [])) {
       let base = t;
       for (let k = 0; base && k < 16 && this.program.aliases.has(base.name); k++) base = this.program.aliases.get(base.name);
       if (!base) return undefined;
@@ -1383,7 +1505,7 @@ function shaderName(f: V): string {
   const ret = (f.body[0] as { return?: { value?: ir.Expr } }).return?.value as { call?: ir.Call } | undefined;
   const call = ret?.call;
   if (!call) return "";
-  const passes = call.args.length === f.params.length && call.args.every((a, k) => (a as { get?: { local?: string } }).get?.local === f.params[k].name);
+  const passes = (call.args ?? []).length === f.params.length && (call.args ?? []).every((a, k) => (a as { get?: { local?: string } }).get?.local === f.params[k].name);
   return passes ? call.name : "";
 }
 
@@ -1432,7 +1554,7 @@ export function checkSentence(v: V): void {
 }
 
 // the Markdown writer, set by markdown.ts
-let pageMarkdown: (p: Page) => string = () => "";
-export function setMarkdownWriter(w: (p: Page) => string): void {
+let pageMarkdown: (p: Core) => string = () => "";
+export function setMarkdownWriter(w: (p: Core) => string): void {
   pageMarkdown = w;
 }

@@ -187,8 +187,6 @@ export class Program {
   readonly interfaces = new Map<string, ir.Interface>();
   /** Constant lets, already worked out. */
   readonly lets = new Map<string, Value>();
-  /** A lowered page's bindings: what a call's input is worked out from. */
-  readonly bindings = new Map<string, ir.Expr>();
 
   add(d: ir.Decl): void {
     if ("fn" in d) {
@@ -199,7 +197,7 @@ export class Program {
       } else if ("channel" in d.extern) {
         // a channel's fns are the host's: `doc/scores.saved`
         const c = d.extern.channel;
-        for (const f of c.fns) {
+        for (const f of (c.fns ?? [])) {
           this.externs.set(`${c.name}.${f.name}`, { name: `${c.name}.${f.name}`, params: f.params, returns: f.returns, supplier: c.supplier });
         }
       }
@@ -221,7 +219,6 @@ export class Program {
     for (const d of m.declarations) {
       p.add(d.declare);
     }
-    for (const b of m.bindings) p.bindings.set(b.id, b.value);
     return p;
   }
 }
@@ -345,7 +342,11 @@ export class Machine {
   // ---- for a runtime: a view's nodes read with the locals around them, values or references
   // (not in interp.rs, whose Markdown writer reads values only; each runs as the fn statements do)
 
+  /** How many of a view's expressions were worked out, for a test that counts them. */
+  worked = 0;
+
   private withFrame<T>(bindings: readonly (readonly [string, Binding])[], owner: number | undefined, f: () => T): T {
+    this.worked++;
     this.frames.push({ vars: bindings.map(([n, b]) => [n, b]), owner });
     try {
       return f();
@@ -450,7 +451,7 @@ export class Machine {
           this.truncate(here);
           if (done) break;
         }
-        if (!done) this.callsInto(n.if.else, key, out);
+        if (!done) this.callsInto(n.if.else ?? [], key, out);
       } else if ("match" in n) {
         const v = this.eval(n.match.value);
         let done = false;
@@ -668,7 +669,7 @@ export class Machine {
       root = { kind: "outer", outer: { kind: "state", name: r.$state }, owner: undefined };
       path = [];
     }
-    for (const s of p.path) {
+    for (const s of (p.path ?? [])) {
       if ("field" in s) {
         path.push({ kind: "field", name: s.field.name });
       } else {
@@ -1017,7 +1018,7 @@ export class Machine {
       }
       case "record": {
         const r = (e as { record: ir.ExprRecord }).record;
-        return this.makeRecord(r.type, this.given(r.fields), false);
+        return this.makeRecord(r.type, this.given(r.fields ?? {}), false);
       }
       case "case": {
         const c = (e as { case: ir.ExprCase }).case;
@@ -1069,16 +1070,10 @@ export class Machine {
           args.set(k, this.eval(x));
         }
         const captured = this.frame().vars.slice();
-        return { kind: "view", widget: v.widget, args, slots: v.slots ?? {}, events: v.events ?? {}, exprs: v.args, captured, owner: this.owner() };
+        return { kind: "view", widget: v.widget, args, slots: v.slots ?? {}, events: v.events ?? {}, exprs: v.args ?? {}, captured, owner: this.owner() };
       }
       case "get":
         return this.get((e as { get: ir.Get }).get);
-      case "bind": {
-        const id = (e as { bind: string }).bind;
-        const x = this.prog.bindings.get(id);
-        if (x === undefined) throw Failure.ir(`no binding ${id}`);
-        return this.eval(x);
-      }
       case "field": {
         const f = (e as { field: ir.ExprField }).field;
         const v = this.eval(f.value);
@@ -1110,7 +1105,7 @@ export class Machine {
       }
       case "fn": {
         const l = (e as { fn: ir.Lambda }).fn;
-        return { kind: "fn", params: l.params, body: l.body, captured: this.frame().vars.slice(), owner: this.owner() };
+        return { kind: "fn", params: l.params ?? [], body: l.body, captured: this.frame().vars.slice(), owner: this.owner() };
       }
       case "place": {
         const p = this.place((e as { place: ir.Place }).place);
@@ -1240,7 +1235,7 @@ export class Machine {
   }
 
   private callExpr(c: ir.Call): Value | undefined {
-    const args = this.args(c.args);
+    const args = this.args(c.args ?? []);
     return this.call(c.name, args);
   }
 
@@ -1250,7 +1245,7 @@ export class Machine {
     this.step();
     const f = this.prog.fns.get(name);
     if (f !== undefined) {
-      return this.runFn(f.params, f.body, args, undefined);
+      return this.runFn(f.params ?? [], f.body, args, undefined);
     }
     if (natives.exists(name)) {
       return natives.run(this, name, args);
@@ -1268,7 +1263,7 @@ export class Machine {
         }
       }
       if (ext.default !== undefined && ext.default.length > 0) {
-        return this.runFn(ext.params, ext.default, args, undefined);
+        return this.runFn(ext.params ?? [], ext.default, args, undefined);
       }
       throw new Failure("NotConstant", `nobody supplies \`${name}\``);
     }
@@ -1656,10 +1651,10 @@ export class Machine {
   }
 
   private checkRequires(decl: ir.Record, record: RecordValue): void {
-    if (decl.requires.length === 0) {
+    if ((decl.requires ?? []).length === 0) {
       return;
     }
-    for (const rule of decl.requires) {
+    for (const rule of (decl.requires ?? [])) {
       const args: Binding[] = record.fields.map(([, v]) => ({ value: v }));
       const params: ir.Param[] = record.fields.map(([n]) => ({ name: n, type: { name: "core/any" } }));
       const out = this.runFn(params, rule.body, args, undefined);
@@ -1678,7 +1673,7 @@ export class Machine {
     switch (tag(e)) {
       case "record": {
         const r = (e as { record: ir.ExprRecord }).record;
-        const given = this.given(r.fields);
+        const given = this.given(r.fields ?? {});
         attempt = () => this.makeRecord(r.type, given, true);
         break;
       }

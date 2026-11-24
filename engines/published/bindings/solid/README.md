@@ -32,6 +32,8 @@ The same in every framework (@extended-mark/view's `DocProps`):
 | `onCalls` | The host's extern fns the page called. |
 | `externs`, `fns` | Each channel's values, by its name in the document or in full; the host's value fns, by full name. |
 | `page`, `widgets`, `measure` | The page's width and theme; a pack's own extern widgets, drawn the way core's are; how the plane's spots are measured. |
+| `components` | Solid components as widgets, by full name. Each is given `node` (followed as it changes), `event`, `write` and `call`, and `slot("body")`, an input's widgets. |
+| `failed` | What is drawn where a widget failed, in place of our notice. |
 
 `id` and `class` go on the root. The handle is `ref`: `{ doc, set, state, markdown, expose, snapshot, restore }` (`XtmdDocHandle`). A snapshot is opaque JSON: with the same IR, `restore` puts all of
 it back; with another, `$state` only.

@@ -1,12 +1,12 @@
 // Drawing and input: label, image, icon, press, field, slider and overlay, as the native controls
 // they are, with their roles and states, so a screen reader and the keyboard get them for free.
 
-import { Num, Value as V, type Drawn, type Page, type ir } from "@extended-mark/runtime";
+import { Num, type Node as Drawn } from "@extended-mark/runtime";
 import type { Action, Widget, WidgetView } from "../api.js";
 import { FILLED, GLYPHS } from "../icons.js";
 import { attr, claim, css, h, kit, s, text } from "../kit.js";
 import { safeSrc } from "../rich.js";
-import { exact, flag, inner, kase, str } from "../values.js";
+import { exact, flag, kase, nodes, range, str } from "../values.js";
 
 const ALIGN: Record<string, string> = { START: "start", CENTER: "center", END: "end", STRETCH: "justify", BASELINE: "start" };
 
@@ -17,7 +17,7 @@ export const label: Widget = (d, ctx) => {
   const view: WidgetView = {
     el,
     update(d) {
-      const p = (k: string) => d.props.get(k);
+      const p = (k: string) => d.inputs[k];
       const tokens = kit(ctx).tokens;
       text(el, str(p("value")));
       css(el, "color", tokens.color(p("tone")));
@@ -43,12 +43,12 @@ export const image: Widget = (d, ctx) => {
   const view: WidgetView = {
     el,
     update(d) {
-      const src = str(d.props.get("src"));
+      const src = str(d.inputs.src);
       const safe = safeSrc(src);
-      attr(el, "alt", str(d.props.get("alt")));
+      attr(el, "alt", str(d.inputs.alt));
       attr(el, "src", safe);
       attr(el, "data-unsafe-src", safe ? undefined : "");
-      css(el, "width", kit(ctx).tokens.length(d.props.get("width")));
+      css(el, "width", kit(ctx).tokens.length(d.inputs.width));
     },
   };
   view.update(d);
@@ -71,18 +71,18 @@ function setGlyph(el: SVGSVGElement, name: string | undefined): void {
 }
 
 export const icon: Widget = (d, ctx) => {
-  const el = glyph(kase(d.props.get("name")));
+  const el = glyph(kase(d.inputs.name));
   const view: WidgetView = {
     el,
     update(d) {
-      setGlyph(el, kase(d.props.get("name")));
-      const lbl = str(d.props.get("label"));
+      setGlyph(el, kase(d.inputs.name));
+      const lbl = str(d.inputs.label);
       // labelled, it is a picture with a name; otherwise decoration
       attr(el, "role", lbl ? "img" : undefined);
       attr(el, "aria-label", lbl || undefined);
       attr(el, "aria-hidden", lbl ? undefined : "true");
-      el.dataset.size = (kase(d.props.get("size")) ?? "NORMAL").toLowerCase();
-      css(el, "color", kit(ctx).tokens.color(d.props.get("tone")));
+      el.dataset.size = (kase(d.inputs.size) ?? "NORMAL").toLowerCase();
+      css(el, "color", kit(ctx).tokens.color(d.inputs.tone));
     },
   };
   view.update(d);
@@ -132,7 +132,7 @@ export const press: Widget = (d, ctx) => {
   const view: WidgetView = {
     el,
     update(d) {
-      const p = (k: string) => d.props.get(k);
+      const p = (k: string) => d.inputs[k];
       kind = kase(p("kind")) ?? "BUTTON";
       const k = KINDS[kind] ?? KINDS.BUTTON;
       const selected = flag(p("selected"));
@@ -144,14 +144,14 @@ export const press: Widget = (d, ctx) => {
       const tone = kit(ctx).tokens.color(p("tone"));
       css(el, "--xtmd-tone", tone);
       el.classList.toggle("xtmd-toned", !!tone);
-      const nodes = d.slots.get("content") ?? [];
+      const inside = nodes(d.inputs.content);
       // with content of its own, the label is its accessible name; with none, its text
       const name = str(p("label"));
-      text(lbl, nodes.length ? "" : name);
-      lbl.hidden = nodes.length > 0;
-      attr(el, "aria-label", nodes.length ? name : undefined);
-      content.hidden = nodes.length === 0;
-      ctx.children(content, nodes);
+      text(lbl, inside.length ? "" : name);
+      lbl.hidden = inside.length > 0;
+      attr(el, "aria-label", inside.length ? name : undefined);
+      content.hidden = inside.length === 0;
+      ctx.children(content, inside);
     },
     act(a: Action) {
       if (!("event" in a) || a.event !== "click") return false;
@@ -173,7 +173,7 @@ export const field: Widget = (d, ctx) => {
   el.append(input);
   let composing = false;
   const write = () => {
-    if (!composing) ctx.write("value", V.text(input.value));
+    if (!composing) ctx.write("value", { text: input.value });
   };
   const wire = (i: HTMLInputElement | HTMLTextAreaElement) => {
     i.addEventListener("input", write);
@@ -196,7 +196,7 @@ export const field: Widget = (d, ctx) => {
   const view: WidgetView = {
     el,
     update(d) {
-      const p = (k: string) => d.props.get(k);
+      const p = (k: string) => d.inputs[k];
       const lines = Math.max(1, Math.min(20, Math.round(Number(str(p("lines"))) || 1)));
       const multi = lines > 1;
       if (multi !== input instanceof HTMLTextAreaElement) {
@@ -224,11 +224,11 @@ export const field: Widget = (d, ctx) => {
         input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, ctrlKey: input instanceof HTMLTextAreaElement }));
         return true;
       }
-      if (a.write !== "value" || a.value.kind !== "text") return false;
+      if (a.write !== "value" || !("text" in a.value)) return false;
       // a one-line input can't hold a line break: that write goes through the page
-      if (input instanceof HTMLInputElement && /[\r\n]/.test(a.value.s)) return false;
+      if (input instanceof HTMLInputElement && /[\r\n]/.test(a.value.text)) return false;
       input.focus();
-      input.value = a.value.s;
+      input.value = a.value.text;
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
       return true;
@@ -246,37 +246,12 @@ interface Ends {
   step: Num;
 }
 
-/** The ends and step a variable's type gives, its aliases' included: `int 0..10` is 0, 10, 1. */
-function contractEnds(page: Page, t: ir.Type | undefined): { low?: Num; high?: Num; step?: Num } {
-  const out: { low?: Num; high?: Num; step?: Num } = {};
-  const n = (x: ir.Expr | undefined): Num | undefined => {
-    if (!x) return undefined;
-    try {
-      return exact(page.value(x));
-    } catch {
-      return undefined;
-    }
-  };
-  for (let k = 0; t && k < 16; k++) {
-    const c = t.contract;
-    out.low ??= n(c?.range?.low);
-    out.high ??= n(c?.range?.high);
-    out.step ??= n(c?.step);
-    t = page.program.aliases.get(t.name);
-  }
-  return out;
-}
-
 /** A slider's ends: from `range` when it is given, then from its variable's contract, then 0..1. */
-function endsOf(d: Drawn, page: Page): Ends {
-  const r = inner(d.props.get("range"));
-  const given = r && r.kind === "range" ? { low: exact(r.low ?? undefined), high: exact(r.high ?? undefined), step: exact(r.step ?? undefined) } : {};
-  let c: { low?: Num; high?: Num; step?: Num } = {};
-  try {
-    c = contractEnds(page, page.writeType(d, "value"));
-  } catch {
-    // a page without the helper, or a type it can't read: the defaults
-  }
+function endsOf(d: Drawn): Ends {
+  const r = range(d.inputs.range);
+  const given = { low: exact(r?.low), high: exact(r?.high), step: exact(r?.step) };
+  const w = d.writes?.value;
+  const c = { low: exact(w?.range?.low), high: exact(w?.range?.high), step: exact(w?.step) };
   const low = given.low ?? c.low ?? Num.zero();
   let high = given.high ?? c.high;
   let step = given.step ?? c.step;
@@ -302,22 +277,22 @@ export const slider: Widget = (d, ctx) => {
   const input = h("input", "slider.input", { type: "range", id });
   const out = h("output", "slider.value", { for: id, "aria-hidden": "true" });
   el.append(lbl, input, out);
-  let ends: Ends = endsOf(d, ctx.page);
+  let ends: Ends = endsOf(d);
   let value: Num | undefined;
   input.addEventListener("input", () => {
     const x = Num.parse(input.value);
     if (!x) return;
     const v = snap(x, ends);
     if (value && v.equals(value)) return;
-    ctx.write("value", { kind: "num", n: v });
+    ctx.write("value", { num: v.show() });
   });
   input.addEventListener("click", claim);
   const view: WidgetView = {
     el,
     update(d) {
-      ends = endsOf(d, ctx.page);
-      value = exact(d.props.get("value"));
-      text(lbl, str(d.props.get("label")));
+      ends = endsOf(d);
+      value = exact(d.inputs.value);
+      text(lbl, str(d.inputs.label));
       attr(input, "min", ends.low.show());
       attr(input, "max", ends.high.show());
       attr(input, "step", ends.step.show());
@@ -328,11 +303,11 @@ export const slider: Widget = (d, ctx) => {
       attr(input, "aria-valuenow", shown || undefined);
       attr(input, "aria-valuetext", shown || undefined);
       text(out, shown);
-      input.disabled = flag(d.props.get("disabled"));
+      input.disabled = flag(d.inputs.disabled);
     },
     act(a: Action) {
       if (!("write" in a) || a.write !== "value") return false;
-      const x = a.value.kind === "num" ? a.value.n : undefined;
+      const x = exact(a.value);
       // only what a drag can reach: on the grid, between the ends
       if (!x || x.lt(ends.low) || x.gt(ends.high) || !snap(x, ends).equals(x)) return false;
       if (input.disabled) return true;
@@ -372,7 +347,7 @@ export const overlay: Widget = (d, ctx) => {
   /** The reader opening or closing it: written to `open`, then told as `open_changed`. */
   const setOpen = (want: boolean) => {
     if (gone || want === open) return;
-    ctx.write("open", V.bool(want));
+    ctx.write("open", { bool: want });
     ctx.event("open_changed");
   };
 
@@ -453,16 +428,16 @@ export const overlay: Widget = (d, ctx) => {
   const view: WidgetView = {
     el,
     update(d) {
-      const m = kase(d.props.get("mode")) ?? "POPOVER";
+      const m = kase(d.inputs.mode) ?? "POPOVER";
       if (m !== mode) {
         mode = m;
         makeBody(m);
       }
-      open = flag(d.props.get("open"));
-      const name = str(d.props.get("label"));
+      open = flag(d.inputs.open);
+      const name = str(d.inputs.label);
       attr(body, "aria-label", name || undefined);
-      ctx.children(anchor, d.slots.get("anchor") ?? []);
-      ctx.children(body, d.slots.get("body") ?? []);
+      ctx.children(anchor, nodes(d.inputs.anchor));
+      ctx.children(body, nodes(d.inputs.body));
       // the anchor's own control is the trigger; with none, the anchor becomes a button
       const inside = anchor.querySelector<HTMLElement>(FOCUSABLE);
       if (inside !== trigger) {
@@ -479,10 +454,10 @@ export const overlay: Widget = (d, ctx) => {
       sync();
     },
     act(a: Action) {
-      if (!("write" in a) || a.write !== "open" || a.value.kind !== "bool") return false;
-      if (a.value.b === open) return true;
-      if (mode === "TOOLTIP") anchor.dispatchEvent(new FocusEvent(a.value.b ? "focusin" : "focusout", { bubbles: true }));
-      else if (a.value.b || !showing()) trigger.click();
+      if (!("write" in a) || a.write !== "open" || !("bool" in a.value)) return false;
+      if (a.value.bool === open) return true;
+      if (mode === "TOOLTIP") anchor.dispatchEvent(new FocusEvent(a.value.bool ? "focusin" : "focusout", { bubbles: true }));
+      else if (a.value.bool || !showing()) trigger.click();
       else if (body instanceof HTMLDialogElement) body.close();
       else body.hidePopover();
       return true;

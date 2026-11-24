@@ -32,7 +32,7 @@ draws them: `toHtml(new Doc({ ir }).render())`. Put it in the element, and `Xtmd
 over in the browser.
 
 `XtmdDoc`'s props are the frameworks' (`src` or `ir`, `state` and `onStateChange` or `defaultState`,
-`defaultSnapshot`, `onError`, `onCalls`, `externs`, `fns`, `page`, `widgets`, `measure`, and
+`defaultSnapshot`, `onError`, `onCalls`, `externs`, `fns`, `page`, `widgets`, `failed`, `measure`, and
 `onMount`); its handle is `set`, `state`, `markdown`, `expose`, `extern`, `snapshot`, `restore`,
 `running` and `mounted`.
 mjs`), and `npm test` puts it through the frameworks' shared steps in Chromium.
@@ -41,12 +41,12 @@ mjs`), and `npm test` puts it through the frameworks' shared steps in Chromium.
 
 | Prop | What it does |
 |---|---|
-| `ir` | The page's IR. A new one remounts the page, keeping `$state` where its fields still exist. |
+| `ir` | The page's IR. One with other content remounts the page, keeping `$state` where its fields still exist. |
 | `state` | `$state` to start from, in the IR's form. Read at mount, checked as a host's write is. |
 | `page` | `{ width, theme }`. A change calls `page.setPage`. |
 | `externs` | Each channel's values, in the IR's form. A changed channel calls `page.setExtern`. |
 | `fns` | Value fns the host supplies, by full name. |
-| `widgets` | The host's widgets by full name, in place of @extended-mark/dom's. A change remounts. |
+| `widgets`, `failed` | The host's widgets by full name, in place of @extended-mark/dom's, and what is drawn where one failed. A change of `widgets` remounts. |
 | `onCalls` | The host's extern fn calls, after each change that made any. |
 | `onState` | `$state`, after each change to it. |
 | `onOutcome` | Refused writes and failures, after each change that had any. |

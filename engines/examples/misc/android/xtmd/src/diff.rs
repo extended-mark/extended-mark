@@ -1,6 +1,6 @@
 //! Which drawn widgets are as they were when Kotlin last read the tree, so a redraw sends only
 //! what changed across the bindings: an unchanged widget, with everything in its slots, crosses
-//! as a stub (its path, key and widget, `same: true`) that Kotlin replaces with the node it holds.
+//! as a stub (its id and widget, `same: true`) that Kotlin replaces with the node it holds.
 //! Values are compared as they are, so the work is the runtime's own data, not a converted copy.
 //! A widget the page reused is the very node Kotlin read last ([`Drawn::same`]): it and everything
 //! in it are as they were, so it is a stub without comparing a value.
@@ -66,21 +66,20 @@ fn same_binding(a: &Binding, b: &Binding) -> bool {
 }
 
 /// Whether a widget itself is as it was: its identity, its props, what it listens to and writes,
-/// and the widgets in its slots, by key and in order (they are compared on their own).
+/// and the widgets in its slots, by id and in order (they are compared on their own).
 fn same_shallow(page: &Page, d: &Drawn, p: &Drawn, was_listening: &[String]) -> bool {
-    d.path == p.path
-        && d.key == p.key
+    d.id == p.id
         && d.widget == p.widget
         && d.failed == p.failed
         && d.held.len() == p.held.len()
-        && d.held.iter().zip(&p.held).all(|(kids, was)| kids.len() == was.len() && kids.iter().zip(was).all(|(a, b)| a.key == b.key))
+        && d.held.iter().zip(&p.held).all(|(kids, was)| kids.len() == was.len() && kids.iter().zip(was).all(|(a, b)| a.id == b.id))
         && d.props.len() == p.props.len()
         && d.props.iter().all(|(k, v)| p.props.get(k).map_or(false, |w| same_value(v, w)))
         && d.events.len() == p.events.len()
         && d.events.iter().all(|(k, h)| p.events.get(k).map_or(false, |g| g.handler == h.handler))
         && d.writes.keys().eq(p.writes.keys())
         && d.slots.len() == p.slots.len()
-        && d.slots.iter().all(|(k, kids)| p.slots.get(k).map_or(false, |was| kids.len() == was.len() && kids.iter().zip(was).all(|(a, b)| a.key == b.key)))
+        && d.slots.iter().all(|(k, kids)| p.slots.get(k).map_or(false, |was| kids.len() == was.len() && kids.iter().zip(was).all(|(a, b)| a.id == b.id)))
         && d.events.keys().filter(|e| page.listens(d, e)).eq(was_listening.iter())
 }
 
@@ -98,7 +97,7 @@ impl<'a> Diff<'a> {
     pub fn new(page: &'a Page, prev: &'a [Drawn], listening: &'a HashMap<String, Vec<String>>) -> Diff<'a> {
         fn index<'b>(nodes: &'b [Drawn], out: &mut HashMap<&'b str, &'b Drawn>) {
             for n in nodes {
-                out.insert(n.key.as_str(), n);
+                out.insert(n.id.as_str(), n);
                 for kids in n.slots.values().chain(&n.held) {
                     index(kids, out);
                 }
@@ -106,7 +105,7 @@ impl<'a> Diff<'a> {
         }
         fn count<'b>(nodes: &'b [Drawn], seen: &mut HashMap<&'b str, usize>) {
             for n in nodes {
-                *seen.entry(n.key.as_str()).or_default() += 1;
+                *seen.entry(n.id.as_str()).or_default() += 1;
                 for kids in n.slots.values().chain(&n.held) {
                     count(kids, seen);
                 }
@@ -120,17 +119,17 @@ impl<'a> Diff<'a> {
         Diff { page, prev: map, listening, unique: seen.into_iter().filter(|(_, n)| *n == 2).map(|(k, _)| k).collect() }
     }
 
-    /// Whether what each widget in a reused subtree listens to is as it was, and its key still
+    /// Whether what each widget in a reused subtree listens to is as it was, and its id still
     /// stands for one node: what a reused node can't say by itself.
     fn listening_as_was(&self, d: &Drawn) -> bool {
-        self.unique.contains(d.key.as_str())
-            && d.events.keys().filter(|e| self.page.listens(d, e)).eq(self.listening.get(&d.key).map_or(&[][..], |l| l.as_slice()).iter())
+        self.unique.contains(d.id.as_str())
+            && d.events.keys().filter(|e| self.page.listens(d, e)).eq(self.listening.get(&d.id).map_or(&[][..], |l| l.as_slice()).iter())
             && d.children().all(|k| self.listening_as_was(k))
     }
 
     /// A drawn widget as Kotlin reads it, and whether it is as it was, all of it.
     pub fn node(&self, d: &Drawn) -> (Node, bool) {
-        let prev = if self.unique.contains(d.key.as_str()) { self.prev.get(d.key.as_str()) } else { None };
+        let prev = if self.unique.contains(d.id.as_str()) { self.prev.get(d.id.as_str()) } else { None };
         // the page reused it: the very node Kotlin holds, with everything in it
         if prev.map_or(false, |p| Drawn::same(d, p)) && self.listening_as_was(d) {
             return (stub(d), true);
@@ -147,7 +146,7 @@ impl<'a> Diff<'a> {
             slots.push(crate::Slot { name, nodes });
         }
         let same = kids_same
-            && prev.map_or(false, |p| same_shallow(self.page, d, p, self.listening.get(&d.key).map_or(&[][..], |l| l.as_slice())));
+            && prev.map_or(false, |p| same_shallow(self.page, d, p, self.listening.get(&d.id).map_or(&[][..], |l| l.as_slice())));
         if same {
             return (stub(d), true);
         }
@@ -157,7 +156,7 @@ impl<'a> Diff<'a> {
     }
 }
 
-/// A widget as it was: its path, key and widget, for the node with its key Kotlin holds.
+/// A widget as it was: its id and widget, for the node with its id Kotlin holds.
 fn stub(d: &Drawn) -> Node {
-    Node { path: d.path.clone(), key: d.key.clone(), widget: d.widget.clone(), props: HashMap::new(), slots: Vec::new(), listens: Vec::new(), events: Vec::new(), writes: Vec::new(), failed: d.failed.clone(), same: true }
+    Node { id: d.id.clone(), widget: d.widget.clone(), props: HashMap::new(), slots: Vec::new(), listens: Vec::new(), events: Vec::new(), writes: Vec::new(), failed: d.failed.clone(), same: true }
 }

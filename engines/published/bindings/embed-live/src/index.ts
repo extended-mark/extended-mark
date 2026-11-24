@@ -8,7 +8,7 @@
 import { XtmdDoc, type DocProps, type Given, type Restored, type Snapshot } from "@extended-mark/embed";
 import { Live, type LiveProps } from "@extended-mark/live";
 import type { Mounted, Page } from "@extended-mark/dom";
-import type { ir } from "@extended-mark/runtime";
+import type { Input } from "@extended-mark/runtime";
 
 export interface LiveDocProps extends Omit<DocProps, "ir" | "src">, LiveProps {}
 
@@ -60,7 +60,7 @@ export class XtmdLiveDoc {
     this.doc.set(changes);
   }
 
-  state(): Record<string, ir.Expr> {
+  state(): Record<string, Input> {
     return this.doc.state();
   }
 

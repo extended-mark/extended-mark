@@ -120,7 +120,27 @@ A use moves exactly, never by searching the text. Each file is compiled against 
 
 Migrations and surfaces never reach a page: the IR has neither, and building a document never reads them.
 
-The compiler writes a build in two forms. The **IR** is what an engine runs: checked and lowered, with no Markdown left in it. A page's IR is whole, and holds only what the page uses: its own declarations, and the ones from core and its packs that its calls, types and fns reach, with what an extern fn of core is said to build on (page 5). The **resolved IR** is for tools: what the checker understood, with every name resolved to what it names and every value typed, nothing lowered, and each part's place in its source and its comments kept. `xtmd migrate` works from it, and so can an editor, a linter or a program that writes Extended Mark. Both are JSON with a versioned schema (`schemas/`): `xtmd build` writes the IR and `xtmd build --rir` the resolved IR, and no engine reads the resolved IR.
+The compiler writes a build in two forms. The **IR** is what an engine runs: checked and lowered, with no Markdown left in it. The **resolved IR** is for tools: what the checker understood, with every name resolved to what it names and every value typed, nothing lowered, and each part's place in its source and its comments kept. `xtmd migrate` works from it, and so can an editor, a linter or a program that writes Extended Mark. Both are JSON with a versioned schema (`schemas/`): `xtmd build` writes the IR and `xtmd build --rir` the resolved IR, and no engine reads the resolved IR. `--pretty` writes either over several lines.
+
+### The IR
+
+A page's IR is whole, never changes as the page runs, and holds only what the page can run:
+
+- **Reached.** The declarations, widgets and fns that its view, its `$state` and the fns the host may call reach, its own among them, with what an extern fn of core is said to build on (page 5). A fn is there when something calls it, `show`, `same` and `before` too: a value shown or compared brings its type's. Where a value's type is a type parameter, the fn of each type the page holds counts.
+- **Cases.** An enum has the cases the page can make, and a `match` the arms those cases reach. A type a host or an engine can send in (a `$state` field's, a widget's own variable's, a channel value's, an exposed fn's input's, an event's input's, a `mut` input's the engine writes, or what an extern fn gives) has all of them.
+- **Rules.** A record has its `require` and `warn` blocks when the page makes one as it runs, or a host can send one. A record made when the page was compiled was checked then.
+- **Tokens.** The cases the page names, and the ones the widgets it calls and core's `page` say they are drawn with (`tokens`).
+- **`needs`** is every extern the page takes, by who gives it: core's widgets and fns from the engine, a pack's externs, by its version, from whoever supplies the pack, and from the host every value and fn it takes, a value of core's `page` among them (`core/page.width`).
+- **Short.** What is empty is left out, and so is a widget's Markdown that is its view. A call lists the levels it needs beyond `core.draw`.
+
+Its `version` is a whole number of its own, apart from xtmd's: 4 here. It moves only when an engine that reads one version would read the next wrongly. An engine is written for one version and says which; it refuses a page of another, with both numbers and what to do: "this page is IR 3, this engine reads IR 4: run xtmd migrate". It checks `needs` when a page loads: a fn of core it doesn't have refuses the page, an extern widget nobody supplies shows its Markdown, and the host can ask for the fns and values nobody gives yet.
+
+| IR | Written by | Read by engines of |
+|---|---|---|
+| 3 | xtmd 0.3.0 to 0.3.2 | Extended Mark 0.3.0 to 0.3.2 |
+| 4 | xtmd 0.4 | Extended Mark 0.4 |
+
+`xtmd migrate page.ir.json` brings an IR to the version this xtmd writes, one way, one version at a time. Each step is from JSON to JSON. What it is given is checked against the schema its version had, which is kept, and what it makes against the next version's. The migrated page keeps its Markdown. A page that uses what the next version has nothing for is left as it is, and what it uses is named: that page is built again from its source. An extern of a pack or of a host is its owner's: what it needs of a page is for its owner to move.
 
 ### Tokens
 
@@ -223,7 +243,7 @@ Host and implementer are roles, so one team can be both. No engine is special, a
 
 Extended Mark ends at the IR. The compiler is one, and everything a page means is in the IR it writes. How an engine comes by a page's IR is the host's, and how it draws it is the engine's.
 
-An engine is of one of two kinds, and a host picks one. A **static** engine takes compiled IR, as `.json`, and never a document's text, and carries no compiler. A **live** engine is given the document's text and compiles it where it runs, with the one compiler built into it (WebAssembly in a browser, a native library in a program), for an editor or a live preview; it then does with the IR exactly what a static engine does. While a draft has errors, it keeps the last page that compiled and says why. Either kind can take what a page holds, its `$state` and every widget's own variables, and put it back. The shape of that snapshot is the engine's, and all of it goes back only into the IR it was taken from: into another, only `$state` goes back, checked as the host's write.
+An engine is of one of two kinds, and a host picks one. A **static** engine takes compiled IR, as `.json`, and never a document's text, and carries no compiler. A **live** engine is given the document's text and compiles it where it runs, with the one compiler built into it (WebAssembly in a browser, a native library in a program), for an editor or a live preview; it then does with the IR exactly what a static engine does. While a draft has errors, it keeps the last page that compiled and says why. A page goes on when it is given an IR with the same content as its own: an IR is told apart by its content, whichever file or object holds it.
 
 ```java
 package acme;
@@ -264,6 +284,53 @@ An engine has written obligations: evaluation exactly as page 2 defines it, exac
 
 A write to `$state`, a reader's through a widget or the host's, is checked against every contract and `require` block it touches (page 2), and is done whole or refused with the rule's message. A `$state` the host gives a page as it starts is checked the same way: a field that doesn't fit is refused and reported, never set unchecked. The rest of input is the engine's: whether a widget writes on every keystroke or only when the reader submits, how a refusal is shown, and what to do with state a host saved from an earlier version of the document. How it manages memory is its own choice: Extended Mark code can't make a reference cycle, so freeing a widget's values when it leaves the page, or plain reference counting, is enough.
 
+### The host's side
+
+A host and an engine share three kinds of JSON, each with a schema (`schemas/`), and nothing else:
+
+- **The IR** (`ir.schema.json`): what the page is. It never changes while the page runs, and a change of `$state` never makes another.
+- **The page's data** (`tree.schema.json`, `data`): `state`, `$state`'s fields, and `own`, each widget's own variables, by the place it is drawn at. It is what a host keeps to put a page back as it was. All of it goes back into the IR it was taken from; into another, only `$state` does, checked as the host's write.
+- **The drawn tree** (`tree.schema.json`, `tree`): what there is to draw now. It is made from the other two, and never stored.
+
+A host draws any page from the tree with no more than this page, page 5's extern widgets and the schemas.
+
+**The tree.** It is the page's calls of extern widgets, in order, worked out. Extended Mark's own widgets aren't in it: the calls they make are. A node has:
+
+| Part | What it is |
+|---|---|
+| `id` | Who it is: its own on the page, and the same for as long as it is there. A loop's widget follows its item, so a row that moves keeps its id, and with it its place on the screen, its focus and what is typed in it. The same IR and data give the same ids, on a server as in a browser |
+| `widget` | The extern widget, by its full name |
+| `inputs` | Every input by its name, worked out, with its default when the call gave none, in the IR's form: `{ "num": "3" }`. A token is its name, `{ "token": "core/color.OK" }`. A slot is an input like any other, and holds widgets: `{ "nodes": [ … ] }`. So does an input that is a `rich_text` or a `view`, wherever in a value it is. A fn is `{ "fn": { "version": 3 } }` |
+| `events` | The events the page does something with, so only what does something is made to look so |
+| `writes` | The `mut` inputs, which the host may write, each with what a write has to fit: a slider's ends and step are here |
+| `failed` | It couldn't be drawn, and why (below). Its inputs are empty. The host shows a notice in its place |
+
+A sentence is nodes too: `words`, the marks around them, and any other widget among them.
+
+**What a host calls.**
+
+| Call | What it does |
+|---|---|
+| `tree()` | The tree now |
+| `event(id, name, arguments)` | The reader's event on a widget |
+| `write(id, input, value)` | A widget writing a `mut` input: checked, then done or refused |
+| `call(id, input, arguments)` | A fn input's answer, as a `shade` calls its shader for each pixel. A host that keeps answers asks again when the fn's `version` moves |
+| `set(fields)` | The host's write to `$state`, as one change |
+| `state()`, `data()` | `$state`, and the page's data. `restoreOwn(own)` puts widgets' own variables back |
+| `expose(channel, name, arguments)` | Calls a fn the document exposes |
+| `setExtern(channel, values)`, `setPage(values)` | Gives a channel's values, and the page's width and theme |
+| `markdown()` | The page's Markdown, with the values it has now |
+| `lacking()` | What the page's `needs` lists that nobody gives |
+| `takeCalls()`, `takeOutcome()`, `takeWarnings()` | The host's fns the page called, what was refused or failed, and the `warn`s found false, since they were last taken |
+
+Every value in either direction is JSON in the IR's form. An engine gives these in its own language's way, with these names.
+
+**What changed.** After each change a host is told what changed in the tree (`tree.schema.json`, `change`): for a node, the inputs whose values are others now, the inputs whose widgets are others or in another order, each a node kept, by its id, or a node drawn anew, and its events and writes when they changed. What isn't there is as it was. The page's own list of nodes is the input `nodes` of the id `""`. A widget that fails, or is drawn again after failing, is another node to the one it is in. A tree with its changes made in it is the next tree, so a host may keep its own, or read it again.
+
+**Only what reads it.** A change works out again only what reads what changed, however much else is on the page: a view's expressions, loops, branches and rules are each worked out again when a variable, an input or an extern value they read is another, and not otherwise. A node nothing changed in stays as it was.
+
+**Theme.** A colour's value has one for each theme, and the tree has the token, so a change of theme changes nothing in the tree that doesn't read `page.theme`.
+
 ### Failures
 
 A failure is a bug that could not be caught at compile time. There are no exceptions to catch. Each failure is contained and reported, and the rest of the page carries on.
@@ -280,7 +347,7 @@ A failure is a bug that could not be caught at compile time. There are no except
 
 | Where it happens | What the reader sees | What is kept |
 |---|---|---|
-| While drawing a widget | That widget is replaced by a short notice with the message. In Markdown it is a quote block. The page has no source to point into: an editor that has it shows where the failed call is written. It is tried again when an input or variable it reads changes | The rest of the page, and all variables |
+| While drawing a widget | The widget's node says why (`failed`), and a short notice with the message is shown in its place. In Markdown it is a quote block. The page has no source to point into: an editor that has it shows where the failed call is written. It is tried again when an input or variable it reads changes | The rest of the page, and all variables |
 | In an event handler | Nothing changes on the page | Everything the handler changed is undone, and the handler stops |
 | In a write from the host | Nothing changes on the page | Everything: the write is refused, and the host is told |
 | At compile time, when the compiler can see it | A compile error on the line | |

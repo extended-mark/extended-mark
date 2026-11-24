@@ -85,7 +85,7 @@ fn every_check_case_fits_the_schema_and_the_rust_types() {
 fn a_value_outside_the_schema_is_refused() {
     let v = validator("ir.schema.json");
     let mut doc = json(&repo().join("schemas/examples/counter.ir.json"));
-    doc["ir"]["bindings"][0]["value"] = serde_json::json!({"nothing": 1});
+    doc["ir"]["templates"][0]["view"][0] = serde_json::json!({"nothing": 1});
     assert!(!errors(&v, &doc).is_empty());
     assert!(serde_json::from_value::<xtmd_ir::ir::File>(doc).is_err());
 }

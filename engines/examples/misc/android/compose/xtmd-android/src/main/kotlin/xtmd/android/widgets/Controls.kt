@@ -333,7 +333,7 @@ data class SliderEnds(val low: BigDecimal, val high: BigDecimal, val step: BigDe
 }
 
 fun sliderEnds(ctx: WidgetContext): SliderEnds? = try {
-    val e = ctx.page.native.sliderEnds(ctx.path)
+    val e = ctx.page.native.sliderEnds(ctx.id)
     SliderEnds(BigDecimal(e.low), BigDecimal(e.high), BigDecimal(e.step))
 } catch (_: Exception) {
     null

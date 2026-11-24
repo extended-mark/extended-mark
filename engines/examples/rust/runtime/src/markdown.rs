@@ -367,7 +367,7 @@ impl Writer<'_> {
         if let Some(t) = self.rt.s.templates.get(name).cloned() {
             // a widget written in Extended Mark: its markdown, in its instance
             let own = self.rt.enter_use(m, &t, path, args, slots, events, env, key)?;
-            return self.nodes(m, &t.markdown, &own);
+            return self.nodes(m, t.markdown(), &own);
         }
         if let Some(w) = self.rt.s.extern_widgets.get(name).cloned() {
             let own = self.rt.enter_extern(m, &w, path, &props, slots, env)?;
@@ -412,5 +412,5 @@ fn runs_of(pieces: Vec<Piece>) -> Vec<Inline> {
 pub(crate) fn page_blocks(rt: &Rt, m: &mut Machine) -> R<Vec<Block>> {
     let Some(doc) = rt.s.templates.get("doc").cloned() else { return Ok(Vec::new()) };
     let mut w = Writer { rt, depth: 0 };
-    Ok(blocks_of(w.nodes(m, &doc.markdown, &Env::default())?))
+    Ok(blocks_of(w.nodes(m, doc.markdown(), &Env::default())?))
 }

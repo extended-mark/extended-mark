@@ -3,7 +3,7 @@
 // server too). Each element is made once, kept by key among its siblings while its tag stays, and
 // only what changed is set on it, so focus and what is being typed survive a change.
 
-import type { Child, VNode } from "./vnode.js";
+import type { Child, Component, VNode } from "./vnode.js";
 
 /** What the patcher asks of a renderer: Angular's Renderer2 has each of these. */
 export interface Host<N> {
@@ -18,6 +18,8 @@ export interface Host<N> {
   listen(el: N, event: string, f: (e: Event) => void): () => void;
   insertBefore(parent: N, child: N, before: N | null): void;
   removeChild(parent: N, child: N): void;
+  /** Draws a host's component inside an element: what follows it, and takes it away. */
+  component?(el: N, c: Component): { update(c: Component): void; destroy(): void };
   /** Whether hooks run: false on a server. */
   readonly live: boolean;
 }
@@ -29,6 +31,7 @@ interface Made<N> {
   off: Map<string, () => void>;
   kids: Map<string, Made<N>>;
   order: string[];
+  component?: { update(c: Component): void; destroy(): void };
 }
 
 function keyOf(c: Child, i: number): string {
@@ -88,6 +91,7 @@ export class Patcher<N> {
     if (typeof c === "string") return { node: this.host.createText(c), v: c, off: new Map(), kids: new Map(), order: [] };
     const m: Made<N> = { node: this.host.createElement(c.tag, !!c.svg), v: c, off: new Map(), kids: new Map(), order: [] };
     this.set(m, undefined, c);
+    if (c.component) m.component = this.host.component?.(m.node, c.component);
     if (c.tag === "style" || c.tag === "textarea") {
       if (c.tag === "style") this.host.setProperty(m.node, "textContent", c.children.join(""));
       return m;
@@ -133,6 +137,7 @@ export class Patcher<N> {
       return;
     }
     this.set(m, prev as VNode, v);
+    if (v.component) m.component?.update(v.component);
     if (v.tag === "style") {
       if (JSON.stringify((prev as VNode).children) !== JSON.stringify(v.children)) this.host.setProperty(m.node, "textContent", v.children.join(""));
     } else if (v.tag !== "textarea") this.children(m, v.children);
@@ -184,6 +189,7 @@ export class Patcher<N> {
 
   private forget(m: Made<N>): void {
     for (const k of m.order) this.forget(m.kids.get(k)!);
+    m.component?.destroy();
     for (const off of m.off.values()) off();
     m.off.clear();
     if (this.host.live && typeof m.v !== "string") m.v.hook?.unmount?.(m.node as unknown as Element);

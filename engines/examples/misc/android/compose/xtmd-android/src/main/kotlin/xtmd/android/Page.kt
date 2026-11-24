@@ -164,7 +164,7 @@ class CompiledPage(val native: NativePage, supplies: Collection<String>?, theme:
         var missing = false
         fun resolve(n: Node): Node {
             if (n.same) stats.kept++ else stats.sent++
-            if (n.same) return byKey[n.key] ?: n.also { missing = true }
+            if (n.same) return byKey[n.id] ?: n.also { missing = true }
             if (n.widget == "core/plane" || n.widget == "core/spot") planesTouched = true
             if (n.slots.isEmpty()) return n
             return n.copy(slots = n.slots.map { s -> Slot(s.name, s.nodes.map(::resolve)) })
@@ -356,7 +356,7 @@ class CompiledPage(val native: NativePage, supplies: Collection<String>?, theme:
             val out = HashMap<String, Node>()
             fun walk(ns: List<Node>) {
                 for (n in ns) {
-                    out[n.key] = n
+                    out[n.id] = n
                     for (s in n.slots) walk(s.nodes)
                 }
             }

@@ -16,7 +16,7 @@ const externs = { app: { unit: { text: "items" } } };
 function drawn(nodes, out = []) {
   for (const d of nodes) {
     out.push(d);
-    for (const s of d.slots.values()) drawn(s, out);
+    for (const x of Object.values(d.inputs)) if (x.nodes) drawn(x.nodes, out);
   }
   return out;
 }
@@ -72,7 +72,7 @@ test("the patcher keeps an element by key, sets only what changed, and moves onl
 test("a document renders its page with the host's externs and the `$state` it starts from", () => {
   const doc = new Doc({ ir: irs.v1, externs, defaultState: { n: num(2) } });
   const html = toHtml(doc.render());
-  assert.match(html, /^<div class="xtmd-root" data-xtmd-root data-xtmd-theme="light"/);
+  assert.match(html, /^<div class="xtmd-root[^"]*" data-xtmd-root data-xtmd-theme="light"/);
   assert.ok(html.includes("Count: 2 items"), html);
   assert.match(html, /data-part="press\.label"[^>]*>Add one</);
   assert.equal(doc.markdown(), "# Count: 2 items\n\nAdd one\n");
@@ -115,8 +115,8 @@ test("set, expose and the host's extern fns go through the page, each heard once
   assert.deepEqual(states, [{ n: num(4) }]);
   assert.ok(renders >= 1);
   // the reader's press: its handler writes $state and calls app.saved
-  const press = drawn(doc.running.tree()).find((d) => d.widget === "core/press");
-  doc.running.event(press.path, "click", []);
+  const press = drawn(doc.running.tree().nodes).find((d) => d.widget === "core/press");
+  doc.running.event(press.id, "click", []);
   await tick();
   assert.deepEqual(states.at(-1), { n: num(5) });
   assert.equal(calls.length, 1);
@@ -129,9 +129,9 @@ test("set, expose and the host's extern fns go through the page, each heard once
 test("a snapshot brings back `$state` and widgets' own variables in the same IR, `$state` alone in another, and nothing it can't read", async () => {
   const doc = new Doc({ ir: irs.notes });
   doc.set({ n: num(2) });
-  const tally = drawn(doc.running.tree()).find((d) => d.widget === "core/press");
-  doc.running.event(tally.path, "click", []);
-  doc.running.event(tally.path, "click", []);
+  const tally = drawn(doc.running.tree().nodes).find((d) => d.widget === "core/press");
+  doc.running.event(tally.id, "click", []);
+  doc.running.event(tally.id, "click", []);
   const snap = JSON.parse(JSON.stringify(doc.snapshot()));
   assert.deepEqual(snap.state, { n: num(2) });
   assert.ok(Object.values(snap.own).some((o) => JSON.stringify(o.k) === JSON.stringify(num(2))), JSON.stringify(snap.own));
@@ -172,4 +172,16 @@ test("a document fetched from `src` shows that it is loading, then the page, or 
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+test("an IR is told apart by its content: the same page given again goes on", async () => {
+  const doc = new Doc({ ir: irs.v1, externs });
+  const press = drawn(doc.running.tree().nodes).find((d) => d.widget === "core/press");
+  doc.running.event(press.id, "click", []);
+  const page = doc.running;
+  doc.update({ ir: structuredClone(irs.v1), externs });
+  assert.equal(doc.running, page);
+  assert.deepEqual(doc.state(), { n: num(1) });
+  doc.update({ ir: irs.v2, externs });
+  assert.notEqual(doc.running, page);
 });

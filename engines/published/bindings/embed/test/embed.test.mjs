@@ -12,11 +12,11 @@ const irs = await compilePages(cli);
 
 test("makePage keeps the host's $state that fits, and says what it refused", () => {
   const ok = makePage(irs.v2, {}, { n: { num: "4" }, stride: { num: "3" } });
-  assert.deepEqual(ok.page.observeState(), { n: { num: "4" }, stride: { num: "3" } });
+  assert.deepEqual(ok.page.state(), { n: { num: "4" }, stride: { num: "3" } });
   assert.deepEqual(ok.outcome, { refused: [], failures: [] });
 
   const some = makePage(irs.v2, {}, { n: { num: "40" }, stride: { num: "3" }, gone: { num: "1" } });
-  assert.deepEqual(some.page.observeState(), { n: { num: "0" }, stride: { num: "3" } });
+  assert.deepEqual(some.page.state(), { n: { num: "0" }, stride: { num: "3" } });
   assert.deepEqual(some.outcome.refused, [
     { code: "contracts.outside", site: "$state.gone" },
     { code: "contracts.outside", site: "$state.n" },

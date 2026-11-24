@@ -1,6 +1,6 @@
 /* @extended-mark/dom: a calm, native look in the system font. Every colour, length and font comes from core's
-   tokens, which mount writes on the root as custom properties for the page's theme. The values
-   here are only what shows before then. */
+   tokens, custom properties under the page's own class, for both themes: the root's
+   data-xtmd-theme says which. The values here are only for a page without them. */
 
 :where(.xtmd-root) {
   --xtmd-color-surface: #ffffff;

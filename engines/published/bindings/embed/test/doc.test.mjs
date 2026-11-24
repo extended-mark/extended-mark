@@ -47,7 +47,7 @@ test("XtmdDoc fetched from src shows it is loading, then the page, or why it cou
 test("on a server, the same page as HTML (@extended-mark/view), which XtmdDoc takes over in the browser", async () => {
   // what a server writes into the element: no DOM, no framework
   const html = toHtml(new Doc({ ir: irs.v1, defaultState: { n: { num: "2" } }, externs: { app: { unit: { text: "items" } } } }).render());
-  assert.match(html, /^<div class="xtmd-root" data-xtmd-root/);
+  assert.match(html, /^<div class="xtmd-root[^"]*" data-xtmd-root/);
   assert.ok(html.includes("Count: 2 items"));
   const js = await bundle(esbuild, fileURLToPath(new URL("./doc-server-app.mjs", import.meta.url)));
   const browser = await launch(chromium);

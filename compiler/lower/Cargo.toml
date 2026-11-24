@@ -1,6 +1,6 @@
 [package]
 name = "xtmd-lower"
-description = "Lowering: every prop that isn't constant becomes a binding with everything it reads"
+description = "Lowering: what a page can run, as the IR an engine runs"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,4 +8,3 @@ repository.workspace = true
 
 [dependencies]
 xtmd-ir = { path = "../ir", version = "0.4.0" }
-serde_json.workspace = true

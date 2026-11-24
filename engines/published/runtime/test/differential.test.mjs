@@ -9,7 +9,7 @@
 import { test } from "node:test";
 import { rmSync } from "node:fs";
 import assert from "node:assert/strict";
-import { Constants, Failure, Machine, toIr } from "../dist/index.js";
+import { Constants, Failure, Machine, toIr } from "../dist/internal.js";
 import { build, declarations, program, workdir } from "./xtmd.mjs";
 
 const PRELUDE = `package t;

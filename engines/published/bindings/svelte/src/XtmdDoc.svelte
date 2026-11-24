@@ -6,7 +6,7 @@
 -->
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { Doc, type DocProps, type Restored, type Snapshot, type Value, type ir } from "@extended-mark/view";
+  import { Doc, type DocProps, type Restored, type Snapshot, type Input, type ir } from "@extended-mark/view";
   import XtmdNode from "./XtmdNode.svelte";
 
   let { class: className = undefined, id = undefined, ...props }: DocProps & { class?: string; id?: string } = $props();
@@ -32,17 +32,17 @@
   export function document(): Doc {
     return doc;
   }
-  export function set(changes: Record<string, ir.Expr | Value>): void {
+  export function set(changes: Record<string, Input>): void {
     doc.set(changes);
   }
   /** `$state` now (`state` is a rune's name in Svelte). */
-  export function getState(): Record<string, ir.Expr> {
+  export function getState(): Record<string, Input> {
     return doc.state();
   }
   export function markdown(): string {
     return doc.markdown();
   }
-  export function expose(channel: string, name: string, ...args: (ir.Expr | Value)[]): void {
+  export function expose(channel: string, name: string, ...args: Input[]): void {
     doc.expose(channel, name, ...args);
   }
   export function snapshot(): Snapshot {

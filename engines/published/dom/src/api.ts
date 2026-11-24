@@ -1,31 +1,33 @@
 // @extended-mark/dom's API, fixed before its widgets so that the bindings, the web engine and the
 // playground can all be written against it.
 //
-// A page is drawn from @extended-mark/runtime's tree: each drawn extern widget becomes one WidgetView,
-// kept across redraws by its key (a loop row's widgets follow its item), and updated in place,
+// A page is drawn from its tree (docs/specs/06, The host): each node becomes one WidgetView, kept across
+// changes by its id (a loop row's widgets follow its item), and updated in place,
 // so focus, selection and scroll survive a change.
 
-import type { Drawn, Measure, Page, PageOptions, Value, ir } from "@extended-mark/runtime";
+import type { Input, Measure, Node as Drawn, Page, PageOptions, ir } from "@extended-mark/runtime";
 
 /** What a widget can do on the page it is drawn on. */
 export interface WidgetContext {
   readonly page: Page;
   /** The reader's event on this widget: runs the caller's handler, as one change. */
-  event(name: string, args?: Value[]): void;
+  event(name: string, args?: Input[]): void;
   /** This widget writing one of its `mut` inputs, as a slider does: checked, then one change. */
-  write(input: string, value: Value): void;
-  /** Draws a slot's widgets into a container, keeping the ones already there by key. */
+  write(input: string, value: Input): void;
+  /** A fn input called, as a shade calls its shader. */
+  call(input: string, args: Input[]): Input;
+  /** Draws an input's widgets into a container, keeping the ones already there by id. */
   children(container: Element, nodes: readonly Drawn[]): void;
-  /** A token case's value: `space.M` → 16, `color.INK` → its colour for the current theme. */
-  token(v: Value | undefined): Value | undefined;
+  /** What a token stands for: `space.M` is 16, `color.INK` a colour for each theme. */
+  token(v: Input | undefined): Input | undefined;
 }
 
 /** One drawn widget: its element, and how it follows the page. */
 export interface WidgetView {
-  /** Its root: an element, on which @extended-mark/dom sets `data-xtmd-site` (its path) and
+  /** Its root: an element, on which @extended-mark/dom sets `data-xtmd-site` (its id) and
    * `data-xtmd-widget`, or text, for words of a sentence. */
   readonly el: Element | Text;
-  /** The page changed: show this widget's new props and slots. */
+  /** The page changed: show this widget's new inputs. */
   update(d: Drawn): void;
   /** For the checks: the reader acting on it through its own DOM, as a person would.
    * Returns false when this widget can't do it that way, and the caller goes through the page. */
@@ -34,7 +36,7 @@ export interface WidgetView {
 }
 
 /** What a reader does to a widget, in the checks' terms. */
-export type Action = { event: string; args?: Value[] } | { write: string; value: Value };
+export type Action = { event: string; args?: Input[] } | { write: string; value: Input };
 
 /** A widget's maker: our defaults for every `core/*` extern, or the host's own, by full name. */
 export type Widget = (d: Drawn, ctx: WidgetContext) => WidgetView;
@@ -53,13 +55,13 @@ export interface MountOptions {
 export interface Mounted {
   readonly page: Page;
   readonly root: HTMLElement;
-  /** The widget view drawn at a path (`s0/s1[2]/s3`), if it is on the page now. */
-  view(path: string): WidgetView | undefined;
-  /** The reader acting on the widget at a path: through its DOM when it can, else the page. */
-  act(path: string, action: Action): void;
+  /** The widget view of a node, by its id, if it is on the page now. */
+  view(id: string): WidgetView | undefined;
+  /** The reader acting on a widget: through its DOM when it can, else the page. */
+  act(id: string, action: Action): void;
   /** The plane's layout, run now (it also runs after every change on its own). */
   layout(): void;
   unmount(): void;
 }
 
-export type { Drawn, Measure, Page, PageOptions, Value, ir };
+export type { Drawn, Input, Measure, Page, PageOptions, ir };

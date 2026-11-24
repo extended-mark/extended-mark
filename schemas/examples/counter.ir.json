@@ -1,48 +1,48 @@
 {
   "ir": {
-    "version": 4,
-    "xtmd": "0.4.0",
-    "module": "doc",
-    "needs": {
-      "core": [
-        "core/flex",
-        "core/label",
-        "core/paragraph",
-        "core/press",
-        "core/words"
-      ],
-      "packs": [],
-      "host": []
-    },
     "declarations": [
       {
         "declare": {
-          "type": {
-            "name": "core/int",
-            "is": {
-              "name": "core/number",
-              "contract": {
-                "step": {
-                  "num": "1"
+          "extern": {
+            "widget": {
+              "inputs": [
+                {
+                  "name": "value",
+                  "type": {
+                    "name": "core/rich_text"
+                  }
+                },
+                {
+                  "default": {
+                    "none": {}
+                  },
+                  "name": "tone",
+                  "type": {
+                    "args": [
+                      {
+                        "name": "core/color"
+                      }
+                    ],
+                    "name": "core/opt"
+                  }
+                },
+                {
+                  "default": {
+                    "case": {
+                      "enum": "core/align",
+                      "name": "START"
+                    }
+                  },
+                  "name": "align",
+                  "type": {
+                    "name": "core/align"
+                  }
                 }
-              }
+              ],
+              "name": "core/paragraph",
+              "piece": "paragraph",
+              "supplier": "core"
             }
-          }
-        }
-      },
-      {
-        "declare": {
-          "enum": {
-            "name": "core/axis",
-            "cases": [
-              {
-                "name": "X"
-              },
-              {
-                "name": "Y"
-              }
-            ],
-            "ordered": true
           }
         }
       },
@@ -50,50 +50,36 @@
         "declare": {
           "extern": {
             "widget": {
-              "name": "core/flex",
               "inputs": [
                 {
-                  "name": "axis",
+                  "name": "level",
                   "type": {
-                    "name": "core/axis"
-                  },
-                  "default": {
-                    "case": {
-                      "enum": "core/axis",
-                      "name": "Y"
-                    }
-                  }
-                }
-              ],
-              "slots": [
-                {
-                  "name": "children",
-                  "type": {
-                    "name": "core/view"
-                  }
-                }
-              ],
-              "events": [
-                {
-                  "name": "click",
-                  "params": []
-                }
-              ],
-              "supplier": "core",
-              "markdown": [
-                {
-                  "place": {
-                    "site": "m0",
-                    "view": {
-                      "get": {
-                        "slot": "children"
+                    "contract": {
+                      "range": {
+                        "high": {
+                          "num": "6"
+                        },
+                        "low": {
+                          "num": "1"
+                        }
                       }
-                    }
+                    },
+                    "name": "core/int"
+                  }
+                },
+                {
+                  "name": "value",
+                  "type": {
+                    "name": "core/rich_text"
                   }
                 }
               ],
-              "levels": [
-                "core.draw"
+              "name": "core/heading",
+              "piece": "heading",
+              "supplier": "core",
+              "tokens": [
+                "core/color.MUTED",
+                "core/font.HEADING"
               ]
             }
           }
@@ -103,7 +89,6 @@
         "declare": {
           "extern": {
             "widget": {
-              "name": "core/label",
               "inputs": [
                 {
                   "name": "value",
@@ -112,14 +97,78 @@
                   }
                 }
               ],
-              "slots": [],
-              "events": [],
-              "supplier": "core",
+              "name": "core/words",
+              "piece": "text",
+              "supplier": "core"
+            }
+          }
+        }
+      },
+      {
+        "declare": {
+          "extern": {
+            "widget": {
+              "events": [
+                {
+                  "name": "click"
+                }
+              ],
+              "inputs": [
+                {
+                  "name": "label",
+                  "type": {
+                    "name": "core/text"
+                  }
+                },
+                {
+                  "default": {
+                    "case": {
+                      "enum": "core/press_kind",
+                      "name": "BUTTON"
+                    }
+                  },
+                  "name": "kind",
+                  "type": {
+                    "name": "core/press_kind"
+                  }
+                },
+                {
+                  "default": {
+                    "bool": false
+                  },
+                  "name": "selected",
+                  "type": {
+                    "name": "core/bool"
+                  }
+                },
+                {
+                  "default": {
+                    "bool": false
+                  },
+                  "name": "disabled",
+                  "type": {
+                    "name": "core/bool"
+                  }
+                },
+                {
+                  "default": {
+                    "none": {}
+                  },
+                  "name": "tone",
+                  "type": {
+                    "args": [
+                      {
+                        "name": "core/color"
+                      }
+                    ],
+                    "name": "core/opt"
+                  }
+                }
+              ],
               "markdown": [
                 {
                   "extern": {
                     "name": "core/paragraph",
-                    "site": "m0",
                     "props": {
                       "value": {
                         "rich": {
@@ -129,12 +178,8 @@
                                 "name": "core/words",
                                 "props": {
                                   "value": {
-                                    "show": {
-                                      "value": {
-                                        "get": {
-                                          "input": "value"
-                                        }
-                                      }
+                                    "get": {
+                                      "input": "label"
                                     }
                                   }
                                 },
@@ -144,94 +189,34 @@
                           ]
                         }
                       }
-                    }
+                    },
+                    "site": "m0"
                   }
                 }
               ],
-              "levels": [
-                "core.draw"
-              ]
-            }
-          }
-        }
-      },
-      {
-        "declare": {
-          "extern": {
-            "widget": {
               "name": "core/press",
-              "inputs": [
-                {
-                  "name": "label",
-                  "type": {
-                    "name": "core/text"
-                  }
-                },
-                {
-                  "name": "selected",
-                  "type": {
-                    "name": "core/bool"
-                  },
-                  "default": {
-                    "bool": false
-                  }
-                }
-              ],
               "slots": [
                 {
                   "name": "content",
                   "type": {
-                    "name": "core/opt",
                     "args": [
                       {
                         "name": "core/view"
                       }
-                    ]
+                    ],
+                    "name": "core/opt"
                   }
-                }
-              ],
-              "events": [
-                {
-                  "name": "click",
-                  "params": []
                 }
               ],
               "supplier": "core",
-              "markdown": [
-                {
-                  "extern": {
-                    "name": "core/paragraph",
-                    "site": "m0",
-                    "props": {
-                      "value": {
-                        "rich": {
-                          "nodes": [
-                            {
-                              "extern": {
-                                "name": "core/words",
-                                "props": {
-                                  "value": {
-                                    "show": {
-                                      "value": {
-                                        "get": {
-                                          "input": "label"
-                                        }
-                                      }
-                                    }
-                                  }
-                                },
-                                "site": "t1"
-                              }
-                            }
-                          ]
-                        }
-                      }
-                    }
-                  }
-                }
-              ],
-              "levels": [
-                "core.draw"
+              "tokens": [
+                "core/color.ACCENT",
+                "core/color.INK",
+                "core/color.LINE",
+                "core/color.MUTED",
+                "core/color.SURFACE",
+                "core/radius.CARD",
+                "core/radius.PILL"
               ]
             }
           }
@@ -239,97 +224,456 @@
       },
       {
         "declare": {
-          "extern": {
-            "widget": {
-              "name": "core/paragraph",
-              "inputs": [
-                {
-                  "name": "value",
-                  "type": {
-                    "name": "core/rich_text"
+          "type": {
+            "is": {
+              "contract": {
+                "step": {
+                  "num": "1"
+                }
+              },
+              "name": "core/number"
+            },
+            "name": "core/int"
+          }
+        }
+      },
+      {
+        "declare": {
+          "enum": {
+            "cases": [
+              {
+                "name": "START"
+              }
+            ],
+            "name": "core/align",
+            "ordered": true
+          }
+        }
+      },
+      {
+        "declare": {
+          "enum": {
+            "cases": [
+              {
+                "name": "BUTTON"
+              }
+            ],
+            "name": "core/press_kind",
+            "ordered": true
+          }
+        }
+      },
+      {
+        "declare": {
+          "record": {
+            "fields": [
+              {
+                "name": "light",
+                "type": {
+                  "contract": {
+                    "length": {
+                      "high": {
+                        "num": "9"
+                      },
+                      "low": {
+                        "num": "7"
+                      }
+                    }
+                  },
+                  "name": "core/text"
+                }
+              },
+              {
+                "name": "dark",
+                "type": {
+                  "contract": {
+                    "length": {
+                      "high": {
+                        "num": "9"
+                      },
+                      "low": {
+                        "num": "7"
+                      }
+                    }
+                  },
+                  "name": "core/text"
+                }
+              }
+            ],
+            "name": "core/color_value"
+          }
+        }
+      },
+      {
+        "declare": {
+          "record": {
+            "fields": [
+              {
+                "name": "family",
+                "type": {
+                  "contract": {
+                    "length": {
+                      "low": {
+                        "num": "1"
+                      }
+                    }
+                  },
+                  "name": "core/text"
+                }
+              },
+              {
+                "name": "size",
+                "type": {
+                  "contract": {
+                    "range": {
+                      "low": {
+                        "num": "1"
+                      }
+                    }
+                  },
+                  "name": "core/number"
+                }
+              },
+              {
+                "name": "weight",
+                "type": {
+                  "contract": {
+                    "range": {
+                      "high": {
+                        "num": "900"
+                      },
+                      "low": {
+                        "num": "100"
+                      }
+                    }
+                  },
+                  "name": "core/int"
+                }
+              },
+              {
+                "name": "line",
+                "type": {
+                  "contract": {
+                    "range": {
+                      "high": {
+                        "num": "3"
+                      },
+                      "low": {
+                        "num": "1"
+                      }
+                    }
+                  },
+                  "name": "core/number"
+                }
+              }
+            ],
+            "name": "core/font_value"
+          }
+        }
+      },
+      {
+        "declare": {
+          "token": {
+            "cases": [
+              {
+                "name": "SURFACE"
+              },
+              {
+                "name": "INK"
+              },
+              {
+                "name": "MUTED"
+              },
+              {
+                "name": "LINE"
+              },
+              {
+                "name": "ACCENT"
+              },
+              {
+                "name": "BAD"
+              }
+            ],
+            "name": "core/color",
+            "value": {
+              "name": "core/color_value"
+            },
+            "values": {
+              "ACCENT": {
+                "record": {
+                  "fields": {
+                    "dark": {
+                      "text": "#7aa7ff"
+                    },
+                    "light": {
+                      "text": "#2563eb"
+                    }
+                  },
+                  "type": "core/color_value"
+                }
+              },
+              "BAD": {
+                "record": {
+                  "fields": {
+                    "dark": {
+                      "text": "#f87171"
+                    },
+                    "light": {
+                      "text": "#dc2626"
+                    }
+                  },
+                  "type": "core/color_value"
+                }
+              },
+              "INK": {
+                "record": {
+                  "fields": {
+                    "dark": {
+                      "text": "#eceef1"
+                    },
+                    "light": {
+                      "text": "#1a1c1f"
+                    }
+                  },
+                  "type": "core/color_value"
+                }
+              },
+              "LINE": {
+                "record": {
+                  "fields": {
+                    "dark": {
+                      "text": "#3a3f46"
+                    },
+                    "light": {
+                      "text": "#d4d7dc"
+                    }
+                  },
+                  "type": "core/color_value"
+                }
+              },
+              "MUTED": {
+                "record": {
+                  "fields": {
+                    "dark": {
+                      "text": "#9aa3ae"
+                    },
+                    "light": {
+                      "text": "#6b7280"
+                    }
+                  },
+                  "type": "core/color_value"
+                }
+              },
+              "SURFACE": {
+                "record": {
+                  "fields": {
+                    "dark": {
+                      "text": "#15171a"
+                    },
+                    "light": {
+                      "text": "#ffffff"
+                    }
+                  },
+                  "type": "core/color_value"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "declare": {
+          "token": {
+            "cases": [
+              {
+                "name": "CARD"
+              },
+              {
+                "name": "PILL"
+              }
+            ],
+            "name": "core/radius",
+            "value": {
+              "contract": {
+                "range": {
+                  "low": {
+                    "num": "0"
                   }
                 }
-              ],
-              "slots": [],
-              "events": [],
-              "supplier": "core",
-              "levels": [
-                "core.draw"
-              ]
+              },
+              "name": "core/number"
+            },
+            "values": {
+              "CARD": {
+                "num": "8"
+              },
+              "PILL": {
+                "num": "999"
+              }
             }
+          }
+        }
+      },
+      {
+        "declare": {
+          "token": {
+            "cases": [
+              {
+                "name": "BODY"
+              },
+              {
+                "name": "HEADING"
+              }
+            ],
+            "name": "core/font",
+            "value": {
+              "name": "core/font_value"
+            },
+            "values": {
+              "BODY": {
+                "record": {
+                  "fields": {
+                    "family": {
+                      "text": "system-ui, sans-serif"
+                    },
+                    "line": {
+                      "num": "1.5"
+                    },
+                    "size": {
+                      "num": "16"
+                    },
+                    "weight": {
+                      "num": "400"
+                    }
+                  },
+                  "type": "core/font_value"
+                }
+              },
+              "HEADING": {
+                "record": {
+                  "fields": {
+                    "family": {
+                      "text": "system-ui, sans-serif"
+                    },
+                    "line": {
+                      "num": "1.25"
+                    },
+                    "size": {
+                      "num": "22"
+                    },
+                    "weight": {
+                      "num": "650"
+                    }
+                  },
+                  "type": "core/font_value"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "declare": {
+          "$state": {
+            "fields": [
+              {
+                "default": {
+                  "num": "0"
+                },
+                "name": "n",
+                "type": {
+                  "name": "core/number"
+                }
+              }
+            ]
           }
         }
       }
     ],
-    "templates": [
+    "handlers": [
       {
-        "name": "doc/counter",
-        "inputs": [],
-        "slots": [],
-        "events": [],
-        "cells": [
+        "body": [
           {
-            "name": "n",
-            "type": {
-              "name": "core/int"
-            },
-            "default": {
-              "num": "0"
-            }
-          }
-        ],
-        "requires": [],
-        "fns": [],
-        "view": [
-          {
-            "extern": {
-              "name": "core/flex",
-              "site": "s0",
-              "props": {
-                "axis": {
-                  "case": {
-                    "enum": "core/axis",
-                    "name": "X"
-                  }
+            "set": {
+              "place": {
+                "root": {
+                  "$state": "n"
                 }
               },
-              "slots": {
-                "children": [
-                  {
-                    "extern": {
-                      "name": "core/label",
-                      "site": "s1",
-                      "props": {
-                        "value": {
-                          "bind": "b1"
-                        }
+              "value": {
+                "op": {
+                  "args": [
+                    {
+                      "get": {
+                        "$state": "n"
                       }
+                    },
+                    {
+                      "num": "1"
                     }
-                  },
-                  {
-                    "extern": {
-                      "name": "core/press",
-                      "site": "s2",
-                      "props": {
-                        "label": {
-                          "text": "One more"
-                        }
-                      },
-                      "events": {
-                        "click": "h1"
-                      }
-                    }
-                  }
-                ]
+                  ],
+                  "name": "+"
+                }
               }
             }
           }
         ],
-        "markdown": [
+        "id": "h2"
+      }
+    ],
+    "levels": [
+      "core.draw",
+      "core.live"
+    ],
+    "module": "doc",
+    "needs": {
+      "core": [
+        "core/heading",
+        "core/paragraph",
+        "core/press",
+        "core/words"
+      ],
+      "host": [],
+      "packs": []
+    },
+    "templates": [
+      {
+        "levels": [
+          "core.live"
+        ],
+        "name": "doc",
+        "view": [
+          {
+            "extern": {
+              "name": "core/heading",
+              "props": {
+                "level": {
+                  "num": "1"
+                },
+                "value": {
+                  "rich": {
+                    "nodes": [
+                      {
+                        "extern": {
+                          "name": "core/words",
+                          "props": {
+                            "value": {
+                              "text": "Counter"
+                            }
+                          },
+                          "site": "t0"
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "site": "m0"
+            }
+          },
           {
             "extern": {
               "name": "core/paragraph",
-              "site": "m0",
               "props": {
                 "value": {
                   "rich": {
@@ -339,13 +683,35 @@
                           "name": "core/words",
                           "props": {
                             "value": {
+                              "text": "The count is "
+                            }
+                          },
+                          "site": "t0"
+                        }
+                      },
+                      {
+                        "extern": {
+                          "name": "core/words",
+                          "props": {
+                            "value": {
                               "show": {
                                 "value": {
                                   "get": {
-                                    "cell": "n"
+                                    "$state": "n"
                                   }
                                 }
                               }
+                            }
+                          },
+                          "site": "t1"
+                        }
+                      },
+                      {
+                        "extern": {
+                          "name": "core/words",
+                          "props": {
+                            "value": {
+                              "text": "."
                             }
                           },
                           "site": "t2"
@@ -354,102 +720,31 @@
                     ]
                   }
                 }
-              }
-            }
-          }
-        ],
-        "levels": [
-          "core.draw",
-          "core.live"
-        ]
-      },
-      {
-        "name": "doc",
-        "inputs": [],
-        "slots": [],
-        "events": [],
-        "cells": [],
-        "requires": [],
-        "fns": [],
-        "view": [
-          {
-            "use": {
-              "name": "doc/counter",
-              "site": "s0",
-              "args": {}
-            }
-          }
-        ],
-        "markdown": [
-          {
-            "use": {
-              "name": "doc/counter",
-              "site": "s0",
-              "args": {}
-            }
-          }
-        ],
-        "levels": [
-          "core.draw",
-          "core.live"
-        ]
-      }
-    ],
-    "bindings": [
-      {
-        "id": "b1",
-        "value": {
-          "show": {
-            "value": {
-              "get": {
-                "cell": "n"
-              }
-            }
-          }
-        },
-        "reads": [
-          "cell:n"
-        ]
-      }
-    ],
-    "handlers": [
-      {
-        "id": "h1",
-        "body": [
-          {
-            "set": {
-              "place": {
-                "root": {
-                  "cell": "n"
-                },
-                "path": []
               },
-              "value": {
-                "op": {
-                  "name": "+",
-                  "args": [
-                    {
-                      "get": {
-                        "cell": "n"
-                      }
-                    },
-                    {
-                      "num": "1"
-                    }
-                  ],
-                  "type": {
-                    "name": "core/int"
-                  }
+              "site": "m1"
+            }
+          },
+          {
+            "extern": {
+              "events": {
+                "click": "h2"
+              },
+              "levels": [
+                "core.live"
+              ],
+              "name": "core/press",
+              "props": {
+                "label": {
+                  "text": "Add"
                 }
-              }
+              },
+              "site": "s2"
             }
           }
         ]
       }
     ],
-    "levels": [
-      "core.draw",
-      "core.live"
-    ]
+    "version": 4,
+    "xtmd": "0.4.0"
   }
 }

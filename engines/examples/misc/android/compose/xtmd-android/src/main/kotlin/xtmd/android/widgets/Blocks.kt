@@ -123,10 +123,10 @@ internal fun Words(
     val sizes = remember { mutableStateMapOf<String, IntSize>() }
     val density = LocalDensity.current
     val inline = among.associate { n ->
-        val size = sizes[n.key]
+        val size = sizes[n.id]
         val room = with(density) { Placeholder(size?.width?.toSp() ?: 1.em, size?.height?.toSp() ?: 1.em, PlaceholderVerticalAlign.TextCenter) }
-        n.key to InlineTextContent(room) {
-            Box(Modifier.wrapContentSize(Alignment.TopStart, unbounded = true).onSizeChanged { sizes[n.key] = it }) {
+        n.id to InlineTextContent(room) {
+            Box(Modifier.wrapContentSize(Alignment.TopStart, unbounded = true).onSizeChanged { sizes[n.id] = it }) {
                 ctx.Children(listOf(n))
             }
         }

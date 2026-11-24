@@ -4,9 +4,9 @@
 // browser: each element made once, kept by key, and only what changed set on it. What the page does
 // comes out as outputs: (stateChange), (error) and (calls).
 
-import { Component, ElementRef, EventEmitter, Input, NgZone, Output, PLATFORM_ID, Renderer2, RendererStyleFlags2, inject, type OnChanges, type OnDestroy, type OnInit } from "@angular/core";
+import { ApplicationRef, Component, ElementRef, EnvironmentInjector, EventEmitter, Input, NgZone, Output, PLATFORM_ID, Renderer2, RendererStyleFlags2, createComponent, inject, reflectComponentType, type OnChanges, type OnDestroy, type OnInit, type Type } from "@angular/core";
 import { isPlatformBrowser } from "@angular/common";
-import { Doc, Patcher, type Call, type DocError, type DocProps, type Host, type Restored, type Snapshot, type Value, type ir } from "@extended-mark/view";
+import { Doc, Patcher, slotsOf, type Call, type Component as Drawn, type DocError, type DocProps, type Host, type Restored, type Snapshot, type Input as Given, type ir } from "@extended-mark/view";
 
 const SVG = "svg";
 
@@ -29,11 +29,14 @@ export class XtmdDoc implements OnInit, OnChanges, OnDestroy {
   @Input() externs?: DocProps["externs"];
   @Input() fns?: DocProps["fns"];
   @Input() widgets?: DocProps["widgets"];
+  /** Angular components as widgets, by full name: each is given the inputs `node`, `event`, `write` and
+   * `call` it declares, and a slot's widgets where `<ng-content select="[data-xtmd-slot=body]" />` is. */
+  @Input() components?: Record<string, Type<unknown>>;
   /** How the plane's spots are measured: left out, from their elements. */
   @Input() measure?: DocProps["measure"];
 
   /** `$state` after each change to it. */
-  @Output() readonly stateChange = new EventEmitter<Record<string, ir.Expr>>();
+  @Output() readonly stateChange = new EventEmitter<Record<string, Given>>();
   /** A write xtmd refused, a widget that failed, or an IR that couldn't be had. */
   @Output() readonly error = new EventEmitter<DocError>();
   /** The host's extern fns the page called, after each change that called any. */
@@ -42,6 +45,8 @@ export class XtmdDoc implements OnInit, OnChanges, OnDestroy {
   private readonly el: ElementRef<HTMLElement> = inject(ElementRef);
   private readonly renderer = inject(Renderer2);
   private readonly zone = inject(NgZone);
+  private readonly app = inject(ApplicationRef);
+  private readonly environment = inject(EnvironmentInjector);
   private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
   private doc!: Doc;
   private patcher!: Patcher<unknown>;
@@ -68,6 +73,7 @@ export class XtmdDoc implements OnInit, OnChanges, OnDestroy {
       listen: (el, event, f) => r.listen(el, event, (e: Event) => this.zone.run(() => f(e))),
       insertBefore: (parent, child, before) => r.insertBefore(parent, child, before),
       removeChild: (parent, child) => r.removeChild(parent, child),
+      component: (el, c) => this.component(host, el, c),
     };
     this.doc = new Doc(this.props());
     this.patcher = new Patcher(host, this.el.nativeElement);
@@ -86,11 +92,11 @@ export class XtmdDoc implements OnInit, OnChanges, OnDestroy {
 
   // ---- the handle: a template reference variable or @ViewChild
 
-  set(changes: Record<string, ir.Expr | Value>): void {
+  set(changes: Record<string, Given>): void {
     this.doc.set(changes);
   }
 
-  getState(): Record<string, ir.Expr> {
+  getState(): Record<string, Given> {
     return this.doc.state();
   }
 
@@ -98,7 +104,7 @@ export class XtmdDoc implements OnInit, OnChanges, OnDestroy {
     return this.doc.markdown();
   }
 
-  expose(channel: string, name: string, ...args: (ir.Expr | Value)[]): void {
+  expose(channel: string, name: string, ...args: Given[]): void {
     this.doc.expose(channel, name, ...args);
   }
 
@@ -108,6 +114,52 @@ export class XtmdDoc implements OnInit, OnChanges, OnDestroy {
 
   restore(snap: Snapshot): Restored {
     return this.doc.restore(snap);
+  }
+
+  /** A host's component on its element, its slots' widgets patched into what it projects. */
+  private component(host: Host<unknown>, el: unknown, c: Drawn): { update(c: Drawn): void; destroy(): void } {
+    const type = c.of as Type<unknown>;
+    const mirror = reflectComponentType(type);
+    const slots = new Map<string, { el: unknown; patcher: Patcher<unknown> }>();
+    const follow = (now: Drawn) => {
+      for (const name of slotsOf(now.props.node)) {
+        let s = slots.get(name);
+        if (!s) {
+          const box = this.renderer.createElement("xtmd-slots");
+          this.renderer.setStyle(box, "display", "contents");
+          slots.set(name, (s = { el: box, patcher: new Patcher(host, box) }));
+        }
+        s.patcher.render({ tag: "xtmd-slot", attrs: { "data-xtmd-slot": name }, style: { display: "contents" }, children: now.children(name) });
+      }
+    };
+    follow(c);
+    // each `ng-content` takes the slot its selector names, and one with none takes the rest
+    const selectors = mirror?.ngContentSelectors ?? [];
+    const named = (sel: string) => [...slots.keys()].find((s) => sel.includes(`data-xtmd-slot=${s}]`) || sel.includes(`data-xtmd-slot="${s}"]`));
+    const taken = new Set(selectors.map(named));
+    const projectableNodes = selectors.map((sel) => [...slots].filter(([s]) => (sel === "*" ? !taken.has(s) : s === named(sel))).map(([, s]) => s.el as Node));
+    const ref = createComponent(type, { environmentInjector: this.environment, hostElement: this.renderer.createElement("xtmd-component") as Element, projectableNodes });
+    this.renderer.setStyle(ref.location.nativeElement, "display", "contents");
+    this.renderer.appendChild(el, ref.location.nativeElement);
+    const declared = new Set(mirror?.inputs.map((i) => i.templateName));
+    const give = (now: Drawn) => {
+      for (const [k, x] of Object.entries(now.props)) if (declared.has(k)) ref.setInput(k, x);
+    };
+    give(c);
+    this.app.attachView(ref.hostView);
+    ref.changeDetectorRef.detectChanges();
+    return {
+      update: (now) => {
+        follow(now);
+        give(now);
+        ref.changeDetectorRef.detectChanges();
+      },
+      destroy: () => {
+        for (const s of slots.values()) s.patcher.destroy();
+        this.app.detachView(ref.hostView);
+        ref.destroy();
+      },
+    };
   }
 
   private render(): void {
@@ -125,6 +177,7 @@ export class XtmdDoc implements OnInit, OnChanges, OnDestroy {
       externs: this.externs,
       fns: this.fns,
       widgets: this.widgets,
+      components: this.components,
       measure: this.measure,
       onStateChange: (s) => this.stateChange.emit(s),
       onError: (e) => this.error.emit(e),

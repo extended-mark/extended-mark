@@ -11,6 +11,11 @@ const state = shallowRef(undefined);
 const shown = ref(true);
 const docRef = ref(null);
 
+const components = {
+  "core/press": { props: ["node", "event"], setup: (p) => () => h("button", { class: "mine", onClick: () => p.event("click") }, p.node.inputs.label.text) },
+  "core/heading": { props: ["node"], setup: (_p, { slots }) => () => h("section", { class: "title" }, slots.value()) },
+};
+
 const App = {
   setup() {
     return () =>
@@ -19,6 +24,7 @@ const App = {
             ref: docRef,
             ir: window.__IR[which.value],
             state: state.value,
+            components: window.__mine ? components : undefined,
             page: { theme: theme.value },
             externs: { app: { unit: { text: unit.value } } },
             onStateChange: (s) => {

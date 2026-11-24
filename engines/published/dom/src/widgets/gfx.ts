@@ -2,10 +2,11 @@
 // coordinates), layers are groups, and shapes are SVG elements in it. `place` puts ordinary widgets
 // at a point; `handle` is dragged; `shade` paints a 2D canvas from a shader, per sampled pixel.
 
-import { MAX_STEPS, Num, ptValue, type Drawn, type Value } from "@extended-mark/runtime";
+import { type Input, type Node as Drawn } from "@extended-mark/runtime";
 import type { Action, Widget, WidgetContext, WidgetView } from "../api.js";
 import { attr, claim, css, h, isClaimed, kit, s } from "../kit.js";
-import { exact, field, flag, inner, kase, list, num, placesFor, point, region, sig, str, toNum, type XY } from "../values.js";
+import { paint } from "../shade.js";
+import { exact, field, flag, kase, list, nodes, num, placesFor, point, pointInput, range, region, sig, str, toNum, type XY } from "../values.js";
 
 /** A drawing surface's coordinates: its units onto SVG user units, and the screen back to units. */
 export interface Space {
@@ -67,7 +68,7 @@ function shapeEvents(el: SVGElement, ctx: WidgetContext) {
   el.addEventListener("focus", () => el.matches(":focus-visible") && enter(true));
   el.addEventListener("blur", () => enter(el.matches(":hover")));
   return (d: Drawn, name: string) => {
-    const has = (e: string) => (ctx.page.listens ? ctx.page.listens(d, e) : d.events.has(e));
+    const has = (e: string) => !!d.events?.includes(e);
     click = has("click");
     hover = has("enter") || has("leave");
     const live = click || hover;
@@ -80,7 +81,7 @@ function shapeEvents(el: SVGElement, ctx: WidgetContext) {
 }
 
 /** A stroke's width in pixels: a stroke token, or stroke.PX's number. */
-function strokeWidth(v: Value | undefined, ctx: WidgetContext): number {
+function strokeWidth(v: Input | undefined, ctx: WidgetContext): number {
   return num(kit(ctx).tokens.value(v)) ?? 1;
 }
 
@@ -115,28 +116,28 @@ export const canvas: Widget = (d, ctx) => {
     const at = space.unit(e.clientX, e.clientY);
     if (!at) return;
     const p = placesFor(space.unitsPerPx());
-    ctx.event("click", [ptValue({ x: toNum(at.x, p), y: toNum(at.y, p) })]);
+    ctx.event("click", [pointInput({ x: toNum(at.x, p), y: toNum(at.y, p) })]);
   });
   const view: WidgetView = {
     el,
     update(d) {
       const t = kit(ctx).tokens;
-      const ends = (v: Value | undefined) => {
-        const r = inner(v);
-        return r && r.kind === "range" ? { lo: num(r.low ?? undefined) ?? -1, hi: num(r.high ?? undefined) ?? 1 } : { lo: -1, hi: 1 };
+      const ends = (v: Input | undefined) => {
+        const r = range(v);
+        return { lo: num(r?.low) ?? -1, hi: num(r?.high) ?? 1 };
       };
-      xr = ends(d.props.get("x"));
-      yr = ends(d.props.get("y"));
-      w = t.number(d.props.get("width")) ?? 320;
-      const aspect = num(d.props.get("aspect")) ?? (xr.hi - xr.lo) / (yr.hi - yr.lo || 1);
+      xr = ends(d.inputs.x);
+      yr = ends(d.inputs.y);
+      w = t.number(d.inputs.width) ?? 320;
+      const aspect = num(d.inputs.aspect) ?? (xr.hi - xr.lo) / (yr.hi - yr.lo || 1);
       ht = w / (aspect > 0 ? aspect : 1);
       attr(svg, "viewBox", `0 0 ${w} ${ht}`);
       css(el, "width", `${w}px`);
       css(el, "aspect-ratio", `${w} / ${ht}`);
-      attr(el, "aria-label", str(d.props.get("label")) || undefined);
-      listens = ctx.page.listens ? ctx.page.listens(d, "click") : d.events.has("click");
+      attr(el, "aria-label", str(d.inputs.label) || undefined);
+      listens = !!d.events?.includes("click");
       el.classList.toggle("xtmd-clickable", listens);
-      inSpace(space, () => ctx.children(svg, d.slots.get("layers") ?? []));
+      inSpace(space, () => ctx.children(svg, nodes(d.inputs.layers)));
     },
   };
   view.update(d);
@@ -158,16 +159,16 @@ export const layer: Widget = (d, ctx) => {
     el,
     update(d) {
       const space = currentSpace();
-      const o = num(d.props.get("opacity")) ?? 1;
+      const o = num(d.inputs.opacity) ?? 1;
       attr(el, "opacity", o === 1 ? undefined : String(o));
-      const r = region(d.props.get("clip"));
+      const r = region(d.inputs.clip);
       if (r) {
         const [x0, x1] = [space.x(r.from.x), space.x(r.to.x)].sort((a, b) => a - b);
         const [y0, y1] = [space.y(r.from.y), space.y(r.to.y)].sort((a, b) => a - b);
         for (const [k, v] of [["x", x0], ["y", y0], ["width", x1 - x0], ["height", y1 - y0]] as const) attr(rect, k, String(v));
       }
       attr(shapes, "clip-path", r ? `url(#${id})` : undefined);
-      ctx.children(shapes, d.slots.get("shapes") ?? []);
+      ctx.children(shapes, nodes(d.inputs.shapes));
     },
   };
   view.update(d);
@@ -186,16 +187,16 @@ export const circle: Widget = (d, ctx) => {
     update(d) {
       const space = currentSpace();
       const t = kit(ctx).tokens;
-      const at = point(d.props.get("at")) ?? { x: 0, y: 0 };
+      const at = point(d.inputs.at) ?? { x: 0, y: 0 };
       attr(el, "cx", String(space.x(at.x)));
       attr(el, "cy", String(space.y(at.y)));
-      attr(el, "r", String(Math.abs(space.len(num(d.props.get("r")) ?? 0))));
-      css(el, "fill", t.color(d.props.get("fill")) ?? "none");
-      css(el, "stroke", t.color(d.props.get("stroke")));
-      css(el, "stroke-width", `${strokeWidth(d.props.get("width"), ctx)}px`);
-      const o = num(d.props.get("opacity")) ?? 1;
+      attr(el, "r", String(Math.abs(space.len(num(d.inputs.r) ?? 0))));
+      css(el, "fill", t.color(d.inputs.fill) ?? "none");
+      css(el, "stroke", t.color(d.inputs.stroke));
+      css(el, "stroke-width", `${strokeWidth(d.inputs.width, ctx)}px`);
+      const o = num(d.inputs.opacity) ?? 1;
       attr(el, "opacity", o === 1 ? undefined : String(o));
-      events(d, str(d.props.get("label")));
+      events(d, str(d.inputs.label));
     },
     act: shapeAct(el),
   };
@@ -214,20 +215,20 @@ export const path: Widget = (d, ctx) => {
     update(d) {
       const space = currentSpace();
       const t = kit(ctx).tokens;
-      const pts = list(d.props.get("points"))
+      const pts = list(d.inputs.points)
         .map(point)
         .filter((p): p is XY => !!p)
         .map((p) => ({ x: space.x(p.x), y: space.y(p.y) }));
-      const closed = flag(d.props.get("closed"));
+      const closed = flag(d.inputs.closed);
       attr(line, "d", pts.map((p, k) => `${k ? "L" : "M"}${p.x} ${p.y}`).join("") + (closed ? "Z" : ""));
-      const color = t.color(d.props.get("stroke"));
-      const w = strokeWidth(d.props.get("width"), ctx);
-      css(line, "fill", closed ? (t.color(d.props.get("fill")) ?? "none") : "none");
+      const color = t.color(d.inputs.stroke);
+      const w = strokeWidth(d.inputs.width, ctx);
+      css(line, "fill", closed ? (t.color(d.inputs.fill) ?? "none") : "none");
       css(line, "stroke", color ?? "none");
       css(line, "stroke-width", `${w}px`);
-      css(line, "stroke-dasharray", flag(d.props.get("dash")) ? `${w * 4} ${w * 3}` : undefined);
+      css(line, "stroke-dasharray", flag(d.inputs.dash) ? `${w * 4} ${w * 3}` : undefined);
       // the head at the last point, along the last segment, in the stroke's colour
-      const kind = kase(d.props.get("head")) ?? "NONE";
+      const kind = kase(d.inputs.head) ?? "NONE";
       const [a, b] = [pts[pts.length - 2], pts[pts.length - 1]];
       let hd = "";
       if (a && b && kind !== "NONE") {
@@ -244,9 +245,9 @@ export const path: Widget = (d, ctx) => {
       }
       attr(head, "d", hd || undefined);
       css(head, "fill", hd ? (color ?? "none") : undefined);
-      const o = num(d.props.get("opacity")) ?? 1;
+      const o = num(d.inputs.opacity) ?? 1;
       attr(el, "opacity", o === 1 ? undefined : String(o));
-      events(d, str(d.props.get("label")));
+      events(d, str(d.inputs.label));
     },
     act: shapeAct(el),
   };
@@ -282,18 +283,18 @@ export const place: Widget = (d, ctx) => {
     el,
     update(d) {
       const space = currentSpace();
-      const at = point(d.props.get("at")) ?? { x: 0, y: 0 };
-      const nudge = point(d.props.get("nudge")) ?? { x: 0, y: 0 };
+      const at = point(d.inputs.at) ?? { x: 0, y: 0 };
+      const nudge = point(d.inputs.nudge) ?? { x: 0, y: 0 };
       // the foreignObject sits on the point; its box hangs from it by the anchor, nudged in pixels, y up
       attr(el, "x", String(space.x(at.x) + nudge.x));
       attr(el, "y", String(space.y(at.y) - nudge.y));
-      css(box, "transform", anchorShift(kase(d.props.get("anchor")) ?? "CENTER"));
-      const o = num(d.props.get("opacity")) ?? 1;
+      css(box, "transform", anchorShift(kase(d.inputs.anchor) ?? "CENTER"));
+      const o = num(d.inputs.opacity) ?? 1;
       attr(el, "opacity", o === 1 ? undefined : String(o));
-      const name = str(d.props.get("label"));
+      const name = str(d.inputs.label);
       attr(box, "role", name ? "group" : undefined);
       attr(box, "aria-label", name || undefined);
-      ctx.children(box, d.slots.get("child") ?? []);
+      ctx.children(box, nodes(d.inputs.child));
     },
   };
   view.update(d);
@@ -312,7 +313,7 @@ export const handle: Widget = (d, ctx) => {
   const write = (p: XY) => {
     const k = space.keep(p);
     const places = placesFor(space.unitsPerPx());
-    ctx.write("at", ptValue({ x: toNum(k.x, places), y: toNum(k.y, places) }));
+    ctx.write("at", pointInput({ x: toNum(k.x, places), y: toNum(k.y, places) }));
   };
   let dragging: number | undefined;
   el.addEventListener("pointerdown", (e) => {
@@ -347,16 +348,16 @@ export const handle: Widget = (d, ctx) => {
     el,
     update(d) {
       space = currentSpace();
-      at = point(d.props.get("at")) ?? { x: 0, y: 0 };
+      at = point(d.inputs.at) ?? { x: 0, y: 0 };
       for (const c of [hit, dot]) {
         attr(c, "cx", String(space.x(at.x)));
         attr(c, "cy", String(space.y(at.y)));
       }
-      css(dot, "fill", kit(ctx).tokens.color(d.props.get("tone")) ?? "var(--xtmd-color-accent)");
-      const o = num(d.props.get("opacity")) ?? 1;
+      css(dot, "fill", kit(ctx).tokens.color(d.inputs.tone) ?? "var(--xtmd-color-accent)");
+      const o = num(d.inputs.opacity) ?? 1;
       attr(el, "opacity", o === 1 ? undefined : String(o));
-      attr(el, "aria-label", str(d.props.get("label")) || undefined);
-      const shown = `(${exact(field(d.props.get("at"), "x"))?.show() ?? 0}, ${exact(field(d.props.get("at"), "y"))?.show() ?? 0})`;
+      attr(el, "aria-label", str(d.inputs.label) || undefined);
+      const shown = `(${exact(field(d.inputs.at, "x"))?.show() ?? 0}, ${exact(field(d.inputs.at, "y"))?.show() ?? 0})`;
       attr(el, "aria-valuetext", shown);
     },
     // no act: a drag lands on whole pixels, so a check's exact point goes through the page
@@ -366,9 +367,6 @@ export const handle: Widget = (d, ctx) => {
 };
 
 // ---- shade: pixels from a shader
-
-/** At most this many pixels are worked out per shade, scaled up to its size. */
-export const MAX_SHADE_PIXELS = 65536;
 
 export const shade: Widget = (d, ctx) => {
   const el = s("foreignObject", "shade", { role: "img" });
@@ -380,10 +378,10 @@ export const shade: Widget = (d, ctx) => {
     el,
     update(d) {
       const space = currentSpace();
-      attr(el, "aria-label", str(d.props.get("label")) || undefined);
-      const o = num(d.props.get("opacity")) ?? 1;
+      attr(el, "aria-label", str(d.inputs.label) || undefined);
+      const o = num(d.inputs.opacity) ?? 1;
       attr(el, "opacity", o === 1 ? undefined : String(o));
-      const area = d.props.get("area");
+      const area = d.inputs.area;
       const r = region(area);
       if (!r) return;
       const [x0, x1] = [space.x(r.from.x), space.x(r.to.x)].sort((a, b) => a - b);
@@ -392,10 +390,10 @@ export const shade: Widget = (d, ctx) => {
       attr(el, "y", String(y0));
       attr(el, "width", String(Math.max(0, x1 - x0)));
       attr(el, "height", String(Math.max(0, y1 - y0)));
-      const now = [sig(area), sig(d.props.get("shader")), sig(d.props.get("args")), x1 - x0, y1 - y0, kit(ctx).tokens.theme()].join("|");
+      const now = [sig(area), sig(d.inputs.shader), sig(d.inputs.args), x1 - x0, y1 - y0].join("|");
       if (now === was) return;
       was = now;
-      paint(cv, el, d, x1 - x0, y1 - y0, ctx, ++job, () => job);
+      paint(cv, el, d, x1 - x0, y1 - y0, { call: (a) => ctx.call("shader", a), fail: (f) => ctx.page.errors.push(f) }, ++job, () => job);
     },
     destroy() {
       job++;
@@ -404,110 +402,3 @@ export const shade: Widget = (d, ctx) => {
   view.update(d);
   return view;
 };
-
-/**
- * Paints a shade: a coarse pass now, so something shows at once, then every sampled pixel in
- * slices of a few milliseconds, so the page stays responsive. At most MAX_SHADE_PIXELS are worked
- * out, and fewer when the shader is Extended Mark code: the whole shade keeps within the step limit.
- */
-function paint(cv: HTMLCanvasElement, el: Element, d: Drawn, wPx: number, hPx: number, ctx: WidgetContext, id: number, current: () => number): void {
-  const machine = ctx.page.machine;
-  const shader = inner(d.props.get("shader"));
-  const args = d.props.get("args") ?? { kind: "opt", value: null };
-  const area = d.props.get("area");
-  const from = { x: exact(field(field(area, "from"), "x")), y: exact(field(field(area, "from"), "y")) };
-  const to = { x: exact(field(field(area, "to"), "x")), y: exact(field(field(area, "to"), "y")) };
-  const g = cv.getContext("2d");
-  el.setAttribute("data-state", "painting");
-  if (!shader || shader.kind !== "fn" || !g || !from.x || !from.y || !to.x || !to.y || wPx <= 0 || hPx <= 0) {
-    el.setAttribute("data-state", shader && shader.kind === "fn" ? "empty" : "no-shader");
-    return;
-  }
-  const [lx, hx] = from.x.lt(to.x) ? [from.x, to.x] : [to.x, from.x];
-  const [ly, hy] = from.y.lt(to.y) ? [from.y, to.y] : [to.y, from.y];
-  /** One pass of cols × rows samples: each one's colour, from the top-left, row by row. */
-  const pass = (cols: number, rows: number) => {
-    const px = hx.sub(lx).div(Num.int(cols));
-    const py = hy.sub(ly).div(Num.int(rows));
-    const half = Num.parse("0.5")!;
-    const xs = Array.from({ length: cols }, (_, i) => ({ kind: "num", n: lx.add(px.mul(Num.int(i).add(half))) }) as Value);
-    const ys = Array.from({ length: rows }, (_, j) => ({ kind: "num", n: hy.sub(py.mul(Num.int(j).add(half))) }) as Value);
-    const size: Value = { kind: "num", n: px };
-    const data = new ImageData(cols, rows);
-    let j = 0;
-    const row = () => {
-      for (let i = 0; i < cols; i++) {
-        const at: Value = { kind: "record", ty: "core/point", fields: [["x", xs[i]], ["y", ys[j]]] };
-        const c = machine.apply(shader, [{ value: at }, { value: size }, { value: args }]);
-        const k = (j * cols + i) * 4;
-        const ch = (n: string, or: number) => Math.round(255 * Math.min(1, Math.max(0, num(field(c, n)) ?? or)));
-        data.data[k] = ch("r", 0);
-        data.data[k + 1] = ch("g", 0);
-        data.data[k + 2] = ch("b", 0);
-        data.data[k + 3] = ch("a", 1);
-      }
-      j++;
-    };
-    return { data, row, done: () => j >= rows };
-  };
-  const show = (data: ImageData) => {
-    cv.width = data.width;
-    cv.height = data.height;
-    g.putImageData(data, 0, 0);
-  };
-  const fail = (f: unknown) => {
-    ctx.page.errors.push(f);
-    el.setAttribute("data-state", "failed");
-  };
-  // the coarse pass, and what one sample costs in steps
-  const dpr = typeof devicePixelRatio === "number" ? Math.min(2, devicePixelRatio) : 1;
-  const scale = Math.min(dpr, Math.sqrt(MAX_SHADE_PIXELS / (wPx * hPx)));
-  let cols = Math.max(1, Math.round(wPx * scale));
-  let rows = Math.max(1, Math.round(hPx * scale));
-  const c0 = Math.min(cols, 16);
-  const r0 = Math.min(rows, 16);
-  machine.resetSteps();
-  let perSample: number;
-  try {
-    const coarse = pass(c0, r0);
-    while (!coarse.done()) coarse.row();
-    perSample = Math.max(1, machine.steps / (c0 * r0));
-    show(coarse.data);
-  } catch (f) {
-    fail(f);
-    return;
-  }
-  const budget = Math.floor((MAX_STEPS * 0.9) / perSample);
-  if (cols * rows > budget) {
-    const k = Math.sqrt(budget / (cols * rows));
-    cols = Math.max(1, Math.floor(cols * k));
-    rows = Math.max(1, Math.floor(rows * k));
-  }
-  el.setAttribute("data-samples", `${cols}x${rows}`);
-  if (cols <= c0 && rows <= r0) {
-    el.setAttribute("data-state", "done");
-    return;
-  }
-  const full = pass(cols, rows);
-  let steps = 0;
-  const slice = () => {
-    if (current() !== id) return;
-    const until = performance.now() + 12;
-    try {
-      while (!full.done() && performance.now() < until) {
-        machine.resetSteps();
-        full.row();
-        steps += machine.steps;
-        if (steps > MAX_STEPS) throw new Error("the shader took more than the step limit");
-      }
-    } catch (f) {
-      fail(f);
-      return;
-    }
-    if (full.done()) {
-      show(full.data);
-      el.setAttribute("data-state", "done");
-    } else setTimeout(slice, 0);
-  };
-  setTimeout(slice, 0);
-}

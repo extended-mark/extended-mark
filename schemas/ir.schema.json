@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json",
   "title": "Extended Mark IR 4",
-  "description": "The one IR the xtmd compiler writes and every engine runs: Extended Mark 0.3, checked and lowered. No Markdown is left in it. This schema is the source of the Rust and TypeScript types.",
+  "description": "The one IR the xtmd compiler writes and every engine runs: Extended Mark, checked and lowered. No Markdown is left in it, and it holds only what the page can run. This schema is the source of the Rust and TypeScript types.",
   "$ref": "#/$defs/file",
   "$defs": {
     "file": {
@@ -61,12 +61,6 @@
             "$ref": "#/$defs/template"
           }
         },
-        "bindings": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/binding"
-          }
-        },
         "handlers": {
           "type": "array",
           "items": {
@@ -81,9 +75,7 @@
         "levels",
         "needs",
         "declarations",
-        "templates",
-        "bindings",
-        "handlers"
+        "templates"
       ],
       "additionalProperties": false
     },
@@ -105,7 +97,7 @@
           "items": {
             "type": "string"
           },
-          "description": "core's externs, supplied by the engine: widgets, fns and channels."
+          "description": "core's externs, supplied by the engine: widgets and fns."
         },
         "packs": {
           "type": "array",
@@ -138,7 +130,7 @@
           "items": {
             "type": "string"
           },
-          "description": "The document's own channels' fns and values, supplied by the host when it mounts the page."
+          "description": "Every value and fn taken from the host, by its full name: a value of core's page (`core/page.width`), and the values and fns of the document's own channels (`doc/scores.unit`)."
         }
       },
       "required": [
@@ -341,8 +333,7 @@
       },
       "required": [
         "name",
-        "fields",
-        "requires"
+        "fields"
       ],
       "additionalProperties": false
     },
@@ -372,8 +363,7 @@
       },
       "required": [
         "name",
-        "cases",
-        "ordered"
+        "cases"
       ],
       "additionalProperties": false
     },
@@ -466,11 +456,7 @@
         }
       },
       "required": [
-        "name",
-        "widget",
-        "fields",
-        "fns",
-        "events"
+        "name"
       ],
       "additionalProperties": false
     },
@@ -506,7 +492,6 @@
       },
       "required": [
         "name",
-        "params",
         "body"
       ],
       "additionalProperties": false
@@ -546,7 +531,6 @@
               },
               "required": [
                 "name",
-                "params",
                 "supplier"
               ],
               "additionalProperties": false
@@ -625,8 +609,6 @@
               },
               "required": [
                 "name",
-                "values",
-                "fns",
                 "supplier"
               ],
               "additionalProperties": false
@@ -744,7 +726,7 @@
             "$ref": "#/$defs/level"
           },
           "uniqueItems": true,
-          "description": "The levels drawing this widget needs: core.draw, and those its `uses` names."
+          "description": "The levels drawing this widget needs beyond core.draw: those its `uses` names."
         },
         "supplier": {
           "$ref": "#/$defs/supplier"
@@ -752,10 +734,6 @@
       },
       "required": [
         "name",
-        "inputs",
-        "slots",
-        "events",
-        "levels",
         "supplier"
       ],
       "additionalProperties": false
@@ -778,8 +756,7 @@
         }
       },
       "required": [
-        "fields",
-        "requires"
+        "fields"
       ],
       "additionalProperties": false
     },
@@ -938,8 +915,7 @@
         }
       },
       "required": [
-        "name",
-        "params"
+        "name"
       ],
       "additionalProperties": false
     },
@@ -1131,8 +1107,7 @@
                 }
               },
               "required": [
-                "type",
-                "fields"
+                "type"
               ],
               "additionalProperties": false
             }
@@ -1355,20 +1330,6 @@
             "get"
           ],
           "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "bind": {
-              "type": "string",
-              "description": "A binding's id."
-            }
-          },
-          "required": [
-            "bind"
-          ],
-          "additionalProperties": false,
-          "description": "A prop worked out by a binding."
         },
         {
           "type": "object",
@@ -1608,8 +1569,7 @@
         }
       },
       "required": [
-        "name",
-        "args"
+        "name"
       ],
       "additionalProperties": false
     },
@@ -1633,7 +1593,6 @@
         }
       },
       "required": [
-        "params",
         "body"
       ],
       "additionalProperties": false
@@ -1762,8 +1721,7 @@
         }
       },
       "required": [
-        "root",
-        "path"
+        "root"
       ],
       "additionalProperties": false
     },
@@ -1913,8 +1871,7 @@
         }
       },
       "required": [
-        "widget",
-        "args"
+        "widget"
       ],
       "additionalProperties": false
     },
@@ -2038,8 +1995,7 @@
                 }
               },
               "required": [
-                "branches",
-                "else"
+                "branches"
               ],
               "additionalProperties": false
             }
@@ -2078,7 +2034,6 @@
                 }
               },
               "required": [
-                "mut",
                 "name",
                 "type",
                 "over",
@@ -2273,7 +2228,6 @@
                 }
               },
               "required": [
-                "mut",
                 "name",
                 "type",
                 "opt"
@@ -2421,7 +2375,8 @@
           "items": {
             "$ref": "#/$defs/node"
           },
-          "description": "Its markdown block, lowered onto core's extern Markdown blocks; built from the view for a document's widget that has none. Empty when it writes nothing."
+          "description": "Its markdown block, lowered onto core's extern Markdown blocks; built from the view for a document's widget that has none. Left out when it is the view itself, and empty when it writes nothing.",
+          "x-option": true
         },
         "levels": {
           "type": "array",
@@ -2429,20 +2384,12 @@
             "$ref": "#/$defs/level"
           },
           "uniqueItems": true,
-          "description": "The levels this widget needs wherever it is called: its own variables need core.live, and it needs every level its view's calls need."
+          "description": "The levels this widget needs wherever it is called, beyond core.draw: its own variables need core.live, and it needs every level its view's calls need."
         }
       },
       "required": [
         "name",
-        "inputs",
-        "slots",
-        "events",
-        "cells",
-        "requires",
-        "fns",
-        "view",
-        "markdown",
-        "levels"
+        "view"
       ],
       "additionalProperties": false
     },
@@ -2496,13 +2443,12 @@
                     "$ref": "#/$defs/level"
                   },
                   "uniqueItems": true,
-                  "description": "The levels this call needs (page 6), its slots' included."
+                  "description": "The levels this call needs beyond core.draw (page 6), its slots' included."
                 }
               },
               "required": [
                 "name",
-                "site",
-                "props"
+                "site"
               ],
               "additionalProperties": false
             }
@@ -2552,13 +2498,12 @@
                     "$ref": "#/$defs/level"
                   },
                   "uniqueItems": true,
-                  "description": "The levels this call needs (page 6), its slots' included."
+                  "description": "The levels this call needs beyond core.draw (page 6), its slots' included."
                 }
               },
               "required": [
                 "name",
-                "site",
-                "args"
+                "site"
               ],
               "additionalProperties": false
             }
@@ -2608,7 +2553,6 @@
                 }
               },
               "required": [
-                "mut",
                 "name",
                 "type",
                 "over",
@@ -2664,8 +2608,7 @@
               },
               "required": [
                 "site",
-                "branches",
-                "else"
+                "branches"
               ],
               "additionalProperties": false
             }
@@ -2785,31 +2728,6 @@
           "additionalProperties": false
         }
       ]
-    },
-    "binding": {
-      "type": "object",
-      "description": "A prop that isn't constant: its value, and everything it reads.",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "value": {
-          "$ref": "#/$defs/expr"
-        },
-        "reads": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "`cell:n`, `input:t.title`, `$state:spent`, `let:doc/open`, `extern:core/page.width`. Never too few."
-        }
-      },
-      "required": [
-        "id",
-        "value",
-        "reads"
-      ],
-      "additionalProperties": false
     },
     "handler": {
       "type": "object",

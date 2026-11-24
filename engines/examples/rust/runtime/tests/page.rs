@@ -21,6 +21,12 @@ fn refused_rule(rule: &str) -> Broken {
     Broken { code: None, rule: Some(rule.into()), site: None }
 }
 
+/// The reader's click on the widget drawn at a place.
+fn click(p: &mut Page, at: &str) {
+    let id = p.at(at).map(|d| d.id.clone()).unwrap_or_else(|| at.to_string());
+    p.event(&id, "click", vec![]).unwrap();
+}
+
 fn state(p: &Page, name: &str) -> Expr {
     p.observe_state()[name].clone()
 }
@@ -34,7 +40,7 @@ fn a_page_mounts_its_tree_its_state_and_its_markdown() {
     assert_eq!(p.observe_state(), BTreeMap::from([("n".to_string(), num("3"))]));
     assert_eq!(p.markdown().unwrap(), "# Count\n\nN: 3\n");
     // the tree holds every prop worked out: an engine only reads it
-    let slider = p.find("s1").unwrap();
+    let slider = p.at("s1").unwrap();
     assert!(matches!(slider.prop("value"), Some(Value::Num(x)) if *x == n("3")));
     assert_eq!(p.revision(), 1);
 }
@@ -50,7 +56,7 @@ fn a_widgets_write_goes_to_the_callers_variable_checked_against_its_contract() {
     p.write("s0", "value", v(&p, num("1.5"))).unwrap();
     assert_eq!(state(&p, "n"), num("7"));
     // the slider's ends and step come from the variable's type
-    let t = p.write_type(p.find("s0").unwrap(), "value").unwrap();
+    let t = p.write_type(p.at("s0").unwrap(), "value").unwrap();
     assert!(t.contract.as_ref().and_then(|c| c.range.as_ref()).is_some(), "{:?}", t);
 }
 
@@ -88,20 +94,20 @@ fn an_apps_write_of_the_wrong_type_or_outside_its_contract_is_refused() {
 #[test]
 fn a_handler_that_fails_is_undone_whole_and_reported_the_page_carries_on() {
     let mut p = page("$state {\n    tries: int = 0;\n    total: number = 10;\n}\n\nwidget go() {\n    view {\n        @press(label = \"Go\", click = fn() { $state.tries = $state.tries + 1; $state.total = $state.total / 0; });\n    }\n}\n@@@\n@go;\n");
-    p.event("s0/s0", "click", vec![]).unwrap();
+    click(&mut p, "s0/s0");
     assert_eq!(p.observe_state(), BTreeMap::from([("tries".to_string(), num("0")), ("total".to_string(), num("10"))]));
     assert_eq!(p.take_outcome().failures, vec![refused_code("failure.number", "s0/s0")]);
     assert_eq!(p.take_errors().len(), 1);
     // and the next event runs
     let before = p.revision();
-    p.event("s0/s0", "click", vec![]).unwrap();
+    click(&mut p, "s0/s0");
     assert!(p.revision() > before);
 }
 
 #[test]
 fn extern_channels_calls_are_reported_values_redraw_and_exposed_fns_run_as_one_change() {
     let mut p = page("extern scores {\n    unit: text = \"K\";\n    fn saved(total: int);\n}\n\n$state {\n    points: int 0... = 0;\n}\n\nexpose scores {\n    fn clear() {\n        $state.points = 0;\n    }\n}\n\nwidget tally(mut points: int) {\n    view {\n        @press(label = \"Add\", click = fn() { points = points + 1; scores.saved(points); });\n    }\n    markdown {\n        \\{points} \\{scores.unit}\n    }\n}\n@@@\n@tally(points = $state.points);\n");
-    p.event("s0/s0", "click", vec![]).unwrap();
+    click(&mut p, "s0/s0");
     let calls = p.take_calls();
     assert_eq!(calls.len(), 1);
     assert_eq!(calls[0].call.name, "doc/scores.saved");
@@ -117,7 +123,7 @@ fn extern_channels_calls_are_reported_values_redraw_and_exposed_fns_run_as_one_c
 #[test]
 fn a_handler_undone_takes_back_the_calls_it_made() {
     let mut p = page("extern scores {\n    fn saved(total: int);\n}\n\n$state {\n    points: int = 0;\n\n    require \"at most one point\" {\n        return points <= 1;\n    }\n}\n\nwidget tally() {\n    view {\n        @press(label = \"Add\", click = fn() { scores.saved(1); $state.points = $state.points + 5; });\n    }\n}\n@@@\n@tally;\n");
-    p.event("s0/s0", "click", vec![]).unwrap();
+    click(&mut p, "s0/s0");
     assert!(p.take_calls().is_empty());
     assert_eq!(p.take_outcome().failures, vec![Broken { code: None, rule: Some("at most one point".into()), site: Some("s0/s0".into()) }]);
     assert_eq!(state(&p, "points"), num("0"));
@@ -126,14 +132,14 @@ fn a_handler_undone_takes_back_the_calls_it_made() {
 #[test]
 fn a_loops_rows_keep_their_widgets_variables_by_item_not_by_position() {
     let mut p = page("record task {\n    title: text;\n}\n\n$state {\n    tasks: list<task> = [task { title = \"a\" }, task { title = \"b\" }];\n}\n\nwidget row(t: task) {\n    mut votes: int = 0;\n    view {\n        @press(label = \"\\{t.title}: \\{votes}\", click = fn() { votes = votes + 1; });\n    }\n}\n\nwidget board() {\n    view {\n        mut for (t in $state.tasks) {\n            if (mut x: task = t) {\n                @row(t = x);\n                @press(label = \"Drop\", click = fn() { $state.tasks.remove(x); });\n            }\n        }\n    }\n}\n@@@\n@board;\n");
-    p.event("s0/s0[1]/s2/s0", "click", vec![]).unwrap();
+    click(&mut p, "s0/s0[1]/s2/s0");
     assert_eq!(p.observe_tree()["s0/s0[1]/s2/s0"].props["label"], text("b: 1"));
-    let key_before = p.find("s0/s0[1]/s2/s0").unwrap().key.clone();
-    p.event("s0/s0[0]/s3", "click", vec![]).unwrap();
+    let key_before = p.at("s0/s0[1]/s2/s0").unwrap().id.clone();
+    click(&mut p, "s0/s0[0]/s3");
     // "b" is now the first row, and keeps its vote
     assert_eq!(p.observe_tree()["s0/s0[0]/s2/s0"].props["label"], text("b: 1"));
-    assert_eq!(p.find("s0/s0[0]/s2/s0").unwrap().key, key_before);
-    assert!(p.find("s0/s0[1]/s2/s0").is_none());
+    assert_eq!(p.at("s0/s0[0]/s2/s0").unwrap().id, key_before);
+    assert!(p.at("s0/s0[1]/s2/s0").is_none());
 }
 
 #[test]
@@ -142,7 +148,7 @@ fn a_widget_that_fails_while_drawing_is_a_notice_and_is_tried_again() {
     assert_eq!(p.take_outcome().failures, vec![refused_code("failure.number", "s0")]);
     let tree = p.observe_tree();
     assert_eq!(tree["s0"].widget, "doc/share");
-    assert!(p.find("s0").unwrap().failed.is_some());
+    assert!(p.at("s0").unwrap().failed.is_some());
     // the rest of the page carries on, and the notice is a quote in Markdown
     let md = p.markdown().unwrap();
     assert!(md.starts_with("> share failed: ") && md.ends_with("\n\nAfter.\n"), "{:?}", md);
@@ -179,10 +185,10 @@ fn on_change_is_told_after_every_redraw_and_the_revision_moves() {
 fn writing_the_markdown_leaves_the_page_as_it_was() {
     let mut p = page("record task {\n    title: text;\n}\n\n$state {\n    tasks: list<task> = [task { title = \"a\" }, task { title = \"b\" }];\n}\n\nwidget row(t: task) {\n    event drop();\n    view {\n        @press(label = \"Drop \\{t.title}\", click = fn() { invoke drop(); });\n    }\n    markdown {\n        - \\{t.title}\n    }\n}\n\nwidget board() {\n    view {\n        mut for (t in $state.tasks) {\n            if (mut x: task = t) {\n                @row(t = x, drop = fn() { $state.tasks.remove(x); });\n            }\n        }\n    }\n    markdown {\n        @for (t in $state.tasks) {\n        - \\{t.title}\n        }\n    }\n}\n@@@\n@board;\n");
     assert_eq!(p.markdown().unwrap(), "- a\n- b\n");
-    p.event("s0/s0[0]/s2/s0", "click", vec![]).unwrap();
+    click(&mut p, "s0/s0[0]/s2/s0");
     assert_eq!(p.take_outcome().failures, vec![]);
     assert_eq!(p.markdown().unwrap(), "- b\n");
-    p.event("s0/s0[0]/s2/s0", "click", vec![]).unwrap();
+    click(&mut p, "s0/s0[0]/s2/s0");
     assert_eq!(p.markdown().unwrap(), "");
 }
 
@@ -190,7 +196,7 @@ fn writing_the_markdown_leaves_the_page_as_it_was() {
 fn writing_the_markdown_leaves_a_widgets_events_in_place() {
     let mut p = page("$state {\n    n: int = 0;\n}\n\nwidget go() {\n    event pressed();\n    view {\n        @press(label = \"Go\", click = fn() { invoke pressed(); });\n    }\n    markdown {\n        Go\n    }\n}\n@@@\n@go(pressed = fn() { $state.n = $state.n + 1; });\n\nPressed \\{$state.n} times.\n");
     assert_eq!(p.markdown().unwrap(), "Go\n\nPressed 0 times.\n");
-    p.event("s0/s0", "click", vec![]).unwrap();
+    click(&mut p, "s0/s0");
     assert_eq!(state(&p, "n"), num("1"));
 }
 
@@ -205,28 +211,28 @@ fn markdown_out_escapes_values_so_they_never_become_formatting() {
 #[test]
 fn listens_says_which_events_do_something() {
     let p = page("$state {\n    n: int = 0;\n}\n\nwidget go() {\n    event pressed();\n    view {\n        @press(label = \"Go\", click = fn() { invoke pressed(); });\n    }\n}\n@@@\n@go(pressed = fn() { $state.n = $state.n + 1; });\n\n@go;\n\n@label(value = \"Quiet\");\n");
-    let set = p.find("s0/s0").unwrap();
-    let unset = p.find("s1/s0").unwrap();
+    let set = p.at("s0/s0").unwrap();
+    let unset = p.at("s1/s0").unwrap();
     assert!(p.listens(set, "click"));
     // it only passes the event on, and its caller set nothing
     assert!(!p.listens(unset, "click"));
-    assert!(!p.listens(p.find("s2").unwrap(), "click"));
+    assert!(!p.listens(p.at("s2").unwrap(), "click"));
 }
 
 #[test]
 fn each_change_has_the_step_limit_to_itself() {
     // about 600,000 steps a click: two clicks are more than the limit together, never alone
     let mut p = page("$state {\n    n: int = 0;\n}\n\nwidget go() {\n    view {\n        @press(label = \"Go\", click = fn() { mut k: int = 0; for (i in 1..300) { for (j in 1..1000) { k = k + 1; } } $state.n = $state.n + k; });\n        @press(label = \"Too much\", click = fn() { mut k: int = 0; for (i in 1..600) { for (j in 1..1000) { k = k + 1; } } $state.n = $state.n + k; });\n    }\n}\n@@@\n@go;\n");
-    p.event("s0/s0", "click", vec![]).unwrap();
-    p.event("s0/s0", "click", vec![]).unwrap();
+    click(&mut p, "s0/s0");
+    click(&mut p, "s0/s0");
     assert_eq!(p.take_outcome().failures, vec![]);
     assert_eq!(state(&p, "n"), num("600000"));
     // one change over the limit is a failure, undone
-    p.event("s0/s1", "click", vec![]).unwrap();
+    click(&mut p, "s0/s1");
     assert_eq!(p.take_outcome().failures, vec![refused_code("failure.limit", "s0/s1")]);
     assert_eq!(state(&p, "n"), num("600000"));
     // and the one after it starts again from nothing
-    p.event("s0/s0", "click", vec![]).unwrap();
+    click(&mut p, "s0/s0");
     assert_eq!(p.take_outcome().failures, vec![]);
     assert_eq!(state(&p, "n"), num("900000"));
 }
@@ -372,9 +378,9 @@ fn a_widget_in_a_list_slot_writes_its_markdown_with_its_inputs() {
     assert_eq!(p.markdown().unwrap(), "a has 0\n\nb has 0\n");
     let press = p.observe_tree().into_iter().find(|(_, m)| m.props.get("label") == Some(&text("a: 0"))).unwrap().0;
     // the stack's markdown places the children it was given, so each has what it holds now
-    p.event(&press, "click", vec![]).unwrap();
+    click(&mut p, &press);
     assert_eq!(p.markdown().unwrap(), "a has 1\n\nb has 0\n");
-    p.event(&press, "click", vec![]).unwrap();
+    click(&mut p, &press);
     assert_eq!(p.observe_tree()[&press].props["label"], text("a: 2"));
 }
 
@@ -382,13 +388,13 @@ fn a_widget_in_a_list_slot_writes_its_markdown_with_its_inputs() {
 fn a_widget_of_another_kind_at_a_key_keeps_its_own_variables() {
     let mut p = page("$state {\n    which: bool = true;\n}\n\nwidget one() {\n    mut n: int = 0;\n    view {\n        @press(label = \"one \\{n}\", click = fn() { n = n + 1; });\n    }\n}\n\nwidget two() {\n    mut n: int = 0;\n    view {\n        @press(label = \"two \\{n}\", click = fn() { n = n + 1; });\n    }\n}\n\nwidget pile() {\n    view {\n        @press(label = \"swap\", click = fn() { $state.which = !$state.which; });\n        @stack {\n            if ($state.which) {\n                @one;\n            } else {\n                @two;\n            }\n        }\n    }\n}\n@@@\n@pile;\n");
     let at = "s0/s1/s1[0]/s3/s0";
-    p.event(at, "click", vec![]).unwrap();
+    click(&mut p, at);
     assert_eq!(p.observe_tree()[at].props["label"], text("one 1"));
-    p.event("s0/s0", "click", vec![]).unwrap();
+    click(&mut p, "s0/s0");
     assert_eq!(p.observe_tree()[at].props["label"], text("two 0"));
     // `one` left the key, and `two` holds it: its count moves, redraw after redraw
     for k in 1..=3 {
-        p.event(at, "click", vec![]).unwrap();
+        click(&mut p, at);
         assert_eq!(p.observe_tree()[at].props["label"], text(&format!("two {}", k)));
     }
 }
@@ -450,11 +456,11 @@ fn with_and_without_reuse_every_step_observes_the_same_tree_state_and_markdown()
         MEMO_PAGE,
         &[
             &|p| p.write("s1/s1", "value", v(p, num("7"))).unwrap(),
-            &|p| p.event("s1/s2[1]/s4/s0", "click", vec![]).unwrap(),
-            &|p| p.event("s1/s2[1]/s4/s0", "click", vec![]).unwrap(),
-            &|p| p.event("s1/s2[0]/s5", "click", vec![]).unwrap(),
+            &|p| click(p, "s1/s2[1]/s4/s0"),
+            &|p| click(p, "s1/s2[1]/s4/s0"),
+            &|p| click(p, "s1/s2[0]/s5"),
             &|p| p.set(vec![("note".into(), v(p, text("there")))]).unwrap(),
-            &|p| p.event("s1/s2[0]/s4/s0", "click", vec![]).unwrap(),
+            &|p| click(p, "s1/s2[0]/s4/s0"),
             &|p| p.set(vec![("n".into(), v(p, num("-1")))]).unwrap(),
             &|p| p.set_page(PageValues { width: Some(PageWidth::Narrow), theme: Some(xtmd_runtime::PageTheme::Dark) }).unwrap(),
             &|p| p.write("s1/s1", "value", v(p, num("3"))).unwrap(),
@@ -465,7 +471,7 @@ fn with_and_without_reuse_every_step_observes_the_same_tree_state_and_markdown()
 #[test]
 fn an_undone_change_leaves_no_reused_node_behind() {
     let mut p = page("$state {\n    n: int = 0;\n    total: number = 10;\n}\n\nwidget go() {\n    view {\n        @label(value = \"\\{$state.n} of \\{$state.total}\");\n        @press(label = \"Go\", click = fn() { $state.n = $state.n + 1; $state.total = $state.total / 0; });\n    }\n}\n@@@\n@go;\n");
-    p.event("s0/s1", "click", vec![]).unwrap();
+    click(&mut p, "s0/s1");
     assert_eq!(p.observe_tree()["s0/s0"].props["value"], text("0 of 10"));
     assert_eq!(p.take_outcome().failures.len(), 1);
 }
@@ -500,4 +506,25 @@ fn dragging_on_the_tour_page_observes_the_same_with_and_without_reuse() {
     let (h1, h2, p1, p2, h3) = (handle("0.5", "0.2"), handle("0.6", "0.1"), pan("20", "10"), pan("40", "-20"), handle("-0.3", "0.9"));
     let dark = |p: &mut Page| p.set(vec![("dark".into(), v(p, Expr::Bool(true)))]).unwrap();
     same_with_and_without_reuse(&source, &[&lay, &h1, &h2, &p1, &dark, &p2, &h3]);
+}
+
+#[test]
+fn an_ir_of_another_version_is_refused_and_told_what_to_do() {
+    let m = build_with("Hi.\n", &[]);
+    let refused = |version: i64| Page::from_module(xtmd_runtime::ir::Module { version, ..m.clone() }, PageOptions::default()).err().unwrap().message;
+    assert_eq!(refused(3), "this page is IR 3, this engine reads IR 4: run xtmd migrate");
+    assert_eq!(refused(5), "this page is IR 5, this engine reads IR 4: use a later engine");
+    // an earlier version's JSON, which doesn't read as this one's
+    let old = std::fs::read_to_string(repo().join("schemas/ir-history/3/pages/list.ir.json")).unwrap();
+    assert_eq!(Page::from_json(&old, PageOptions::default()).err().unwrap().message, "this page is IR 3, this engine reads IR 4: run xtmd migrate");
+}
+
+#[test]
+fn a_pages_needs_are_checked_when_it_loads() {
+    let mut m = build_with("Hi.\n", &[]);
+    m.needs.core.push("core/text.backwards".into());
+    assert_eq!(Page::from_module(m, PageOptions::default()).err().unwrap().message, "this page needs `core/text.backwards`, which this engine doesn't have");
+    assert!(page("Hi.\n").lacking().is_empty());
+    let p = page("extern scores {\n    best: int;\n    worst: int = 0;\n}\n@@@\n@if (scores.worst > 0) {\n    \\{scores.best}\n}\n");
+    assert_eq!(p.lacking(), vec!["doc/scores.best".to_string()]);
 }

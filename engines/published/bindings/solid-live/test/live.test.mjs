@@ -12,7 +12,7 @@ test("<XtmdLiveDoc> on a server, given a compiler, compiles the text and renders
   const c = await compiler();
   const html = renderToString(() => createComponent(XtmdLiveDoc, { source: pageSources().v1, compiler: c, defaultState: { n: { num: "2" } }, externs: { app: { unit: { text: "items" } } } }));
   // Solid keeps a space after a class it sets
-  assert.match(html, /^<div[^>]* class="xtmd-root ?"/);
+  assert.match(html, /^<div[^>]* class="xtmd-root[^"]*"/);
   assert.ok(html.replace(/<!--[^>]*-->/g, "").includes("Count: 2 items"), html);
 });
 

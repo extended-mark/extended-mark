@@ -1,14 +1,14 @@
 import type { Component } from "svelte";
-import type { Doc, DocProps, Restored, Snapshot, Value, ir } from "@extended-mark/view";
+import type { Doc, DocProps, Restored, Snapshot, Input, ir } from "@extended-mark/view";
 
 declare const XtmdDoc: Component<
   DocProps & { class?: string; id?: string },
   {
     document(): Doc;
-    set(changes: Record<string, ir.Expr | Value>): void;
-    getState(): Record<string, ir.Expr>;
+    set(changes: Record<string, Input>): void;
+    getState(): Record<string, Input>;
     markdown(): string;
-    expose(channel: string, name: string, ...args: (ir.Expr | Value)[]): void;
+    expose(channel: string, name: string, ...args: Input[]): void;
     snapshot(): Snapshot;
     restore(snap: Snapshot): Restored;
   }

@@ -14,7 +14,7 @@ test("<XtmdLiveDoc> on a server, given a compiler, compiles the text and renders
   const c = await compiler();
   const html = await renderToString(createSSRApp({ render: () => h(XtmdLiveDoc, { source: pageSources().v1, compiler: c, defaultState: { n: { num: "2" } }, externs: { app: { unit: { text: "items" } } } }) }));
   // Vue writes an empty attribute bare
-  assert.match(html, /^<div class="xtmd-root" data-xtmd-root(="")? /);
+  assert.match(html, /^<div class="xtmd-root[^"]*" data-xtmd-root(="")? /);
   assert.ok(html.replace(/<!--[^>]*-->/g, "").includes("Count: 2 items"), html);
 });
 

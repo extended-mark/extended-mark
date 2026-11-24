@@ -124,3 +124,15 @@ fn the_example_is_what_xtmd_build_rir_writes() {
     let got: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(got, json(&want), "schemas/examples/counter.rir.json is not what `xtmd build --rir` writes: run it with --out");
 }
+
+#[test]
+fn the_ir_example_is_what_xtmd_build_writes() {
+    let (path, want) = ("schemas/examples/counter.xtmd", repo().join("schemas/examples/counter.ir.json"));
+    let build = |pretty: &[&str]| std::process::Command::new(env!("CARGO_BIN_EXE_xtmd")).current_dir(repo()).args(["build", path]).args(pretty).output().unwrap().stdout;
+    let got = build(&["--pretty"]);
+    assert_eq!(serde_json::from_slice::<Value>(&got).unwrap(), json(&want), "schemas/examples/counter.ir.json is not what `xtmd build --pretty` writes: run it with --out");
+    // as small as it goes, without --pretty
+    let small = build(&[]);
+    assert_eq!(serde_json::from_slice::<Value>(&small).unwrap(), json(&want));
+    assert_eq!(small.iter().filter(|b| **b == b'\n').count(), 1);
+}

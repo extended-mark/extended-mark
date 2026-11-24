@@ -134,7 +134,7 @@ fun XtmdPlane(p: Props, ctx: WidgetContext) {
         var view = Modifier.testTag("plane.view").size(wDp.dp, hDp.dp)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
             .clip(RoundedCornerShape(12.dp))
-            .onSizeChanged { sizes.plane(ctx.path, it.width / density.toDouble()) }
+            .onSizeChanged { sizes.plane(ctx.id, it.width / density.toDouble()) }
             .onKeyEvent { e ->
                 if (e.type != KeyEventType.KeyDown) return@onKeyEvent false
                 val (z0, c0, _) = now.value
@@ -259,7 +259,7 @@ fun XtmdSpot(p: Props, ctx: WidgetContext) {
     val nudge = p["nudge"].point() ?: XY(0.0, 0.0)
     val density = LocalDensity.current.density
     val sizes = ctx.scope.sizes
-    val path = ctx.path
+    val path = ctx.id
     Box(
         Modifier.site(ctx, "spot")
             .layoutId(SpotAt(at.x + nudge.x, at.y + nudge.y, p.case("anchor") ?: "CENTER"))

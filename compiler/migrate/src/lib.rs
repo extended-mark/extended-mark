@@ -12,6 +12,7 @@ use xtmd_syntax::ast::{self, DeclKind, Item};
 use xtmd_syntax::{parse, Entry, Lines};
 
 mod externs;
+pub mod ir;
 pub mod releases;
 mod slots;
 mod texts;

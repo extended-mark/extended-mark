@@ -45,7 +45,7 @@ fn frame(ctx: &egui::Context, doc: &mut XtmdDoc, controlled: Option<&mut State>)
 /// The path of the first drawn widget of a kind.
 fn path_of(doc: &XtmdDoc, widget: &str) -> String {
     fn walk(nodes: &[xtmd_egui::runtime::Drawn], widget: &str) -> Option<String> {
-        nodes.iter().find_map(|n| if n.widget == widget { Some(n.path.clone()) } else { n.slots.values().find_map(|k| walk(k, widget)) })
+        nodes.iter().find_map(|n| if n.widget == widget { Some(n.id.clone()) } else { n.slots.values().find_map(|k| walk(k, widget)) })
     }
     walk(doc.page().tree(), widget).unwrap()
 }

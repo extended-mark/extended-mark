@@ -63,7 +63,7 @@ private fun AnnotatedString.Builder.words(nodes: List<Node>, linkColor: Color, c
         fun text(name: String) = n.props[name].str()
         val inside = { words(n.body(), linkColor, codeBackground) }
         if (n.failed != null) {
-            appendInlineContent(n.key)
+            appendInlineContent(n.id)
             continue
         }
         when (n.widget) {
@@ -82,7 +82,7 @@ private fun AnnotatedString.Builder.words(nodes: List<Node>, linkColor: Color, c
                     withLink(LinkAnnotation.Url(safe, TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)))) { inside() }
                 } else inside()
             }
-            else -> appendInlineContent(n.key)
+            else -> appendInlineContent(n.id)
         }
     }
 }

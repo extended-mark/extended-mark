@@ -470,7 +470,7 @@ fun XtmdShade(p: Props, ctx: WidgetContext) {
             val cols = maxOf(1, (wPx * scale).roundToInt())
             val rows = maxOf(1, (hPx * scale).roundToInt())
             try {
-                val px = ctx.page.native.shade(ctx.path, cols.toUInt(), rows.toUInt())
+                val px = ctx.page.native.shade(ctx.id, cols.toUInt(), rows.toUInt())
                 Bitmap.createBitmap(px.toIntArray(), cols, rows, Bitmap.Config.ARGB_8888).asImageBitmap()
             } catch (_: Exception) {
                 null

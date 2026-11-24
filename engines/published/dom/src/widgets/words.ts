@@ -1,20 +1,20 @@
 // What a sentence is made of, drawn as the inline elements they are: text, strong, em, s, a, code, img,
 // a footnote's mark and br. Nothing in a value is ever read as HTML.
 
-import type { Drawn } from "@extended-mark/runtime";
+import type { Node as Drawn } from "@extended-mark/runtime";
 import type { Widget, WidgetContext, WidgetView } from "../api.js";
 import { attr, h, kit, text } from "../kit.js";
 import { noteId, safeHref, safeSrc, texOf } from "../rich.js";
 import { drawTex } from "../tex.js";
-import { str } from "../values.js";
+import { nodes, str } from "../values.js";
 
 /** Words are text, with no element of their own. */
 export const words: Widget = (d) => {
-  const el = document.createTextNode(str(d.props.get("value")));
+  const el = document.createTextNode(str(d.inputs.value));
   return {
     el,
     update(d) {
-      text(el, str(d.props.get("value")));
+      text(el, str(d.inputs.value));
     },
   };
 };
@@ -25,7 +25,7 @@ function mark(tag: "strong" | "em" | "s"): Widget {
     const view: WidgetView = {
       el,
       update(d) {
-        ctx.children(el, d.slots.get("body") ?? []);
+        ctx.children(el, nodes(d.inputs.body));
       },
     };
     view.update(d);
@@ -39,7 +39,7 @@ export const strike = mark("s");
 
 /** A link that may be followed is an `a`, and any other its words alone. */
 export const link: Widget = (d, ctx) => {
-  const safe = (d: Drawn) => safeHref(str(d.props.get("to")));
+  const safe = (d: Drawn) => safeHref(str(d.inputs.to));
   const make = (href: string | undefined): HTMLElement => {
     const el = document.createElement(href ? "a" : "span");
     if (!href) el.setAttribute("data-unsafe-link", "");
@@ -62,7 +62,7 @@ export const link: Widget = (d, ctx) => {
         attr(el, "href", href);
         attr(el, "rel", /^https?:/i.test(href) && "noopener noreferrer");
       }
-      ctx.children(el, d.slots.get("body") ?? []);
+      ctx.children(el, nodes(d.inputs.body));
     },
   };
   view.update(d);
@@ -74,7 +74,7 @@ export const codeSpan: Widget = (d) => {
   const view: WidgetView = {
     el,
     update(d) {
-      text(el, str(d.props.get("src")));
+      text(el, str(d.inputs.src));
     },
   };
   view.update(d);
@@ -88,7 +88,7 @@ export const inlineMath: Widget = (d) => {
   const view: WidgetView = {
     el,
     update(d) {
-      const tex = texOf(d.props.get("tex"));
+      const tex = texOf(d.inputs.tex);
       if (tex === was) return;
       was = tex;
       drawTex(el, tex, false);
@@ -103,8 +103,8 @@ export const inlineImage: Widget = (d) => {
   const view: WidgetView = {
     el,
     update(d) {
-      attr(el, "alt", str(d.props.get("alt")));
-      attr(el, "src", safeSrc(str(d.props.get("src"))));
+      attr(el, "alt", str(d.inputs.alt));
+      attr(el, "src", safeSrc(str(d.inputs.src)));
     },
   };
   view.update(d);
@@ -119,7 +119,7 @@ export const noteMark: Widget = (d, ctx: WidgetContext) => {
   const view: WidgetView = {
     el,
     update(d) {
-      const mark = str(d.props.get("mark"));
+      const mark = str(d.inputs.mark);
       const uid = kit(ctx).uid;
       attr(a, "href", `#${noteId(uid, mark)}`);
       attr(a, "id", `${uid}fnref-${encodeURIComponent(mark)}`);

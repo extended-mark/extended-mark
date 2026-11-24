@@ -3,6 +3,7 @@
 use std::process::ExitCode;
 
 mod migrate;
+mod migrate_ir;
 mod examples;
 mod flags;
 mod help;
@@ -244,6 +245,11 @@ fn written_for_02(src: &str) -> Option<Diagnostic> {
     ))
 }
 
+/// What `xtmd build` writes: as small as it goes, or over several lines with `--pretty`.
+fn json_text<T: serde::Serialize>(v: &T, pretty: bool) -> String {
+    if pretty { serde_json::to_string_pretty(v) } else { serde_json::to_string(v) }.unwrap()
+}
+
 /// The levels a compiled document needs, by name.
 fn levels_of(m: &xtmd_ir::ir::Module) -> Vec<String> {
     m.levels.iter().filter_map(|l| serde_json::to_value(l).ok()).filter_map(|v| v.as_str().map(str::to_string)).collect()
@@ -253,7 +259,7 @@ fn plural(n: usize, one: &str) -> String {
     format!("{} {}{}", n, one, if n == 1 { "" } else { "s" })
 }
 
-/// `xtmd build doc.xtmd [--pack a,b] [--rir] [--out out.ir.json]`: one standalone IR, core and the packs
+/// `xtmd build doc.xtmd [--pack a,b] [--rir] [--pretty] [--out out.ir.json]`: one standalone IR, core and the packs
 /// in it; with `--rir`, the resolved IR of the document and its packs instead.
 fn build(args: &[String]) -> ExitCode {
     let (files, packs, out) = match options(args) {
@@ -279,6 +285,7 @@ fn build(args: &[String]) -> ExitCode {
     };
     let module = if migrate::is_doc(path) { "doc" } else { "main" };
     let rir = args.iter().any(|a| a == "--rir");
+    let pretty = args.iter().any(|a| a == "--pretty");
     let with_core = args.iter().any(|a| a == "--core");
     if with_core && !rir {
         eprintln!("--core adds core's files to the resolved IR: it goes with --rir");
@@ -313,11 +320,10 @@ fn build(args: &[String]) -> ExitCode {
     let Some(mut m) = c.module else { return ExitCode::from(1) };
     let json = match resolved {
         // the resolved IR: what the checker understood, for tools, and what the document needs
-        Some(r) => serde_json::to_string_pretty(&r).unwrap(),
+        Some(r) => json_text(&r, pretty),
         None => {
-            // every prop that isn't constant becomes a binding with what it reads
             xtmd_lower::lower(&mut m);
-            serde_json::to_string_pretty(&xtmd_ir::ir::File { ir: m }).unwrap()
+            json_text(&xtmd_ir::ir::File { ir: m }, pretty)
         }
     };
     match out {
@@ -837,7 +843,7 @@ fn run(args: &[String]) -> ExitCode {
             return ExitCode::SUCCESS;
         }
         Some("--version") => {
-            out::text(&format!("xtmd {} (Extended Mark 0.3; resolved IR: rir 1)", migrate::RELEASE));
+            out::text(&format!("xtmd {} (Extended Mark 0.4; IR 4, resolved IR 1)", migrate::RELEASE));
             return ExitCode::SUCCESS;
         }
         _ => {}

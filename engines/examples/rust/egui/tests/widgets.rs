@@ -369,7 +369,7 @@ fn a_layout_that_never_settles_is_held() {
     let doc = std::fs::read_to_string(common::repo().join("engines/published/runtime/test/cases/graphs-release-flow.xtmd")).unwrap();
     let mut h = common::mount_with(&doc, &["examples/graphs"]);
     assert!(h.harness.try_run().is_ok());
-    let nodes: Vec<_> = (0..3).map(|k| h.page().page().find(&format!("s1/s5[{}]/s7", k)).and_then(|d| region(d.props.get("box")))).collect();
+    let nodes: Vec<_> = (0..3).map(|k| h.page().page().at(&format!("s1/s5[{}]/s7", k)).and_then(|d| region(d.props.get("box")))).collect();
     assert!(nodes.iter().all(Option::is_some), "the graph's nodes have their boxes: {:?}", nodes);
 }
 

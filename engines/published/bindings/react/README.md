@@ -39,9 +39,27 @@ The same in every framework (@extended-mark/view's `DocProps`):
 | `onCalls` | The host's extern fns the page called. |
 | `externs`, `fns` | Each channel's values, by its name in the document or in full; the host's value fns, by full name. |
 | `page`, `widgets`, `measure` | The page's width and theme; a pack's own extern widgets, drawn the way core's are; how the plane's spots are measured. |
+| `components` | React components as widgets, by full name. Each is given `node` (its inputs, events and writes: docs/specs/06, The host's side), `event`, `write` and `call`, and `slot("body")`, an input's widgets. |
+| `failed` | What is drawn where a widget failed, in place of our notice. |
 
 `id`, `className`, `style` go on the root. The handle is `ref`: `{ doc, set, state, markdown, expose, snapshot, restore }` (`XtmdDocHandle`). A snapshot is opaque JSON: with the same IR, `restore` puts all of
 it back; with another, `$state` only.
+
+## Your own components as widgets
+
+```tsx
+import type { ReactWidgetProps } from "@extended-mark/react";
+
+function Chart({ node, event, slot }: ReactWidgetProps) {
+  const { title, points } = node.inputs;                  // each input by its name, as JSON in the IR's form
+  return <figure onClick={() => event("pick", [{ num: "0" }])}>{slot("legend")}</figure>;
+}
+
+<XtmdDoc src="/pages/report.ir.json" components={{ "acme/chart": Chart }} />
+```
+
+A component draws a widget as our own do, through the host's contract and nothing else. One given a
+core widget's name (`core/press`) takes its place.
 
 ## Real time
 

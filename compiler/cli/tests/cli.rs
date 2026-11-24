@@ -624,7 +624,7 @@ fn every_command_takes_format_json_and_out() {
     assert!(std::fs::read_to_string(&report).unwrap().contains("error[names.unknown-field]"));
     let ir = dir.join("counter.ir.json");
     assert_eq!(xtmd(&["build", c, "--out", ir.to_str().unwrap()]).0, 0);
-    assert!(std::fs::read_to_string(&ir).unwrap().contains("\"version\": 4"));
+    assert!(std::fs::read_to_string(&ir).unwrap().contains("\"version\":4"));
     let (code, out, _) = xtmd(&["migrate", dir.join("docs").to_str().unwrap(), "--dry-run", "--format", "json", "--out", dir.join("plan.jsonl").to_str().unwrap()]);
     assert_eq!((code, out.as_str()), (0, ""));
     assert_eq!(lines(&std::fs::read_to_string(dir.join("plan.jsonl")).unwrap()).last().unwrap()["type"], "summary");
@@ -647,7 +647,7 @@ fn every_command_has_its_own_help_and_xtmd_says_its_version() {
     assert_eq!(code, 0, "xtmd alone is its usage, not an error");
     assert!(out.contains("usage: xtmd <command>") && out.contains("Exit codes: 0 done"), "{}", out);
     let (code, out, _) = xtmd(&["--version"]);
-    assert_eq!((code, out.trim().to_string()), (0, format!("xtmd {} (Extended Mark 0.3; resolved IR: rir 1)", env!("CARGO_PKG_VERSION"))));
+    assert_eq!((code, out.trim().to_string()), (0, format!("xtmd {} (Extended Mark 0.4; IR 4, resolved IR 1)", env!("CARGO_PKG_VERSION"))));
     for cmd in ["fmt", "check", "parse", "build", "md", "surface", "migrate"] {
         let args: Vec<&str> = cmd.split(' ').chain(["--help"]).collect();
         let (code, out, err) = xtmd(&args);

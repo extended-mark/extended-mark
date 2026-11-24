@@ -204,7 +204,15 @@ impl XtmdDoc {
     /// widgets, measure and id. `externs` are the channels' values, as at the start.
     pub fn replace(&mut self, file: ir::File, externs: Vec<(String, State)>) -> Result<(), DocError> {
         let carried = self.state();
-        self.hash = hash(&serde_json::to_string(&file).unwrap_or_default());
+        // an IR is told apart by its content: the same page goes on
+        let now = hash(&serde_json::to_string(&file).unwrap_or_default());
+        if now == self.hash {
+            for (channel, values) in externs {
+                self.set_extern(&channel, values)?;
+            }
+            return Ok(());
+        }
+        self.hash = now;
         self.module = file.ir.module.clone();
         let mut page = start(file, &mut DocOptions { externs, ..DocOptions::default() })?;
         let fields = page.observe_state();

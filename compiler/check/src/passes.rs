@@ -140,8 +140,8 @@ impl Checker {
             cells: Vec::new(),
             requires: Vec::new(),
             fns: Vec::new(),
-            view: nodes.clone(),
-            markdown: nodes,
+            view: nodes,
+            markdown: None,
             levels: Vec::new(),
         });
     }
@@ -580,7 +580,7 @@ pub(crate) fn walk_template(t: &mut ir::Template, f: &mut dyn FnMut(&mut ir::Exp
             walk_stmt(s, f);
         }
     }
-    for n in t.view.iter_mut().chain(t.markdown.iter_mut()) {
+    for n in t.view.iter_mut().chain(t.markdown.iter_mut().flatten()) {
         walk_node(n, f);
     }
 }

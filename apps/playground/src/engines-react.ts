@@ -7,9 +7,9 @@ import { createElement as h, useEffect, useRef, useState, type ReactElement } fr
 import { createRoot } from "react-dom/client";
 import { XtmdDoc, type DocError, type XtmdDocHandle, type Snapshot } from "@extended-mark/react";
 import { XtmdLiveDoc } from "@extended-mark/react-live";
-import type { ir } from "@extended-mark/runtime";
+import type { Input } from "@extended-mark/runtime";
 
-type State = Record<string, ir.Expr>;
+type State = Record<string, Input>;
 
 /** `$state` as one line: `count = 2`. */
 export function stateLine(s: State | undefined): string {

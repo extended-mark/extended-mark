@@ -66,8 +66,8 @@ fn channel(pixel: &Value, name: &str, or: f64) -> u32 {
 
 /// A shade's pixels: `cols` by `rows` samples over its area, each its shader's colour at the
 /// sample's middle, in the area's units (y up, so the top row is the area's highest), as ARGB.
-pub fn shade(page: &Page, path: &str, cols: u32, rows: u32) -> Result<Vec<i32>, XtmdError> {
-    let d = page.find(path).ok_or_else(|| failed(format!("nothing is drawn at {}", path)))?;
+pub fn shade(page: &Page, id: &str, cols: u32, rows: u32) -> Result<Vec<i32>, XtmdError> {
+    let d = page.find(id).ok_or_else(|| failed(format!("no widget is {}", id)))?;
     let shader = d.props.get("shader").cloned().ok_or_else(|| failed("the shade has no shader"))?;
     let args = d.props.get("args").cloned().unwrap_or_else(Value::none);
     let area = d.props.get("area").cloned().unwrap_or_else(Value::none);

@@ -2,7 +2,14 @@
 // live properties and listeners in Svelte 5's spelling, its children's keys, and its hook as an
 // action on the real element.
 
-import type { Child, VNode } from "@extended-mark/view";
+import type { Snippet } from "svelte";
+import type { Child, VNode, WidgetProps } from "@extended-mark/view";
+
+/** What a Svelte component that draws a widget is given. */
+export interface SvelteWidgetProps extends WidgetProps {
+  /** An input's widgets, a slot's or a rich_text's: `{@render slot("body")}`. */
+  slot: Snippet<[input: string]>;
+}
 
 /** The attributes Svelte spreads on the element: attributes, style, DOM properties and listeners
  * (`onclick`, `oncompositionstart`: the DOM's own events, with their currentTarget). */

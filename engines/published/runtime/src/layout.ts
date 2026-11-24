@@ -5,7 +5,9 @@
 // At zoom 1 one unit of the plane is one of the page's own lengths, so a spot's box is its
 // child's size on the page, placed at its point: panning and zooming never change it.
 
-import { childrenOf, type Drawn, type Page } from "./page.js";
+import { childrenOf, type Core, type Drawn } from "./page.js";
+import { coreOf, type Page } from "./host.js";
+import type { Node } from "./generated/tree.js";
 import { Num } from "./eval/num.js";
 import { record, some, type Value as V } from "./eval/value.js";
 
@@ -28,6 +30,12 @@ export interface Region {
 /** What an engine tells the layout: the size of each spot's child, and the width a plane is
  * given when it says none. */
 export interface Measure {
+  spot(spot: Node): Size;
+  planeWidth(plane: Node): Num;
+}
+
+/** The measure as the layout asks it. */
+interface Measured {
   spot(spot: Drawn): Size;
   planeWidth(plane: Drawn): Num;
 }
@@ -36,7 +44,7 @@ export interface Measure {
 export const MAX_LAYOUT_PASSES = 8;
 
 /** One write a layout makes: a `mut` input of a drawn widget. */
-export interface LayoutWrite {
+interface LayoutWrite {
   path: string;
   input: string;
   value: V;
@@ -115,7 +123,7 @@ function numOf(v: V | undefined, or: Num): Num {
 // ---- a pass
 
 /** Every plane in the tree, outermost first. */
-export function planes(nodes: readonly Drawn[], out: Drawn[] = []): Drawn[] {
+function planes(nodes: readonly Drawn[], out: Drawn[] = []): Drawn[] {
   for (const n of nodes) {
     if (n.widget === "core/plane") out.push(n);
     for (const kids of childrenOf(n)) planes(kids, out);
@@ -125,7 +133,7 @@ export function planes(nodes: readonly Drawn[], out: Drawn[] = []): Drawn[] {
 
 /** What one plane writes after a layout: each spot's box, its centre when it had to move, and
  * the region it draws. Boxes come first, so bounds left out are worked out from them. */
-export function planeWrites(page: Page, plane: Drawn, measure: Measure): LayoutWrite[] {
+function planeWrites(page: Core, plane: Drawn, measure: Measured): LayoutWrite[] {
   const writes: LayoutWrite[] = [];
   const boxes: Region[] = [];
   const zero: Pt = { x: Num.zero(), y: Num.zero() };
@@ -184,16 +192,16 @@ export function planeWrites(page: Page, plane: Drawn, measure: Measure): LayoutW
   return writes;
 }
 
-const started = new WeakMap<Page, Set<string>>();
+const started = new WeakMap<Core, Set<string>>();
 
 /** The planes of a page already laid out once, by identity: `fit` only sets where they start. */
-function startedPlanes(page: Page): Set<string> {
+function startedPlanes(page: Core): Set<string> {
   let s = started.get(page);
   if (!s) started.set(page, (s = new Set()));
   return s;
 }
 
-function tokenNum(page: Page, v: V): V | undefined {
+function tokenNum(page: Core, v: V): V | undefined {
   if (v.kind === "num") return v;
   if (v.kind === "case") return page.machine.defaultTokenValue(v);
   return undefined;
@@ -201,7 +209,11 @@ function tokenNum(page: Page, v: V): V | undefined {
 
 /** Lays the page's planes out until nothing changes: each pass's writes are one change. A page
  * still changing after MAX_LAYOUT_PASSES passes is stopped, and is a failure of its planes. */
-export function layout(page: Page, measure: Measure): void {
+export function layout(page: Page, by: Measure): void {
+  layoutCore(coreOf(page), { spot: (d) => by.spot(page.node(d.key)!), planeWidth: (d) => by.planeWidth(page.node(d.key)!) });
+}
+
+export function layoutCore(page: Core, measure: Measured): void {
   // stopped once, it stays stopped until something outside the layout changes the page: a
   // engine that lays out again on every resize would otherwise run it for ever
   if (held.get(page) === page.changes) return;
@@ -212,8 +224,8 @@ export function layout(page: Page, measure: Measure): void {
     const writes = all.flatMap((p) => planeWrites(page, p, measure));
     if (!page.layoutWrite(writes)) return;
   }
-  for (const p of planes(page.tree())) page.layoutFailed(p.path);
+  for (const p of planes(page.tree())) page.layoutFailed(p.key);
   held.set(page, page.changes);
 }
 
-const held = new WeakMap<Page, number>();
+const held = new WeakMap<Core, number>();

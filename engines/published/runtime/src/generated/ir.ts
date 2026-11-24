@@ -1,14 +1,6 @@
 // Written by xtmd-schemagen from schemas/ir.schema.json. Don't edit: change the schema, then run
 // `cargo run -p xtmd-schemagen`.
 
-/** A prop that isn't constant: its value, and everything it reads. */
-export interface Binding {
-  id: string;
-  /** `cell:n`, `input:t.title`, `$state:spent`, `let:doc/open`, `extern:core/page.width`. Never too few. */
-  reads: string[];
-  value: Expr;
-}
-
 /** Both ends are included; a missing one is open. */
 export interface Bounds {
   high?: Expr;
@@ -17,7 +9,7 @@ export interface Bounds {
 
 /** A call of a fn by its full name: one written in Extended Mark, an extern, or an interface's, which goes to the fn of the value's own type. */
 export interface Call {
-  args: Expr[];
+  args?: Expr[];
   name: string;
   type?: Type;
 }
@@ -29,7 +21,7 @@ export interface CaseDecl {
 
 /** Opening an `opt`: `if (let …)` or `if (mut …)`. */
 export interface CondOpen {
-  mut: boolean;
+  mut?: boolean;
   name: string;
   opt: Expr;
   type: Type;
@@ -76,13 +68,13 @@ export interface Enum {
   /** A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`). */
   name: string;
   /** Its cases carry nothing, so they are ordered as written. */
-  ordered: boolean;
+  ordered?: boolean;
   params?: TypeParam[];
 }
 
 export interface Event {
   name: string;
-  params: Param[];
+  params?: Param[];
 }
 
 export interface ExposeFns {
@@ -98,7 +90,7 @@ export interface Expose {
 }
 
 export interface ExprRecord {
-  fields: { [key: string]: Expr };
+  fields?: { [key: string]: Expr };
   type: string;
 }
 
@@ -175,7 +167,6 @@ export type Expr =
   | { template: ExprTemplate }
   | { view: ViewValue }
   | { get: Get }
-  | { bind: string }
   | { field: ExprField }
   | { call: Call }
   | { apply: ExprApply }
@@ -191,7 +182,7 @@ export interface ExternFn {
   default?: Stmt[];
   /** A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`). */
   name: string;
-  params: Param[];
+  params?: Param[];
   returns?: Type;
   supplier: Supplier;
 }
@@ -203,13 +194,13 @@ export interface ExternChannelFns {
 }
 
 export interface ExternChannel {
-  fns: ExternChannelFns[];
+  fns?: ExternChannelFns[];
   /** A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`). */
   name: string;
   supplier: Supplier;
   /** The tokens the page itself is drawn with, from the block's `tokens` line. */
   tokens?: string[];
-  values: Field[];
+  values?: Field[];
 }
 
 export interface ExternType {
@@ -227,11 +218,11 @@ export type Extern =
   | { type: ExternType };
 
 export interface ExternWidget {
-  events: Event[];
+  events?: Event[];
   generics?: TypeParam[];
-  inputs: Field[];
-  /** The levels drawing this widget needs: core.draw, and those its `uses` names. */
-  levels: Level[];
+  inputs?: Field[];
+  /** The levels drawing this widget needs beyond core.draw: those its `uses` names. */
+  levels?: Level[];
   /** What it writes as Markdown, from its markdown block. Left out when it writes nothing, or when it is a piece of Markdown. */
   markdown?: Node[];
   /** A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`). */
@@ -240,7 +231,7 @@ export interface ExternWidget {
   piece?: string;
   /** What it expects of its inputs and slots: its `require` and `warn` blocks. */
   requires?: Require[];
-  slots: Slot[];
+  slots?: Slot[];
   supplier: Supplier;
   /** The tokens its look comes from: a case by its full name (`core/color.LINE`). */
   tokens?: string[];
@@ -265,7 +256,7 @@ export interface FnDecl {
   generics?: TypeParam[];
   /** A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`). */
   name: string;
-  params: Param[];
+  params?: Param[];
   returns?: Type;
 }
 
@@ -288,19 +279,19 @@ export interface Handler {
 }
 
 export interface Interface {
-  events: Event[];
-  fields: Field[];
+  events?: Event[];
+  fields?: Field[];
   /** The names of its fns. A call of one is sent to the fn of the value's own type. */
-  fns: string[];
+  fns?: string[];
   /** A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`). */
   name: string;
   params?: TypeParam[];
-  widget: boolean;
+  widget?: boolean;
 }
 
 export interface Lambda {
   body: Stmt[];
-  params: Param[];
+  params?: Param[];
   returns?: Type;
 }
 
@@ -322,11 +313,10 @@ export interface Local {
 
 /** One build: the document (or pack) with the parts of core and of the given packs it uses, checked and lowered, ready to run. */
 export interface Module {
-  bindings: Binding[];
   declarations: Declaration[];
   /** A document's YAML front matter, without its --- lines, passed to the host untouched (page 1). */
   front_matter?: string;
-  handlers: Handler[];
+  handlers?: Handler[];
   /** Every level the page needs: the union of its calls'. */
   levels: Level[];
   /** `doc` for a document, or the pack's name. */
@@ -347,9 +337,9 @@ export interface NeedsPacks {
 
 /** Every extern the page uses, by who supplies it. An engine checks the list when it mounts the page. */
 export interface Needs {
-  /** core's externs, supplied by the engine: widgets, fns and channels. */
+  /** core's externs, supplied by the engine: widgets and fns. */
   core: string[];
-  /** The document's own channels' fns and values, supplied by the host when it mounts the page. */
+  /** Every value and fn taken from the host, by its full name: a value of core's page (`core/page.width`), and the values and fns of the document's own channels (`doc/scores.unit`). */
   host: string[];
   packs: NeedsPacks[];
 }
@@ -357,10 +347,10 @@ export interface Needs {
 /** An extern widget, drawn by the engine. */
 export interface NodeExtern {
   events?: { [key: string]: string };
-  /** The levels this call needs (page 6), its slots' included. */
+  /** The levels this call needs beyond core.draw (page 6), its slots' included. */
   levels?: Level[];
   name: string;
-  props: { [key: string]: Expr };
+  props?: { [key: string]: Expr };
   site: string;
   slots?: { [key: string]: Node[] };
   /** Where each `mut` input writes. */
@@ -369,9 +359,9 @@ export interface NodeExtern {
 
 /** A widget written in Extended Mark. */
 export interface NodeUse {
-  args: { [key: string]: Expr };
+  args?: { [key: string]: Expr };
   events?: { [key: string]: string };
-  /** The levels this call needs (page 6), its slots' included. */
+  /** The levels this call needs beyond core.draw (page 6), its slots' included. */
   levels?: Level[];
   name: string;
   site: string;
@@ -385,7 +375,7 @@ export interface NodeFor {
   body: Node[];
   /** Rows of a list follow their items; rows of a range are keyed by their number. */
   key: NodeForKey;
-  mut: boolean;
+  mut?: boolean;
   name: string;
   over: Expr;
   position?: string;
@@ -400,7 +390,7 @@ export interface NodeIfBranches {
 
 export interface NodeIf {
   branches: NodeIfBranches[];
-  else: Node[];
+  else?: Node[];
   site: string;
 }
 
@@ -462,7 +452,7 @@ export type Pattern =
 
 /** Where a write goes: a root and a path of fields and items. */
 export interface Place {
-  path: Step[];
+  path?: Step[];
   root: Root;
 }
 
@@ -472,7 +462,7 @@ export interface Record {
   name: string;
   /** Type parameters. */
   params?: TypeParam[];
-  requires: Require[];
+  requires?: Require[];
   /** The fn `==` and `!=` call, when the record's pack writes one. Left out, records compare field by field. */
   same?: string;
 }
@@ -505,7 +495,7 @@ export interface Slot {
 /** What a document's widgets share. */
 export interface State {
   fields: Field[];
-  requires: Require[];
+  requires?: Require[];
 }
 
 export interface StepField {
@@ -540,12 +530,12 @@ export interface StmtIfBranches {
 
 export interface StmtIf {
   branches: StmtIfBranches[];
-  else: Stmt[];
+  else?: Stmt[];
 }
 
 export interface StmtFor {
   body: Stmt[];
-  mut: boolean;
+  mut?: boolean;
   name: string;
   over: Expr;
   position?: string;
@@ -591,19 +581,19 @@ export type Supplier = "core" | "pack" | "host";
 /** A widget written in Extended Mark, lowered: its view as nodes. The document's own view is the template `doc`. */
 export interface Template {
   /** Its own variables, each with its starting value. */
-  cells: Field[];
-  events: Event[];
-  fns: FnDecl[];
+  cells?: Field[];
+  events?: Event[];
+  fns?: FnDecl[];
   generics?: TypeParam[];
-  inputs: Field[];
-  /** The levels this widget needs wherever it is called: its own variables need core.live, and it needs every level its view's calls need. */
-  levels: Level[];
-  /** Its markdown block, lowered onto core's extern Markdown blocks; built from the view for a document's widget that has none. Empty when it writes nothing. */
-  markdown: Node[];
+  inputs?: Field[];
+  /** The levels this widget needs wherever it is called, beyond core.draw: its own variables need core.live, and it needs every level its view's calls need. */
+  levels?: Level[];
+  /** Its markdown block, lowered onto core's extern Markdown blocks; built from the view for a document's widget that has none. Left out when it is the view itself, and empty when it writes nothing. */
+  markdown?: Node[];
   /** A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`). */
   name: string;
-  requires: Require[];
-  slots: Slot[];
+  requires?: Require[];
+  slots?: Slot[];
   view: Node[];
 }
 
@@ -640,7 +630,7 @@ export interface TypeParam {
 }
 
 export interface ViewValue {
-  args: { [key: string]: Expr };
+  args?: { [key: string]: Expr };
   events?: { [key: string]: string };
   slots?: { [key: string]: Node[] };
   widget: string;

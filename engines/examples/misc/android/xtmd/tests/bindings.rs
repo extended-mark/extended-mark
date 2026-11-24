@@ -125,7 +125,7 @@ fn an_event_is_one_change_and_redraws() {
     let p = page(COUNTER);
     let press = find(&p.tree().unwrap(), "core/press").unwrap();
     let (r, c) = (p.revision(), p.changes());
-    p.event(press.path.clone(), "click".into(), vec![]).unwrap();
+    p.event(press.id.clone(), "click".into(), vec![]).unwrap();
     assert_eq!(state(&p, "count"), num("1"));
     assert!(p.revision() > r);
     assert_eq!(p.changes(), c + 1);
@@ -137,23 +137,23 @@ fn an_event_is_one_change_and_redraws() {
 fn a_write_outside_the_contract_is_refused_and_observed() {
     let p = page(COUNTER);
     let slider = find(&p.tree().unwrap(), "core/slider").unwrap();
-    p.write(slider.path.clone(), "value".into(), num("2")).unwrap();
+    p.write(slider.id.clone(), "value".into(), num("2")).unwrap();
     assert_eq!(state(&p, "count"), num("2"));
-    p.write(slider.path.clone(), "value".into(), num("7")).unwrap();
+    p.write(slider.id.clone(), "value".into(), num("7")).unwrap();
     assert_eq!(state(&p, "count"), num("2"));
     let o: serde_json::Value = serde_json::from_str(&p.observe_json(None).unwrap()).unwrap();
     assert_eq!(o["outcome"]["refused"][0]["code"], "contracts.outside");
     assert_eq!(o["state"]["count"], serde_json::json!({ "num": "2" }));
     // only what was drawn, when the engine says what it drew
-    let o: serde_json::Value = serde_json::from_str(&p.observe_json(Some(vec![slider.path.clone()])).unwrap()).unwrap();
-    assert_eq!(o["tree"].as_object().unwrap().keys().collect::<Vec<_>>(), vec![&slider.path]);
+    let o: serde_json::Value = serde_json::from_str(&p.observe_json(Some(vec![slider.id.clone()])).unwrap()).unwrap();
+    assert_eq!(o["tree"].as_object().unwrap().keys().collect::<Vec<_>>(), vec![&slider.id]);
 }
 
 #[test]
 fn the_check_protocol_json_goes_in_too() {
     let p = page(COUNTER);
     let slider = find(&p.tree().unwrap(), "core/slider").unwrap();
-    p.write_json(slider.path.clone(), "value".into(), r#"{"num": "3"}"#.into()).unwrap();
+    p.write_json(slider.id.clone(), "value".into(), r#"{"num": "3"}"#.into()).unwrap();
     assert_eq!(state(&p, "count"), num("3"));
     p.set_json(r#"{"count": {"num": "1"}}"#.into()).unwrap();
     assert_eq!(state(&p, "count"), num("1"));
@@ -165,11 +165,11 @@ fn the_check_protocol_json_goes_in_too() {
 fn a_slider_takes_its_ends_from_its_variable() {
     let p = page(COUNTER);
     let slider = find(&p.tree().unwrap(), "core/slider").unwrap();
-    let e = p.slider_ends(slider.path).unwrap();
+    let e = p.slider_ends(slider.id).unwrap();
     assert_eq!((e.low.as_str(), e.high.as_str(), e.step.as_str()), ("0", "3", "1"));
     let p = page("$state {\n    v: number = 0.5;\n}\n\nwidget sample() {\n    view {\n        @slider(value = $state.v, label = \"V\", range = 0..2 step 0.25);\n        @slider(value = $state.v, label = \"W\");\n    }\n}\n@@@\n@sample;\n");
     let tree = p.tree().unwrap();
-    let sliders: Vec<String> = tree.iter().flat_map(|n| std::iter::once(n.clone()).chain(n.slots.iter().flat_map(|s| s.nodes.clone()))).filter(|n| n.widget == "core/slider").map(|n| n.path).collect();
+    let sliders: Vec<String> = tree.iter().flat_map(|n| std::iter::once(n.clone()).chain(n.slots.iter().flat_map(|s| s.nodes.clone()))).filter(|n| n.widget == "core/slider").map(|n| n.id).collect();
     let e = p.slider_ends(sliders[0].clone()).unwrap();
     assert_eq!((e.low.as_str(), e.high.as_str(), e.step.as_str()), ("0", "2", "0.25"));
     // nothing given: 0..1, by hundredths
@@ -194,7 +194,7 @@ fn a_shade_paints_from_its_shader() {
     let p = page("fn glow(at: point, px: number, args: number): pixel {\n    return pixel { r = at.x.clamp(0, 1), g = 0, b = at.y.clamp(0, 1), a = 1 };\n}\n\nwidget sample() {\n    view {\n        @canvas(label = \"G\", x = 0..1, y = 0..1, aspect = 1) {\n            @layer {\n                @shade(area = region { from = point { x = 0, y = 0 }, to = point { x = 1, y = 1 } }, shader = glow, args = 1, label = \"g\");\n            }\n        }\n    }\n}\n@@@\n@sample;\n");
     let shade = find(&p.tree().unwrap(), "core/shade").unwrap();
     assert_eq!(shade.props["shader"], Val::Fn { name: "doc/glow".into() });
-    let px = p.shade(shade.path, 2, 2).unwrap();
+    let px = p.shade(shade.id, 2, 2).unwrap();
     // the top row is the area's highest: blue there; red to the right
     let argb = |r: u32, b: u32| (0xff00_0000u32 | (r << 16) | b) as i32;
     assert_eq!(px, vec![argb(64, 191), argb(191, 191), argb(64, 64), argb(191, 64)]);
@@ -257,7 +257,7 @@ fn a_tree_update_sends_only_what_changed() {
     assert!(all(&first).iter().all(|n| !n.same));
     let press = find(&first, "core/press").unwrap();
     let since = p.revision();
-    p.event(press.path.clone(), "click".into(), vec![]).unwrap();
+    p.event(press.id.clone(), "click".into(), vec![]).unwrap();
     let update = p.tree_update(since).unwrap();
     let nodes = all(&update);
     // the count's label is sent whole; the press and the still label are stubs

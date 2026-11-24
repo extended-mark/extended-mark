@@ -18,7 +18,7 @@ test("<xtmd-live-doc> on a server, given a compiler, compiles the text and rende
   writeFileSync(file, r.outputFiles[0].text);
   const { render } = await import(pathToFileURL(file).href);
   const html = await render(pageSources().v1, await compiler());
-  assert.match(html, /<div[^>]*class="xtmd-root"/);
+  assert.match(html, /<div[^>]*class="xtmd-root[^"]*"/);
   assert.ok(html.includes("Count: 2 items"), html);
 });
 
