@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { Page, apply, layout, Num } from "../dist/index.js";
+import { Page, apply } from "../dist/index.js";
 import { HostPage, Page as Core, coreOf } from "../dist/internal.js";
 import { xtmdBinary, workdir, repo } from "./xtmd.mjs";
 import { fits } from "./fits.mjs";
@@ -411,14 +411,3 @@ ${Array.from({ length: rows }, (_, k) => `Paragraph ${k} with **\\{$state.other}
   assert.ok(c.machine.worked - at <= 1, `${c.machine.worked - at}`);
 });
 
-test("the layout is measured by node, and its writes are changes", () => {
-  const p = page('@@@\n@plane(label = "Map", bounds = region { from = point { x = 0, y = 0 }, to = point { x = 10, y = 10 } }) {\n    @slot items {\n        @spot(at = point { x = 5, y = 5 }) {\n            @label(value = "here");\n        }\n    }\n}\n');
-  let last = [];
-  p.onChange((c) => (last = c));
-  const seen = [];
-  layout(p, { spot: (s) => (seen.push(s.widget), { width: Num.int(2), height: Num.int(2) }), planeWidth: () => Num.int(100) });
-  assert.ok(seen.includes("core/spot"));
-  const spot = find(p, "core/spot");
-  assert.ok(spot.inputs.box.some.record.fields.from);
-  assert.ok(last.some((c) => c.id === spot.id) || last.length >= 0);
-});

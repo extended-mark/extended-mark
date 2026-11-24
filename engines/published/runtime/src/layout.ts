@@ -1,15 +1,10 @@
-// The plane's layout (page 5, plane; plan tab 15). An engine measures what it drew; this works
-// out, in the plane's units, where each spot landed, the plane's bounds when they are left out,
-// its centre kept inside them and the region it draws, and writes them as one change per pass.
+// Where the boxes on a plane go (page 5, plane): sizes and points in, places out, in the plane's units.
+// It knows no page and no widget, so whoever draws planes asks it with what they measured.
 //
-// At zoom 1 one unit of the plane is one of the page's own lengths, so a spot's box is its
-// child's size on the page, placed at its point: panning and zooming never change it.
+// At zoom 1 one unit of the plane is one of the page's own lengths, so a box is its size on the page,
+// placed at its point: panning and zooming never change it.
 
-import { childrenOf, type Core, type Drawn } from "./page.js";
-import { coreOf, type Page } from "./host.js";
-import type { Node } from "./generated/tree.js";
 import { Num } from "./eval/num.js";
-import { record, some, type Value as V } from "./eval/value.js";
 
 /** A size on the page, in its own lengths (a CSS pixel, an Android dp). */
 export interface Size {
@@ -27,27 +22,38 @@ export interface Region {
   to: Pt;
 }
 
-/** What an engine tells the layout: the size of each spot's child, and the width a plane is
- * given when it says none. */
-export interface Measure {
-  spot(spot: Node): Size;
-  planeWidth(plane: Node): Num;
+/** A box on a plane, as it was measured. */
+export interface Box {
+  at: Pt;
+  /** Which part of it is on its point: `CENTER`, `N`, `SE`… */
+  anchor: string;
+  nudge: Pt;
+  size: Size;
 }
 
-/** The measure as the layout asks it. */
-interface Measured {
-  spot(spot: Drawn): Size;
-  planeWidth(plane: Drawn): Num;
+/** A plane and what is on it. */
+export interface Plane {
+  boxes: readonly Box[];
+  /** Left out, the region around every box. */
+  bounds?: Region;
+  /** Its width on the page, and that over its height. */
+  width: Num;
+  aspect: Num;
+  center: Pt;
+  zoom: Num;
+  /** `fit` sets where the zoom starts, so only a plane laid out for the first time starts there. */
+  fit: boolean;
+  first: boolean;
+  zoomRange?: { low?: Num; high?: Num };
 }
 
-/** A layout still changing after this many passes is stopped: a failure of the plane. */
-export const MAX_LAYOUT_PASSES = 8;
-
-/** One write a layout makes: a `mut` input of a drawn widget. */
-interface LayoutWrite {
-  path: string;
-  input: string;
-  value: V;
+/** Where everything on a plane is. */
+export interface Places {
+  boxes: Region[];
+  center: Pt;
+  zoom: Num;
+  /** The region it draws. */
+  drawn: Region;
 }
 
 const HALF = Num.literal("0.5")!;
@@ -85,147 +91,35 @@ export function keepInside(center: Pt, half: Pt, bounds: Region): Pt {
   return { x: axis(center.x, half.x, bounds.from.x, bounds.to.x), y: axis(center.y, half.y, bounds.from.y, bounds.to.y) };
 }
 
-// ---- values
+const LEAST = Num.literal("0.1")!;
+const MOST = Num.int(10);
 
-export function ptOf(v: V | undefined): Pt | undefined {
-  if (!v || v.kind !== "record") return undefined;
-  const x = v.fields.find(([k]) => k === "x")?.[1];
-  const y = v.fields.find(([k]) => k === "y")?.[1];
-  return x?.kind === "num" && y?.kind === "num" ? { x: x.n, y: y.n } : undefined;
-}
-
-export function regionOf(v: V | undefined): Region | undefined {
-  if (v?.kind === "opt") return regionOf(v.value ?? undefined);
-  if (!v || v.kind !== "record") return undefined;
-  const from = ptOf(v.fields.find(([k]) => k === "from")?.[1]);
-  const to = ptOf(v.fields.find(([k]) => k === "to")?.[1]);
-  return from && to ? { from, to } : undefined;
-}
-
-export function ptValue(p: Pt): V {
-  return record("core/point", [
-    ["x", { kind: "num", n: p.x }],
-    ["y", { kind: "num", n: p.y }],
-  ]);
-}
-
-export function regionValue(r: Region): V {
-  return record("core/region", [
-    ["from", ptValue(r.from)],
-    ["to", ptValue(r.to)],
-  ]);
-}
-
-function numOf(v: V | undefined, or: Num): Num {
-  return v?.kind === "num" ? v.n : or;
-}
-
-// ---- a pass
-
-/** Every plane in the tree, outermost first. */
-function planes(nodes: readonly Drawn[], out: Drawn[] = []): Drawn[] {
-  for (const n of nodes) {
-    if (n.widget === "core/plane") out.push(n);
-    for (const kids of childrenOf(n)) planes(kids, out);
-  }
-  return out;
-}
-
-/** What one plane writes after a layout: each spot's box, its centre when it had to move, and
- * the region it draws. Boxes come first, so bounds left out are worked out from them. */
-function planeWrites(page: Core, plane: Drawn, measure: Measured): LayoutWrite[] {
-  const writes: LayoutWrite[] = [];
-  const boxes: Region[] = [];
-  const zero: Pt = { x: Num.zero(), y: Num.zero() };
-  for (const s of plane.slots.get("items") ?? []) {
-    if (s.widget !== "core/spot") continue;
-    const at = ptOf(s.props.get("at")) ?? zero;
-    const anchor = s.props.get("anchor");
-    const nudge = ptOf(s.props.get("nudge")) ?? zero;
-    let box = place(at, anchor?.kind === "case" ? anchor.name : "CENTER", nudge, measure.spot(s));
-    boxes.push(box);
-    writes.push({ path: s.path, input: "box", value: some(regionValue(box)) });
-  }
-  const bounds = regionOf(plane.props.get("bounds")) ?? around(boxes);
-  const aspect = numOf(plane.props.get("aspect"), Num.literal("1.5")!);
-  const w = plane.props.get("width");
-  const width = w?.kind === "opt" && w.value ? numOf(tokenNum(page, w.value), measure.planeWidth(plane)) : measure.planeWidth(plane);
-  // the zoom: `fit` starts it where the whole of bounds fits, and zoom_range counts from there
-  const was_zoom = numOf(plane.props.get("zoom"), Num.int(1));
-  const fit = plane.props.get("fit");
+/** A plane laid out: its boxes, its zoom inside what it allows, its centre kept where the drawn area stays
+ * inside the bounds, and the region it draws. */
+export function lay(p: Plane): Places {
+  const boxes = p.boxes.map((b) => place(b.at, b.anchor, b.nudge, b.size));
+  const bounds = p.bounds ?? around(boxes);
+  // `fit` starts the zoom where the whole of the bounds fits, and the zoom's range counts from there
   let base = Num.int(1);
-  if (fit?.kind === "bool" && fit.b && bounds) {
+  if (p.fit && bounds) {
     const bw = bounds.to.x.sub(bounds.from.x);
     const bh = bounds.to.y.sub(bounds.from.y);
     if (!bw.isZero() && !bh.isZero()) {
-      const across = width.div(bw);
-      const up = width.div(aspect).div(bh);
+      const across = p.width.div(bw);
+      const up = p.width.div(p.aspect).div(bh);
       base = across.lt(up) ? across : up;
     }
   }
-  let zoom = was_zoom;
-  const started = startedPlanes(page);
-  if (!started.has(plane.key)) {
-    started.add(plane.key);
-    if (fit?.kind === "bool" && fit.b) zoom = base;
-  }
-  const range = plane.props.get("zoom_range");
-  if (range?.kind === "range") {
-    const lo = range.low?.kind === "num" ? range.low.n.mul(base) : undefined;
-    const hi = range.high?.kind === "num" ? range.high.n.mul(base) : undefined;
-    if (lo && zoom.lt(lo)) zoom = lo;
-    if (hi && zoom.gt(hi)) zoom = hi;
-  }
-  // and inside what the zoom input allows
-  const least = Num.literal("0.1")!;
-  const most = Num.int(10);
-  if (zoom.lt(least)) zoom = least;
-  if (zoom.gt(most)) zoom = most;
-  if (!zoom.equals(was_zoom)) writes.push({ path: plane.path, input: "zoom", value: { kind: "num", n: zoom } });
+  let zoom = p.first && p.fit ? base : p.zoom;
+  const lo = p.zoomRange?.low?.mul(base);
+  const hi = p.zoomRange?.high?.mul(base);
+  if (lo && zoom.lt(lo)) zoom = lo;
+  if (hi && zoom.gt(hi)) zoom = hi;
+  if (zoom.lt(LEAST)) zoom = LEAST;
+  if (zoom.gt(MOST)) zoom = MOST;
   // the drawn area, in the plane's units: the widget's size on the page over the zoom
-  const half: Pt = { x: width.div(zoom).mul(HALF), y: width.div(aspect).div(zoom).mul(HALF) };
-  const was = ptOf(plane.props.get("center")) ?? zero;
-  const center = bounds ? keepInside(was, half, bounds) : was;
-  if (!center.x.equals(was.x) || !center.y.equals(was.y)) writes.push({ path: plane.path, input: "center", value: ptValue(center) });
+  const half: Pt = { x: p.width.div(zoom).mul(HALF), y: p.width.div(p.aspect).div(zoom).mul(HALF) };
+  const center = bounds ? keepInside(p.center, half, bounds) : p.center;
   const drawn: Region = { from: { x: center.x.sub(half.x), y: center.y.sub(half.y) }, to: { x: center.x.add(half.x), y: center.y.add(half.y) } };
-  writes.push({ path: plane.path, input: "drawn", value: some(regionValue(drawn)) });
-  return writes;
+  return { boxes, center, zoom, drawn };
 }
-
-const started = new WeakMap<Core, Set<string>>();
-
-/** The planes of a page already laid out once, by identity: `fit` only sets where they start. */
-function startedPlanes(page: Core): Set<string> {
-  let s = started.get(page);
-  if (!s) started.set(page, (s = new Set()));
-  return s;
-}
-
-function tokenNum(page: Core, v: V): V | undefined {
-  if (v.kind === "num") return v;
-  if (v.kind === "case") return page.machine.defaultTokenValue(v);
-  return undefined;
-}
-
-/** Lays the page's planes out until nothing changes: each pass's writes are one change. A page
- * still changing after MAX_LAYOUT_PASSES passes is stopped, and is a failure of its planes. */
-export function layout(page: Page, by: Measure): void {
-  layoutCore(coreOf(page), { spot: (d) => by.spot(page.node(d.key)!), planeWidth: (d) => by.planeWidth(page.node(d.key)!) });
-}
-
-export function layoutCore(page: Core, measure: Measured): void {
-  // stopped once, it stays stopped until something outside the layout changes the page: a
-  // engine that lays out again on every resize would otherwise run it for ever
-  if (held.get(page) === page.changes) return;
-  held.delete(page);
-  for (let pass = 0; pass < MAX_LAYOUT_PASSES; pass++) {
-    const all = planes(page.tree());
-    if (!all.length) return;
-    const writes = all.flatMap((p) => planeWrites(page, p, measure));
-    if (!page.layoutWrite(writes)) return;
-  }
-  for (const p of planes(page.tree())) page.layoutFailed(p.key);
-  held.set(page, page.changes);
-}
-
-const held = new WeakMap<Core, number>();

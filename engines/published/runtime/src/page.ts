@@ -200,6 +200,9 @@ function message(f: unknown): string {
 /** The IR this runtime runs: a whole number of its own, apart from its release. */
 export const IR_VERSION = 4;
 
+/** A page still changing after this many passes is stopped (page 6, failures). */
+export const MAX_PASSES = 8;
+
 /** What an IR of another version is told. */
 function otherVersion(version: unknown): string {
   const other = typeof version === "number" && version > IR_VERSION;
@@ -256,6 +259,8 @@ export class Core {
   /** How many changes came from outside the layout: the reader's, the host's, the page's
    * values. A layout that didn't settle is held until the next one. */
   changes = 0;
+  /** The change a page that didn't settle was stopped at. */
+  private held: number | undefined;
   /** What of the data it started from didn't go back, as `place.name`; undefined when it started from none,
    * or its `$state` was refused. */
   readonly left: string[] | undefined;
@@ -510,7 +515,7 @@ export class Core {
     }
   }
 
-  /** A layout pass's writes, as one change: a value equal to the one there is no change, and a
+  /** A pass's writes, as one change: a value equal to the one there is no change, and a
    * refused write undoes the pass. Whether the layout has to run again: only when a variable
    * changed, since a widget's own values are read by no Extended Mark code. A spot in a loop over a list
    * made anew at each redraw gets a new identity each time, so its own box never stays. */
@@ -556,6 +561,20 @@ export class Core {
     }
     this.redraw();
     return shared;
+  }
+
+  /** Runs passes until one changes nothing: each pass's writes are one change. A page still changing after
+   * MAX_PASSES of them is stopped, and is a failure of the widgets it was for; stopped once, it stays so until
+   * something else changes the page, as an engine that settles it on every resize would run it for ever. */
+  settle(pass: () => { writes: { path: string; input: string; value: V }[]; of: string[] }): void {
+    if (this.held === this.changes) return;
+    this.held = undefined;
+    for (let k = 0; k < MAX_PASSES; k++) {
+      const { writes, of } = pass();
+      if (!of.length || !this.layoutWrite(writes)) return;
+    }
+    for (const id of pass().of) this.layoutFailed(id);
+    this.held = this.changes;
   }
 
   /** The warnings since the host last took them: `warn` rules found false (page 2). */

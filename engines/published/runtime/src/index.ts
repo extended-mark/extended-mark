@@ -11,5 +11,5 @@ export type { Built, Job } from "./generated/build.js";
 export type * as web from "./generated/web.js";
 export { Num } from "./eval/num.js";
 export { writeMarkdown, writeInline, type Block, type Inline } from "./markdown.js";
-export { layout, place, around, keepInside, MAX_LAYOUT_PASSES, type Measure, type Size, type Pt, type Region } from "./layout.js";
+export { lay, place, around, keepInside, type Box, type Places, type Plane, type Pt, type Region, type Size } from "./layout.js";
 export type * as ir from "./generated/ir.js";

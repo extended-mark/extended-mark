@@ -8,7 +8,8 @@ import { Page, type Call, type Outcome, type PageOptions, type PageValues, type 
 import { RELEASE, channelName, dataOf, hash, irText, makePage, sameIr, type DocError, type Ir, type Restored, type Snapshot } from "@extended-mark/embed";
 
 export { hash, type DocError, type Restored, type Snapshot } from "@extended-mark/embed";
-import { Num, layout as runLayout, type Measure } from "@extended-mark/runtime";
+import { Num } from "@extended-mark/runtime";
+import { layoutPlanes, type Measure } from "@extended-mark/dom/shared";
 import { Tokens, webFns } from "@extended-mark/dom/shared";
 import { renderPage, type ViewWidget } from "./render.js";
 import { h, type VNode } from "./vnode.js";
@@ -313,7 +314,7 @@ export class Doc {
       },
     };
     try {
-      runLayout(page, measure);
+      layoutPlanes(page, measure);
     } catch (f) {
       page.errors.push(f);
     }

@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Page, Num, childrenOf, layout, place, keepInside, around } from "../dist/internal.js";
+import { Page, Num, childrenOf, lay, place, keepInside, around } from "../dist/internal.js";
 import { xtmdBinary, workdir, repo as repoRoot } from "./xtmd.mjs";
 
 const dir = workdir();
@@ -143,18 +143,40 @@ test("bounds left out are the region around every box; the centre stays inside t
   assert.deepEqual([keepInside(pt(390, 0), pt(500, 50), b)].map((p) => [p.x.show(), p.y.show()]), [["0", "0"]]);
 });
 
-test("a layout writes boxes once: a second pass with nothing changed writes nothing", () => {
-  const p = page(
-    '$state {\n    home: opt<region> = opt.NONE;\n}\n\nwidget map() {\n    view {\n        @plane(label = "Map", bounds = region { from = point { x = -100, y = -100 }, to = point { x = 100, y = 100 } }) {\n            items {\n                @spot(at = point { x = 0, y = 0 }, box = $state.home) {\n                    @label(value = "Home");\n                }\n            }\n        }\n    }\n}\n@@@\n@map;\n',
-  );
-  let redraws = 0;
-  p.onChange(() => redraws++);
-  const measure = { spot: () => ({ width: N(32), height: N(20) }), planeWidth: () => N(100) };
-  layout(p, measure);
-  assert.equal(redraws, 1);
-  assert.deepEqual(p.observeState().home, { some: { record: { type: "core/region", fields: { from: { record: { type: "core/point", fields: { x: num(-16), y: num(-10) } } }, to: { record: { type: "core/point", fields: { x: num(16), y: num(10) } } } } } } });
-  layout(p, measure);
-  assert.equal(redraws, 1);
+test("lay: boxes by their points, the zoom inside its range, the centre inside the bounds", () => {
+  const r = (a, b, c, d) => ({ from: pt(a, b), to: pt(c, d) });
+  const of = (p) => lay({ boxes: [], width: N(100), aspect: N(1), center: pt(0, 0), zoom: N(1), fit: false, first: true, ...p });
+  const at = (q) => [q.x.show(), q.y.show()].join(",");
+  const box = { at: pt(10, 0), anchor: "W", nudge: pt(0, 0), size: { width: N(20), height: N(10) } };
+  // bounds left out are the boxes'; smaller than what is drawn, the centre is their middle
+  const a = of({ boxes: [box] });
+  assert.deepEqual([at(a.boxes[0].from), at(a.boxes[0].to), at(a.center), at(a.drawn.from), at(a.drawn.to)], ["10,-5", "30,5", "20,0", "-30,-50", "70,50"]);
+  // fit: the whole of the bounds, the first time only, and the range counts from it
+  const bounds = r(0, 0, 400, 200);
+  assert.deepEqual([of({ bounds, fit: true }).zoom, of({ bounds, fit: true, first: false }).zoom, of({ bounds, fit: true, first: false, zoomRange: { high: N(2) } }).zoom].map((z) => z.show()), ["0.25", "1", "0.5"]);
+  assert.deepEqual([of({ zoom: N(50) }).zoom, of({ zoom: Num.parse("0.01") }).zoom].map((z) => z.show()), ["10", "0.1"]);
+});
+
+test("settle: passes run until one changes nothing, each one change; one that never does is a failure, once", () => {
+  const p = page("$state {\n    n: int = 0;\n}\n@@@\n@slider(value = $state.n, label = \"N\", range = 0..100);\n");
+  const at = p.tree()[0].path;
+  const now = () => Number(p.observeState().n.num);
+  let passes = 0;
+  const pass = (next) => () => (passes++, { writes: [{ path: at, input: "value", value: p.value(num(next(now()))) }], of: [at] });
+  p.settle(pass((n) => Math.min(3, n + 1)));
+  assert.deepEqual([now(), passes, p.takeOutcome()], [3, 4, { refused: [], failures: [] }]);
+  passes = 0;
+  p.settle(pass((n) => (n + 1) % 50));
+  assert.deepEqual(p.takeOutcome().failures, [{ code: "failure.layout", site: at }]);
+  // held until something else changes the page
+  const held = passes;
+  p.settle(pass((n) => n + 1));
+  assert.equal(passes, held);
+  p.set({ n: p.value(num(0)) });
+  p.settle(pass((n) => Math.min(2, n + 1)));
+  assert.equal(now(), 2);
+  // nothing to lay out
+  p.settle(() => ({ writes: [], of: [] }));
 });
 
 test("writing the Markdown leaves the page as it was: a row's events still run afterwards", () => {

@@ -100,6 +100,23 @@ export class Page {
     return this.core.changes;
   }
 
+  /** Lays out what only whoever draws the page can measure: `pass` gives a pass's writes, by node and `mut`
+   * input, and the nodes they are for. Passes run until one changes nothing; a page that never settles is
+   * stopped, and is a failure of those nodes. */
+  settle(pass: () => { writes: { id: string; input: string; value: Input }[]; of: string[] }): void {
+    this.core.settle(() => {
+      const { writes, of } = pass();
+      return {
+        of,
+        writes: writes.flatMap((w) => {
+          const d = this.drawn(w.id);
+          const value = d && this.core.given(fromInput(w.value), d.key);
+          return d && value ? [{ path: d.path, input: w.input, value }] : [];
+        }),
+      };
+    });
+  }
+
   /** Called after every change, with what changed in the tree (nothing, when only data did). */
   onChange(listener: (changes: Change[]) => void): () => void {
     this.listeners.add(listener);

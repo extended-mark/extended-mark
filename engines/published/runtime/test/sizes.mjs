@@ -8,7 +8,7 @@
 // - Anything else is 80 by 20.
 // - A plane given no width is 640 wide, the test page's width.
 
-import { Num } from "../dist/internal.js";
+import { Num, childrenOf, toIr } from "../dist/internal.js";
 
 export const CHAR = 8;
 export const LINE = 20;
@@ -67,11 +67,22 @@ export function sizeOf(page, d) {
   return [OTHER, LINE];
 }
 
-/** The layout's measure for a page. */
+/** The drawn widget of a node, by its id. */
+function drawn(nodes, id) {
+  for (const d of nodes) {
+    if (d.key === id) return d;
+    for (const kids of childrenOf(d)) {
+      const f = drawn(kids, id);
+      if (f) return f;
+    }
+  }
+}
+
+/** The layout's measure for a page, by its nodes. */
 export function measure(page) {
   return {
     spot(s) {
-      const [w, h] = sizeOf(page, s);
+      const [w, h] = sizeOf(page, drawn(page.tree(), s.id));
       return { width: Num.int(w), height: Num.int(h) };
     },
     planeWidth() {
@@ -83,13 +94,14 @@ export function measure(page) {
 /** The value fns the test engine supplies. Its reader is in UTC. */
 export function engineFns(getPage) {
   return {
-    "core/can_draw_tex": () => ({ kind: "bool", b: true }),
-    "core/moment.local": ([m]) => {
+    "core/can_draw_tex": () => ({ bool: true }),
+    "core/moment.local": ([x]) => {
+      const m = getPage().value(x);
       const machine = getPage().machine;
       const utc = machine.call("core/moment.utc", [{ value: m }]);
       const zone = (k, v) => (k === "east" ? { kind: "bool", b: true } : k === "offset_hour" || k === "offset_minute" ? { kind: "num", n: Num.zero() } : v);
       const inUtc = { ...m, fields: m.fields.map(([k, v]) => [k, zone(k, v)]) };
-      return machine.call("core/moment_at", [{ value: utc }, { value: inUtc }]);
+      return toIr(machine.call("core/moment_at", [{ value: utc }, { value: inUtc }]));
     },
   };
 }

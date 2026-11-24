@@ -1,6 +1,9 @@
 A PLANE'S LAYOUT
-An engine measures each spot's child; the layout works out where spots land, the bounds, the centre
-and the region, and writes them as one change a pass, at most eight passes. One that never settles
-is a failure of the plane. Sizes are in the plane's units, so panning and zooming change none.
-engines/published/runtime/src/layout.ts, engines/examples/rust/runtime/src/layout.rs.
-Tests give fixed sizes (engines/published/runtime/test/sizes.mjs), so places are exact.
+Three parts. Pure: boxes in, places out (lay), in the plane's units, so panning and zooming change none.
+The driver, with the widgets: finds planes and spots, measures, writes back (layoutPlanes on the web).
+The page: settle runs passes until one changes nothing, at most eight; each pass's writes are one
+change. One that never settles is a failure of what it was for, held until something else changes.
+TypeScript: engines/published/runtime/src/layout.ts, engines/published/dom/src/planes.ts, settle in
+engines/published/runtime/src/page.ts. Rust: engines/examples/rust/runtime/src/layout.rs has all three.
+Tests give fixed sizes (engines/published/runtime/test/sizes.mjs), so places are exact; the cases with
+planes run with the web's widgets, engines/published/dom/test/planes.test.mjs, with no browser.

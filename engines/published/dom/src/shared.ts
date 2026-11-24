@@ -9,4 +9,5 @@ export { GLYPHS, FILLED } from "./icons.js";
 export { safeHref, safeSrc, templateText, texOf, noteId } from "./rich.js";
 export { texToMathML, drawTex } from "./tex.js";
 export { webFns } from "./fns.js";
+export { layoutPlanes, type Measure } from "./planes.js";
 export { css as styleText } from "./style.js";

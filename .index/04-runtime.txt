@@ -13,13 +13,13 @@ RUNTIME (TypeScript)  engines/published/runtime    npm @extended-mark/runtime
   src/eval/natives.ts   extern fns of core with no body
   src/eval/num.ts       decimal128 (decimal.js underneath)
   src/eval/value.ts     values, and to and from the IR's form
-  src/layout.ts         where a plane's spots go, from what the engine measured
+  src/layout.ts         where boxes on a plane go: sizes in, places out; knows no page
   src/markdown.ts       the page as Markdown: blocks from the live page, and their text
   src/internal.ts       insides, for its tests
   src/generated/        types from schemas/
 
 Tests  engines/published/runtime/test/
-  cases.test.mjs (test/cases/*), page, host, memo, outside, machine, num, core, externs,
+  cases.test.mjs and run-case.mjs (test/cases/*), page, host, memo, outside, machine, num, core, externs,
   differential.test.mjs (the Rust evaluator against this one)
 
 The same in Rust: 07-rust-engines.txt.

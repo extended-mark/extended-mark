@@ -2,11 +2,12 @@
 // element lives as long as the widget does, and focus, the caret and what is being typed survive
 // a redraw. The plane's layout runs after every change, with sizes read from the DOM.
 
-import { Num, Page, layout as runLayout, type Measure, type Node as Drawn, type PageOptions, type ir } from "@extended-mark/runtime";
+import { Num, Page, type Node as Drawn, type PageOptions, type ir } from "@extended-mark/runtime";
 import type { Action, Mounted, MountOptions, Widget, WidgetContext, WidgetView } from "./api.js";
 import { giveKit, newUid, tokensOf, type Kit } from "./kit.js";
 import type { Tokens } from "./tokens.js";
 import { webFns } from "./fns.js";
+import { layoutPlanes, type Measure } from "./planes.js";
 import { css as styleText } from "./style.js";
 import { widgets as ours } from "./widgets/index.js";
 import { broken, failedView, notice, unknownWidget } from "./widgets/notice.js";
@@ -244,7 +245,7 @@ export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): M
     if (!live || settling) return;
     settling = true;
     try {
-      runLayout(page, measure);
+      layoutPlanes(page, measure);
     } catch (f) {
       page.errors.push(f);
     } finally {

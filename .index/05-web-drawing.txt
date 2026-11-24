@@ -11,6 +11,7 @@ engines/published/dom    npm @extended-mark/dom: draws a page with plain DOM
   src/shade.ts          a shade's pixels
   src/rich.ts           links and pictures checked
   src/icons.ts          glyph drawings
+  src/planes.ts         a page's planes measured and laid out (layoutPlanes)
   src/kit.ts, fns.ts    what our widgets need; the fns the web supplies (moment.local)
   test/                 real Chromium: widgets, interact, plane; harness.mjs, browser.mjs
 

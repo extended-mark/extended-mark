@@ -5,7 +5,8 @@
 // changes by its id (a loop row's widgets follow its item), and updated in place,
 // so focus, selection and scroll survive a change.
 
-import type { Input, Measure, Node as Drawn, Page, PageOptions, ir } from "@extended-mark/runtime";
+import type { Input, Node as Drawn, Page, PageOptions, ir } from "@extended-mark/runtime";
+import type { Measure } from "./planes.js";
 
 /** What a widget can do on the page it is drawn on. */
 export interface WidgetContext {
