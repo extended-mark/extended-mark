@@ -25,6 +25,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * What a drag costs on the sample's tour page, step by step: the canvas's handle, the plane's pan
@@ -158,8 +159,10 @@ class DragPerfTest {
     // java.lang.management isn't in android.jar, which the tests compile against; it is on the JVM
     private val threads: Any = Class.forName("java.lang.management.ManagementFactory").getMethod("getThreadMXBean").invoke(null)!!
 
+    // the harness gives a test a minute, and this one drags for as long as the machine is busy with other things: what
+    // it holds the drags to is their own work a step, below, and not how long all of it takes
     @Test
-    fun dragsStayWithinTheirBudget() = runAndroidComposeUiTest<ComponentActivity> {
+    fun dragsStayWithinTheirBudget() = runAndroidComposeUiTest<ComponentActivity>(testTimeout = 5.minutes) {
         waitsForXtmd()
         val loadStart = System.nanoTime()
         val page = CompiledPage.fromJson(tour, PageOptions(zone = UtcZone))
