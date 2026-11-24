@@ -3,7 +3,6 @@ package xtmd.android
 import java.math.BigDecimal
 import xtmd.android.ffi.Field
 import xtmd.android.ffi.Val
-import xtmd.android.widgets.SliderEnds
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

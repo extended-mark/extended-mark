@@ -1,49 +1,20 @@
 package xtmd.android
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.SemanticsPropertyKey
-import androidx.compose.ui.semantics.SemanticsPropertyReceiver
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
-import xtmd.android.ffi.Extent
 import xtmd.android.ffi.Measure
-import xtmd.android.ffi.Node
-import xtmd.android.ffi.Val
-import xtmd.android.widgets.*
-
-/** One extern widget's composable: given its props and its context, it draws the widget. */
-fun interface Widget {
-    @Composable
-    fun Draw(props: Props, ctx: WidgetContext)
-}
+import xtmd.android.widgets.registry
 
 /** What a host gives XtmdPage besides the page: its own widgets, by full name, which replace ours
  * (`core/press`) or add a pack's (`acme/chart`). */
@@ -53,134 +24,6 @@ class Externs(val widgets: Map<String, Widget> = emptyMap()) {
     }
 }
 
-/** Our default widgets, by full name: every core extern widget. */
-val registry: Map<String, Widget> = mapOf(
-    // blocks
-    "core/paragraph" to Widget { p, c -> XtmdParagraph(p, c) },
-    "core/heading" to Widget { p, c -> XtmdHeading(p, c) },
-    "core/bullets" to Widget { p, c -> XtmdBullets(p, c) },
-    "core/item" to Widget { p, c -> XtmdItem(p, c) },
-    "core/quote" to Widget { p, c -> XtmdQuote(p, c) },
-    "core/code" to Widget { p, c -> XtmdCode(p, c) },
-    "core/math" to Widget { p, c -> XtmdMath(p, c) },
-    "core/table" to Widget { p, c -> XtmdTable(p, c) },
-    "core/footnote" to Widget { p, c -> XtmdFootnote(p, c) },
-    "core/divider" to Widget { p, c -> XtmdDivider(p, c) },
-    // controls
-    "core/label" to Widget { p, c -> XtmdLabel(p, c) },
-    "core/image" to Widget { p, c -> XtmdImage(p, c) },
-    "core/icon" to Widget { p, c -> XtmdIcon(p, c) },
-    "core/press" to Widget { p, c -> XtmdPress(p, c) },       // a Material 3 button, chip, tab, checkbox, switch or radio
-    "core/field" to Widget { p, c -> XtmdField(p, c) },
-    "core/slider" to Widget { p, c -> XtmdSlider(p, c) },     // writes go through ctx.write("value", …)
-    "core/overlay" to Widget { p, c -> XtmdOverlay(p, c) },
-    // layout
-    "core/flex" to Widget { p, c -> XtmdFlex(p, c) },
-    "core/grid" to Widget { p, c -> XtmdGrid(p, c) },
-    "core/cell" to Widget { p, c -> XtmdCell(p, c) },
-    "core/sizing" to Widget { p, c -> XtmdSizing(p, c) },
-    "core/plane" to Widget { p, c -> XtmdPlane(p, c) },
-    "core/spot" to Widget { p, c -> XtmdSpot(p, c) },
-    // gfx
-    "core/canvas" to Widget { p, c -> XtmdCanvas(p, c) },
-    "core/layer" to Widget { p, c -> XtmdLayer(p, c) },
-    "core/circle" to Widget { p, c -> XtmdCircle(p, c) },
-    "core/path" to Widget { p, c -> XtmdPath(p, c) },
-    "core/place" to Widget { p, c -> XtmdPlace(p, c) },
-    "core/handle" to Widget { p, c -> XtmdHandle(p, c) },
-    "core/shade" to Widget { p, c -> XtmdShade(p, c) },
-) + listOf("words", "bold", "italic", "strike", "link", "code_span", "inline_math", "inline_image", "note_mark", "line_break")
-    .associate { "core/$it" to Widget { p, c -> XtmdWords(p, c) } }
-
-/** A drawn widget's props, as the page worked them out. */
-class Props(val node: Node) {
-    operator fun get(name: String): Val? = node.props[name]
-    fun text(name: String): String = get(name).str()
-    fun flag(name: String, or: Boolean = false): Boolean = get(name).flag(or)
-    fun num(name: String): Double? = get(name).num()
-    fun case(name: String): String? = get(name).case()
-
-    /** A slot's widgets, in order. */
-    fun slot(name: String): List<Node> = node.slots.firstOrNull { it.name == name }?.nodes ?: emptyList()
-    /** The widgets an input holds, a rich_text's or a view's, in order. */
-    fun nodes(v: Val?): List<Node> = (v.inner() as? Val.Nodes)?.let { slot(it.slot) } ?: emptyList()
-    val id: String get() = node.id
-    val widget: String get() = node.widget
-}
-
-/** What a widget can do on the page it is drawn on. */
-class WidgetContext internal constructor(val page: CompiledPage, internal val scope: XtmdScope, node: Node) {
-    var node: Node = node
-        internal set
-    val id: String get() = node.id
-
-    /** The reader's event on this widget: runs the caller's handler, as one change. */
-    fun event(name: String, args: List<Val> = emptyList()) {
-        page.watcher?.event(id, name, args)
-        page.change { it.event(id, name, args) }
-    }
-
-    /** This widget writing one of its `mut` inputs, as a slider does: checked, then one change.
-     * A refused write leaves the value as it was. */
-    fun write(input: String, value: Val) {
-        page.watcher?.write(id, input, value)
-        page.change { it.write(id, input, value) }
-    }
-
-    /** [write], off the main thread: a drag's write (see [FrameWriter]). */
-    suspend fun writeAway(input: String, value: Val) {
-        page.writeAway(id, input, value)
-    }
-
-    /** Whether the caller set this event to a handler that does something: what makes it clickable. */
-    fun listens(event: String): Boolean = event in node.listens
-
-    /** A slot's widgets, drawn one after another, each kept by its key. */
-    @Composable
-    fun Children(nodes: List<Node>) {
-        for (n in nodes) key(n.id) { DrawNode(n) }
-    }
-
-    /** One widget of a slot. */
-    @Composable
-    fun Child(n: Node) {
-        key(n.id) { DrawNode(n) }
-    }
-
-    /** Blocks as a flow: each after the one before, with the page's space between them (12 dp, as
-     * @extended-mark/dom's 0.75em), and more before a heading of level 1 to 3 that isn't first (20 dp). */
-    @Composable
-    fun Flow(nodes: List<Node>, modifier: Modifier = Modifier) {
-        Column(modifier, verticalArrangement = FLOW) {
-            nodes.forEachIndexed { k, n -> key(n.id) { Block(n, k > 0) } }
-        }
-    }
-
-    /** One block of a flow: skipped whole when its node is the one it was. */
-    @Composable
-    private fun Block(n: Node, after: Boolean) {
-        val big = after && n.widget == "core/heading" && (n.props["level"].num() ?: 1.0) <= 3.0
-        if (big) Box(HEADING_GAP) { DrawNode(n) } else DrawNode(n)
-    }
-}
-
-internal val TRACE = System.getenv("XTMD_ANDROID_TRACE") != null
-
-/** The space between blocks, and the more before a heading of level 1 to 3. */
-private val FLOW = Arrangement.spacedBy(12.dp)
-private val HEADING_GAP = Modifier.padding(top = 8.dp)
-
-internal class XtmdScope(val page: CompiledPage, val widgets: Map<String, Widget>, val sizes: SpotSizes)
-
-internal val LocalXtmd = staticCompositionLocalOf<XtmdScope?> { null }
-
-/** The site a widget's root is drawn at: its path, in the semantics tree, for the checks. */
-val XtmdSite = SemanticsPropertyKey<String>("XtmdSite")
-var SemanticsPropertyReceiver.xtmdSite by XtmdSite
-
-/** A widget's root: its site, and its part name (`slider`, `press`). */
-fun Modifier.site(ctx: WidgetContext, part: String): Modifier = this.semantics { xtmdSite = ctx.id }.testTag(part)
-
 /**
  * A page from an IR file in the host's assets, read and mounted off the main thread: `null` until
  * it is, so the host shows something of its own meanwhile.
@@ -189,74 +32,6 @@ fun Modifier.site(ctx: WidgetContext, part: String): Modifier = this.semantics {
 fun rememberAssetPage(name: String, options: PageOptions = PageOptions()): CompiledPage? {
     val context = androidx.compose.ui.platform.LocalContext.current
     return androidx.compose.runtime.produceState<CompiledPage?>(null, name, options) { value = CompiledPage.loadAsset(context, name, options) }.value
-}
-
-/** One drawn widget: its composable from the registry, or a notice when it failed or nobody supplies it. */
-@Composable
-fun DrawNode(node: Node) {
-    val scope = LocalXtmd.current ?: error("DrawNode outside XtmdPage")
-    scope.page.stats.draws++
-    val ctx = remember(scope) { WidgetContext(scope.page, scope, node) }
-    ctx.node = node
-    DisposableEffect(scope.page, node.id) {
-        scope.page.entered(node.id)
-        onDispose { scope.page.left(node.id) }
-    }
-    val w = scope.widgets[node.widget]
-    val failed = node.failed
-    if (failed != null) Notice("${node.widget.substringAfterLast('/')} failed: $failed", ctx)
-    else if (w == null) Notice("Nothing draws ${node.widget} here: its widget isn't supplied.", ctx) else w.Draw(Props(node), ctx)
-}
-
-@Composable
-internal fun Notice(message: String, ctx: WidgetContext) {
-    Text(
-        message,
-        Modifier.site(ctx, "notice").fillMaxWidth()
-            .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(8.dp))
-            .padding(8.dp)
-            .semantics { liveRegion = LiveRegionMode.Polite },
-        color = MaterialTheme.colorScheme.onErrorContainer,
-        style = MaterialTheme.typography.bodyMedium,
-    )
-}
-
-/** Each spot's child's size as Compose measured it, in dp, and each plane's width: the plane's
- * layout reads them. [version] moves when one changes, so the layout runs again. */
-class SpotSizes {
-    // written on the main thread as Compose measures, read by a layout on a background one
-    internal val spots = java.util.concurrent.ConcurrentHashMap<String, Extent>()
-    internal val planes = java.util.concurrent.ConcurrentHashMap<String, Double>()
-    var version by mutableIntStateOf(0)
-        internal set
-
-    internal fun spot(path: String, e: Extent) {
-        if (spots[path] != e) {
-            if (TRACE) System.err.println("[xtmd] spot $path ${spots[path]} -> $e")
-            spots[path] = e
-            version++
-        }
-    }
-
-    internal fun plane(path: String, w: Double) {
-        if (planes[path] != w) {
-            if (TRACE) System.err.println("[xtmd] plane $path ${planes[path]} -> $w")
-            planes[path] = w
-            version++
-        }
-    }
-
-    /** Whether Compose has measured every spot and plane in a tree: the layout waits for it, so
-     * its first boxes are the real ones, not a size of nothing written and then put right. */
-    internal fun ready(nodes: List<Node>): Boolean = nodes.all { n ->
-        (n.widget != "core/spot" || spots.containsKey(n.id)) && (n.widget != "core/plane" || planes.containsKey(n.id)) && n.slots.all { ready(it.nodes) }
-    }
-
-    /** The measure Compose's own sizes give. */
-    val measure: Measure = object : Measure {
-        override fun spot(spot: Node): Extent = spots[spot.id] ?: Extent(0.0, 0.0)
-        override fun planeWidth(plane: Node): Double = planes[plane.id] ?: 0.0
-    }
 }
 
 /**
@@ -280,7 +55,7 @@ fun XtmdPage(
     // the runtime shows the Markdown of whatever the registry doesn't draw
     SideEffect { page.setSupplies(widgets.keys) }
     val sizes = remember(page) { SpotSizes() }
-    val scope = remember(page, widgets, sizes) { XtmdScope(page, widgets, sizes) }
+    val drawing = remember(page, widgets, sizes) { Drawing(page, widgets, sizes) }
     val dark = when (page.theme) {
         "DARK" -> true
         "LIGHT" -> false
@@ -291,12 +66,11 @@ fun XtmdPage(
     val scheme = remember(dark, colors) { colors(dark) }
     MaterialTheme(colorScheme = scheme) {
         CompositionLocalProvider(
-            LocalXtmd provides scope,
             LocalXtmdDark provides dark,
             LocalContentColor provides MaterialTheme.colorScheme.onSurface,
             LocalTextStyle provides MaterialTheme.typography.bodyLarge,
         ) {
-            PageBody(page, scope, modifier.background(MaterialTheme.colorScheme.surface))
+            PageBody(page, drawing, modifier.background(MaterialTheme.colorScheme.surface))
         }
     }
     PlaneLayout(page, sizes, measure)
@@ -305,10 +79,7 @@ fun XtmdPage(
 /** The page's blocks: the one place the tree is read, so a redraw composes only this and the
  * widgets that changed (each unchanged widget is the node it was, and is skipped). */
 @Composable
-private fun PageBody(page: CompiledPage, scope: XtmdScope, modifier: Modifier) {
-    val ctx = remember(scope) { WidgetContext(page, scope, Node("", "#page", emptyMap(), emptyList(), emptyList(), emptyList(), emptyList(), null, false)) }
-    ctx.Flow(page.tree, modifier)
-}
+private fun PageBody(page: CompiledPage, drawing: Drawing, modifier: Modifier) = DrawNodes(drawing, page.tree, modifier)
 
 /**
  * The planes' layout, after each change from outside the layout that touched a plane or a spot (or

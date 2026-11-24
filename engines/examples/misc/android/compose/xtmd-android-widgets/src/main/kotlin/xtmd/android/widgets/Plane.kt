@@ -72,7 +72,7 @@ fun XtmdPlane(p: Props, ctx: WidgetContext) {
     val aspect = (p.num("aspect") ?: 1.5).takeIf { it > 0 } ?: 1.5
     val given = length(p["width"].inner())
     val label = p.text("label")
-    val sizes = ctx.scope.sizes
+    val sizes = ctx.drawing.sizes
     val density = LocalDensity.current.density
     val items = p.slot("items")
     // how far the reader may zoom: zoom_range, counted from the zoom that fits bounds with `fit`
@@ -258,7 +258,7 @@ fun XtmdSpot(p: Props, ctx: WidgetContext) {
     val at = p["at"].point() ?: XY(0.0, 0.0)
     val nudge = p["nudge"].point() ?: XY(0.0, 0.0)
     val density = LocalDensity.current.density
-    val sizes = ctx.scope.sizes
+    val sizes = ctx.drawing.sizes
     val path = ctx.id
     Box(
         Modifier.site(ctx, "spot")

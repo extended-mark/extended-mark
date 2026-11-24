@@ -72,9 +72,9 @@ val nativeThere = tasks.register("checkNative") {
 }
 tasks.named("preBuild") { dependsOn(nativeThere) }
 
-// The unit tests load both host libraries through JNA: the compiler's, and xtmd-android's runtime.
+// The unit tests load both host libraries through JNA: the compiler's, and xtmd-android-runtime's.
 tasks.withType<Test>().configureEach {
-    val runtime = project(":xtmd-android").layout.projectDirectory.dir("native/host/linux-x86-64").asFile
+    val runtime = project(":xtmd-android-runtime").layout.projectDirectory.dir("native/host/linux-x86-64").asFile
     systemProperty("jna.library.path", listOf(native.dir("host/linux-x86-64").asFile, runtime).joinToString(File.pathSeparator) { it.absolutePath })
     maxHeapSize = "2g"
     // EnginesVideo writes its frames in build/video, or where `-Pxtmd.video.out=<folder>` says

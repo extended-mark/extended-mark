@@ -3,7 +3,7 @@ package xtmd.android
 // core's glyphs as 24-unit line drawings, one path each: the same drawings as @extended-mark/widgets's
 // (engines/published/widgets/src/icons.ts), written out by a script from it, drawn with Compose's PathParser.
 
-internal val GLYPHS: Map<String, String> = mapOf(
+val GLYPHS: Map<String, String> = mapOf(
     "PLAY" to "M7 4.5v15l12-7.5z",
     "PAUSE" to "M8 5v14M16 5v14",
     "PREV" to "M18 6l-9 6 9 6zM6 6v12",
@@ -72,4 +72,4 @@ internal val GLYPHS: Map<String, String> = mapOf(
 )
 
 /** The glyphs drawn filled rather than stroked. */
-internal val FILLED: Set<String> = setOf("DOT", "PLAY")
+val FILLED: Set<String> = setOf("DOT", "PLAY")

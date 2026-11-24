@@ -38,7 +38,10 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE) // real text measuring (Skia), so widths are a phone's
 @Config(sdk = [36], qualifiers = "w400dp-h2000dp-port-notnight-mdpi")
-class XtmdPageTest {
+open class XtmdPageTest {
+    /** The widgets pages are drawn with here. */
+    protected open val externs: Externs = Externs.None
+
     private val repo = generateSequence(File(System.getProperty("user.dir")).absoluteFile) { it.parentFile }.first { File(it, "checks").isDirectory }
     private val xtmd = File(repo, "compiler/target/release/xtmd")
 
@@ -67,7 +70,7 @@ class XtmdPageTest {
     fun theTourDrawsEveryWidgetItHas() = runAndroidComposeUiTest<ComponentActivity> {
         waitsForXtmd()
         val page = CompiledPage.fromJson(tour, PageOptions(zone = UtcZone))
-        setContent { XtmdPage(page) }
+        setContent { XtmdPage(page, externs) }
         settle()
         assertEquals(emptyList<String>(), page.missing)
         val tree = JSONObject(page.native.observeJson(null)).getJSONObject("tree")
@@ -87,7 +90,7 @@ class XtmdPageTest {
     fun aPressRunsItsHandlerAndTheAppHearsItsCall() = runAndroidComposeUiTest<ComponentActivity> {
         waitsForXtmd()
         val page = CompiledPage.fromJson(shop, PageOptions(zone = UtcZone))
-        setContent { XtmdPage(page) }
+        setContent { XtmdPage(page, externs) }
         settle()
         onNodeWithText("Check out").performClick()
         settle()
@@ -116,7 +119,7 @@ class XtmdPageTest {
             """.trimIndent() + "\n",
         )
         val page = CompiledPage.fromJson(ir(source).also { source.delete() }, PageOptions(zone = UtcZone))
-        setContent { XtmdPage(page) }
+        setContent { XtmdPage(page, externs) }
         settle()
         // the press is the paragraph's slot, drawn in its line after "Press"
         val tree = JSONObject(page.native.observeJson(null)).getJSONObject("tree")
@@ -135,7 +138,7 @@ class XtmdPageTest {
     fun aSliderWritesExactlyAndARefusedWriteLeavesTheValue() = runAndroidComposeUiTest<ComponentActivity> {
         waitsForXtmd()
         val page = CompiledPage.fromJson(shop, PageOptions(zone = UtcZone))
-        setContent { XtmdPage(page) }
+        setContent { XtmdPage(page, externs) }
         settle()
         val slider = onNode(hasContentDescription("Budget") and SemanticsMatcher.keyIsDefined(SemanticsActions.SetProgress), useUnmergedTree = true)
         slider.performSemanticsAction(SemanticsActions.SetProgress) { it(45f) }
@@ -154,7 +157,7 @@ class XtmdPageTest {
     fun aFieldWritesWhatIsTyped() = runAndroidComposeUiTest<ComponentActivity> {
         waitsForXtmd()
         val page = CompiledPage.fromJson(tour, PageOptions(zone = UtcZone))
-        setContent { XtmdPage(page, measure = FixedMeasure) }
+        setContent { XtmdPage(page, externs, measure = FixedMeasure) }
         settle()
         onNode(hasSetTextAction()).performTextReplacement("Ada")
         settle()
@@ -166,7 +169,7 @@ class XtmdPageTest {
     fun aLongCodeLineScrollsAndEndsWithoutAnEmptyLine() = runAndroidComposeUiTest<ComponentActivity> {
         waitsForXtmd()
         val page = CompiledPage.fromJson(tour, PageOptions(zone = UtcZone))
-        setContent { XtmdPage(page, measure = FixedMeasure) }
+        setContent { XtmdPage(page, externs, measure = FixedMeasure) }
         settle()
         val code = onNode(SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "code.text"), useUnmergedTree = true)
         // the source's last line break ends its line: no empty line under it
@@ -188,7 +191,7 @@ class XtmdPageTest {
                 if (input == "at") writes += value
             }
         }
-        setContent { XtmdPage(page, measure = FixedMeasure) }
+        setContent { XtmdPage(page, externs, measure = FixedMeasure) }
         settle()
         fun bounds(tag: String) = onNode(SemanticsMatcher.expectValue(SemanticsProperties.TestTag, tag), useUnmergedTree = true).fetchSemanticsNode().boundsInWindow
         val surface = bounds("canvas.surface")
@@ -239,7 +242,7 @@ class XtmdPageTest {
         waitsForXtmd()
         val page = CompiledPage.fromJson(shop, PageOptions(zone = UtcZone))
         val mine = Widget { p, ctx -> Text("mine: ${p.text("value")}", Modifier.site(ctx, "label")) }
-        setContent { XtmdPage(page, Externs(mapOf("core/label" to mine))) }
+        setContent { XtmdPage(page, Externs(externs.widgets + mapOf("core/label" to mine))) }
         settle()
         onNodeWithText("mine: Tea: 12 €").assertExists()
     }
@@ -248,7 +251,7 @@ class XtmdPageTest {
     fun theAppsWritesAreChecked() = runAndroidComposeUiTest<ComponentActivity> {
         waitsForXtmd()
         val page = CompiledPage.fromJson(shop, PageOptions(zone = UtcZone, state = mapOf("budget" to Val.Num("80"))))
-        setContent { XtmdPage(page) }
+        setContent { XtmdPage(page, externs) }
         settle()
         assertEquals("{\"num\":\"80\"}", state(page, "budget"))
         page.set("budget" to Val.Num("120"))

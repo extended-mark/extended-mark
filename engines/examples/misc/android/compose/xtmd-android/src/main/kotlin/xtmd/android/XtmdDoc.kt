@@ -21,6 +21,7 @@ import xtmd.android.ffi.Measure
 import xtmd.android.ffi.Val
 import xtmd.android.ffi.Zone
 import org.json.JSONObject
+import xtmd.android.widgets.registry
 
 /**
  * Extended Mark documents in Compose, the Android static target: `XtmdDoc` draws a document from its IR,

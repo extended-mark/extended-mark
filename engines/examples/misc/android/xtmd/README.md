@@ -45,7 +45,7 @@ engines/examples/misc/android/xtmd/build.sh android   # libxtmd_android.so for a
 engines/examples/misc/android/xtmd/build.sh           # both
 ```
 
-Everything goes into `engines/examples/misc/android/compose/xtmd-android/native/` (gitignored; `XTMD_ANDROID_NATIVE` moves it):
+Everything goes into `engines/examples/misc/android/compose/xtmd-android-runtime/native/` (gitignored; `XTMD_ANDROID_NATIVE` moves it):
 
 ```
 native/kotlin/xtmd/android/ffi/xtmd_android.kt     the bindings (uniffi-bindgen, --no-format)
@@ -64,7 +64,7 @@ rustup target add aarch64-linux-android x86_64-linux-android           # once
 # the host's library, with uniffi-bindgen built from the same UniFFI (the `bindgen` feature turns on uniffi/cli)
 cargo build -p xtmd-android --release --features bindgen
 ./target/release/uniffi-bindgen generate --library target/release/libxtmd_android.so \
-  --language kotlin --out-dir ../engines/examples/misc/android/compose/xtmd-android/native/kotlin --no-format
+  --language kotlin --out-dir ../engines/examples/misc/android/compose/xtmd-android-runtime/native/kotlin --no-format
 
 # Android: the NDK's clang for the cc crate (libdecnumber, under xtmd-eval's decimals) and as the linker,
 # at xtmd-android's minSdk, 26. No cargo-ndk needed.

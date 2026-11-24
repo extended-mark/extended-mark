@@ -11,7 +11,9 @@ none of it. A host builds the library itself (Building, below).
 engines/examples/misc/android/
 ├── xtmd/                    the Rust crate: xtmd-runtime behind UniFFI, build.sh, its tests
 └── compose/                this Gradle project
-    ├── xtmd-android/        the library (xtmd:xtmd-android, as you build it): XtmdPage, the registry, the widgets
+    ├── xtmd-android-runtime/  the bindings and native libraries (../xtmd/build.sh writes them)
+    ├── xtmd-android-widgets/  the Compose widget set, which knows no page: a widget draws a node, for a Host
+    ├── xtmd-android/        the renderer (xtmd:xtmd-android, as you build it): XtmdPage, XtmdDoc
     ├── sample/             a host showing two pages (the shop example, and a tour of the widgets)
     └── tokens.xtmdpack          core's tokens as Material 3 draws them
 ```
@@ -131,10 +133,10 @@ Rust with the Android engines. Gradle comes from the wrapper (8.14.4); AGP 8.13.
 ```sh
 engines/examples/misc/android/xtmd/build.sh            # 1. libxtmd_android.so for the host, arm64-v8a, armeabi-v7a and x86_64, and the bindings
 cd engines/examples/misc/android/compose
-./gradlew :xtmd-android:assembleRelease  # 2. the AAR: xtmd-android/build/outputs/aar/xtmd-android-release.aar
-./gradlew :xtmd-android:publish          #    or published, as xtmd:xtmd-android:0.4.0, to build/repo
+./gradlew assembleRelease              # 2. the AARs: <module>/build/outputs/aar/, of the three modules
+./gradlew publish                      #    or published, as xtmd:xtmd-android:0.4.0 and what it needs, to build/repo
 ./gradlew :sample:assembleDebug         # 3. the APK: sample/build/outputs/apk/debug/sample-debug.apk
-./gradlew :xtmd-android:testDebugUnitTest   # the unit tests (Robolectric)
+./gradlew testDebugUnitTest               # the unit tests (Robolectric)
 ```
 
 The library's build stops with a message when `native/` is missing (step 1). The sample builds its pages' IR with

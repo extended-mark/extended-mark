@@ -97,6 +97,7 @@ import kotlinx.coroutines.withContext
 import xtmd.android.FILLED
 import xtmd.android.GLYPHS
 import xtmd.android.Props
+import xtmd.android.SliderEnds
 import xtmd.android.V
 import xtmd.android.WidgetContext
 import xtmd.android.color
@@ -318,30 +319,9 @@ fun XtmdField(p: Props, ctx: WidgetContext) {
 
 // ---- slider
 
-/** A slider's ends and step, exactly. */
-data class SliderEnds(val low: BigDecimal, val high: BigDecimal, val step: BigDecimal) {
-    /** The number on the slider's grid nearest a value, inside its ends, worked out exactly. */
-    fun snap(x: BigDecimal): BigDecimal {
-        var k = x.subtract(low).divide(step, java.math.MathContext.DECIMAL128).setScale(0, RoundingMode.HALF_UP)
-        if (k.signum() < 0) k = BigDecimal.ZERO
-        var v = low.add(k.multiply(step))
-        if (v > high) v = low.add(high.subtract(low).divide(step, java.math.MathContext.DECIMAL128).setScale(0, RoundingMode.FLOOR).multiply(step))
-        return BigDecimal(V.show(v))
-    }
-
-    fun has(x: BigDecimal): Boolean = x >= low && x <= high && snap(x).compareTo(x) == 0
-}
-
-fun sliderEnds(ctx: WidgetContext): SliderEnds? = try {
-    val e = ctx.page.native.sliderEnds(ctx.id)
-    SliderEnds(BigDecimal(e.low), BigDecimal(e.high), BigDecimal(e.step))
-} catch (_: Exception) {
-    null
-}
-
 @Composable
 fun XtmdSlider(p: Props, ctx: WidgetContext) {
-    val ends = remember(p.node.props) { sliderEnds(ctx) } ?: SliderEnds(BigDecimal.ZERO, BigDecimal.ONE, BigDecimal("0.01"))
+    val ends = remember(p.node.props) { ctx.drawing.host.sliderEnds(ctx.id) } ?: SliderEnds(BigDecimal.ZERO, BigDecimal.ONE, BigDecimal("0.01"))
     val value = p["value"].exact()
     val shown = value?.let(V::show) ?: ""
     val enabled = !p.flag("disabled")

@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import java.math.BigDecimal
 import java.util.TimeZone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -21,6 +22,7 @@ import xtmd.android.ffi.PageInit
 import xtmd.android.ffi.Slot
 import xtmd.android.ffi.Val
 import xtmd.android.ffi.Zone
+import xtmd.android.widgets.registry
 
 /** The reader's own zone, summer time included: what `core/moment.local` gives on a phone. */
 object DeviceZone : Zone {
@@ -58,23 +60,7 @@ private fun json(m: Map<String, Val>): String = m.entries.joinToString(",", "{",
 
 internal fun quote(s: String): String = Val.Text(s).toIrJson().removePrefix("{\"text\":").removeSuffix("}")
 
-/** Work running off the main thread, on every page (pages loading, drags' writes, the planes' layouts). A test
- * waits until there are none: `registerIdlingResource { XtmdWork.idle }`, as the tests do. */
-object XtmdWork {
-    internal val running = java.util.concurrent.atomic.AtomicInteger(0)
-    val idle: Boolean get() = running.get() == 0
-
-    /** Work of a page's off the main thread that isn't this library's (a live engine's
-     * compile): counted while it runs, so a test waits for it. */
-    suspend fun <T> during(block: suspend () -> T): T {
-        running.incrementAndGet()
-        try {
-            return block()
-        } finally {
-            running.decrementAndGet()
-        }
-    }
-}
+private val TRACE = System.getenv("XTMD_ANDROID_TRACE") != null
 
 /** Where a page's time went on the Kotlin side: calls that change it (the runtime's work included),
  * and reading its tree back after a redraw. For measuring; `native.timings()` splits the rest. */
@@ -107,7 +93,7 @@ interface PageWatcher {
  * [setExtern] and [setPage], and reads [markdown], [state] and the extern calls it made.
  * Every change is one transaction in the runtime, checked, and undone when it fails.
  */
-class CompiledPage(val native: NativePage, supplies: Collection<String>?, theme: String? = null) {
+class CompiledPage(val native: NativePage, supplies: Collection<String>?, theme: String? = null) : Host {
     /** The page's theme as the host set it (`LIGHT`, `DARK`), or `null`: the system's mode. */
     var theme: String? by mutableStateOf(theme)
         private set
@@ -143,13 +129,48 @@ class CompiledPage(val native: NativePage, supplies: Collection<String>?, theme:
     /** Every path a composable is drawing now: the checks observe only these. */
     val drawn: Set<String> get() = onScreen.filterValues { it > 0 }.keys
 
-    internal fun entered(path: String) {
-        onScreen[path] = (onScreen[path] ?: 0) + 1
+    // ---- what its widgets do (Host)
+
+    override fun entered(id: String) {
+        onScreen[id] = (onScreen[id] ?: 0) + 1
     }
 
-    internal fun left(path: String) {
-        val n = (onScreen[path] ?: 0) - 1
-        if (n <= 0) onScreen.remove(path) else onScreen[path] = n
+    override fun left(id: String) {
+        val n = (onScreen[id] ?: 0) - 1
+        if (n <= 0) onScreen.remove(id) else onScreen[id] = n
+    }
+
+    override fun drawn(id: String) {
+        stats.draws++
+    }
+
+    override fun event(id: String, name: String, args: List<Val>) {
+        watcher?.event(id, name, args)
+        change { it.event(id, name, args) }
+    }
+
+    override fun write(id: String, input: String, value: Val) {
+        watcher?.write(id, input, value)
+        change { it.write(id, input, value) }
+    }
+
+    /** A widget's write, made off the main thread ([changeAway]): what a drag writes. */
+    override suspend fun writeAway(id: String, input: String, value: Val) {
+        watcher?.write(id, input, value)
+        changeAway { it.write(id, input, value) }
+    }
+
+    override fun sliderEnds(id: String): SliderEnds? = try {
+        val e = native.sliderEnds(id)
+        SliderEnds(BigDecimal(e.low), BigDecimal(e.high), BigDecimal(e.step))
+    } catch (_: Exception) {
+        null
+    }
+
+    override fun shade(id: String, cols: Int, rows: Int): IntArray? = try {
+        native.shade(id, cols.toUInt(), rows.toUInt()).toIntArray()
+    } catch (_: Exception) {
+        null
     }
 
     /** Where this page's time went, for measuring. */
@@ -207,12 +228,6 @@ class CompiledPage(val native: NativePage, supplies: Collection<String>?, theme:
             refresh()
             XtmdWork.running.decrementAndGet()
         }
-    }
-
-    /** A widget's write, made off the main thread ([changeAway]): what a drag writes. */
-    suspend fun writeAway(path: String, input: String, value: Val) {
-        watcher?.write(path, input, value)
-        changeAway { it.write(path, input, value) }
     }
 
     /** Reads the tree again when the page was drawn since: after any call into the page. */

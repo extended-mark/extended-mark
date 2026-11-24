@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds libxtmd_android.so and its Kotlin bindings into xtmd-android/native/ (README.md):
+# Builds libxtmd_android.so and its Kotlin bindings into xtmd-android-runtime/native/ (README.md):
 #
 #   build.sh host       the host's library (linux-x86-64), for Robolectric on the JVM, and the bindings
 #   build.sh android    the library for arm64-v8a, armeabi-v7a and x86_64, with the NDK's clang
@@ -11,7 +11,7 @@
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 rust=$(cd "$here/../../../../../compiler" && pwd)
-out=${XTMD_ANDROID_NATIVE:-$here/../compose/xtmd-android/native}
+out=${XTMD_ANDROID_NATIVE:-$here/../compose/xtmd-android-runtime/native}
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
 export PATH="$HOME/.cargo/bin:$PATH" CARGO_INCREMENTAL=0

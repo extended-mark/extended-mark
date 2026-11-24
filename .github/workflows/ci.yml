@@ -203,7 +203,7 @@ jobs:
         run: |
           set -o pipefail
           for try in 1 2 3; do
-            ./gradlew --no-daemon :xtmd-android:compileDebugUnitTestKotlin :xtmd-android-live:compileDebugUnitTestKotlin :sample:compileDebugUnitTestKotlin 2>&1 | tee "$RUNNER_TEMP/gradle.log" && break
+            ./gradlew --no-daemon :xtmd-android-widgets:compileDebugUnitTestKotlin :xtmd-android:compileDebugUnitTestKotlin :xtmd-android-live:compileDebugUnitTestKotlin :sample:compileDebugUnitTestKotlin 2>&1 | tee "$RUNNER_TEMP/gradle.log" && break
             why=$(grep -E "^e: " "$RUNNER_TEMP/gradle.log" | head -6 | tr '\n' ' ' | cut -c1-500)
             if [ -n "$why" ]; then echo "::error::The Kotlin doesn't compile: $why"; exit 1; fi
             why=$(tail -n 8 "$RUNNER_TEMP/gradle.log" | tr '\n' ' ' | cut -c1-500)

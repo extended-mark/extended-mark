@@ -469,12 +469,7 @@ fun XtmdShade(p: Props, ctx: WidgetContext) {
             val scale = minOf(1.0, sqrt(MAX_SHADE_PIXELS / (wPx.toDouble() * hPx)))
             val cols = maxOf(1, (wPx * scale).roundToInt())
             val rows = maxOf(1, (hPx * scale).roundToInt())
-            try {
-                val px = ctx.page.native.shade(ctx.id, cols.toUInt(), rows.toUInt())
-                Bitmap.createBitmap(px.toIntArray(), cols, rows, Bitmap.Config.ARGB_8888).asImageBitmap()
-            } catch (_: Exception) {
-                null
-            }
+            ctx.drawing.host.shade(ctx.id, cols, rows)?.let { px -> Bitmap.createBitmap(px, cols, rows, Bitmap.Config.ARGB_8888).asImageBitmap() }
         }
     }
     Box(Modifier.fillMaxSize()) {

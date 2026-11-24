@@ -95,8 +95,7 @@ function places(repo) {
 
   // the Android example, the schemas' examples, the snapshots' release and the docs that show the version
   const android = join(repo, "engines", "examples", "misc", "android", "compose");
-  pattern(join(android, "xtmd-android", "build.gradle.kts"), /(\bversion = ")([^"]+)(")/g);
-  pattern(join(android, "xtmd-android-live", "build.gradle.kts"), /(\bversion = ")([^"]+)(")/g);
+  for (const m of ["xtmd-android-runtime", "xtmd-android-widgets", "xtmd-android", "xtmd-android-live"]) pattern(join(android, m, "build.gradle.kts"), /(\bversion = ")([^"]+)(")/g);
   pattern(join(android, "sample", "build.gradle.kts"), /(\bversionName = ")([^"]+)(")/g);
   pattern(join(android, "README.md"), /(xtmd:xtmd-android:)(\d+\.\d+\.\d+)()/g);
   pattern(join(android, "xtmd-android", "src", "main", "kotlin", "xtmd", "android", "XtmdDoc.kt"), /(const val RELEASE = ")([^"]+)(")/g);

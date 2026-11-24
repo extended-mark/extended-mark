@@ -22,7 +22,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.4.0"
-        // the processors xtmd-android's native runtime is built for (../xtmd/build.sh android)
+        // the processors xtmd-android-runtime is built for (../xtmd/build.sh android)
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
     compileOptions {
@@ -50,7 +50,7 @@ dependencies {
 }
 
 tasks.withType<Test>().configureEach {
-    systemProperty("jna.library.path", rootProject.file("xtmd-android/native/host/linux-x86-64").absolutePath)
+    systemProperty("jna.library.path", rootProject.file("xtmd-android-runtime/native/host/linux-x86-64").absolutePath)
     maxHeapSize = "2g"
     // RenderTest draws both pages as PNGs in build/render, or where `-Pxtmd.render=<folder>` says (README: Looking at it)
     (project.findProperty("xtmd.render") as String?)?.let { systemProperty("xtmd.render", file(it).absolutePath) }

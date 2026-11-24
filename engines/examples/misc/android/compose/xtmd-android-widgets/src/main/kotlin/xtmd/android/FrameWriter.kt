@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
  * A drag's writes: at most one a frame, and at most one in flight. Each pointer move replaces the
  * write waiting, so only the latest position is written: the first after a frame, each next one as
  * soon as the write before it is done. The write itself runs
- * off the main thread ([CompiledPage.writeAway]), so a write slower than a frame (a budget phone's
+ * off the main thread ([Host.writeAway]), so a write slower than a frame (a budget phone's
  * redraw) never holds the frames up, and moves never pile up behind it. The widget shows the drag
  * moving meanwhile on its own. [finish] runs once everything waiting has been written: a drag
  * that ends always writes where it ended.
