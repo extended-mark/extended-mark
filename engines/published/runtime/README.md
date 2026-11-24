@@ -19,7 +19,7 @@ page.write(id, "value", { num: "7" });            // checked: done, or refused i
 |---|---|
 | `tree()`, `node(id)`, `onChange(f)` | The page now, as plain JSON, and what changed. A node nothing changed in is the same object. `apply(tree, changes)` makes the next tree from the last; `everyNode(nodes)` and `nodesIn(input)` walk one. |
 | `event(id, name, args?)`, `write(id, input, value)`, `call(id, input, args)` | What the reader and the widgets do. |
-| `set(fields)`, `state()`, `data()`, `restoreOwn(own)` | `$state`, and everything the page holds. |
+| `set(fields)`, `state()`, `data()`, `restore(data)`, `restoreOwn(own)` | `$state`, and everything the page holds. `new Page(ir, { data })` starts from it, drawn once. |
 | `expose(channel, name, args?)`, `setExtern(channel, values)`, `setPage(values)`, `setSupplies(f)`, `given()` | What the host gives. |
 | `markdown()`, `blocks()`, `token(input)` | The page's Markdown, and what a token stands for. |
 | `lacking()`, `missing()`, `takeCalls()`, `takeOutcome()`, `takeWarnings()`, `errors` | What nobody gives yet, and what happened. |

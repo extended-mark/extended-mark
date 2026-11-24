@@ -13,7 +13,7 @@ use std::path::Path;
 
 use egui::Ui;
 use xtmd_runtime::ir::{self, Expr};
-use xtmd_runtime::{Broken, Call, Measure, Page, PageOptions, PageValues, Value, ValueFn};
+use xtmd_runtime::{Broken, Call, Measure, Page, PageData, PageOptions, PageValues, Value, ValueFn};
 use serde::{Deserialize, Serialize};
 
 use crate::{fns, XtmdPage, Registry};
@@ -165,7 +165,7 @@ impl XtmdDoc {
     pub fn new(file: ir::File, mut opts: DocOptions) -> Result<XtmdDoc, DocError> {
         let hash = hash(&serde_json::to_string(&file).unwrap_or_default());
         let module = file.ir.module.clone();
-        let mut page = start(file, &mut opts)?;
+        let mut page = start(file, &mut opts, &hash)?;
         let o = page.take_outcome();
         let errors = o.refused.into_iter().map(DocError::Refused).chain(o.failures.into_iter().map(DocError::Failed)).collect();
         let mut view = XtmdPage::new(page);
@@ -177,11 +177,7 @@ impl XtmdDoc {
         }
         view.set_follow_theme(!opts.fixed_theme);
         let shown = view.page().observe_state();
-        let mut doc = XtmdDoc { view, module, hash, shown, given: None, errors };
-        if let Some(snap) = opts.snapshot.take() {
-            doc.restore(&snap);
-        }
-        Ok(doc)
+        Ok(XtmdDoc { view, module, hash, shown, given: None, errors })
     }
 
     /// A document from the IR file `xtmd build` wrote, as JSON.
@@ -212,7 +208,7 @@ impl XtmdDoc {
         }
         self.hash = now;
         self.module = file.ir.module.clone();
-        let mut page = start(file, &mut DocOptions { externs, state: Some(carried), ..DocOptions::default() })?;
+        let mut page = start(file, &mut DocOptions { externs, state: Some(carried), ..DocOptions::default() }, &self.hash)?;
         // what no longer fits isn't the host's write: it starts from its default, unsaid; what failed is
         // told either way
         self.errors.extend(page.take_outcome().failures.into_iter().map(DocError::Failed));
@@ -299,22 +295,27 @@ impl XtmdDoc {
         if snap.xtmd != RELEASE {
             return Restored { restored: RestoredHow::None, dropped: Vec::new(), why: Some(format!("a snapshot this xtmd ({}) can't read", RELEASE)) };
         }
-        if let Err(e) = self.set(snap.state.clone()) {
-            let dropped = match &e {
-                DocError::Refused(b) => vec![b.site.clone().or_else(|| b.rule.clone()).unwrap_or_else(|| "$state".into())],
-                _ => vec!["$state".into()],
-            };
+        let data = data_of(snap, &self.hash);
+        let page = self.view.page_mut();
+        let left = match page.restore(&data) {
+            Ok(left) => left,
+            Err(f) => return Restored { restored: RestoredHow::None, dropped: vec!["$state".into()], why: Some(f.message) },
+        };
+        // a widget that failed as the page redrew is told with the next frame
+        let o = page.take_outcome();
+        self.errors.extend(o.failures.into_iter().map(DocError::Failed));
+        let Some(left) = left else {
+            let first = o.refused.into_iter().next().unwrap_or(Broken { rule: None, code: None, site: None });
+            let dropped = vec![first.site.clone().or_else(|| first.rule.clone()).unwrap_or_else(|| "$state".into())];
+            let e = DocError::Refused(first);
             let why = Some(e.to_string());
             self.errors.push(e);
             return Restored { restored: RestoredHow::None, dropped, why };
-        }
+        };
         if snap.ir != self.hash {
             return Restored { restored: RestoredHow::State, dropped: vec!["own".into()], why: None };
         }
-        match self.view.page_mut().restore_own(&snap.own) {
-            Ok(left) => Restored { restored: RestoredHow::All, dropped: left, why: None },
-            Err(f) => Restored { restored: RestoredHow::State, dropped: vec!["own".into()], why: Some(f.message) },
-        }
+        Restored { restored: RestoredHow::All, dropped: left, why: None }
     }
 
     /// The running page.
@@ -355,11 +356,17 @@ impl XtmdDoc {
 
 /// A page from its IR: egui's value fns with the host's over them, and the externs by their full
 /// names.
-fn start(file: ir::File, opts: &mut DocOptions) -> Result<Page, DocError> {
+/// A snapshot's data for a page of the IR `hash`: widgets' own variables only for the IR it was taken from.
+fn data_of(snap: &Snapshot, hash: &str) -> PageData {
+    PageData { state: snap.state.clone().into_iter().collect(), own: if snap.ir == hash { snap.own.clone() } else { BTreeMap::new() } }
+}
+
+fn start(file: ir::File, opts: &mut DocOptions, hash: &str) -> Result<Page, DocError> {
     let module = file.ir.module.clone();
     let mut fns = fns::egui_fns();
     fns.extend(opts.fns.drain());
     let externs = opts.externs.iter().map(|(c, values)| (channel(&module, c), values.iter().map(|(k, x)| (k.clone(), x.clone())).collect())).collect();
     let state = opts.state.take().unwrap_or_default().into_iter().collect();
-    Page::new(file, PageOptions { page: opts.page, state, externs, fns, ..PageOptions::default() }).map_err(|f| DocError::Load(format!("the page couldn't start: {}", f.message)))
+    let data = opts.snapshot.take().filter(|s| s.xtmd == RELEASE).map(|s| data_of(&s, hash));
+    Page::new(file, PageOptions { page: opts.page, state, data, externs, fns, ..PageOptions::default() }).map_err(|f| DocError::Load(format!("the page couldn't start: {}", f.message)))
 }

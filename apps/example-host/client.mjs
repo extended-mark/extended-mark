@@ -7,8 +7,7 @@ import { nodes, shape, supplies } from "./draw.mjs";
 const read = (id) => JSON.parse(document.getElementById(id).textContent);
 const root = document.getElementById("page");
 const data = read("data");
-const page = new Page(read("ir"), { externs: { "doc/clock": { today: { text: "Tuesday" } } }, supplies, state: data.state });
-page.restoreOwn(data.own ?? {});
+const page = new Page(read("ir"), { externs: { "doc/clock": { today: { text: "Tuesday" } } }, supplies, data });
 
 /** The elements by their nodes' ids. */
 const byId = new Map([...root.querySelectorAll("[data-id]")].map((el) => [el.dataset.id, el]));

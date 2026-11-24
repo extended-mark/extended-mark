@@ -40,6 +40,13 @@ pub struct PageValues {
     pub theme: Option<PageTheme>,
 }
 
+/// The page's data: `$state`, and every widget's own variables by the place it is drawn at.
+#[derive(Clone, Debug, Default)]
+pub struct PageData {
+    pub state: Vec<(String, Expr)>,
+    pub own: BTreeMap<String, BTreeMap<String, Expr>>,
+}
+
 /// How a page is mounted: what the host and the engine give it.
 #[derive(Clone)]
 pub struct PageOptions {
@@ -47,6 +54,9 @@ pub struct PageOptions {
     /// `$state`'s values, in the IR's form, over its starting ones: checked as a host's write is, and what
     /// doesn't fit is in the outcome and keeps its starting value.
     pub state: Vec<(String, Expr)>,
+    /// The page's data to start from: `$state` as one checked write, refused whole, and then widgets' own
+    /// variables, each where it fits. The page is drawn once, with them.
+    pub data: Option<PageData>,
     /// Each channel's values, in the IR's form: `("doc/scores", [("unit", …)])`.
     pub externs: Vec<(String, Vec<(String, Expr)>)>,
     /// The value fns the engine supplies, by full name.
@@ -61,7 +71,7 @@ pub struct PageOptions {
 
 impl Default for PageOptions {
     fn default() -> PageOptions {
-        PageOptions { page: PageValues::default(), state: Vec::new(), externs: Vec::new(), fns: HashMap::new(), supplies: None, memo: true }
+        PageOptions { page: PageValues::default(), state: Vec::new(), data: None, externs: Vec::new(), fns: HashMap::new(), supplies: None, memo: true }
     }
 }
 
@@ -524,6 +534,8 @@ pub(crate) struct World {
     own_seen: HashSet<String>,
     /// Who has been drawn this redraw: content placed twice is two widgets.
     claimed: HashSet<String>,
+    /// Own variables to put back as the page is drawn, by place: what is left after had no place.
+    put_back: BTreeMap<String, BTreeMap<String, Expr>>,
     /// `$state`, in the order its values were given.
     state: Vec<(String, Value)>,
     externs: HashMap<String, Value>,
@@ -1263,6 +1275,9 @@ impl Rt {
             }
         }
         // what it wrote to its own `mut` inputs stands until the caller gives them a variable
+        for (n, v) in self.back(m, &path, |n| if written.contains_key(n) { None } else { w.as_ref()?.inputs.iter().find(|f| f.name == n && f.mutable).map(|f| f.ty.clone()) })? {
+            self.w().own.entry(key.clone()).or_default().insert(n, v);
+        }
         {
             let mut world = self.w();
             world.track(|| format!("o:{}", key));
@@ -1292,6 +1307,79 @@ impl Rt {
         self.draw_inputs(m, w.as_deref(), &mut props, &mut inside, &path, &key)?;
         let events = events.iter().map(|(e, h)| (e.clone(), Handle { handler: h.clone(), env: env.clone() })).collect();
         Ok(vec![Drawn::new(DrawnNode { path, id: key, widget: name.to_string(), props, slots: drawn_slots, events, writes: written, levels: levels.to_vec(), failed: None, held: inside })])
+    }
+
+    /// Whether a value has a type's shape. The host's values come from outside, so their type is
+    /// checked before their contract: the compiler has proved only the page's own.
+    fn of_type(&self, v: &Value, t: &ir::Type, depth: u32) -> bool {
+        let p = &self.s.program;
+        let mut ty = t;
+        let mut guard = 0;
+        while let Some(next) = p.aliases.get(&ty.name) {
+            if guard >= 16 {
+                break;
+            }
+            ty = next;
+            guard += 1;
+        }
+        let arg = ty.args.first();
+        if depth > 64 {
+            return false;
+        }
+        match ty.name.as_str() {
+            "core/number" | "core/int" => return matches!(v, Value::Num(_)),
+            "core/text" => return matches!(v, Value::Text(_)),
+            "core/bool" => return matches!(v, Value::Bool(_)),
+            "core/duration" => return matches!(v, Value::Duration(_)),
+            "core/list" => {
+                return match v {
+                    Value::List(l) => arg.map_or(true, |a| l.items.iter().all(|i| self.of_type(&i.value, a, depth + 1))),
+                    _ => false,
+                }
+            }
+            "core/opt" => {
+                return match v {
+                    Value::Opt(None) => true,
+                    Value::Opt(Some(x)) => arg.map_or(true, |a| self.of_type(x, a, depth + 1)),
+                    _ => false,
+                }
+            }
+            "core/range" => return matches!(v, Value::Range(_)),
+            _ => {}
+        }
+        if let Some(rec) = p.records.get(&ty.name) {
+            let Value::Record(r) = v else { return false };
+            if *r.ty != *ty.name {
+                return false;
+            }
+            return rec.fields.iter().all(|f| match r.get(&f.name) {
+                Some(x) => self.of_type(x, &f.ty, depth + 1),
+                None => false,
+            });
+        }
+        if p.enums.contains_key(&ty.name) || p.tokens.contains_key(&ty.name) {
+            return matches!(v, Value::Case(c) if *c.ty == *ty.name);
+        }
+        // a type parameter, or a fn or view, which the host doesn't write
+        true
+    }
+
+    /// What is put back at a place, as it is drawn: each variable that is there and whose value fits it.
+    fn back(&self, m: &mut Machine, path: &str, ty: impl Fn(&str) -> Option<ir::Type>) -> R<Vec<(String, Value)>> {
+        let Some(vars) = self.w.borrow().put_back.get(path).cloned() else { return Ok(Vec::new()) };
+        let mut out = Vec::new();
+        for (name, x) in vars {
+            let Some(t) = ty(&name) else { continue };
+            let Ok(v) = Machine::new(&self.s.program, Box::new(Constants)).eval(&x) else { continue };
+            if !self.of_type(&v, &t, 0) || !m.fits(&v, &t)? {
+                continue;
+            }
+            if let Some(vars) = self.w().put_back.get_mut(path) {
+                vars.remove(&name);
+            }
+            out.push((name, v));
+        }
+        Ok(out)
     }
 
     /// The calls an input holds, drawn: a rich_text's and a view's, wherever in its value they are.
@@ -1544,6 +1632,9 @@ impl Rt {
                 self.with_instance(id, |i| i.cells.insert(c.name.clone(), v));
             }
         }
+        for (n, v) in self.back(m, path, |n| t.cells.iter().find(|c| c.name == n).map(|c| c.ty.clone()))? {
+            self.with_instance(id, |i| i.cells.insert(n, v));
+        }
         self.check_rules(m, &t.name, &own, path)?;
         Ok(own)
     }
@@ -1677,6 +1768,8 @@ pub struct Page {
     pub(crate) held_layout: Option<u64>,
     /// The fns a host calls.
     held_fns: crate::host::HeldFns,
+    /// What of the data it started from didn't go back.
+    left: Option<Vec<String>>,
 }
 
 /// The IR this runtime runs: a whole number of its own, apart from its release.
@@ -1805,6 +1898,7 @@ impl Page {
             started: HashSet::new(),
             held_layout: None,
             held_fns: Default::default(),
+            left: None,
         };
         // the page's values, then $state's starting values, then what the host gives
         let s = page.rt.s.clone();
@@ -1832,7 +1926,10 @@ impl Page {
         }
         page.apply_page(opts.page);
         page.start_from(&opts.state)?;
-        page.redraw()?;
+        match &opts.data {
+            Some(d) if page.take_state(&d.state)? => page.left = Some(page.draw_with(&d.own)?),
+            _ => page.redraw()?,
+        }
         Ok(page)
     }
 
@@ -2015,40 +2112,53 @@ impl Page {
     pub fn restore_own(&mut self, values: &BTreeMap<String, BTreeMap<String, Expr>>) -> R<Vec<String>> {
         self.changes += 1;
         self.reset_steps();
-        let mut left = Vec::new();
-        for (path, vars) in values {
-            let node = self.find(path).cloned();
-            let id = self.rt.w.borrow().at_path.get(path).copied();
-            for (name, x) in vars {
-                let Ok(v) = self.value(x) else {
-                    left.push(format!("{}.{}", path, name));
-                    continue;
-                };
-                let cell = id.and_then(|id| self.rt.w.borrow().instances.get(&id).and_then(|i| i.template.cells.iter().find(|c| c.name == *name).map(|c| c.ty.clone())));
-                if let (Some(id), Some(ty)) = (id, cell) {
-                    if self.with_machine(|_, m| m.fits(&v, &ty))? {
-                        let mut w = self.rt.w();
-                        if let Some(i) = w.instances.get_mut(&id) {
-                            i.cells.insert(name.clone(), v);
-                        }
-                        w.bump(format!("c:{}:{}", id, name));
-                        continue;
-                    }
+        self.draw_with(values)
+    }
+
+    /// The page's data put back, as one change: `$state` as one checked write, then widgets' own
+    /// variables as [`Page::restore_own`] puts them back. `None`, and nothing is, when `$state` is refused.
+    pub fn restore(&mut self, data: &PageData) -> R<Option<Vec<String>>> {
+        self.changes += 1;
+        self.reset_steps();
+        if !self.take_state(&data.state)? {
+            return Ok(None);
+        }
+        Ok(Some(self.draw_with(&data.own)?))
+    }
+
+    /// What of the data it started from didn't go back, as `place.name`; `None` when it started from none,
+    /// or its `$state` was refused.
+    pub fn left(&self) -> Option<&[String]> {
+        self.left.as_deref()
+    }
+
+    /// `$state` written from the IR's form, whole or not at all.
+    fn take_state(&mut self, given: &[(String, Expr)]) -> R<bool> {
+        let mut values = Vec::new();
+        for (k, x) in given {
+            match self.constant(x) {
+                Ok(v) => values.push((k.clone(), v)),
+                Err(_) => {
+                    self.rt.w().outcome.refused.push(broken_code("contracts.outside", &format!("$state.{}", k)));
+                    return Ok(false);
                 }
-                let input = node.as_ref().filter(|n| !n.writes.contains_key(name)).and_then(|n| self.rt.s.extern_widgets.get(&n.widget).and_then(|w| w.inputs.iter().find(|f| f.name == *name && f.mutable)).map(|f| (n.id.clone(), f.ty.clone())));
-                if let Some((key, ty)) = input {
-                    if self.with_machine(|_, m| m.fits(&v, &ty))? {
-                        let mut w = self.rt.w();
-                        w.own.entry(key.clone()).or_default().insert(name.clone(), v);
-                        w.bump(format!("o:{}", key));
-                        continue;
-                    }
-                }
-                left.push(format!("{}.{}", path, name));
             }
         }
-        self.redraw()?;
-        Ok(left)
+        self.write_state(values)
+    }
+
+    /// The page drawn with widgets' own variables at their places: what had none, as `place.name`.
+    fn draw_with(&mut self, own: &BTreeMap<String, BTreeMap<String, Expr>>) -> R<Vec<String>> {
+        {
+            let mut w = self.rt.w();
+            w.put_back = own.clone();
+            // every memo read the old values
+            w.epoch += 1;
+        }
+        let drawn = self.redraw();
+        let back = std::mem::take(&mut self.rt.w().put_back);
+        drawn?;
+        Ok(back.iter().flat_map(|(path, vars)| vars.keys().map(move |n| format!("{}.{}", path, n))).collect())
     }
 
     /// One of `$state`'s values.
@@ -2148,11 +2258,11 @@ impl Page {
         match r {
             Ok(None) => {}
             Ok(Some(Refused::Rule(rule))) => {
-                self.restore(snap);
+                self.undo(snap);
                 self.rt.w().outcome.refused.push(broken_rule(&rule));
             }
             Ok(Some(Refused::Contract)) | Err(_) => {
-                self.restore(snap);
+                self.undo(snap);
                 self.rt.w().outcome.refused.push(broken_code("contracts.outside", id));
             }
         }
@@ -2198,7 +2308,7 @@ impl Page {
                 }
             };
             if r.is_err() {
-                self.restore(snap);
+                self.undo(snap);
                 let mut w = self.rt.w();
                 w.own = own_before;
                 w.outcome.refused.push(broken_code("contracts.outside", &id));
@@ -2210,7 +2320,7 @@ impl Page {
             return Ok(false);
         }
         if let Some(rule) = self.with_machine(|rt, m| rt.state_rule_broken(m))? {
-            self.restore(snap);
+            self.undo(snap);
             let mut w = self.rt.w();
             w.own = own_before;
             w.outcome.refused.push(broken_rule(&rule));
@@ -2254,7 +2364,7 @@ impl Page {
                 None => false,
             };
             if !ok {
-                self.restore(snap);
+                self.undo(snap);
                 self.rt.w().outcome.refused.push(broken_code("contracts.outside", &format!("$state.{}", k)));
                 return Ok(false);
             }
@@ -2264,7 +2374,7 @@ impl Page {
         }
         let rule = self.with_machine(|rt, m| rt.state_rule_broken(m))?;
         if let Some(rule) = rule {
-            self.restore(snap);
+            self.undo(snap);
             self.rt.w().outcome.refused.push(broken_rule(&rule));
             return Ok(false);
         }
@@ -2499,56 +2609,7 @@ impl Page {
     /// Whether a value has a type's shape. The host's values come from outside, so their type is
     /// checked before their contract: the compiler has proved only the page's own.
     pub fn of_type(&self, v: &Value, t: &ir::Type, depth: u32) -> bool {
-        let p = &self.rt.s.program;
-        let mut ty = t;
-        let mut guard = 0;
-        while let Some(next) = p.aliases.get(&ty.name) {
-            if guard >= 16 {
-                break;
-            }
-            ty = next;
-            guard += 1;
-        }
-        let arg = ty.args.first();
-        if depth > 64 {
-            return false;
-        }
-        match ty.name.as_str() {
-            "core/number" | "core/int" => return matches!(v, Value::Num(_)),
-            "core/text" => return matches!(v, Value::Text(_)),
-            "core/bool" => return matches!(v, Value::Bool(_)),
-            "core/duration" => return matches!(v, Value::Duration(_)),
-            "core/list" => {
-                return match v {
-                    Value::List(l) => arg.map_or(true, |a| l.items.iter().all(|i| self.of_type(&i.value, a, depth + 1))),
-                    _ => false,
-                }
-            }
-            "core/opt" => {
-                return match v {
-                    Value::Opt(None) => true,
-                    Value::Opt(Some(x)) => arg.map_or(true, |a| self.of_type(x, a, depth + 1)),
-                    _ => false,
-                }
-            }
-            "core/range" => return matches!(v, Value::Range(_)),
-            _ => {}
-        }
-        if let Some(rec) = p.records.get(&ty.name) {
-            let Value::Record(r) = v else { return false };
-            if *r.ty != *ty.name {
-                return false;
-            }
-            return rec.fields.iter().all(|f| match r.get(&f.name) {
-                Some(x) => self.of_type(x, &f.ty, depth + 1),
-                None => false,
-            });
-        }
-        if p.enums.contains_key(&ty.name) || p.tokens.contains_key(&ty.name) {
-            return matches!(v, Value::Case(c) if *c.ty == *ty.name);
-        }
-        // a type parameter, or a fn or view, which the host doesn't write
-        true
+        self.rt.of_type(v, t, depth)
     }
 
     fn constant(&self, x: &Expr) -> R<Value> {
@@ -2560,7 +2621,7 @@ impl Page {
         Snapshot { state: w.state.clone(), cells: w.instances.iter().map(|(id, i)| (*id, i.cells.clone())).collect(), calls: w.calls.len() }
     }
 
-    fn restore(&self, s: Snapshot) {
+    fn undo(&self, s: Snapshot) {
         let mut w = self.rt.w();
         // what was drawn from the undone values goes with them
         w.epoch += 1;
@@ -2586,7 +2647,7 @@ impl Page {
             Ok(())
         });
         if let Err(f) = r {
-            self.restore(snap);
+            self.undo(snap);
             let broken = match (&f.kind, &f.rule) {
                 (FailKind::Rule, Some(rule)) => Broken { code: None, rule: Some(rule.clone()), site: Some(site.to_string()) },
                 _ => broken_code(&failure_code(&f), site),

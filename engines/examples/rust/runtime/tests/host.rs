@@ -10,7 +10,7 @@ use common::*;
 use xtmd_runtime::host::apply;
 use xtmd_runtime::ir;
 use xtmd_runtime::tree::{Change, Child, Data, Input, Node, Tree};
-use xtmd_runtime::{Page, PageOptions, PageTheme, PageValues, PageWidth};
+use xtmd_runtime::{Page, PageData, PageOptions, PageTheme, PageValues, PageWidth};
 
 fn every<'a>(nodes: &'a [Node], out: &mut Vec<&'a Node>) {
     fn inside<'a>(x: &'a Input, out: &mut Vec<&'a Node>) {
@@ -127,6 +127,43 @@ fn a_pages_data_takes_out_what_it_holds_and_puts_it_back() {
     assert_eq!(q.restore_own(&own).unwrap(), Vec::<String>::new());
     assert_eq!(q.data().unwrap(), data);
     assert_eq!(text_of(find(&q.host_tree().unwrap(), "core/press", 2), "label"), "b: 1");
+}
+
+#[test]
+fn a_page_that_starts_from_its_data_is_drawn_once_with_it() {
+    let text = "$state {\n    open: bool = false;\n    n: int 0..10 = 0;\n}\n\nwidget counter() {\n    mut k: int 0..5 = 0;\n    view {\n        @press(label = \"\\{k}\", click = fn() { k = (k + 1).clamp(0, 5); });\n    }\n    markdown {\n        x\n    }\n}\n@@@\n@if ($state.open) {\n@counter;\n\n@overlay(label = \"More\") {\n@slot anchor {\n@label(value = \"Open\");\n}\n@slot body {\nIn it.\n}\n}\n}\n\n\\{$state.n}\n";
+    let file = common::build_with(text, &[]);
+    let mut p = Page::new(ir::File { ir: file.clone() }, PageOptions::default()).unwrap();
+    let on = p.value(&ir::Expr::Bool(true)).unwrap();
+    let three = p.value(&num("3")).unwrap();
+    p.set(vec![("open".into(), on), ("n".into(), three)]).unwrap();
+    let t = p.host_tree().unwrap();
+    p.event(&find(&t, "core/press", 0).id.clone(), "click", vec![]).unwrap();
+    let open = p.value(&ir::Expr::Bool(true)).unwrap();
+    p.write(&find(&t, "core/overlay", 0).id.clone(), "open", open).unwrap();
+    let data = PageData { state: p.observe_state().into_iter().collect(), own: p.observe_own() };
+    assert_eq!(data.own.len(), 2);
+    let mut q = Page::new(ir::File { ir: file.clone() }, PageOptions { data: Some(data.clone()), ..PageOptions::default() }).unwrap();
+    assert_eq!((q.revision(), q.left()), (1, Some(&[][..])));
+    assert_eq!((q.observe_state(), q.observe_own()), (p.observe_state(), p.observe_own()));
+    let t = q.host_tree().unwrap();
+    assert_eq!((text_of(find(&t, "core/press", 0), "label"), &find(&t, "core/overlay", 0).inputs["open"]), ("1".to_string(), &Input::Bool(true)));
+    // later, over what it holds: one draw more
+    let mut r = Page::new(ir::File { ir: file.clone() }, PageOptions::default()).unwrap();
+    assert_eq!(r.restore(&data).unwrap(), Some(vec![]));
+    assert_eq!((r.revision(), r.observe_own()), (2, p.observe_own()));
+    // what doesn't fit is left out, and a refused `$state` puts nothing back
+    let mut odd = data.clone();
+    odd.own.insert("s9".into(), [("k".to_string(), num("1"))].into_iter().collect());
+    let counter = odd.own.iter_mut().find(|(_, vs)| vs.contains_key("k")).map(|(p, vs)| (p.clone(), vs)).unwrap();
+    let wrong = format!("{}.k", counter.0);
+    counter.1.insert("k".into(), ir::Expr::Text("many".into()));
+    assert_eq!(Page::new(ir::File { ir: file.clone() }, PageOptions { data: Some(odd), ..PageOptions::default() }).unwrap().left(), Some(&[wrong, "s9.k".to_string()][..]));
+    let bad = PageData { state: vec![("n".into(), num("11"))], own: data.own.clone() };
+    let mut s = Page::new(ir::File { ir: file }, PageOptions { data: Some(bad.clone()), ..PageOptions::default() }).unwrap();
+    assert_eq!((s.left(), s.revision()), (None, 1));
+    assert_eq!(s.take_outcome().refused.len(), 1);
+    assert_eq!(s.restore(&bad).unwrap(), None);
 }
 
 #[test]

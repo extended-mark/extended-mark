@@ -318,7 +318,7 @@ A sentence is nodes too: `words`, the marks around them, and any other widget am
 | `write(id, input, value)` | A widget writing a `mut` input: checked, then done or refused |
 | `call(id, input, arguments)` | A fn input's answer, as a `shade` calls its shader for each pixel. A host that keeps answers asks again when the fn's `version` moves |
 | `set(fields)` | The host's write to `$state`, as one change |
-| `state()`, `data()` | `$state`, and the page's data. `restoreOwn(own)` puts widgets' own variables back |
+| `state()`, `data()` | `$state`, and the page's data. `restore(data)` puts it back as one change, `$state` whole or not at all; `restoreOwn(own)` only widgets' own variables. A page made with `data` starts from it, and is drawn once |
 | `expose(channel, name, arguments)` | Calls a fn the document exposes |
 | `setExtern(channel, values)`, `setPage(values)` | Gives a channel's values, and the page's width and theme |
 | `markdown()` | The page's Markdown, with the values it has now |

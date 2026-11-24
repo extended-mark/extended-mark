@@ -143,6 +143,11 @@ test("a snapshot brings back `$state` and widgets' own variables in the same IR,
   // started from it
   const started = new Doc({ ir: irs.notes, defaultSnapshot: snap });
   assert.ok(started.markdown().includes("Apples: 2"), started.markdown());
+  assert.deepEqual(started.snapshot(), snap);
+  // and another IR's starts $state only, which this page refuses for what doesn't fit
+  const refused = [];
+  assert.deepEqual(new Doc({ ir: irs.v1, externs, defaultSnapshot: { ...snap, state: { n: num(11) } }, onError: (e) => refused.push(e.kind) }).state(), { n: num(0) });
+  assert.deepEqual(refused, ["refused"]);
   // another IR: $state only, as its places may be other widgets
   const other = new Doc({ ir: irs.v1, externs });
   assert.deepEqual(other.restore({ ...snap, state: { n: num(2) } }), { restored: "state", dropped: ["own"] });

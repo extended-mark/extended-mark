@@ -9,7 +9,7 @@ import type { Mounted, Widget } from "@extended-mark/dom";
 import type { Call, Page, PageOptions, PageValues, Input, ir } from "@extended-mark/runtime";
 import { Embed, type PageProps } from "./index.js";
 import { irText, sameIr, type Given, type Ir } from "./page.js";
-import { RELEASE, hash, type DocError, type Restored, type Snapshot } from "./snapshot.js";
+import { RELEASE, dataOf, hash, type DocError, type Restored, type Snapshot } from "./snapshot.js";
 
 /** What a document is given: the same in the plain web as in every framework. */
 export interface DocProps {
@@ -146,15 +146,15 @@ export class XtmdDoc {
     if (!snap || typeof snap !== "object" || snap.xtmd !== RELEASE || typeof snap.state !== "object") {
       return { restored: "none", dropped: [], why: `a snapshot this xtmd (${RELEASE}) can't read` };
     }
-    page.set(snap.state);
+    const same = snap.ir === this.irHash;
+    const left = page.restore(same ? { state: snap.state, own: snap.own ?? {} } : { state: snap.state });
     const o = page.takeOutcome();
     for (const f of o.failures) this.props.onError?.({ kind: "failed", ...f });
-    if (o.refused.length) {
+    if (!left) {
       for (const r of o.refused) this.props.onError?.({ kind: "refused", ...r });
       return { restored: "none", dropped: o.refused.map((r) => r.site ?? r.rule ?? "$state"), why: o.refused[0].rule ?? o.refused[0].code };
     }
-    if (snap.ir !== this.irHash) return { restored: "state", dropped: ["own"] };
-    return { restored: "all", dropped: page.restoreOwn(snap.own ?? {}) };
+    return same ? { restored: "all", dropped: left } : { restored: "state", dropped: ["own"] };
   }
 
   // ---- inside
@@ -199,9 +199,8 @@ export class XtmdDoc {
   private start(irFile: Ir): void {
     this.loadedIr = irFile;
     this.irHash = hash(irText(irFile));
-    this.embed = new Embed(this.root, this.embedProps(this.props, irFile));
-    const snap = this.props.defaultSnapshot;
-    if (snap && !this.props.state) this.restore(snap);
+    const data = this.props.state ? undefined : dataOf(this.props.defaultSnapshot, this.irHash);
+    this.embed = new Embed(this.root, { ...this.embedProps(this.props, irFile), data });
   }
 
   private async fetch(src: string): Promise<void> {

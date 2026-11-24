@@ -5,7 +5,7 @@
 // with its props.
 
 import { Page, type Call, type Outcome, type PageOptions, type PageValues, type Input, type ir } from "@extended-mark/runtime";
-import { RELEASE, channelName, hash, irText, makePage, sameIr, type DocError, type Ir, type Restored, type Snapshot } from "@extended-mark/embed";
+import { RELEASE, channelName, dataOf, hash, irText, makePage, sameIr, type DocError, type Ir, type Restored, type Snapshot } from "@extended-mark/embed";
 
 export { hash, type DocError, type Restored, type Snapshot } from "@extended-mark/embed";
 import { Num, layout as runLayout, type Measure } from "@extended-mark/runtime";
@@ -197,19 +197,15 @@ export class Doc {
     if (!snap || typeof snap !== "object" || snap.xtmd !== RELEASE || typeof snap.state !== "object") {
       return { restored: "none", dropped: [], why: `a snapshot this xtmd (${RELEASE}) can't read` };
     }
-    page.set((snap.state ?? {}));
+    const same = snap.ir === this.irHash;
+    const left = page.restore(same ? { state: snap.state, own: snap.own ?? {} } : { state: snap.state });
     const o = page.takeOutcome();
-    if (o.refused.length) {
+    if (!left) {
       for (const r of o.refused) this.props.onError?.({ kind: "refused", ...r });
       return { restored: "none", dropped: o.refused.map((r) => r.site ?? r.rule ?? "$state"), why: o.refused[0].rule ?? o.refused[0].code };
     }
-    if (snap.ir !== this.irHash) {
-      this.changed();
-      return { restored: "state", dropped: ["own"] };
-    }
-    const left = page.restoreOwn(snap.own ?? {});
     this.changed();
-    return { restored: "all", dropped: left };
+    return same ? { restored: "all", dropped: left } : { restored: "state", dropped: ["own"] };
   }
 
   // ---- inside
@@ -242,13 +238,12 @@ export class Doc {
     const p = this.props;
     // `$state` as the host gives it, checked as a host's write is: what doesn't fit is refused
     const registry = { ...core, ...(p.widgets ?? {}), ...(p.components ?? {}) };
-    const { page, outcome } = makePage(irFile, { page: p.page, externs: p.externs, fns: this.fns, supplies: (w) => Object.hasOwn(registry, w) }, given);
+    const { page, outcome } = makePage(irFile, { page: p.page, externs: p.externs, fns: this.fns, supplies: (w) => Object.hasOwn(registry, w), data: dataOf(snap, this.irHash) }, given);
     this.page = page;
     this.tokens = new Tokens(page);
     this.shown = JSON.stringify(page.state());
     for (const r of outcome.refused) p.onError?.({ kind: "refused", ...r });
     for (const f of outcome.failures) p.onError?.({ kind: "failed", ...f });
-    if (snap) this.restore(snap);
     this.unlisten = page.onChange(() => this.changed());
     this.notify();
   }

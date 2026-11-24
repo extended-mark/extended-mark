@@ -24,8 +24,7 @@ export const given = { externs: { "doc/clock": { today: { text: "Tuesday" } } },
 
 /** The page for an IR, with the data a reader had, as an HTML document that works before any script. */
 export function render(ir, data) {
-  const page = new Page(ir, { ...given, state: data?.state });
-  if (data?.own) page.restoreOwn(data.own);
+  const page = new Page(ir, { ...given, data });
   const json = (x) => JSON.stringify(x).replace(/</g, "\\u003c");
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>Tasks</title><style>:root{--muted:#6b7280;font-family:system-ui}body{margin:2rem auto;max-width:40rem}.row{display:flex;gap:.5rem;align-items:center}.column{display:flex;flex-direction:column;gap:.5rem}</style></head>

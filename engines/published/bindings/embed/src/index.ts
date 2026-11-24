@@ -9,7 +9,7 @@ import { mount, type MountOptions, type Mounted, type Widget } from "@extended-m
 import { channelName, channelsOf, empty, makePage, moduleOf, sameIr, type Given, type Ir } from "./page.js";
 
 export { channelName, irText, makePage, sameIr, stateFields, type Given, type Ir } from "./page.js";
-export { RELEASE, hash, type DocError, type Restored, type Snapshot } from "./snapshot.js";
+export { RELEASE, dataOf, hash, type DocError, type Restored, type Snapshot } from "./snapshot.js";
 export { XtmdDoc, type DocProps } from "./doc.js";
 
 /** What every binding takes: the page, what the host gives it, and what the host wants to hear. */
@@ -19,6 +19,9 @@ export interface PageProps {
   /** `$state` to start from, in the IR's form, over its starting values. Read when the page is
    * mounted, and checked as a host's write is: a field that doesn't fit keeps its starting value. */
   state?: Record<string, Input>;
+  /** The page's data to start from, as its `data()` gave it: drawn once, with it. A page that takes over
+   * from this one starts from its `$state`. */
+  data?: PageOptions["data"];
   /** The page's own values: its width and theme. A change calls `page.setPage`. */
   page?: PageValues;
   /** Each extern channel's values, in the IR's form, by its name in the document (`tracker`) or
@@ -180,7 +183,7 @@ export class Embed implements Handle {
   private start(given: Record<string, Input> | undefined, first: boolean): void {
     const p = this.props;
     this.stop();
-    const { page, outcome } = makePage(p.ir, { page: p.page, externs: this.channels, fns: this.fns }, given, first);
+    const { page, outcome } = makePage(p.ir, { page: p.page, externs: this.channels, fns: this.fns, ...(first ? { data: p.data } : {}) }, given, first);
     this.held.outcome.refused.push(...outcome.refused);
     this.held.outcome.failures.push(...outcome.failures);
     // whatever was in the element (a server's pre-rendered Markdown) gives way to the page

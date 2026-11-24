@@ -22,6 +22,9 @@ export interface CoreOptions {
   /** `$state`'s values, in the IR's form, over its starting ones: checked as a host's write is, and what
    * doesn't fit is in the outcome and keeps its starting value. */
   state?: Record<string, ir.Expr>;
+  /** The page's data to start from, as the host's `data()` gave it: `$state` as one checked write, refused whole, and
+   * then widgets' own variables, each where it fits. The page is drawn once, with them. */
+  data?: { state?: Record<string, ir.Expr>; own?: Record<string, Record<string, ir.Expr>> };
   /** Each channel's values, in the IR's form. */
   externs?: Record<string, Record<string, ir.Expr>>;
   /** The value fns the engine supplies, by full name. */
@@ -210,6 +213,11 @@ export class Core {
   /** How many changes came from outside the layout: the reader's, the host's, the page's
    * values. A layout that didn't settle is held until the next one. */
   changes = 0;
+  /** What of the data it started from didn't go back, as `place.name`; undefined when it started from none,
+   * or its `$state` was refused. */
+  readonly left: string[] | undefined;
+  /** Own variables to put back as the page is drawn, by place: what is left after is what had no place. */
+  private putBack: Map<string, Map<string, ir.Expr>> | undefined;
   /** How many times the page was drawn, for a test that counts them. */
   draws = 0;
   /** Warnings for the host, since it last took them: not failures, the page carries on. */
@@ -275,7 +283,8 @@ export class Core {
     }
     if (opts.page) this.applyPage(opts.page);
     this.startFrom(opts.state ?? {});
-    this.redraw();
+    this.left = opts.data && this.takeState(opts.data.state ?? {}) ? this.drawWith(opts.data.own ?? {}) : undefined;
+    if (!this.left) this.redraw();
   }
 
   /** `$state` as the host gives it, before the page is drawn: checked as a host's write is, all together, or
@@ -660,44 +669,62 @@ export class Core {
   restoreOwn(values: Record<string, Record<string, ir.Expr>>): string[] {
     this.changes++;
     this.machine.resetSteps();
-    const nodes = new Map<string, Drawn>();
-    const walk = (ns: readonly Drawn[]) => {
-      for (const n of ns) {
-        nodes.set(n.path, n);
-        for (const kids of childrenOf(n)) walk(kids);
-      }
-    };
-    walk(this.drawn);
-    const left: string[] = [];
-    for (const [path, vars] of Object.entries(values)) {
-      const inst = this.atPath.get(path);
-      const node = nodes.get(path);
-      for (const [name, x] of Object.entries(vars)) {
-        let v: V;
-        try {
-          v = this.value(x);
-        } catch {
-          left.push(`${path}.${name}`);
-          continue;
-        }
-        const cell = inst?.template.cells?.find((c) => c.name === name);
-        if (inst && cell && this.machine.fits(v, cell.type)) {
-          inst.cells.set(name, v);
-          continue;
-        }
-        const input = node ? this.externWidgets.get(node.widget)?.inputs?.find((f) => f.name === name && f.mut) : undefined;
-        if (node && input && !node.writes.has(name) && this.machine.fits(v, input.type)) {
-          if (!this.own.has(node.key)) this.own.set(node.key, new Map());
-          this.own.get(node.key)!.set(name, v);
-          continue;
-        }
-        left.push(`${path}.${name}`);
+    return this.drawWith(values);
+  }
+
+  /** The page's data put back, as one change: `$state` as one checked write, then widgets' own variables
+   * as `restoreOwn` puts them back. Undefined, and nothing is, when `$state` is refused. */
+  restoreData(data: { state?: Record<string, ir.Expr>; own?: Record<string, Record<string, ir.Expr>> }): string[] | undefined {
+    this.changes++;
+    this.machine.resetSteps();
+    return this.takeState(data.state ?? {}) ? this.drawWith(data.own ?? {}) : undefined;
+  }
+
+  /** `$state` written from the IR's form, whole or not at all. */
+  private takeState(given: Record<string, ir.Expr>): boolean {
+    const values: Record<string, V> = {};
+    for (const [k, x] of Object.entries(given)) {
+      try {
+        values[k] = this.constant(x);
+      } catch {
+        this.outcome.refused.push({ code: "contracts.outside", site: `$state.${k}` });
+        return false;
       }
     }
+    return this.writeState(values);
+  }
+
+  /** The page drawn with widgets' own variables at their places: what had none, as `place.name`. */
+  private drawWith(own: Record<string, Record<string, ir.Expr>>): string[] {
+    const back = new Map(Object.entries(own).map(([path, vars]) => [path, new Map(Object.entries(vars))]));
+    this.putBack = back;
     // every memo read the old values
     this.epoch++;
-    this.redraw();
-    return left;
+    try {
+      this.redraw();
+    } finally {
+      this.putBack = undefined;
+    }
+    return [...back].flatMap(([path, vars]) => [...vars.keys()].map((n) => `${path}.${n}`));
+  }
+
+  /** What is put back at a place, as it is drawn: each variable that is there and whose value fits it. */
+  private back(path: string, type: (name: string) => ir.Type | undefined, put: (name: string, v: V) => void): void {
+    const vars = this.putBack?.get(path);
+    if (!vars) return;
+    for (const [name, x] of [...vars]) {
+      const t = type(name);
+      if (!t) continue;
+      let v: V;
+      try {
+        v = this.value(x);
+      } catch {
+        continue;
+      }
+      if (!this.ofType(v, t) || !this.machine.fits(v, t)) continue;
+      put(name, v);
+      vars.delete(name);
+    }
   }
 
   // ---- inside
@@ -1200,6 +1227,10 @@ export class Core {
     }
     // what it wrote to its own `mut` inputs stands until the caller gives them a variable
     this.track(`o:${key}`);
+    this.back(path, (n) => (writes.has(n) ? undefined : w?.inputs?.find((f) => f.name === n && f.mut)?.type), (n, v) => {
+      if (!this.own.has(key)) this.own.set(key, new Map());
+      this.own.get(key)!.set(n, v);
+    });
     const own = this.own.get(key);
     if (own) {
       this.ownSeen.add(key);
@@ -1419,6 +1450,7 @@ export class Core {
     it.events.clear();
     for (const [e, h] of Object.entries(events)) it.events.set(e, { handler: h, env });
     if (fresh) for (const c of (t.cells ?? [])) it.cells.set(c.name, c.default ? this.evalIn(own, c.default) : none());
+    this.back(path, (n) => t.cells?.find((c) => c.name === n)?.type, (n, v) => it.cells.set(n, v));
     this.checkRules(t.requires ?? [], own, path);
     return own;
   }

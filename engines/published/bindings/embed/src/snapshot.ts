@@ -29,6 +29,13 @@ export interface Restored {
   why?: string;
 }
 
+/** The data a page of this IR starts from, from a snapshot: all of it for the IR it was taken from, `$state`
+ * only for another, and none from one this release can't read. */
+export function dataOf(snap: Snapshot | undefined, ir: string): { state?: Record<string, Input>; own?: Record<string, Record<string, Input>> } | undefined {
+  if (!snap || typeof snap !== "object" || snap.xtmd !== RELEASE || typeof snap.state !== "object") return undefined;
+  return snap.ir === ir ? { state: snap.state, own: snap.own ?? {} } : { state: snap.state };
+}
+
 /** A short, stable hash of a text: FNV-1a, 52 bits, in base 36. */
 export function hash(text: string): string {
   let h1 = 0x811c9dc5;

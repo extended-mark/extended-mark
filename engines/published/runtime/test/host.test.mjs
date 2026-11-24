@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Page, apply, layout, Num } from "../dist/index.js";
-import { HostPage, Page as Core } from "../dist/internal.js";
+import { HostPage, Page as Core, coreOf } from "../dist/internal.js";
 import { xtmdBinary, workdir, repo } from "./xtmd.mjs";
 
 const dir = workdir();
@@ -290,6 +290,91 @@ test("a page's data takes out what it holds and puts it back", () => {
   assert.deepEqual(q.restoreOwn(data.own), []);
   assert.equal(find(q, "core/press", 2).inputs.label.text, "b: 1");
   assert.deepEqual(q.data(), data);
+});
+
+test("a page that starts from its data is drawn once, with it, and one put back later once more", () => {
+  // a widget that is drawn only with the $state put back, and one whose own value is an extern's
+  const text = `$state {
+    open: bool = false;
+    n: int 0..10 = 0;
+}
+
+widget counter() {
+    mut k: int 0..5 = 0;
+    view {
+        @press(label = "\\{k}", click = fn() { k = (k + 1).clamp(0, 5); });
+    }
+    markdown {
+        x
+    }
+}
+@@@
+@if ($state.open) {
+@counter;
+
+@overlay(label = "More") {
+@slot anchor {
+@label(value = "Open");
+}
+@slot body {
+In it.
+}
+}
+}
+
+\\{$state.n}
+`;
+  const built = ir(text);
+  const p = new Page(built);
+  p.set({ open: { bool: true }, n: { num: "3" } });
+  p.event(find(p, "core/press", 0).id, "click");
+  p.write(find(p, "core/overlay", 0).id, "open", { bool: true });
+  const data = JSON.parse(JSON.stringify(p.data()));
+  assert.equal(Object.keys(data.own).length, 2, JSON.stringify(data.own));
+  const draws = (x) => coreOf(x).draws;
+  const q = new Page(built, { data });
+  assert.equal(draws(q), 1);
+  assert.deepEqual(q.left, []);
+  assert.deepEqual(q.data(), data);
+  assert.equal(find(q, "core/press", 0).inputs.label.text, "1");
+  assert.deepEqual(find(q, "core/overlay", 0).inputs.open, { bool: true });
+  assert.equal(q.markdown(), p.markdown());
+  // later, on a page that shows something else: one draw, and its listeners hear it once
+  const r = new Page(built);
+  let heard = 0;
+  r.onChange(() => heard++);
+  assert.deepEqual(r.restore(data), []);
+  assert.deepEqual([draws(r), heard], [2, 1]);
+  assert.deepEqual(r.data(), data);
+  // and again, over what it holds now
+  r.event(find(r, "core/press", 0).id, "click");
+  assert.deepEqual(r.restore(data), []);
+  assert.deepEqual(r.data(), data);
+  // what is drawn now is what is drawn with everything made anew
+  const anew = new Page(built, { data });
+  assert.deepEqual(r.tree().nodes.map((n) => n.widget), anew.tree().nodes.map((n) => n.widget));
+});
+
+test("data that doesn't fit: $state is refused whole, and own variables are left out one by one", () => {
+  const built = ir(TASKS);
+  const p = new Page(built);
+  p.event(find(p, "core/press", 2).id, "click");
+  const data = JSON.parse(JSON.stringify(p.data()));
+  const [place] = Object.keys(data.own).filter((k) => data.own[k].votes.num === "1");
+  const odd = { ...data, own: { ...data.own, [place]: { votes: { text: "many" }, gone: { num: "1" } }, "s9": { k: { num: "1" } } } };
+  const q = new Page(built, { data: odd });
+  assert.deepEqual([...q.left].sort(), [`${place}.gone`, `${place}.votes`, "s9.k"].sort());
+  assert.equal(find(q, "core/press", 2).inputs.label.text, "b: 0");
+  // a $state that doesn't fit: nothing goes back, and it is told
+  const r = new Page(built, { data: { state: { tasks: { text: "none" } }, own: data.own } });
+  assert.equal(r.left, undefined);
+  assert.equal(coreOf(r).draws, 1);
+  assert.deepEqual(r.takeOutcome().refused.map((x) => x.site), ["$state.tasks"]);
+  assert.equal(find(r, "core/press", 2).inputs.label.text, "b: 0");
+  assert.equal(r.restore({ state: { tasks: { text: "none" } }, own: data.own }), undefined);
+  assert.equal(find(r, "core/press", 2).inputs.label.text, "b: 0");
+  // a page that started from no data has none left
+  assert.equal(new Page(built).left, undefined);
 });
 
 test("a change works out only what reads it, whatever else is on the page", () => {

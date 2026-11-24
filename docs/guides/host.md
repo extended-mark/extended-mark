@@ -87,11 +87,11 @@ Nothing else is worked out: a change touches only what reads what changed, whate
 
 ```js
 const saved = page.data();                            // { state, own }: $state, and each widget's own variables
-const again = new Page(ir, { state: saved.state });
-again.restoreOwn(saved.own);
+const again = new Page(ir, { data: saved });           // drawn once, with it
+page.restore(saved);                                  // or put back later, as one change
 ```
 
-`state` goes back into any version of the document, checked. `own` belongs to the IR it was taken from. Tell
+`$state` goes back whole or not at all, into any version of the document, checked. `own` belongs to the IR it was taken from. Tell
 IRs apart by their content, not by which object or file holds them.
 
 A page that moves to a new xtmd may need its IR moved too: `xtmd migrate page.ir.json`, or build it again.

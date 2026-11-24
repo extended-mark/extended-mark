@@ -18,9 +18,12 @@ export interface Call {
 }
 
 /** What a host gives a page as it is mounted. */
-export interface PageOptions extends Omit<CoreOptions, "fns" | "json" | "memo" | "state" | "externs"> {
+export interface PageOptions extends Omit<CoreOptions, "fns" | "json" | "memo" | "state" | "data" | "externs"> {
   /** `$state` to start from, over its starting values. */
   state?: Record<string, Input>;
+  /** The page's data to start from, as `data()` gave it: drawn once, with it. `$state` is one checked write,
+   * refused whole, and widgets' own variables go back where they fit. */
+  data?: Partial<Data>;
   /** Each channel's values, by its full name (`doc/scores`). */
   externs?: Record<string, Record<string, Input>>;
   /** The value fns the host or the engine supplies, by full name (`acme/rate`). */
@@ -172,6 +175,19 @@ export class Page {
    * the page, are left out and returned. `$state` goes back with `set`. */
   restoreOwn(own: NonNullable<Data["own"]>): string[] {
     return this.core.restoreOwn(own as Record<string, Record<string, ir.Expr>>);
+  }
+
+  /** The page's data put back, as one change: `$state` as one checked write, then widgets' own variables.
+   * Gives what of those didn't fit, or whose widget isn't on the page; undefined, and nothing is put
+   * back, when `$state` is refused. */
+  restore(data: Partial<Data>): string[] | undefined {
+    return this.core.restoreData(data as CoreOptions["data"] & object);
+  }
+
+  /** What of the `data` the page started from didn't fit; undefined when it started from none, or its
+   * `$state` was refused. */
+  get left(): string[] | undefined {
+    return this.core.left;
   }
 
   /** The page as Markdown, with the values it has now. */

@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import java.util.TimeZone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import xtmd.android.ffi.DataInit
 import xtmd.android.ffi.AppFns
 import xtmd.android.ffi.ExternCall
 import xtmd.android.ffi.Field
@@ -40,6 +41,8 @@ data class PageOptions(
     val theme: String? = null,
     /** `$state`'s values, over its starting ones. */
     val state: Map<String, Val> = emptyMap(),
+    /** The page's data to start from, as [CompiledPage.stateJson] and [CompiledPage.ownJson] gave it. */
+    val data: DataInit? = null,
     /** Each channel's values: `"doc/scores" to mapOf("unit" to V.text("pts"))`. */
     val externs: Map<String, Map<String, Val>> = emptyMap(),
     val zone: Zone = DeviceZone,
@@ -301,6 +304,10 @@ class CompiledPage(val native: NativePage, supplies: Collection<String>?, theme:
     /** Widgets' own variables put back by place, as one change: the `place.name`s left out come back. */
     fun restoreOwn(ownJson: String): List<String> = change { it.restoreOwnJson(ownJson) }
 
+    /** The page's data put back, as one change: `$state` whole or not at all, then widgets' own variables. The
+     * `place.name`s left out come back; null when `$state` was refused, which the outcome says. */
+    fun restore(data: DataInit): List<String>? = change { it.restore(data) }
+
     /** `$state` written from the IR's form, as one checked change. */
     fun setJson(stateJson: String) = change { it.setJson(stateJson) }
 
@@ -315,6 +322,7 @@ class CompiledPage(val native: NativePage, supplies: Collection<String>?, theme:
                 width = options.width,
                 theme = options.theme,
                 stateJson = options.state.takeIf { it.isNotEmpty() }?.let(::json),
+                data = options.data,
                 externsJson = options.externs.takeIf { it.isNotEmpty() }?.let { m -> m.entries.joinToString(",", "{", "}") { (c, v) -> "${quote(c)}:${json(v)}" } },
                 supplies = supplies.toList(),
             )

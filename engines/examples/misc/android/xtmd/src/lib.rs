@@ -25,7 +25,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use xtmd_ir::ir::{self, Expr, Stmt};
-use xtmd_runtime::{Drawn, Num, Page, PageOptions, PageTheme, PageValues, PageWidth, Value};
+use xtmd_runtime::{Drawn, Num, Page, PageData, PageOptions, PageTheme, PageValues, PageWidth, Value};
 
 pub use convert::{Field, Val};
 
@@ -139,6 +139,24 @@ pub struct Outcome {
     pub failures: Vec<Broken>,
 }
 
+/// A page's data, as [`NativePage::state_json`] and [`NativePage::own_json`] give it.
+#[derive(Clone, Debug, uniffi::Record)]
+pub struct DataInit {
+    pub state_json: String,
+    /// Left out, only `$state` goes back.
+    pub own_json: Option<String>,
+}
+
+impl DataInit {
+    fn read(&self) -> Res<PageData> {
+        let own = match &self.own_json {
+            Some(o) => serde_json::from_str(o).map_err(|e| failed(format!("not widgets' variables: {}", e)))?,
+            None => BTreeMap::new(),
+        };
+        Ok(PageData { state: exprs(&self.state_json)?, own })
+    }
+}
+
 /// How a page starts: what the host tells it, and what the engine draws.
 #[derive(Clone, Debug, Default, uniffi::Record)]
 pub struct PageInit {
@@ -148,6 +166,8 @@ pub struct PageInit {
     pub theme: Option<String>,
     /// `$state`'s values over its starting ones, as the IR writes values: `{"count": {"num": "3"}}`.
     pub state_json: Option<String>,
+    /// The page's data to start from, `$state` and widgets' own variables by place: drawn once, with it.
+    pub data: Option<DataInit>,
     /// Each channel's values: `{"doc/scores": {"unit": {"text": "pts"}}}`.
     pub externs_json: Option<String>,
     /// The extern widgets the engine draws, by full name or as a whole pack as `pack/` and a star; one it doesn't shows its
@@ -409,6 +429,9 @@ impl NativePage {
         if let Some(s) = &init.state_json {
             opts.state = exprs(s)?;
         }
+        if let Some(d) = &init.data {
+            opts.data = Some(d.read()?);
+        }
         if let Some(x) = &init.externs_json {
             let m: BTreeMap<String, BTreeMap<String, Expr>> = serde_json::from_str(x).map_err(|e| failed(format!("not channel values: {}", e)))?;
             opts.externs = m.into_iter().map(|(c, v)| (c, v.into_iter().collect())).collect();
@@ -548,6 +571,13 @@ impl NativePage {
             let own: BTreeMap<String, BTreeMap<String, Expr>> = serde_json::from_str(&own_json).map_err(|e| failed(format!("not widgets' variables: {}", e)))?;
             Ok(i.page.restore_own(&own)?)
         })
+    }
+
+    /// The page's data put back, as one change: `$state` whole or not at all, then widgets' own variables; the
+    /// `place.name`s that didn't fit come back. None when `$state` was refused, which the outcome says.
+    pub fn restore(&self, data: DataInit) -> Res<Option<Vec<String>>> {
+        let data = data.read()?;
+        self.change(|i| Ok(i.page.restore(&data)?))
     }
 
     /// Every failure caught since they were last taken, with its message, for the host's log.

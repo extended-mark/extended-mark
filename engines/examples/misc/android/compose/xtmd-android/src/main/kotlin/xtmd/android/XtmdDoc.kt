@@ -15,6 +15,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import xtmd.android.ffi.Broken
+import xtmd.android.ffi.DataInit
 import xtmd.android.ffi.ExternCall
 import xtmd.android.ffi.Measure
 import xtmd.android.ffi.Val
@@ -45,6 +46,9 @@ sealed interface DocError {
 /** Everything the page holds, as JSON in the IR's form: opaque to the host, which keeps it
  * ([toJson]) and gives it back. */
 data class Snapshot(val xtmd: String, val ir: String, val stateJson: String, val ownJson: String) {
+    /** Its data for a page of the IR `ir`: widgets' own variables only for the one it was taken from. */
+    internal fun data(ir: String) = DataInit(stateJson, ownJson.takeIf { this.ir == ir })
+
     fun toJson(): String = JSONObject().put("xtmd", xtmd).put("ir", ir).put("state", JSONObject(stateJson)).put("own", JSONObject(ownJson)).toString()
 
     companion object {
@@ -116,15 +120,15 @@ class XtmdDocState {
     fun restore(snap: Snapshot): Restored {
         val p = page ?: return Restored(Restored.How.NONE, emptyList(), "the page isn't loaded yet")
         if (snap.xtmd != RELEASE) return Restored(Restored.How.NONE, emptyList(), "a snapshot this xtmd ($RELEASE) can't read")
-        p.setJson(snap.stateJson)
+        val left = p.restore(snap.data(irHash))
         val o = p.takeOutcome()
         for (f in o.failures) told(DocError.Failed(f))
-        if (o.refused.isNotEmpty()) {
+        if (left == null) {
             for (r in o.refused) told(DocError.Refused(r))
             return Restored(Restored.How.NONE, o.refused.map { it.site ?: it.rule ?: "\$state" }, o.refused.first().let { it.rule ?: it.code })
         }
         if (snap.ir != irHash) return Restored(Restored.How.STATE, listOf("own"))
-        return Restored(Restored.How.ALL, p.restoreOwn(snap.ownJson))
+        return Restored(Restored.How.ALL, left)
     }
 }
 
@@ -203,7 +207,10 @@ fun XtmdDoc(
         val before = docState.page
         // the host's fns, read when they are called: always the latest
         val names = latestFns.keys
+        val hash = hash(text)
+        val snap = defaultSnapshot?.takeIf { before == null && state == null && it.xtmd == RELEASE }
         val opts = PageOptions(
+            data = snap?.data(hash),
             width = width,
             theme = theme,
             externs = latestExterns.mapKeys { (c, _) -> channel(c) },
@@ -217,10 +224,12 @@ fun XtmdDoc(
             latestError(DocError.Load("the page couldn't start: ${it.message}"))
             return@LaunchedEffect
         }
-        docState.irHash = hash(text)
-        if (before == null && defaultSnapshot != null && state == null) {
+        docState.irHash = hash
+        if (snap != null) {
+            val o = page.takeOutcome()
+            for (r in o.refused) latestError(DocError.Refused(r))
+            for (f in o.failures) latestError(DocError.Failed(f))
             docState.page = page
-            docState.restore(defaultSnapshot)
         } else {
             // a new IR keeps `$state` where its fields still exist; the host's, controlled, wins
             val given = state ?: before?.state() ?: defaultState
