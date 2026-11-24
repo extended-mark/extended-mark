@@ -18,10 +18,10 @@ use std::sync::Arc;
 use xtmd_eval::interp::{Outer, Place, PlaceRoot, Step, R};
 use xtmd_eval::value::{Case, Closure, Content, ContentOf, List, Record};
 use xtmd_eval::{Binding, Constants, FailKind, Failure, Host, Machine, Num, Program, Row, Value};
-use xtmd_ir::check::{Call, CallCall, Mounted, PageTheme, PageWidth};
+use xtmd_ir::check::{Mounted, PageTheme, PageWidth};
 use xtmd_ir::ir::{self, Expr, Node, Stmt};
 
-pub use xtmd_ir::check::Broken;
+pub use xtmd_ir::told::Broken;
 
 /// The locals around a node: values, or references to places (a `mut for` row's item).
 pub type Bindings = Vec<(Rc<str>, Binding)>;
@@ -181,6 +181,18 @@ impl DrawnNode {
             _ => None,
         }
     }
+}
+
+/// A fn of the host's the page called: `schemas/told.schema.json`, `call`.
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+pub struct Call {
+    pub call: CallCall,
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+pub struct CallCall {
+    pub name: String,
+    pub args: Vec<Expr>,
 }
 
 /// Refused writes and failures since they were last taken.

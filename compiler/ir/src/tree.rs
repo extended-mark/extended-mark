@@ -8,6 +8,9 @@ use std::collections::BTreeMap;
 
 use crate::ir::Empty;
 
+/// The format's version.
+pub const VERSION: i64 = 1;
+
 /// What changed in one node. What isn't here is as it was. A widget that failed, or draws again, is another node to its parent.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -49,17 +52,6 @@ pub struct Contract {
     pub range: Option<Ends>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub step: Option<Input>,
-}
-
-/// The page's data: what a host keeps to put a page back as it was. Plain values only.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Data {
-    /// Each widget's own variables, by the place it is drawn at.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub own: BTreeMap<String, BTreeMap<String, Input>>,
-    /// `$state`, by field.
-    pub state: BTreeMap<String, Input>,
 }
 
 /// Both ends are included; a missing one is open.

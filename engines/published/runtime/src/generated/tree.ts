@@ -1,6 +1,9 @@
 // Written by xtmd-schemagen from schemas/tree.schema.json. Don't edit: change the schema, then run
 // `cargo run -p xtmd-schemagen`.
 
+/** The format's version. */
+export const VERSION = 1;
+
 /** What changed in one node. What isn't here is as it was. A widget that failed, or draws again, is another node to its parent. */
 export interface Change {
   /** The inputs whose widgets are others now, or in another order. */
@@ -25,14 +28,6 @@ export interface Contract {
   only?: Input[];
   range?: Ends;
   step?: Input;
-}
-
-/** The page's data: what a host keeps to put a page back as it was. Plain values only. */
-export interface Data {
-  /** Each widget's own variables, by the place it is drawn at. */
-  own?: { [key: string]: { [key: string]: Input } };
-  /** `$state`, by field. */
-  state: { [key: string]: Input };
 }
 
 /** Both ends are included; a missing one is open. */

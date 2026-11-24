@@ -36,25 +36,29 @@ const page = (text, opts) => new Page(ir(text), opts);
 
 // ---- the schema, as far as it is written
 
-const schema = JSON.parse(readFileSync(join(repo, "schemas/tree.schema.json"), "utf8"));
+const schemas = Object.fromEntries(["tree", "state", "told", "blocks"].map((n) => [n, JSON.parse(readFileSync(join(repo, `schemas/${n}.schema.json`), "utf8")).$defs]));
 
-function fits(v, s, at = "") {
-  if (s.$ref) return fits(v, schema.$defs[s.$ref.split("/").pop()], at);
+function fits(v, s, at = "", home = "tree") {
+  if (s.$ref) {
+    const [file, name] = s.$ref.split("#/$defs/");
+    const to = file ? file.replace(".schema.json", "") : home;
+    return fits(v, schemas[to][name], at, to);
+  }
   const wrong = (what) => `${at || "top"}: ${what}`;
   if (s.oneOf) {
     const key = v && typeof v === "object" ? Object.keys(v)[0] : undefined;
     const way = s.oneOf.find((w) => key in w.properties);
-    return way ? fits(v, way, at) : wrong(`${JSON.stringify(v)} isn't known`);
+    return way ? fits(v, way, at, home) : wrong(`${JSON.stringify(v)} isn't known`);
   }
   const is = { object: (x) => x && typeof x === "object" && !Array.isArray(x), array: Array.isArray, string: (x) => typeof x === "string", boolean: (x) => typeof x === "boolean", integer: Number.isInteger }[s.type];
   if (!is(v)) return wrong(`not a ${s.type}: ${JSON.stringify(v)}`);
-  if (s.type === "array") return v.map((x, k) => fits(x, s.items, `${at}/${k}`)).find(Boolean);
+  if (s.type === "array") return v.map((x, k) => fits(x, s.items, `${at}/${k}`, home)).find(Boolean);
   if (s.type !== "object") return undefined;
   for (const r of s.required ?? []) if (!(r in v)) return wrong(`${r} is missing`);
   for (const [k, x] of Object.entries(v)) {
     const p = s.properties?.[k] ?? (typeof s.additionalProperties === "object" ? s.additionalProperties : undefined);
     if (!p) return wrong(`${k} isn't known`);
-    const e = fits(x, p, `${at}/${k}`);
+    const e = fits(x, p, `${at}/${k}`, home);
     if (e) return e;
   }
   return undefined;
@@ -78,7 +82,7 @@ function every(nodes, out = []) {
 const find = (p, widget, k = 0) => every(p.tree().nodes).filter((n) => n.widget === widget)[k];
 
 function check(p, name) {
-  const e = fits(p.tree(), schema.$defs.tree);
+  const e = fits(p.tree(), schemas.tree.tree);
   assert.equal(e, undefined, `${name}: ${e}`);
   const ids = every(p.tree().nodes).map((n) => n.id);
   assert.equal(new Set(ids).size, ids.length, `${name}: an id twice: ${ids.filter((x, k) => ids.indexOf(x) !== k)}`);
@@ -128,9 +132,10 @@ function act(p, rnd) {
   return acts[Math.floor(rnd() * acts.length)];
 }
 
-test("every case's tree fits its schema, has an id for each node, and changes make the next tree", () => {
+test("every case's tree, state, Markdown blocks and what it tells fit their schemas, has an id for each node, and changes make the next tree", () => {
   let pages = 0;
   let changed = 0;
+  let said = 0;
   for (const [id, x] of cases()) {
     let p;
     try {
@@ -142,7 +147,7 @@ test("every case's tree fits its schema, has an id for each node, and changes ma
     check(p, id);
     let mine = p.tree();
     p.onChange((changes) => {
-      for (const c of changes) assert.equal(fits(c, schema.$defs.change), undefined, id);
+      for (const c of changes) assert.equal(fits(c, schemas.tree.change), undefined, id);
       mine = apply(mine, changes);
       changed += changes.length;
     });
@@ -152,9 +157,13 @@ test("every case's tree fits its schema, has an id for each node, and changes ma
       check(p, id);
       assert.deepEqual(mine, p.tree(), `${id}: after change ${k + 1}`);
     }
-    assert.equal(fits(p.data(), schema.$defs.data), undefined, id);
+    assert.equal(fits(p.data(), schemas.state.data, "", "state"), undefined, id);
+    const told = { calls: p.takeCalls(), ...p.takeOutcome(), warnings: p.takeWarnings() };
+    assert.equal(fits(told, schemas.told.told, "", "told"), undefined, id);
+    said += told.calls.length + told.refused.length + told.failures.length;
+    assert.equal(fits({ blocks: p.blocks() }, schemas.blocks.blocks, "", "blocks"), undefined, id);
   }
-  assert.ok(pages > 50 && changed > 50, `${pages} pages, ${changed} changes`);
+  assert.ok(pages > 50 && changed > 50 && said > 0, `${pages} pages, ${changed} changes, ${said} told`);
 });
 
 const TASKS = `record task {

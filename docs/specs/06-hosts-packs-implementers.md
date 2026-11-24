@@ -288,11 +288,13 @@ A write to `$state`, a reader's through a widget or the host's, is checked again
 
 ### The host's side
 
-A host and an engine share three kinds of JSON, each with a schema (`schemas/`), and nothing else:
+A host and an engine share these kinds of JSON, each with a schema (`schemas/`), and nothing else. Each is a format with a version of its own, a whole number that moves only when what reads one version would read the next wrongly:
 
 - **The IR** (`ir.schema.json`): what the page is. It never changes while the page runs, and a change of `$state` never makes another.
-- **The page's data** (`tree.schema.json`, `data`): `state`, `$state`'s fields, and `own`, each widget's own variables, by the place it is drawn at. It is what a host keeps to put a page back as it was. All of it goes back into the IR it was taken from; into another, only `$state` does, checked as the host's write.
+- **The page's data** (`state.schema.json`): `state`, `$state`'s fields, and `own`, each widget's own variables, by the place it is drawn at. It is what a host keeps to put a page back as it was. All of it goes back into the IR it was taken from; into another, only `$state` does, checked as the host's write.
 - **The drawn tree** (`tree.schema.json`, `tree`): what there is to draw now. It is made from the other two, and never stored.
+- **What the page tells** (`told.schema.json`): the host's fns it called, what was refused or failed, and its warnings.
+- **The page's Markdown as blocks** (`blocks.schema.json`), before it is text.
 
 A host draws any page from the tree with no more than this page, page 5's extern widgets and the schemas.
 

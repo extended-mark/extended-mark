@@ -1,11 +1,16 @@
-//! The IR every engine runs, the tree it gives a host to draw, the compiler's cases and what a runtime
-//! says of a page, as Rust types.
+//! The formats that pass between modules, as Rust types: the IR every engine runs, the tree a host
+//! draws, a page's state, what is done to it, what it tells, its Markdown blocks; and the compiler's
+//! cases.
 //!
 //! The modules are generated from the JSON Schemas in `schemas/`, which are the source:
 //! change a schema, then run `cargo run -p xtmd-schemagen`.
 
+pub mod actions;
+pub mod blocks;
 pub mod check;
 pub mod ir;
+pub mod state;
+pub mod told;
 pub mod tree;
 
 impl ir::Type {

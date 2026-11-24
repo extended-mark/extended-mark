@@ -3,7 +3,8 @@
 // data, to keep and to put back. What it is made on is never part of it.
 
 import type * as ir from "./generated/ir.js";
-import type { Change, Child, Contract, Data, Ends, Input, Node, Tree } from "./generated/tree.js";
+import type { Data } from "./generated/state.js";
+import type { Change, Child, Contract, Ends, Input, Node, Tree } from "./generated/tree.js";
 import { Failure } from "./eval/index.js";
 import { toIr, type Value as V } from "./eval/value.js";
 import { pageBlocks, type Block } from "./markdown.js";

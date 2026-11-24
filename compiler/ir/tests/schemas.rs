@@ -4,7 +4,9 @@ use jsonschema::{Registry, Validator};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
-const IR_ID: &str = "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json";
+const ID: &str = "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/";
+/// The schemas others refer to.
+const FORMATS: [&str; 6] = ["ir", "tree", "state", "actions", "told", "blocks"];
 
 fn repo() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -15,9 +17,12 @@ fn json(path: &Path) -> Value {
 }
 
 fn validator(name: &str) -> Validator {
-    let ir = json(&repo().join("schemas/ir.schema.json"));
     let schema = json(&repo().join("schemas").join(name));
-    let registry = Registry::new().add(IR_ID, ir).unwrap().prepare().unwrap();
+    let mut registry = Registry::new();
+    for f in FORMATS {
+        registry = registry.add(format!("{ID}{f}.schema.json"), json(&repo().join(format!("schemas/{f}.schema.json")))).unwrap();
+    }
+    let registry = registry.prepare().unwrap();
     jsonschema::options()
         .with_registry(&registry)
         .build(&schema)
@@ -128,4 +133,40 @@ fn the_resolved_ir_schema_reads_and_its_examples_fit_it() {
         n += 1;
     }
     assert!(n >= 1);
+}
+
+#[test]
+fn each_format_says_its_version_and_its_name() {
+    let versions = [("tree", xtmd_ir::tree::VERSION), ("state", xtmd_ir::state::VERSION), ("actions", xtmd_ir::actions::VERSION), ("told", xtmd_ir::told::VERSION), ("blocks", xtmd_ir::blocks::VERSION)];
+    for (name, v) in versions {
+        let s = json(&repo().join(format!("schemas/{name}.schema.json")));
+        assert_eq!(s["x-version"], v, "{name}");
+        assert_eq!(s["$id"], format!("{ID}{name}.schema.json"));
+        assert!(s["title"].as_str().unwrap().ends_with(&format!(" {v}")), "{name}: {}", s["title"]);
+    }
+}
+
+#[test]
+fn an_action_is_one_of_the_seven_and_nothing_else() {
+    let v = validator("actions.schema.json");
+    let num = |n: &str| serde_json::json!({"num": n});
+    let right = [
+        serde_json::json!({"event": {"id": "s2", "name": "click"}}),
+        serde_json::json!({"event": {"id": "s2", "name": "moved", "args": [num("1")]}}),
+        serde_json::json!({"write": {"id": "s2", "input": "value", "value": num("1")}}),
+        serde_json::json!({"set": {"fields": {"n": num("1")}}}),
+        serde_json::json!({"expose": {"channel": "doc/quiz", "name": "start"}}),
+        serde_json::json!({"extern": {"channel": "doc/quiz", "values": {"best": num("1")}}}),
+        serde_json::json!({"page": {"values": {"width": {"case": {"enum": "core/width", "name": "NARROW"}}}}}),
+        serde_json::json!({"restore": {"data": {"state": {"n": num("1")}, "own": {"s2": {"k": num("2")}}}}}),
+    ];
+    for a in &right {
+        assert_eq!(errors(&v, a), Vec::<String>::new(), "{a}");
+        let typed: xtmd_ir::actions::Action = serde_json::from_value(a.clone()).unwrap_or_else(|e| panic!("{a}: {e}"));
+        assert_eq!(serde_json::to_value(&typed).unwrap(), *a);
+    }
+    for a in [serde_json::json!({"event": {"name": "click"}}), serde_json::json!({"write": {"id": "s2", "input": "value", "value": 1}}), serde_json::json!({"erase": {}}), serde_json::json!({"restore": {"data": {}}})] {
+        assert!(!errors(&v, &a).is_empty(), "{a}");
+        assert!(serde_json::from_value::<xtmd_ir::actions::Action>(a.clone()).is_err(), "{a}");
+    }
 }

@@ -6,7 +6,8 @@ use std::collections::{BTreeMap, HashMap};
 
 use xtmd_eval::{Failure, Value};
 use xtmd_ir::ir;
-use xtmd_ir::tree::{Change, Child, Contract, Data, Ends, Input, InputCase, InputFn, InputRange, InputRecord, InputTokval, Node, Tree};
+use xtmd_ir::state::Data;
+use xtmd_ir::tree::{Change, Child, Contract, Ends, Input, InputCase, InputFn, InputRange, InputRecord, InputTokval, Node, Tree};
 
 use crate::page::{Drawn, Page};
 

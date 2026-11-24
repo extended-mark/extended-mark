@@ -1,8 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/tree.schema.json",
-  "title": "Extended Mark drawn tree",
+  "title": "Extended Mark drawn tree 1",
   "description": "What a host is given to draw (docs/specs/06, The host): the page's calls of extern widgets, worked out, as a tree, and what changed in it. Every engine gives the same tree. It is never stored: it is made again from the IR and the page's data.",
+  "x-version": 1,
   "$ref": "#/$defs/tree",
   "$defs": {
     "tree": {
@@ -444,33 +445,6 @@
           "description": "A node drawn anew."
         }
       ]
-    },
-    "data": {
-      "type": "object",
-      "description": "The page's data: what a host keeps to put a page back as it was. Plain values only.",
-      "properties": {
-        "state": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/input"
-          },
-          "description": "`$state`, by field."
-        },
-        "own": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/$defs/input"
-            }
-          },
-          "description": "Each widget's own variables, by the place it is drawn at."
-        }
-      },
-      "required": [
-        "state"
-      ],
-      "additionalProperties": false
     }
   }
 }

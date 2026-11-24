@@ -9,7 +9,8 @@ use std::rc::Rc;
 use common::*;
 use xtmd_runtime::host::apply;
 use xtmd_runtime::ir;
-use xtmd_runtime::tree::{Change, Child, Data, Input, Node, Tree};
+use xtmd_runtime::state::Data;
+use xtmd_runtime::tree::{Change, Child, Input, Node, Tree};
 use xtmd_runtime::{Page, PageData, PageOptions, PageTheme, PageValues, PageWidth};
 
 fn every<'a>(nodes: &'a [Node], out: &mut Vec<&'a Node>) {
