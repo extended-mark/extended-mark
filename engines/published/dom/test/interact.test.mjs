@@ -146,7 +146,7 @@ test("overlay: one that is open when the page mounts shows at once, and a toolti
 });
 
 const ROWS = `record task {
-    title: text;
+    mut title: text;
 }
 
 $state {
