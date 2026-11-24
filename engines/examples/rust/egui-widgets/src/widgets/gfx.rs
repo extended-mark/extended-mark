@@ -27,7 +27,7 @@ fn space_of(ui: &Ui, ctx: &Ctx<'_>) -> Space {
 
 /// A stroke's width in points: a stroke token, or stroke.PX's number.
 fn stroke_width(p: &Props<'_>, ctx: &Ctx<'_>) -> f32 {
-    let v = ctx.look().value(ctx.page(), p.get("width"));
+    let v = ctx.token(p.get("width"));
     match v {
         Some(Value::Num(n)) => to_f64(&n) as f32,
         _ => 1.0,
@@ -332,7 +332,7 @@ impl Widget for Handle {
             let pl = places_for(space.units_per_px);
             let v = values::point_value(to_num(k.0, pl), to_num(k.1, pl));
             let now = p.get("at");
-            if now.is_none_or(|n| !ctx.page().equal(n, &v).unwrap_or(false)) {
+            if now.is_none_or(|n| !ctx.equal(n, &v)) {
                 ctx.write("at", v);
             }
         }
@@ -381,7 +381,7 @@ fn num_v(n: Num) -> Value {
 
 /// One sample's colour, from the shader: each sample has the step limit to itself.
 fn sample(ctx: &Ctx<'_>, shader: &Value, at: Value, px: &Value, args: &Value) -> Result<Color32, String> {
-    let c = ctx.page().apply(shader, vec![at, px.clone(), args.clone()]).map_err(|f| f.message)?;
+    let c = ctx.apply(shader, vec![at, px.clone(), args.clone()])?;
     let ch = |n: &str, or: f64| (255.0 * num(field(c.as_ref(), n)).unwrap_or(or).clamp(0.0, 1.0)).round() as u8;
     Ok(Color32::from_rgba_unmultiplied(ch("r", 0.0), ch("g", 0.0), ch("b", 0.0), ch("a", 1.0)))
 }

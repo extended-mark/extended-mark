@@ -1,5 +1,5 @@
 TOKENS
 The tree holds a token's name, never its value. On the web each is a CSS custom property with both
 themes' values in one stylesheet, so a theme change is one attribute and redraws nothing that
-doesn't read page.theme. egui: engines/examples/rust/egui/src/look.rs. Android: Theme.kt, with
+doesn't read page.theme. egui: engines/examples/rust/egui-widgets/src/look.rs. Android: Theme.kt, with
 engines/examples/misc/android/compose/tokens.xtmdpack.

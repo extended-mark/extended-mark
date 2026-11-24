@@ -18,7 +18,7 @@ fn align_of(name: Option<&str>) -> Align {
 }
 
 pub fn paragraph(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
-    let font = ctx.look().font(ctx.page(), "BODY");
+    let font = ctx.font("BODY");
     let color = ctx.color(p.get("tone")).unwrap_or_else(|| ctx.core_color("INK"));
     let s = kit::style(ctx, &font, color);
     let lay = Lay { align: align_of(p.case("align")), ..Lay::default() };
@@ -30,7 +30,7 @@ pub fn paragraph(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
 
 /// Words of a sentence on their own, as a paragraph's are drawn: in one, its paragraph draws them.
 pub fn words(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
-    let font = ctx.look().font(ctx.page(), "BODY");
+    let font = ctx.font("BODY");
     let s = kit::style(ctx, &font, ctx.core_color("INK"));
     let nodes = std::slice::from_ref(p.drawn());
     ctx.root(ui, UiBuilder::new(), |ui, ctx| {
@@ -41,8 +41,8 @@ pub fn words(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
 
 pub fn heading(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
     let level = p.num("level").unwrap_or(1.0).round().clamp(1.0, 6.0) as usize;
-    let base = ctx.look().font(ctx.page(), "HEADING");
-    let body = ctx.look().font(ctx.page(), "BODY");
+    let base = ctx.font("HEADING");
+    let body = ctx.font("BODY");
     let mut font = base;
     font.size = match level {
         1 => base.size * 1.36,
@@ -71,7 +71,7 @@ pub fn bullets(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
     let start = p.num("start").unwrap_or(1.0) as i64;
     let items = p.slot("items");
     let tasks = items.iter().any(|i| i.widget == "core/item" && values::inner(i.props.get("done")).is_some());
-    let font = ctx.look().font(ctx.page(), "BODY");
+    let font = ctx.font("BODY");
     let muted = ctx.core_color("MUTED");
     ctx.root(ui, UiBuilder::new().accessibility_role(Role::List), |ui, ctx| {
         a11y::edit(ui, ui.unique_id(), |n| n.set_class_name(if ordered { "ol" } else { "ul" }));
@@ -149,7 +149,7 @@ pub fn quote(ui: &mut Ui, _p: &Props<'_>, ctx: &mut Ctx<'_>) {
 }
 
 pub fn code(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
-    let font = ctx.look().font(ctx.page(), "MONO");
+    let font = ctx.font("MONO");
     let ink = ctx.core_color("INK");
     let bg = if ctx.look().dark() { Color32::from_white_alpha(14) } else { Color32::from_black_alpha(10) };
     let src = p.text("src");
@@ -171,7 +171,7 @@ pub fn code(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
 /// Maths, shown as its TeX: egui has no maths renderer. It is still named
 /// by its TeX, as on every engine.
 pub fn math(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
-    let font = ctx.look().font(ctx.page(), "MONO");
+    let font = ctx.font("MONO");
     let ink = ctx.core_color("INK");
     let tex = values::tex(p.get("tex"));
     let name = tex.clone();
@@ -182,7 +182,7 @@ pub fn math(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
 }
 
 pub fn table(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
-    let font = ctx.look().font(ctx.page(), "BODY");
+    let font = ctx.font("BODY");
     let ink = ctx.core_color("INK");
     let line = ctx.core_color("LINE");
     let head = p.list("head");
@@ -230,7 +230,7 @@ pub fn table(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
 }
 
 pub fn footnote(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
-    let font = ctx.look().font(ctx.page(), "BODY");
+    let font = ctx.font("BODY");
     let mut small = font;
     small.size *= 0.875;
     let accent = ctx.core_color("ACCENT");

@@ -1,0 +1,25 @@
+[package]
+name = "xtmd-egui-widgets"
+workspace = "../../../../compiler"
+description = "Extended Mark's egui widget set: a widget for every core extern widget, which knows no page."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# an example (engines/README.md): built and checked by CI, never published
+publish = false
+
+[lib]
+name = "xtmd_egui_widgets"
+
+[dependencies]
+xtmd-runtime = { path = "../runtime", version = "0.4.0" }
+xtmd-eval = { path = "../../../../compiler/eval", version = "0.4.0" }
+serde_json.workspace = true
+egui = { version = "0.37" }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+
+[dev-dependencies]
+# a frame drawn without a window, in egui's own fonts
+egui = { version = "0.37", features = ["default_fonts"] }
+egui_kittest = "0.37"

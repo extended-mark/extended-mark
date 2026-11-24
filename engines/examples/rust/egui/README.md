@@ -1,7 +1,7 @@
 # xtmd-egui
 
 Extended Mark's desktop engine, run time: pages run on the native runtime ([xtmd-runtime](../runtime)) and
-drawn with egui, with our default egui widgets for every core extern widget, from an IR they are
+drawn with egui and its widget set ([xtmd-egui-widgets](../egui-widgets)), from an IR they are
 given. It needs no compiler.
 The live engine, which compiles a document's text in the host, is
 [xtmd-egui-live](../egui-live).

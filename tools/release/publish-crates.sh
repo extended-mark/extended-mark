@@ -13,8 +13,8 @@
 # xtmd, xtmd-live, xtmd-lsp, xtmd-syntax, xtmd-check, xtmd-ir, xtmd-lower, xtmd-eval, xtmd-markdown and
 # xtmd-migrate. The workspace's other members have `publish = false` and cargo leaves them out:
 # xtmd-schemagen (a tool here), xtmd-wasm (xtmd.wasm, in @extended-mark/wasm and on the GitHub
-# release) and the example engines in engines/examples (xtmd-runtime, xtmd-planes, xtmd-egui, xtmd-egui-live,
-# xtmd-android, xtmd-android-live).
+# release) and the example engines in engines/examples (xtmd-runtime, xtmd-planes, xtmd-egui-widgets, xtmd-egui,
+# xtmd-egui-live, xtmd-android, xtmd-android-live).
 set -eu
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 rust="$repo/compiler"

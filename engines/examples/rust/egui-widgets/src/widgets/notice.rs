@@ -10,7 +10,7 @@ use crate::{a11y, Ctx, Props};
 /// A notice with a message, in the `BAD` colour, framed.
 pub fn show(ui: &mut Ui, ctx: &mut Ctx<'_>, message: &str) {
     let bad = ctx.core_color("BAD");
-    let font = ctx.look().font(ctx.page(), "BODY");
+    let font = ctx.font("BODY");
     let msg = message.to_string();
     let label = msg.clone();
     ctx.root(ui, UiBuilder::new().accessibility_role(Role::Alert), |ui, ctx| {

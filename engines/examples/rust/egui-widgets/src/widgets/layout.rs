@@ -45,7 +45,7 @@ fn look_of(p: &Props<'_>, ctx: &Ctx<'_>) -> Look {
         edges: edges(p.case("edge")),
         radius: ctx.length(p.get("radius")).unwrap_or(0.0).min(999.0),
         shadow: crate::values::inner(p.get("shadow")).and_then(|s| {
-            let v = ctx.look().value(ctx.page(), Some(s));
+            let v = ctx.token(Some(s));
             ctx.color(field(v.as_ref(), "tone"))
         }),
     }
@@ -209,7 +209,7 @@ impl Widget for Grid {
             let idx = kit::behind(ui);
             let inner = egui::Frame::new().inner_margin(l.pad).show(ui, |ui| {
                 let room = kit::room(ui);
-                let width = if room.is_finite() { room } else { crate::measure::PAGE_WIDTH as f32 / 2.0 };
+                let width = if room.is_finite() { room } else { crate::PAGE_WIDTH as f32 / 2.0 };
                 let fixed: f32 = tracks.iter().map(|t| if let Track::Len(x) = t { *x } else { 0.0 }).sum();
                 let shares: f32 = tracks.iter().map(|t| if let Track::Fr(x) = t { *x } else { 0.0 }).sum();
                 let room = (width - fixed - l.gap * (n as f32 - 1.0)).max(0.0);

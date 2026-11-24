@@ -3,6 +3,9 @@
 //! name, a record to its fields. Numbers are read as `f64` for drawing only: writes go back as
 //! exact [`Num`]s.
 
+use std::rc::Rc;
+
+use xtmd_eval::value::Record;
 use xtmd_runtime::{Num, Value};
 
 /// The value inside an opt (and inside that one), or the value itself; `None` for none.
@@ -141,7 +144,7 @@ pub fn tex(latex: Option<&Value>) -> String {
 
 /// A point value in the IR's record form.
 pub fn point_value(x: Num, y: Num) -> Value {
-    xtmd_planes::pt_value(&xtmd_runtime::Pt { x, y })
+    Value::Record(Rc::new(Record { ty: Rc::from("core/point"), fields: vec![(Rc::from("x"), Value::Num(x)), (Rc::from("y"), Value::Num(y))] }))
 }
 
 #[cfg(test)]

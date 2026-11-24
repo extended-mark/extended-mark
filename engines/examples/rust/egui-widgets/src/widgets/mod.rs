@@ -1,5 +1,5 @@
 //! Our default egui widgets, by full name: every core extern, and what is drawn where one failed. A host's
-//! own, given to [`crate::XtmdPage::widget`], replace them by name.
+//! own, given to [`crate::Registry::set`], replace them by name.
 //!
 //! Each draws the way egui draws, with the roles, names and states a screen reader needs in
 //! egui's AccessKit tree, the keyboard egui gives focusable widgets (Enter and Space press, the

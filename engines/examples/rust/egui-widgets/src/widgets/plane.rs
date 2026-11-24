@@ -41,7 +41,7 @@ impl Widget for Plane {
         let label = p.text("label");
         let width = ctx.length(p.get("width")).unwrap_or_else(|| {
             let w = kit::room(ui);
-            if w.is_finite() { w } else { crate::measure::PAGE_WIDTH as f32 }
+            if w.is_finite() { w } else { crate::PAGE_WIDTH as f32 }
         }).max(1.0);
         let height = width / aspect;
         let listens = ctx.listens("click");

@@ -14,7 +14,7 @@ use crate::{a11y, Act, Ctx, Props, Widget};
 
 pub fn label(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
     let value = p.text("value");
-    let f = ctx.look().sized(ctx.page(), p.case("font"), p.case("size"));
+    let f = ctx.sized(p.case("font"), p.case("size"));
     let mut font = f;
     if matches!(p.case("weight"), Some("BOLD") | Some("MEDIUM")) {
         font.bold = true;
@@ -56,7 +56,7 @@ pub fn image(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
     let width = ctx.length(p.get("width"));
     let muted = ctx.core_color("MUTED");
     let line = ctx.core_color("LINE");
-    let font = ctx.look().font(ctx.page(), "BODY");
+    let font = ctx.font("BODY");
     ctx.root(ui, UiBuilder::new().accessibility_role(Role::Image).accessibility_label(alt.clone()), |ui, _ctx| {
         let has_loaders = !ui.ctx().loaders().image.lock().is_empty();
         match (&src, has_loaders) {
@@ -157,7 +157,7 @@ pub fn glyph(name: &str) -> &'static str {
 pub fn icon(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
     let name = p.case("name").unwrap_or("DOT");
     let label = p.text("label");
-    let f = ctx.look().sized(ctx.page(), None, p.case("size"));
+    let f = ctx.sized(None, p.case("size"));
     let color = ctx.color(p.get("tone")).unwrap_or_else(|| ctx.core_color("INK"));
     // labelled, it is a picture with a name; otherwise decoration
     let b = if label.is_empty() { UiBuilder::new() } else { UiBuilder::new().accessibility_role(Role::Image).accessibility_label(label) };
@@ -190,7 +190,7 @@ pub fn press(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
     let label = p.text("label");
     let content = !p.slot("content").is_empty();
     let tone = ctx.color(p.get("tone"));
-    let font = ctx.look().font(ctx.page(), "BODY");
+    let font = ctx.font("BODY");
     let ink = ctx.core_color("INK");
     let accent = ctx.core_color("ACCENT");
     let line = ctx.core_color("LINE");
@@ -353,7 +353,7 @@ impl Widget for Field {
                 other => ctx.decline(other),
             }
         }
-        let font = ctx.look().font(ctx.page(), "BODY");
+        let font = ctx.font("BODY");
         let ink = ctx.core_color("INK");
         let input_id = ctx.sub_id("input");
         let buf = &mut self.buf;
@@ -401,29 +401,16 @@ fn ten() -> Num {
     Num::int(10)
 }
 
-/// The ends and step a variable's type gives: `int 0..10` is 0, 10 and 1.
-fn contract_ends(ctx: &Ctx<'_>) -> (Option<Num>, Option<Num>, Option<Num>) {
-    let Some(t) = ctx.write_type("value") else { return (None, None, None) };
-    let n = |x: Option<&xtmd_runtime::ir::Expr>| x.and_then(|x| ctx.page().value(x).ok()).and_then(|v| exact(Some(&v)));
-    let c = t.contract.as_ref();
-    let range = c.and_then(|c| c.range.as_ref());
-    let mut step = n(c.and_then(|c| c.step.as_ref()));
-    if step.is_none() && t.name == "core/int" {
-        step = Some(Num::int(1));
-    }
-    (n(range.and_then(|r| r.low.as_ref())), n(range.and_then(|r| r.high.as_ref())), step)
-}
-
 /// A slider's ends: from `range` when it is given, then from its variable's contract, then 0..1.
 pub fn ends_of(p: &Props<'_>, ctx: &Ctx<'_>) -> Ends {
     let given = match inner(p.get("range")) {
         Some(Value::Range(r)) => (exact(r.low.as_ref()), exact(r.high.as_ref()), exact(r.step.as_ref())),
         _ => (None, None, None),
     };
-    let c = contract_ends(ctx);
-    let low = given.0.or(c.0).unwrap_or_else(Num::zero);
-    let mut high = given.1.or(c.1);
-    let mut step = given.2.or(c.2);
+    let c = ctx.contract("value");
+    let low = given.0.or(c.low).unwrap_or_else(Num::zero);
+    let mut high = given.1.or(c.high);
+    let mut step = given.2.or(c.step);
     if !matches!(high, Some(h) if h > low) {
         high = Some(match step {
             Some(s) => low.add(s.mul(ten()).unwrap_or(s)).unwrap_or(low),
@@ -460,7 +447,7 @@ impl Widget for Slider {
         let value = p.exact("value");
         let disabled = p.flag("disabled", false);
         let label = p.text("label");
-        let font = ctx.look().font(ctx.page(), "BODY");
+        let font = ctx.font("BODY");
         let ink = ctx.core_color("INK");
         let accent = ctx.core_color("ACCENT");
         let line = ctx.core_color("LINE");

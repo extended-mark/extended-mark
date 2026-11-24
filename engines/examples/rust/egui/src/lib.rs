@@ -12,26 +12,16 @@
 //! # }
 //! ```
 //!
-//! - [`XtmdPage::new`] takes a [`Page`] and draws it every frame with a [`Registry`] of widgets,
-//!   one per extern widget, by full name (`core/press`). Ours draw every core extern; a host's
-//!   own ([`XtmdPage::widget`]) replace ours by name, and add a pack's. The page is told what is
-//!   supplied, so an extern nobody draws shows its Markdown instead.
-//! - A [`Widget`] is drawn every frame, as egui draws: it reads the props the runtime already
-//!   worked out ([`Props`]), and acts through its [`Ctx`]: events, checked writes to its `mut`
-//!   inputs, its slots' widgets, and the page's tokens.
+//! - [`XtmdPage::new`] takes a [`Page`] and draws it every frame with a widget set
+//!   ([`xtmd_egui_widgets`]): one widget per extern widget, by full name (`core/press`). Ours draw
+//!   every core extern; a host's own ([`XtmdPage::widget`]) replace ours by name, and add a pack's.
+//!   The page is told what is supplied, so an extern nobody draws shows its Markdown instead.
+//! - The widgets know no page: this is the [`Host`] they are drawn for.
 //! - The plane's layout runs after every frame, from what egui measured, or from fixed sizes
 //!   ([`measure::Fixed`]) as the checks do.
-//! - Every widget is in egui's AccessKit tree with its role, name and state, and each of its
-//!   parts carries an author id ([`a11y`]), which is how the tests find them.
 
-pub mod a11y;
 pub mod doc;
-pub mod fns;
-pub mod look;
 pub mod measure;
-pub mod rich;
-pub mod values;
-pub mod widgets;
 
 #[cfg(feature = "check")]
 pub mod check;
@@ -56,462 +46,61 @@ pub fn run_window(title: &str, mut page: XtmdPage) -> eframe::Result {
     })
 }
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::rc::Rc;
 
-use egui::{Id, InnerResponse, Ui, UiBuilder};
+use egui::{Id, Ui, UiBuilder};
+pub use xtmd_egui_widgets::{a11y, fns, look, rich, values, widgets, Act, Contract, Ctx, Drawing, Host, Maker, Measured, Props, Registry, Space, Widget};
 pub use xtmd_runtime as runtime;
-use xtmd_runtime::ir::{self, Expr};
 use xtmd_planes::{Measure, Planes};
-use xtmd_runtime::{Drawn, Num, Page, PageOptions, PageTheme, PageValues, Value};
+use xtmd_runtime::ir::{self, Expr};
+use xtmd_runtime::{Drawn, Page, PageOptions, PageTheme, PageValues, Value};
 
-use crate::look::Look;
-use crate::measure::Measured;
+use crate::measure::FromDrawn;
 
-/// What an egui widget implements: it is drawn every frame, as egui draws, and reads the props
-/// the runtime worked out once per change.
-pub trait Widget {
-    fn show(&mut self, ui: &mut Ui, props: &Props<'_>, ctx: &mut Ctx<'_>);
-}
+/// A page as its widgets have it.
+struct OnPage<'a>(&'a mut Page);
 
-impl<F: FnMut(&mut Ui, &Props<'_>, &mut Ctx<'_>)> Widget for F {
-    fn show(&mut self, ui: &mut Ui, props: &Props<'_>, ctx: &mut Ctx<'_>) {
-        self(ui, props, ctx)
-    }
-}
-
-/// How a widget is made: one instance per drawn widget, kept while it is on the page, so a
-/// widget may hold state of its own in `self` (what is being typed, a drag in progress).
-pub type Maker = Rc<dyn Fn() -> Box<dyn Widget>>;
-
-/// The widgets a page is drawn with, by full name: `core/press`, `acme/chart`; and what is drawn
-/// where a widget failed.
-#[derive(Clone, Default)]
-pub struct Registry {
-    makers: HashMap<String, Maker>,
-    failed: Option<Maker>,
-}
-
-impl Registry {
-    /// No widgets at all.
-    pub fn empty() -> Registry {
-        Registry::default()
+impl Host for OnPage<'_> {
+    fn event(&mut self, id: &str, name: &str, args: Vec<Value>) -> Result<(), String> {
+        self.0.event(id, name, args).map_err(|f| f.message)
     }
 
-    /// Ours: one for every core extern widget, and for one that failed.
-    pub fn ours() -> Registry {
-        widgets::defaults()
-    }
-
-    /// Sets the widget for a name: a host's replaces ours.
-    pub fn set<W: Widget + 'static>(&mut self, name: &str, make: impl Fn() -> W + 'static) -> &mut Registry {
-        self.makers.insert(name.to_string(), Rc::new(move || Box::new(make()) as Box<dyn Widget>));
-        self
-    }
-
-    /// Sets what is drawn where a widget failed: its drawn node says which and why.
-    pub fn set_failed<W: Widget + 'static>(&mut self, make: impl Fn() -> W + 'static) -> &mut Registry {
-        self.failed = Some(Rc::new(move || Box::new(make()) as Box<dyn Widget>));
-        self
-    }
-
-    pub fn has(&self, name: &str) -> bool {
-        self.makers.contains_key(name)
-    }
-
-    pub fn names(&self) -> impl Iterator<Item = &str> {
-        self.makers.keys().map(String::as_str)
-    }
-
-    fn make(&self, name: &str, failed: bool) -> Box<dyn Widget> {
-        if failed {
-            return self.failed.as_ref().map_or_else(|| Box::new(widgets::notice::failed) as Box<dyn Widget>, |m| m());
-        }
-        if let Some(m) = self.makers.get(name) {
-            return m();
-        }
-        let missing = name.to_string();
-        Box::new(move |ui: &mut Ui, _: &Props<'_>, ctx: &mut Ctx<'_>| widgets::notice::show(ui, ctx, &format!("Nothing draws {} here: its widget isn't supplied.", missing)))
-    }
-}
-
-/// A drawn widget's props, as the runtime worked them out.
-#[derive(Clone, Copy)]
-pub struct Props<'a> {
-    d: &'a Drawn,
-}
-
-impl<'a> Props<'a> {
-    pub fn new(d: &'a Drawn) -> Props<'a> {
-        Props { d }
-    }
-
-    /// The widget as the page drew it: its path, key, props and slots.
-    pub fn drawn(&self) -> &'a Drawn {
-        self.d
-    }
-
-    pub fn get(&self, name: &str) -> Option<&'a Value> {
-        self.d.props.get(name)
-    }
-
-    /// A text, a number in its exact form, or a bool, as words.
-    pub fn text(&self, name: &str) -> String {
-        values::text(self.get(name))
-    }
-
-    pub fn flag(&self, name: &str, otherwise: bool) -> bool {
-        values::flag(self.get(name), otherwise)
-    }
-
-    pub fn num(&self, name: &str) -> Option<f64> {
-        values::num(self.get(name))
-    }
-
-    pub fn exact(&self, name: &str) -> Option<Num> {
-        values::exact(self.get(name))
-    }
-
-    /// An enum's or a token's case name.
-    pub fn case(&self, name: &str) -> Option<&'a str> {
-        values::case(self.get(name))
-    }
-
-    pub fn point(&self, name: &str) -> Option<(f64, f64)> {
-        values::point(self.get(name))
-    }
-
-    pub fn list(&self, name: &str) -> Vec<&'a Value> {
-        values::list(self.get(name))
-    }
-
-    /// The widgets an input holds, a rich_text's or a view's, in order.
-    pub fn nodes(&self, name: &str) -> &'a [Drawn] {
-        self.get(name).and_then(|v| self.d.nodes(v)).unwrap_or(&[])
-    }
-
-    /// A slot's widgets, in order.
-    pub fn slot(&self, name: &str) -> &'a [Drawn] {
-        self.d.slots.get(name).map_or(&[], Vec::as_slice)
-    }
-}
-
-/// What a reader does to a widget, in the checks' terms: an event, or a write to a `mut` input.
-/// [`XtmdPage::act`] asks the widget to do it through its own controls on its next frame, as a
-/// person would; one the widget doesn't take goes through the page.
-#[derive(Clone, Debug)]
-pub enum Act {
-    Event { name: String, args: Vec<Value> },
-    Write { input: String, value: Value },
-}
-
-/// A canvas's or a plane's coordinates, for the shapes drawn in it: its units onto the ui's
-/// points, and back.
-#[derive(Clone, Copy, Debug)]
-pub struct Space {
-    /// The drawing's rect, in the ui's points.
-    pub rect: egui::Rect,
-    /// The units at the rect's left and right, and at its bottom and top.
-    pub x: (f64, f64),
-    pub y: (f64, f64),
-    /// Points per unit along x and y; y points down on the screen, up in the units.
-    pub scale: (f64, f64),
-    /// Whether points outside `rect` are kept inside it (a canvas) or not (a plane).
-    pub bounded: bool,
-    /// How many units one point on the screen is now: rounding a write keeps a sub-pixel.
-    pub units_per_px: f64,
-}
-
-impl Space {
-    /// A canvas: x and y ranges spread over a rect, y up.
-    pub fn canvas(rect: egui::Rect, x: (f64, f64), y: (f64, f64)) -> Space {
-        let sx = rect.width() as f64 / (x.1 - x.0).max(f64::MIN_POSITIVE);
-        let sy = rect.height() as f64 / (y.1 - y.0).max(f64::MIN_POSITIVE);
-        Space { rect, x, y, scale: (sx, sy), bounded: true, units_per_px: 1.0 / sx }
-    }
-
-    /// A unit point on the screen.
-    pub fn to_screen(&self, p: (f64, f64)) -> egui::Pos2 {
-        egui::pos2(self.rect.left() + ((p.0 - self.x.0) * self.scale.0) as f32, self.rect.bottom() - ((p.1 - self.y.0) * self.scale.1) as f32)
-    }
-
-    /// A screen point in units.
-    pub fn to_units(&self, p: egui::Pos2) -> (f64, f64) {
-        (self.x.0 + (p.x - self.rect.left()) as f64 / self.scale.0, self.y.0 + (self.rect.bottom() - p.y) as f64 / self.scale.1)
-    }
-
-    /// A length along x, in points.
-    pub fn len(&self, u: f64) -> f32 {
-        (u * self.scale.0) as f32
-    }
-
-    /// A point kept inside what the space shows.
-    pub fn keep(&self, p: (f64, f64)) -> (f64, f64) {
-        if !self.bounded {
-            return p;
-        }
-        (p.0.clamp(self.x.0.min(self.x.1), self.x.0.max(self.x.1)), p.1.clamp(self.y.0.min(self.y.1), self.y.0.max(self.y.1)))
-    }
-}
-
-/// What lives across frames and is lent to every widget while a frame is drawn.
-struct Frame {
-    registry: Registry,
-    instances: HashMap<(String, String), Box<dyn Widget>>,
-    used: HashSet<(String, String)>,
-    /// The paths drawn this frame, or kept on the page hidden (a closed overlay's body).
-    shown: HashSet<String>,
-    /// The words and marks of the sentences drawn this frame, which their sentence draws.
-    words: Vec<Drawn>,
-    acts: HashMap<String, Vec<Act>>,
-    left: Vec<(String, Act)>,
-    look: Look,
-    measured: Measured,
-    spaces: Vec<Space>,
-    errors: Vec<String>,
-    /// The page's own id: every widget's id is made from it, so two pages can share a window.
-    page_id: Id,
-}
-
-impl Frame {
-    fn new(registry: Registry, page_id: Id) -> Frame {
-        Frame {
-            registry,
-            instances: HashMap::new(),
-            used: HashSet::new(),
-            shown: HashSet::new(),
-            words: Vec::new(),
-            acts: HashMap::new(),
-            left: Vec::new(),
-            look: Look::default(),
-            measured: Measured::default(),
-            spaces: Vec::new(),
-            errors: Vec::new(),
-            page_id,
-        }
-    }
-}
-
-/// What a widget can do while it is drawn: on the page, with its slots, and with the tokens.
-pub struct Ctx<'a> {
-    page: &'a mut Page,
-    frame: &'a mut Frame,
-    at: &'a Drawn,
-    id: Id,
-    acts: Vec<Act>,
-}
-
-impl<'a> Ctx<'a> {
-    pub fn page(&self) -> &Page {
-        self.page
-    }
-
-    /// The widget being drawn.
-    pub fn drawn(&self) -> &'a Drawn {
-        self.at
-    }
-
-    /// Its path on the page: `s0/s1[2]/s3`.
-    pub fn path(&self) -> &'a str {
-        &self.at.id
-    }
-
-    /// Its egui id: the same across frames, following its key, so a loop row's widget keeps its
-    /// focus and state when the row moves.
-    pub fn id(&self) -> Id {
-        self.id
-    }
-
-    /// An id for one of its parts.
-    pub fn sub_id(&self, part: &str) -> Id {
-        self.id.with(part)
-    }
-
-    /// The reader's event on this widget: runs the caller's handler, as one change.
-    pub fn event(&mut self, name: &str, args: Vec<Value>) {
-        if let Err(f) = self.page.event(&self.at.id, name, args) {
-            self.frame.errors.push(format!("{} {}: {}", self.at.id, name, f.message));
-        }
-    }
-
-    /// This widget writing one of its `mut` inputs, as a slider does: checked, then one change.
-    /// Whether it took: a refused write leaves the value as it was.
-    pub fn write(&mut self, input: &str, value: Value) -> bool {
-        if let Err(f) = self.page.write(&self.at.id, input, value.clone()) {
-            self.frame.errors.push(format!("{} {}: {}", self.at.id, input, f.message));
-            return false;
-        }
-        match self.page.find(&self.at.id).and_then(|n| n.props.get(input)) {
-            Some(now) => self.page.equal(now, &value).unwrap_or(false),
+    fn write(&mut self, id: &str, input: &str, value: Value) -> Result<bool, String> {
+        self.0.write(id, input, value.clone()).map_err(|f| f.message)?;
+        Ok(match self.0.find(id).and_then(|n| n.props.get(input)) {
+            Some(now) => self.0.equal(now, &value).unwrap_or(false),
             None => false,
-        }
-    }
-
-    /// Whether an event does something: a widget is clickable only when its click is.
-    pub fn listens(&self, event: &str) -> bool {
-        self.page.listens(self.at, event)
-    }
-
-    /// The type of the variable a `mut` input writes, its contract included: a slider's ends.
-    pub fn write_type(&self, input: &str) -> Option<ir::Type> {
-        self.page.write_type(self.at, input)
-    }
-
-    /// An act a check asked of this widget, to do through its own controls. One it doesn't take
-    /// goes through the page after the frame.
-    pub fn take_act(&mut self) -> Option<Act> {
-        if self.acts.is_empty() {
-            None
-        } else {
-            Some(self.acts.remove(0))
-        }
-    }
-
-    /// Puts back an act this widget can't do itself.
-    pub fn decline(&mut self, act: Act) {
-        self.frame.left.push((self.at.id.clone(), act));
-    }
-
-    /// Draws one widget of the page into a ui.
-    pub fn child(&mut self, ui: &mut Ui, d: &Drawn) {
-        draw(self.page, self.frame, ui, d);
-    }
-
-    /// Draws a slot's widgets into a ui, in order.
-    pub fn slot(&mut self, ui: &mut Ui, name: &str) {
-        let at = self.at;
-        for d in at.slots.get(name).into_iter().flatten() {
-            draw(self.page, self.frame, ui, d);
-        }
-    }
-
-    /// A slot's widgets, kept on the page but not drawn: a closed overlay's body.
-    pub fn keep(&mut self, name: &str) {
-        let at = self.at;
-        self.keep_nodes(at.slots.get(name).map_or(&[], Vec::as_slice));
-    }
-
-    /// Widgets drawn by the one that holds them, as a sentence's words are, or not at all.
-    pub fn keep_nodes(&mut self, nodes: &[Drawn]) {
-        for d in nodes {
-            self.keep_node(d);
-            let kids: Vec<Drawn> = d.children().cloned().collect();
-            self.keep_nodes(&kids);
-        }
-    }
-
-    /// The words and marks of a sentence, which its widget draws, and not the other widgets in it.
-    pub(crate) fn keep_words(&mut self, nodes: &[Drawn]) {
-        for d in nodes {
-            match d.widget.as_str() {
-                "core/words" | "core/code_span" | "core/inline_math" | "core/inline_image" | "core/note_mark" | "core/line_break" => self.frame.words.push(d.clone()),
-                "core/bold" | "core/italic" | "core/strike" | "core/link" => {
-                    self.frame.words.push(d.clone());
-                    self.keep_words(d.slots.get("body").map_or(&[], Vec::as_slice));
-                }
-                _ => {}
-            }
-        }
-    }
-
-    fn keep_node(&mut self, d: &Drawn) {
-        self.frame.shown.insert(d.id.clone());
-        self.frame.used.insert((d.id.clone(), d.widget.clone()));
-    }
-
-    /// The page's tokens, for its theme.
-    pub fn look(&self) -> &Look {
-        &self.frame.look
-    }
-
-    /// A colour token, for the page's theme.
-    pub fn color(&self, v: Option<&Value>) -> Option<egui::Color32> {
-        self.frame.look.color(self.page, v)
-    }
-
-    /// One of core's colours by name: `INK`, `ACCENT` …
-    pub fn core_color(&self, name: &str) -> egui::Color32 {
-        self.frame.look.core_color(self.page, name)
-    }
-
-    /// A length token, in points.
-    pub fn length(&self, v: Option<&Value>) -> Option<f32> {
-        self.frame.look.number(self.page, v)
-    }
-
-    /// The root of one of our widgets: a ui with this widget's id, named as its root for the
-    /// AccessKit tree (`press@s0/s0`), its bounds set once it is drawn.
-    pub fn root<R>(&mut self, ui: &mut Ui, builder: UiBuilder, add: impl FnOnce(&mut Ui, &mut Ctx<'a>) -> R) -> InnerResponse<R> {
-        let id = self.id;
-        let author = a11y::root_id(&self.at.widget, &self.at.id);
-        ui.scope_builder(builder.scope_id(id), |ui| {
-            a11y::part(ui, ui.unique_id(), &author);
-            let r = add(ui, self);
-            a11y::bounds(ui, ui.unique_id(), ui.min_rect());
-            r
         })
     }
 
-    /// Names a node as one of this widget's parts: `slider.input`.
-    pub fn part(&self, ui: &Ui, id: Id, part: &str) {
-        a11y::part(ui, id, &format!("{}.{}", a11y::short(&self.at.widget), part));
+    fn listens(&self, d: &Drawn, event: &str) -> bool {
+        self.0.listens(d, event)
     }
 
-    /// The drawing space shapes are in now: the canvas's or the plane's.
-    pub fn space(&self) -> Option<Space> {
-        self.frame.spaces.last().copied()
+    fn contract(&self, d: &Drawn, input: &str) -> Contract {
+        let Some(t) = self.0.write_type(d, input) else { return Contract::default() };
+        let n = |x: Option<&Expr>| x.and_then(|x| self.0.value(x).ok()).and_then(|v| values::exact(Some(&v)));
+        let c = t.contract.as_ref();
+        let range = c.and_then(|c| c.range.as_ref());
+        let mut step = n(c.and_then(|c| c.step.as_ref()));
+        if step.is_none() && t.name == "core/int" {
+            step = Some(runtime::Num::int(1));
+        }
+        Contract { low: n(range.and_then(|r| r.low.as_ref())), high: n(range.and_then(|r| r.high.as_ref())), step }
     }
 
-    /// Draws with a space for the shapes inside.
-    pub fn in_space<R>(&mut self, space: Space, f: impl FnOnce(&mut Ctx<'a>) -> R) -> R {
-        self.frame.spaces.push(space);
-        let r = f(self);
-        self.frame.spaces.pop();
-        r
+    fn apply(&self, f: &Value, args: Vec<Value>) -> Result<Option<Value>, String> {
+        self.0.apply(f, args).map_err(|f| f.message)
     }
 
-    /// A spot's size as drawn, in the plane's units, for the plane's layout.
-    pub fn measured_spot(&mut self, size: egui::Vec2) {
-        self.frame.measured.spots.insert(self.at.id.clone(), size);
+    fn token(&self, v: &Value) -> Option<Value> {
+        self.0.token_value(v).ok()
     }
 
-    /// A plane's width as drawn, in points, for its layout.
-    pub fn measured_plane(&mut self, width: f32) {
-        self.frame.measured.planes.insert(self.at.id.clone(), width);
+    fn equal(&self, a: &Value, b: &Value) -> bool {
+        self.0.equal(a, b).unwrap_or(false)
     }
-
-    /// Something went wrong drawing: kept for the host's log ([`XtmdPage::take_errors`]).
-    pub fn error(&mut self, message: String) {
-        self.frame.errors.push(message);
-    }
-}
-
-/// Draws one widget: its instance, made the first time its key is seen and kept while it is.
-fn draw(page: &mut Page, frame: &mut Frame, ui: &mut Ui, d: &Drawn) {
-    frame.shown.insert(d.id.clone());
-    let mut key = d.id.clone();
-    let mut n = 2;
-    while frame.used.contains(&(key.clone(), d.widget.clone())) {
-        key = format!("{}#{}", d.id, n);
-        n += 1;
-    }
-    // a widget that failed is drawn by another, and is another when it draws again
-    let k = (key, if d.failed.is_some() { format!("{} failed", d.widget) } else { d.widget.clone() });
-    frame.used.insert(k.clone());
-    let mut w = match frame.instances.remove(&k) {
-        Some(w) => w,
-        None => frame.registry.make(&d.widget, d.failed.is_some()),
-    };
-    let acts = frame.acts.remove(&d.id).unwrap_or_default();
-    let id = frame.page_id.with((&k.0, &k.1));
-    let props = Props { d };
-    let mut ctx = Ctx { page, frame, at: d, id, acts };
-    w.show(ui, &props, &mut ctx);
-    let left = std::mem::take(&mut ctx.acts);
-    for a in left {
-        frame.left.push((d.id.clone(), a));
-    }
-    frame.instances.insert(k, w);
 }
 
 /// How the plane's layout measures spots.
@@ -525,7 +114,7 @@ pub enum Sizes {
 /// A page drawn with egui.
 pub struct XtmdPage {
     page: Page,
-    frame: Frame,
+    drawing: Drawing,
     tree: Rc<Vec<Drawn>>,
     revision: Option<u64>,
     sizes: Sizes,
@@ -547,7 +136,7 @@ impl XtmdPage {
     pub fn new(page: Page) -> XtmdPage {
         let mut p = XtmdPage {
             page,
-            frame: Frame::new(Registry::ours(), Id::unique("xtmd-page")),
+            drawing: Drawing::new(Registry::ours(), Id::unique("xtmd-page")),
             tree: Rc::new(Vec::new()),
             revision: None,
             sizes: Sizes::Measured,
@@ -571,7 +160,7 @@ impl XtmdPage {
         self.pushed = None;
         self.streak = (0, 0);
         self.held = None;
-        self.frame.instances.clear();
+        self.drawing.forget();
         self.tell_supplies();
     }
 
@@ -582,16 +171,14 @@ impl XtmdPage {
 
     /// Replaces our widget for a name, or adds one: a host's own, or a pack's.
     pub fn widget<W: Widget + 'static>(mut self, name: &str, make: impl Fn() -> W + 'static) -> XtmdPage {
-        self.frame.registry.set(name, make);
-        self.frame.instances.retain(|(_, w), _| w != name);
+        self.drawing.set(name, make);
         self.tell_supplies();
         self
     }
 
     /// Replaces the whole registry.
     pub fn with_registry(mut self, registry: Registry) -> XtmdPage {
-        self.frame.registry = registry;
-        self.frame.instances.clear();
+        self.drawing.set_registry(registry);
         self.tell_supplies();
         self
     }
@@ -617,8 +204,7 @@ impl XtmdPage {
     /// need one of their own.
     pub fn id(mut self, id: Id) -> XtmdPage {
         self.id = id;
-        self.frame.page_id = id;
-        self.frame.instances.clear();
+        self.drawing.set_id(id);
         self
     }
 
@@ -632,32 +218,32 @@ impl XtmdPage {
 
     /// The paths drawn in the last frame, and the ones kept on the page hidden.
     pub fn shown(&self) -> HashSet<String> {
-        self.frame.shown.iter().cloned().chain(self.frame.words.iter().map(|d| d.id.clone())).collect()
+        self.drawing.shown()
     }
 
     /// Asks the widget at a path to do something through its own controls on the next frame;
     /// one it can't goes through the page after that frame.
     pub fn act(&mut self, path: &str, act: Act) {
-        self.frame.acts.entry(path.to_string()).or_default().push(act);
+        self.drawing.act(path, act);
     }
 
     /// Whether acts are waiting for a frame.
     pub fn acting(&self) -> bool {
-        !self.frame.acts.is_empty()
+        self.drawing.acting()
     }
 
     /// What went wrong since the last call: failed handlers, refused drawing.
     pub fn take_errors(&mut self) -> Vec<String> {
-        let mut out = std::mem::take(&mut self.frame.errors);
+        let mut out = self.drawing.take_errors();
         out.extend(self.page.take_errors().into_iter().map(|f| f.message));
         out
     }
 
     /// Tells the page which extern widgets are drawn here: one that isn't shows its Markdown.
     fn tell_supplies(&mut self) {
-        let names: HashSet<String> = self.frame.registry.names().map(str::to_string).collect();
+        let names: HashSet<String> = self.drawing.registry().names().map(str::to_string).collect();
         if let Err(f) = self.page.set_supplies(Some(Rc::new(move |w: &str| names.contains(w)))) {
-            self.frame.errors.push(f.message);
+            self.drawing.error(f.message);
         }
     }
 
@@ -678,7 +264,7 @@ impl XtmdPage {
                 if dark != self.page_dark() {
                     let theme = if dark { PageTheme::Dark } else { PageTheme::Light };
                     if let Err(f) = self.page.set_page(PageValues { width: None, theme: Some(theme) }) {
-                        self.frame.errors.push(f.message);
+                        self.drawing.error(f.message);
                     }
                 }
             }
@@ -688,39 +274,21 @@ impl XtmdPage {
             self.tree = Rc::new(self.page.tree().to_vec());
             self.revision = Some(rev);
             let dark = self.page_dark();
-            self.frame.look.set_dark(dark);
+            self.drawing.set_dark(dark);
         }
         let tree = self.tree.clone();
-        self.frame.shown.clear();
-        self.frame.words.clear();
-        self.frame.used.clear();
-        self.frame.measured = Measured::default();
-        let page = &mut self.page;
-        let frame = &mut self.frame;
-        let r = ui.scope_builder(UiBuilder::new().scope_id(self.id), |ui| {
-            let gap = frame.look.space(page, "M");
-            ui.spacing_mut().item_spacing = egui::vec2(gap, gap);
-            ui.style_mut().interaction.selectable_labels = false;
-            for d in tree.iter() {
-                draw(page, frame, ui, d);
-            }
-        });
+        let (page, drawing) = (&mut self.page, &mut self.drawing);
+        let r = ui.scope_builder(UiBuilder::new().scope_id(self.id), |ui| drawing.show(&mut OnPage(page), ui, &tree));
         // what the widgets didn't do themselves goes through the page
-        let left: Vec<(String, Act)> = std::mem::take(&mut self.frame.left);
-        let waiting: Vec<(String, Act)> = self.frame.acts.drain().flat_map(|(p, acts)| acts.into_iter().map(move |a| (p.clone(), a))).collect();
-        for (path, act) in left.into_iter().chain(waiting) {
+        for (path, act) in self.drawing.take_left() {
             let r = match act {
                 Act::Event { name, args } => self.page.event(&path, &name, args),
                 Act::Write { input, value } => self.page.write(&path, &input, value),
             };
             if let Err(f) = r {
-                self.frame.errors.push(format!("{}: {}", path, f.message));
+                self.drawing.error(format!("{}: {}", path, f.message));
             }
         }
-        // a widget that left the page leaves with its instance
-        let used = std::mem::take(&mut self.frame.used);
-        self.frame.instances.retain(|k, _| used.contains(k));
-        self.frame.used = used;
         // egui lays out every frame: a layout that changes the page frame after frame while
         // nothing outside it does (a spot whose key moves at every redraw, so its own box is
         // never kept) is held until something outside changes the page, or it would never settle
@@ -731,12 +299,12 @@ impl XtmdPage {
             let laid = match &mut self.sizes {
                 Sizes::Given(m) => self.planes.lay(&mut self.page, m.as_mut()),
                 Sizes::Measured => {
-                    let mut m = self.frame.measured.clone();
+                    let mut m = FromDrawn(self.drawing.measured());
                     self.planes.lay(&mut self.page, &mut m)
                 }
             };
             if let Err(f) = laid {
-                self.frame.errors.push(f.message);
+                self.drawing.error(f.message);
             }
             if self.page.revision() == at {
                 self.streak = (outside, 0);
@@ -744,7 +312,7 @@ impl XtmdPage {
                 self.streak = if self.streak.0 == outside { (outside, self.streak.1 + 1) } else { (outside, 1) };
                 if self.streak.1 >= xtmd_runtime::MAX_PASSES {
                     self.held = Some(outside);
-                    self.frame.errors.push(format!("the layout still changed the page after {} frames with nothing else changing it: held until something does", self.streak.1));
+                    self.drawing.error(format!("the layout still changed the page after {} frames with nothing else changing it: held until something does", self.streak.1));
                 }
             }
         }

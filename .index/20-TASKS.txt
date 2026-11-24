@@ -20,7 +20,7 @@ add a fn to core
 
 add or change an extern widget of core
   core/*.xtmdpack -> docs/specs/05-standard-library.md -> engines/published/widgets/src/widgets
-  -> engines/examples/rust/egui/src/widgets -> Android
+  -> engines/examples/rust/egui-widgets/src/widgets -> Android
   -> ide/vscode/src/webview/widgets.ts -> engines/published/runtime/test/cases
 
 change what a page does as it runs

@@ -1,7 +1,7 @@
 [package]
 name = "xtmd-egui"
 workspace = "../../../../compiler"
-description = "Extended Mark's desktop engine: the native runtime drawn with egui. Our default egui widgets for every core extern widget, XtmdPage::new(page), and the check adapters that drive it headless through egui_kittest and AccessKit."
+description = "Extended Mark's desktop engine: the native runtime drawn with egui. The egui widget set, XtmdPage::new(page), and the check adapters that drive it headless through egui_kittest and AccessKit."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -29,13 +29,13 @@ app = ["dep:eframe"]
 
 [dependencies]
 xtmd-runtime = { path = "../runtime", version = "0.4.0" }
+xtmd-egui-widgets = { path = "../egui-widgets", version = "0.4.0" }
 xtmd-planes = { path = "../planes", version = "0.4.0" }
 xtmd-eval = { path = "../../../../compiler/eval", version = "0.4.0" }
 xtmd-ir = { path = "../../../../compiler/ir", version = "0.4.0" }
 serde.workspace = true
 serde_json.workspace = true
 egui = "0.37"
-chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 egui_kittest = { version = "0.37", optional = true }
 eframe = { version = "0.37", optional = true, default-features = false, features = ["accesskit", "default_fonts", "glow", "wayland", "x11"] }
 

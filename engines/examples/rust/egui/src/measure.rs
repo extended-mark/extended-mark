@@ -4,19 +4,17 @@
 //!   engine's boxes agree exactly. Text is 8 wide per character and 20 high; a flex lines its
 //!   children up along its axis, and a grid, a cell, a sizing and a spot stack theirs, each with
 //!   its `gap` and `pad`; anything else is 80 by 20; a plane given no width is 640 wide.
-//! - [`Measured`]: what egui drew. Each spot's box is its child's rect from the last frame, in
+//! - [`FromDrawn`]: what egui drew. Each spot's box is its child's rect from the last frame, in
 //!   the plane's units (the plane's `Scene` lays its content out unscaled, so a rect there is in
 //!   the plane's units already), rounded to whole points so a layout settles.
 
-use std::collections::HashMap;
-
+use xtmd_egui_widgets::{Measured, PAGE_WIDTH};
 use xtmd_planes::Measure;
 use xtmd_runtime::{Drawn, Num, Page, Size, Value};
 
 pub const CHAR: f64 = 8.0;
 pub const LINE: f64 = 20.0;
 pub const OTHER: f64 = 80.0;
-pub const PAGE_WIDTH: i64 = 640;
 
 fn text_of(v: Option<&Value>) -> Option<String> {
     match v? {
@@ -91,19 +89,15 @@ impl Measure for Fixed {
 }
 
 /// What egui drew in the last frame: each spot's size and each plane's width, by path.
-#[derive(Clone, Debug, Default)]
-pub struct Measured {
-    pub spots: HashMap<String, egui::Vec2>,
-    pub planes: HashMap<String, f32>,
-}
+pub struct FromDrawn<'a>(pub &'a Measured);
 
-impl Measure for Measured {
+impl Measure for FromDrawn<'_> {
     fn spot(&mut self, _page: &Page, spot: &Drawn) -> Size {
-        let s = self.spots.get(&spot.id).copied().unwrap_or(egui::Vec2::ZERO);
+        let s = self.0.spots.get(&spot.id).copied().unwrap_or(egui::Vec2::ZERO);
         Size { width: whole(s.x.max(0.0).round() as f64), height: whole(s.y.max(0.0).round() as f64) }
     }
 
     fn plane_width(&mut self, _page: &Page, plane: &Drawn) -> Num {
-        whole(self.planes.get(&plane.id).copied().unwrap_or(PAGE_WIDTH as f32).max(0.0).round() as f64)
+        whole(self.0.planes.get(&plane.id).copied().unwrap_or(PAGE_WIDTH as f32).max(0.0).round() as f64)
     }
 }

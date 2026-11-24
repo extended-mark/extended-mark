@@ -11,10 +11,14 @@ engines/examples/rust/runtime    xtmd-runtime: the native runtime
 engines/examples/rust/planes     xtmd-planes: a page's planes measured and laid out, for egui and Android
   src/lib.rs; tests/planes.rs; examples/drag_bench.rs
 
-engines/examples/rust/egui       xtmd-egui: draws with egui
-  src/lib.rs            XtmdPage; src/doc.rs XtmdDoc (a host's)
+engines/examples/rust/egui-widgets  xtmd-egui-widgets: egui's widget set, which knows no page
+  src/lib.rs            Widget, Registry, Props, Ctx; Drawing (kept across frames), Host (the page)
   src/widgets/          blocks, controls, gfx, layout, plane, notice; kit.rs is shared
-  src/rich.rs, look.rs, measure.rs, values.rs, a11y.rs, fns.rs
+  src/rich.rs, look.rs, values.rs, a11y.rs, fns.rs
+  tests/alone.rs        without a page
+
+engines/examples/rust/egui       xtmd-egui: egui's renderer
+  src/lib.rs            XtmdPage; src/doc.rs XtmdDoc (a host's); src/measure.rs
   src/check/mod.rs      a page driven headless (egui_kittest)
   tests/                doc, widgets
 
