@@ -29,8 +29,9 @@ export interface Reads<N> {
   tag(node: N): string;
   /** Its text, for a node that is words. */
   text(node: N): string | undefined;
-  /** Its attributes, its style left out. */
-  attributes(node: N): Record<string, string>;
+  attribute(node: N, name: string): string | null;
+  /** The names of its attributes. */
+  names(node: N): string[];
   children(node: N): N[];
 }
 
@@ -42,6 +43,11 @@ interface Made<N> {
   kids: Map<string, Made<N>>;
   order: string[];
   component?: { update(c: Component): void; destroy(): void };
+}
+
+/** An element's style as HTML has it. */
+export function styleText(style: VNode["style"]): string | null {
+  return style && Object.keys(style).length ? Object.entries(style).map(([k, v]) => `${k}:${v}`).join(";") : null;
 }
 
 function keyOf(c: Child, i: number): string {
@@ -124,8 +130,15 @@ export class Patcher<N> {
       return m;
     }
     if (c.tag === "") return m;
-    this.host.removeAttribute(node, "style");
-    this.set(m, { tag: c.tag, attrs: read.attributes(node), children: [] }, c, c.props);
+    // only what isn't as it was written is put right
+    for (const [k, x] of Object.entries(c.attrs)) if (read.attribute(node, k) !== x) this.host.setAttribute(node, k, x);
+    const st = styleText(c.style);
+    if (read.attribute(node, "style") !== st) {
+      this.host.removeAttribute(node, "style");
+      for (const [k, x] of Object.entries(c.style ?? {})) this.host.setStyle(node, k, x);
+    }
+    for (const k of read.names(node)) if (!(k in c.attrs) && k !== "style" && !(c.props && k in c.props)) this.host.removeAttribute(node, k);
+    this.listen(m, c);
     for (const [k, x] of Object.entries(c.props ?? {})) this.host.setProperty(node, k, x);
     if (c.component) m.component = this.host.component?.(node, c.component);
     if (c.tag === "style" || c.tag === "textarea") return m;
@@ -183,13 +196,19 @@ export class Patcher<N> {
   }
 
   /** Attributes, style, properties and listeners: what changed from `prev`. */
-  private set(m: Made<N>, prev: VNode | undefined, v: VNode, leave: Record<string, unknown> = {}): void {
+  private set(m: Made<N>, prev: VNode | undefined, v: VNode): void {
     const h = this.host;
     for (const [k, x] of Object.entries(v.attrs)) if (prev?.attrs[k] !== x) h.setAttribute(m.node, k, x);
-    for (const k of Object.keys(prev?.attrs ?? {})) if (!(k in v.attrs) && !(k in leave)) h.removeAttribute(m.node, k);
+    for (const k of Object.keys(prev?.attrs ?? {})) if (!(k in v.attrs)) h.removeAttribute(m.node, k);
     const st = v.style ?? {};
     for (const [k, x] of Object.entries(st)) if (prev?.style?.[k] !== x) h.setStyle(m.node, k, x);
     for (const k of Object.keys(prev?.style ?? {})) if (!(k in st)) h.removeStyle(m.node, k);
+    this.listen(m, v);
+  }
+
+  /** Its live properties and its listeners. */
+  private listen(m: Made<N>, v: VNode): void {
+    const h = this.host;
     if (v.props) this.live.add(m);
     else this.live.delete(m);
     if (h.live) {

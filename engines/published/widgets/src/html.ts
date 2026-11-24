@@ -2,6 +2,7 @@
 // with void elements left open and hooks left for the browser.
 
 import type { web } from "@extended-mark/runtime";
+import { styleText } from "./patch.js";
 import type { Child, VNode } from "./vnode.js";
 
 const VOID = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
@@ -27,7 +28,8 @@ export function toHtml(c: Child): string {
     const a = propAttr(k, v);
     if (a && !(c.tag === "textarea" && k === "value")) attrs.push(a);
   }
-  if (c.style && Object.keys(c.style).length) attrs.push(["style", Object.entries(c.style).map(([k, v]) => `${k}:${v}`).join(";")]);
+  const style = styleText(c.style);
+  if (style !== null) attrs.push(["style", style]);
   const open = `<${c.tag}${attrs.map(([k, v]) => (v === "" && k !== "value" && k !== "alt" ? ` ${k}` : ` ${k}="${escapeHtml(v)}"`)).join("")}>`;
   if (VOID.has(c.tag) && !c.svg) return open;
   const inner = c.tag === "textarea" ? escapeHtml(String(c.props?.value ?? "")) : RAW.has(c.tag) ? c.children.map((x) => (typeof x === "string" ? x : toHtml(x))).join("") : c.children.map(toHtml).join("");

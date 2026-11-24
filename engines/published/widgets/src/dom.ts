@@ -60,6 +60,7 @@ export function focusOf(root: HTMLElement): (() => void) | undefined {
 export const domReads: Reads<Node> = {
   tag: (n) => (n.nodeType === 1 ? (n as Element).localName : "#"),
   text: (n) => (n.nodeType === 3 ? (n.nodeValue ?? "") : undefined),
-  attributes: (n) => Object.fromEntries([...(n as Element).attributes].flatMap((a) => (a.name === "style" ? [] : [[a.name, a.value]]))),
+  attribute: (n, name) => (n as Element).getAttribute(name),
+  names: (n) => (n as Element).getAttributeNames(),
   children: (n) => [...n.childNodes],
 };
