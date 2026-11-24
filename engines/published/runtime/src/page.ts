@@ -108,13 +108,21 @@ interface Instance {
 
 /** What a widget's drawing read and made, so a redraw can reuse it while none of it changed. */
 /** What drawing one part of the page read and met, itself: what is inside it has its own, in `kids`. */
+interface Part {
+  place: Place;
+  was: V;
+  /** What the place is in, and what was read to get there, with their versions: while they are as they
+   * were, so is it. */
+  deps: Map<string, number>;
+}
+
 class Frame {
   /** Each outside value read, by key (`s:field`, `x:channel.value`, `c:id:cell`, `o:key`), with
    * its version then. */
   deps: Map<string, number> | undefined;
   /** Each part of a value read at its place, an item of a list among them, and what was there: another
    * part that changes is nothing to it. */
-  parts: [Place, V][] | undefined;
+  parts: Part[] | undefined;
   kids: Frame[] | undefined;
   /** The instances drawn here, with their paths: seen again when it is reused. */
   nested: [Instance, string][] | undefined;
@@ -240,8 +248,8 @@ export class Core {
   /** The page's rules that held or didn't, with what they read. */
   private ruleMemo = new Map<ir.Require, { deps: Map<string, number>; epoch: number; holds: boolean }>();
   private frames: Frame[] = [];
-  /** Above 0 while a place is read for a part that minds the place. */
-  private quiet = 0;
+  /** What is read on the way to a part, while it is. */
+  private partDeps: Map<string, number> | undefined;
   /** Above 0 while what is read is told by name: a held fn's calls, and `$state`'s rules. */
   private whole = 0;
   private readonly memoOn: boolean;
@@ -920,10 +928,11 @@ export class Core {
       },
       readAt(m: Machine, place: Place): V {
         const top = page.frames[page.frames.length - 1];
-        if (!top || page.quiet || page.whole) return m.valueAt(place);
-        const v = page.partAt(place);
-        (top.parts ??= []).push([place, v]);
-        return v;
+        if (!top || page.partDeps || page.whole) return m.valueAt(place);
+        const deps = new Map<string, number>();
+        const was = page.partAt(place, deps);
+        (top.parts ??= []).push({ place, was, deps });
+        return was;
       },
       write(m: Machine, what: Outer, owner: number | undefined, value: V): void {
         switch (what.kind) {
@@ -1043,7 +1052,7 @@ export class Core {
   private snapshot() {
     return {
       state: new Map(this.state),
-      cells: new Map([...this.instances].map(([id, i]) => [id, new Map(i.cells)])),
+      cells: new Map([...this.instances].filter(([, i]) => i.cells.size).map(([id, i]) => [id, new Map(i.cells)])),
       calls: this.calls.length,
     };
   }
@@ -1350,18 +1359,25 @@ export class Core {
   }
 
   /** What is at a place now, read for no one. */
-  private partAt(place: Place): V {
-    this.quiet++;
+  private partAt(place: Place, deps: Map<string, number>): V {
+    const around = this.partDeps;
+    this.partDeps = deps;
     try {
       return this.machine.valueAt(place);
     } finally {
-      this.quiet--;
+      this.partDeps = around;
     }
   }
 
-  private partsStand(parts: [Place, V][]): boolean {
+  private partsStand(parts: Part[]): boolean {
     try {
-      return parts.every(([place, v]) => sameNow(v, this.partAt(place)));
+      return parts.every((p) => {
+        if (this.current(p.deps)) return true;
+        const deps = new Map<string, number>();
+        if (!sameNow(p.was, this.partAt(p.place, deps))) return false;
+        p.deps = deps;
+        return true;
+      });
     } catch {
       // its place is gone
       return false;
@@ -1516,7 +1532,11 @@ export class Core {
 
   /** A read of an outside value, for the part being drawn. */
   track(key: string): void {
-    if (this.quiet) return;
+    const part = this.partDeps;
+    if (part) {
+      if (!part.has(key)) part.set(key, this.versions.get(key) ?? 0);
+      return;
+    }
     const f = this.frames[this.frames.length - 1];
     if (f && !f.deps?.has(key)) (f.deps ??= new Map()).set(key, this.versions.get(key) ?? 0);
   }

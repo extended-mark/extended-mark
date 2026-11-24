@@ -424,6 +424,15 @@ impl Stable {
     }
 }
 
+#[derive(Debug)]
+struct Part {
+    place: Place,
+    was: Value,
+    /// What the place is in, and what was read to get there, with their versions: while they are as they
+    /// were, so is it.
+    deps: HashMap<String, u64>,
+}
+
 /// What drawing one part of the page read and met, itself: what is inside it has its own, in `kids`. A
 /// redraw reuses it while none of it changed.
 #[derive(Debug, Default)]
@@ -433,7 +442,7 @@ struct Frame {
     deps: HashMap<String, u64>,
     /// Each part of a value read at its place, an item of a list among them, and what was there: another
     /// part that changes is nothing to it.
-    parts: Vec<(Place, Value)>,
+    parts: RefCell<Vec<Part>>,
     kids: Vec<Rc<Frame>>,
     /// The instances drawn here, with their paths: seen again when it is reused.
     nested: Vec<(u64, String)>,
@@ -597,8 +606,8 @@ pub(crate) struct World {
     draws: u64,
     /// Moves with every bump: what was found fresh at one is, until the next.
     stamp: u64,
-    /// Above 0 while a place is read for a part that minds the place.
-    quiet: u32,
+    /// What is read on the way to a part, while it is.
+    part_deps: Option<HashMap<String, u64>>,
     /// Above 0 while what is read is told by name: a held fn's calls, and `$state`'s rules.
     whole: u32,
     /// `$state`'s rules, by their place among them: whether each held, with what it read.
@@ -615,14 +624,11 @@ impl World {
 
     /// A read of an outside value, for the part being drawn.
     fn track(&mut self, key: impl FnOnce() -> String) {
-        if self.quiet > 0 {
-            return;
-        }
-        let Some(f) = self.frames.last_mut() else { return };
+        let Some(deps) = self.part_deps.as_mut().or(self.frames.last_mut().map(|f| &mut f.deps)) else { return };
         let k = key();
-        if !f.deps.contains_key(&k) {
+        if !deps.contains_key(&k) {
             let v = self.versions.get(&k).copied().unwrap_or(0);
-            f.deps.insert(k, v);
+            deps.insert(k, v);
         }
     }
 
@@ -729,16 +735,16 @@ impl Host for PageHost {
     fn read_at(&self, m: &mut Machine, place: &Place) -> R<Value> {
         {
             let w = self.0.w.borrow();
-            if w.frames.is_empty() || w.quiet > 0 || w.whole > 0 {
+            if w.frames.is_empty() || w.part_deps.is_some() || w.whole > 0 {
                 drop(w);
                 return m.value_at(place);
             }
         }
-        let v = self.0.part_at(m, place)?;
+        let (was, deps) = self.0.part_at(m, place)?;
         if let Some(f) = self.0.w().frames.last_mut() {
-            f.parts.push((place.clone(), v.clone()));
+            f.parts.get_mut().push(Part { place: place.clone(), was: was.clone(), deps });
         }
-        Ok(v)
+        Ok(was)
     }
 
     fn write(&self, m: &mut Machine, what: &Outer, owner: Option<u64>, value: Value) -> R<()> {
@@ -1325,18 +1331,32 @@ impl Rt {
             _ => {}
         }
         let ok = self.w.borrow().current(&frame.deps)
-            && frame.parts.iter().all(|(place, v)| self.part_at(m, place).map_or(false, |now| same_now(v, &now)))
+            && frame.parts.borrow_mut().iter_mut().all(|p| self.part_stands(m, p))
             && frame.kids.iter().all(|k| self.unchanged(m, k));
         frame.fresh.set(if ok { stamp } else { STALE });
         ok
     }
 
     /// What is at a place now, read for no one.
-    fn part_at(&self, m: &mut Machine, place: &Place) -> R<Value> {
-        self.w().quiet += 1;
+    fn part_at(&self, m: &mut Machine, place: &Place) -> R<(Value, HashMap<String, u64>)> {
+        let around = self.w().part_deps.replace(HashMap::new());
         let v = m.value_at(place);
-        self.w().quiet -= 1;
-        v
+        let deps = std::mem::replace(&mut self.w().part_deps, around).unwrap_or_default();
+        v.map(|v| (v, deps))
+    }
+
+    fn part_stands(&self, m: &mut Machine, p: &mut Part) -> bool {
+        if self.w.borrow().current(&p.deps) {
+            return true;
+        }
+        match self.part_at(m, &p.place) {
+            Ok((now, deps)) if same_now(&p.was, &now) => {
+                p.deps = deps;
+                true
+            }
+            // what was there is another, or its place is gone
+            _ => false,
+        }
     }
 
     /// Whether the locals around a call are the ones it was drawn with.
