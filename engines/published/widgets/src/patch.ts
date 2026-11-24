@@ -24,6 +24,16 @@ export interface Host<N> {
   readonly live: boolean;
 }
 
+/** How a renderer's elements are read, where they are there already. */
+export interface Reads<N> {
+  tag(node: N): string;
+  /** Its text, for a node that is words. */
+  text(node: N): string | undefined;
+  /** Its attributes, its style left out. */
+  attributes(node: N): Record<string, string>;
+  children(node: N): N[];
+}
+
 interface Made<N> {
   node: N;
   v: Child;
@@ -83,6 +93,46 @@ export class Patcher<N> {
     this.settleProps();
   }
 
+  /** The parent's children, drawn already: as HTML written ahead, each run of children with what is there for it.
+   * An element that is the one drawn is kept, with what isn't as it should be put right; one that isn't is made. A
+   * child with no tag is left as it is for good, whatever it holds. */
+  adoptAll(runs: readonly { children: Child[]; live: readonly N[] }[], read: Reads<N>): void {
+    const m = this.root!;
+    m.v = { tag: "", attrs: {}, children: runs.flatMap((r) => r.children) };
+    runs.forEach((r, k) => this.adoptInto(m, r.children, r.live, read, runs.slice(k + 1).find((x) => x.live.length)?.live[0] ?? null));
+    this.settleProps();
+    for (const k of m.order) this.mounted(m.kids.get(k)!);
+  }
+
+  private adoptInto(m: Made<N>, children: Child[], live: readonly N[], read: Reads<N>, after: N | null = null): void {
+    const left = [...live];
+    for (const c of children) {
+      const key = keyOf(c, m.order.length);
+      const is = left.length > 0 && (typeof c === "string" ? read.text(left[0]) !== undefined : c.tag === "" || read.tag(left[0]) === c.tag);
+      const child = is ? this.adopt(c, left.shift()!, read) : this.make(c);
+      if (!is) this.host.insertBefore(m.node, child.node, left[0] ?? after);
+      m.kids.set(key, child);
+      m.order.push(key);
+    }
+    for (const n of left) this.host.removeChild(m.node, n);
+  }
+
+  private adopt(c: Child, node: N, read: Reads<N>): Made<N> {
+    const m: Made<N> = { node, v: c, off: new Map(), kids: new Map(), order: [] };
+    if (typeof c === "string") {
+      if (read.text(node) !== c) this.host.setText(node, c);
+      return m;
+    }
+    if (c.tag === "") return m;
+    this.host.removeAttribute(node, "style");
+    this.set(m, { tag: c.tag, attrs: read.attributes(node), children: [] }, c, c.props);
+    for (const [k, x] of Object.entries(c.props ?? {})) this.host.setProperty(node, k, x);
+    if (c.component) m.component = this.host.component?.(node, c.component);
+    if (c.tag === "style" || c.tag === "textarea") return m;
+    this.adoptInto(m, c.children, read.children(node), read);
+    return m;
+  }
+
   /** The root element made, or undefined before the first render. */
   get node(): N | undefined {
     return this.root?.node;
@@ -133,10 +183,10 @@ export class Patcher<N> {
   }
 
   /** Attributes, style, properties and listeners: what changed from `prev`. */
-  private set(m: Made<N>, prev: VNode | undefined, v: VNode): void {
+  private set(m: Made<N>, prev: VNode | undefined, v: VNode, leave: Record<string, unknown> = {}): void {
     const h = this.host;
     for (const [k, x] of Object.entries(v.attrs)) if (prev?.attrs[k] !== x) h.setAttribute(m.node, k, x);
-    for (const k of Object.keys(prev?.attrs ?? {})) if (!(k in v.attrs)) h.removeAttribute(m.node, k);
+    for (const k of Object.keys(prev?.attrs ?? {})) if (!(k in v.attrs) && !(k in leave)) h.removeAttribute(m.node, k);
     const st = v.style ?? {};
     for (const [k, x] of Object.entries(st)) if (prev?.style?.[k] !== x) h.setStyle(m.node, k, x);
     for (const k of Object.keys(prev?.style ?? {})) if (!(k in st)) h.removeStyle(m.node, k);

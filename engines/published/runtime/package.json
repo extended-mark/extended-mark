@@ -28,6 +28,18 @@
     "./write": {
       "types": "./dist/write.d.ts",
       "default": "./dist/write.js"
+    },
+    "./ops": {
+      "types": "./dist/eval/ops.d.ts",
+      "default": "./dist/eval/ops.js"
+    },
+    "./natives": {
+      "types": "./dist/eval/natives.d.ts",
+      "default": "./dist/eval/natives.js"
+    },
+    "./values": {
+      "types": "./dist/eval/value.d.ts",
+      "default": "./dist/eval/value.js"
     }
   },
   "files": [
@@ -43,5 +55,6 @@
   "devDependencies": {
     "@types/node": "20.19.43",
     "typescript": "5.9.3"
-  }
+  },
+  "sideEffects": false
 }

@@ -4,38 +4,10 @@
 
 import { Num } from "@extended-mark/runtime/num";
 import { Page, type Node as Drawn, type PageOptions, type ir } from "@extended-mark/runtime";
-import { Patcher, Tokens, act, children, composing, h, layoutPlanes, styleText, webFns, widgets as ours, type Child, type Component, type Drawing, type Host, type Measure } from "@extended-mark/widgets";
+import { Patcher, Tokens, act, children, domHost, focusOf, h, layoutPlanes, styleText, webFns, widgets as ours, type Child, type Component, type Drawing, type Host, type Measure } from "@extended-mark/widgets";
 import type { MountOptions, Mounted, OwnWidget } from "./api.js";
 
-const SVG = "http://www.w3.org/2000/svg";
 let mounts = 0;
-
-/** How elements are made and changed here: the DOM's own way. */
-const dom: Host<Node> = {
-  live: true,
-  createElement: (tag, svg) => (svg ? document.createElementNS(SVG, tag) : document.createElement(tag)),
-  createText: (text) => document.createTextNode(text),
-  setText: (node, text) => {
-    if (node.nodeValue !== text) node.nodeValue = text;
-  },
-  setAttribute: (el, name, value) => (el as Element).setAttribute(name, value),
-  removeAttribute: (el, name) => (el as Element).removeAttribute(name),
-  setStyle: (el, prop, value) => (el as HTMLElement).style.setProperty(prop, value),
-  removeStyle: (el, prop) => (el as HTMLElement).style.removeProperty(prop),
-  // what is typed stays while a person composes it, and a value that is there already is never set again:
-  // that would move the caret
-  setProperty: (el, name, value) => {
-    const live = el as unknown as Record<string, unknown>;
-    if (name === "value" && composing(el)) return;
-    if (live[name] !== value) live[name] = value;
-  },
-  listen(el, event, f) {
-    el.addEventListener(event, f);
-    return () => el.removeEventListener(event, f);
-  },
-  insertBefore: (parent, child, before) => void parent.insertBefore(child, before),
-  removeChild: (_parent, child) => (child as ChildNode).remove(),
-};
 
 const styled = new WeakSet<Node>();
 const sheets = new WeakMap<Node, Set<string>>();
@@ -65,30 +37,6 @@ function injectStyle(root: HTMLElement, tokens: Tokens): void {
   add("data-xtmd-tokens", sheet.css, false);
 }
 
-/** What has focus inside the page, and the caret in it, before a redraw moves anything. */
-function focusOf(root: HTMLElement): (() => void) | undefined {
-  const a = root.ownerDocument.activeElement as HTMLElement | null;
-  if (!a || a === root || !root.contains(a)) return undefined;
-  const typed = a instanceof HTMLInputElement || a instanceof HTMLTextAreaElement ? a : undefined;
-  let sel: [number | null, number | null, "forward" | "backward" | "none" | null] | undefined;
-  try {
-    if (typed) sel = [typed.selectionStart, typed.selectionEnd, typed.selectionDirection];
-  } catch {
-    // a range input has no caret
-  }
-  return () => {
-    if (!a.isConnected || root.ownerDocument.activeElement === a) return;
-    a.focus({ preventScroll: true });
-    if (typed && sel && sel[0] !== null && sel[1] !== null) {
-      try {
-        typed.setSelectionRange(sel[0], sel[1], sel[2] ?? undefined);
-      } catch {
-        // not every input keeps a caret
-      }
-    }
-  };
-}
-
 /** A host's own element for a widget, its slots' widgets followed into where it puts them. */
 function own(el: Node, c: Component): { update(c: Component): void; destroy(): void } {
   let now = c;
@@ -113,7 +61,7 @@ function own(el: Node, c: Component): { update(c: Component): void; destroy(): v
     },
   };
 }
-dom.component = own;
+const dom: Host<Node> = { ...domHost, component: own };
 
 export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): Mounted {
   const registry = { ...ours, ...(opts.widgets ?? {}) };

@@ -17,7 +17,11 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./style.css": "./dist/style.css"
+    "./style.css": "./dist/style.css",
+    "./each": {
+      "types": "./dist/each.d.ts",
+      "default": "./dist/each.js"
+    }
   },
   "files": [
     "dist"
@@ -31,5 +35,8 @@
   },
   "devDependencies": {
     "typescript": "5.9.3"
-  }
+  },
+  "sideEffects": [
+    "./dist/style.css"
+  ]
 }

@@ -16,15 +16,16 @@ const EMAX = 6144;
 const EMIN = -6143;
 
 // decimal.js never limits exponents itself: decimal128's limits are applied by `roundTo`, and by the number made.
-const unbounded = { minE: -9e15, maxE: 9e15, toExpNeg: -9e15, toExpPos: 9e15, modulo: 1 as Decimal.Modulo, crypto: false };
+const of = (precision: number, rounding: Rounding): Decimal.Constructor =>
+  Decimal.clone({ minE: -9e15, maxE: 9e15, toExpNeg: -9e15, toExpPos: 9e15, modulo: 1 as Decimal.Modulo, crypto: false, precision, rounding });
 /** Wide enough that one more rounding is still correct (2p+2 digits). */
-const D70 = /* @__PURE__ */ Decimal.clone({ ...unbounded, precision: 70, rounding: ROUND_HALF_EVEN });
+const D70 = /* @__PURE__ */ of(70, ROUND_HALF_EVEN);
 /** libdecnumber's working precision for `pow` with a power that isn't a small whole number. */
-const D44 = /* @__PURE__ */ Decimal.clone({ ...unbounded, precision: 44, rounding: ROUND_HALF_EVEN });
+const D44 = /* @__PURE__ */ of(44, ROUND_HALF_EVEN);
 /** Wide enough to hold the exact product of two numbers of up to 46 digits: `pow`'s whole powers. */
-const EXACT = /* @__PURE__ */ Decimal.clone({ ...unbounded, precision: 200, rounding: ROUND_HALF_EVEN });
+const EXACT = /* @__PURE__ */ of(200, ROUND_HALF_EVEN);
 /** num.rs's `Wide`: 120 digits, rounding halves up as libdecnumber's default context does. */
-const W = /* @__PURE__ */ Decimal.clone({ ...unbounded, precision: 120, rounding: ROUND_HALF_UP });
+const W = /* @__PURE__ */ of(120, ROUND_HALF_UP);
 /** Wide's largest exponent (num.rs's wide_cx); its smallest, -99,999, is far below the series' 10^-130. */
 const WIDE_EMAX = 99_999;
 
@@ -56,8 +57,8 @@ function roundTo(x: Decimal, digits: number, rm: Rounding, emin: number, emax: n
   return { v: r, overflow: r.e > emax, underflow: false };
 }
 
-const ZERO = Num.zero();
-const ONE = Num.int(1);
+const ZERO = /* @__PURE__ */ Num.zero();
+const ONE = /* @__PURE__ */ Num.int(1);
 
 /** A number as decimal.js holds it. */
 function dec(n: Num): Decimal {

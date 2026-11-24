@@ -3,7 +3,7 @@
 
 import { Num, NumError } from "./num.js";
 
-const THOUSAND = Num.int(1000);
+const THOUSAND = /* @__PURE__ */ Num.int(1000);
 
 /** Whole seconds as `2s`, anything else as `250ms`. */
 export function showDuration(ms: Num): string {

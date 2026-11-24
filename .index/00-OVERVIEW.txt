@@ -15,13 +15,14 @@ root. Why things are as they are is in .knowledge/, what the language means in d
   11-checks-tests.txt     checks/ and every test suite
   12-docs-notes.txt       docs/specs, docs/guides, notes/
   13-release-ci.txt       tools/, .github/, install scripts, VERSION
+  14-web-engine.txt       engines/published/web: pages built ahead
   20-TASKS.txt            "I want to change X": the places to touch, in order
 
 THE TREE
   compiler/               the one compiler, in Rust; its cargo workspace holds every crate
   core/                   core, written in Extended Mark (.xtmdpack)
   schemas/                JSON Schemas: ir, rir, tree, check; earlier IRs in schemas/ir-history
-  engines/published/      on npm: runtime, dom, bindings/*
+  engines/published/      on npm: runtime, widgets, dom, web, bindings/*
   engines/examples/       never published: rust (runtime, egui, egui-live), misc/android
   ide/                    lsp (a crate), vscode (an extension)
   apps/                   playground, example-host

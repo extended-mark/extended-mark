@@ -543,7 +543,7 @@ const ALL: ReadonlyMap<string, Native> = /* @__PURE__ */ new Map<string, Native>
   ["core/ordered.clamp", ordered_clamp],
 ]);
 
-export const NATIVES: readonly string[] = /* @__PURE__ */ [...ALL.keys()];
+export const NATIVES: readonly string[] = /* @__PURE__ */ (() => [...ALL.keys()])();
 
 export function exists(name: string): boolean {
   return ALL.has(name);

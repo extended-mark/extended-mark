@@ -4,7 +4,9 @@ engines/published/widgets    npm @extended-mark/widgets: the web's one widget se
   src/widgets/          core's widgets: blocks, controls, gfx, layout, plane, rich; index.ts by full name
   src/draw.ts           nodes as elements (children, drawn); ViewWidget, ViewContext, Drawing
   src/vnode.ts          VNode: tag, attrs, props, style, on, children, hook, component
-  src/patch.ts          Patcher: VNodes followed onto a live tree, through a Host (DOM, Angular)
+  src/patch.ts          Patcher: VNodes followed onto a live tree, through a Host (DOM, Angular), or taken
+                        over where HTML was written (adoptAll); dom.ts the DOM's Host
+  src/each.ts           each widget by itself, for what holds only the ones it draws
   src/html.ts           VNodes as HTML and as schemas/web.schema.json
   src/style.css         the stylesheet; src/style.ts holds it as text
   src/tokens.ts         tokens as CSS custom properties, both themes

@@ -1,0 +1,9 @@
+THE WEB ENGINE
+A built page is HTML, drawn once as it is built, and a script for what of it changes. There is no IR and no
+interpreter in it: each expression is a fn, made by generate.ts, and what it does to values is the evaluator's
+own (engines/published/runtime/src/eval/ops.ts and natives.ts), so it can't differ. The kernel (kit.ts,
+parts.ts) is the engine's, and follows page.ts step for step: a change to what a page does is made there too.
+A part no read, write or event is in is HTML alone (static.ts), unless its widget has listeners or a hook.
+The script takes the HTML over (Patcher.adoptAll): the elements are the ones that were written.
+A local is a place in a frame, known as the code is written; a frame is an array, so a lambda's is a slice.
+What holds it to the runtime: engines/published/web/test/engine.test.mjs.
