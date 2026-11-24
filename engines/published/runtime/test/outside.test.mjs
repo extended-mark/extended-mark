@@ -161,3 +161,19 @@ test("a fn is the page's own: data put back leaves out a variable that holds one
   assert.deepEqual(q.restore(data), ["s0.f"]);
   assert.deepEqual([label(q), q.takeOutcome().failures], ["1 1", []]);
 });
+
+test("the same values give the same ids, however a page came to start with them (page 6)", () => {
+  const ids = (p) => everyNode(p.tree().nodes).map((x) => x.id);
+  const plain = page(TASKS);
+  const { ir } = plain;
+  const list = plain.state().xs;
+  assert.deepEqual(ids(new Page(ir, { data: plain.data() })), ids(plain));
+  assert.deepEqual(ids(new Page(ir, { state: { xs: list } })), ids(plain));
+  // refused, it starts with its own
+  assert.deepEqual(ids(new Page(ir, { state: { xs: { list: [{ num: "1" }] } } })), ids(plain));
+  // and an item added then is another than every one there
+  const p = new Page(ir, { data: plain.data() });
+  press(p, "Add");
+  assert.equal(new Set(ids(p)).size, ids(p).length);
+  assert.deepEqual(labels(p).filter((x) => x.includes(":")), ["a: 0", "b: 0", "new: 0"]);
+});

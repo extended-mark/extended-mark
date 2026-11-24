@@ -270,3 +270,18 @@ fn a_fn_is_the_pages_own_and_isnt_put_back() {
 fn num_json(n: &str) -> Json {
     json!({"num": n})
 }
+
+#[test]
+fn the_same_values_give_the_same_ids_however_a_page_came_to_start_with_them() {
+    let ids = |p: &Page| labels(p).into_iter().map(|l| l.0).collect::<Vec<_>>();
+    let plain = page(TASKS);
+    let module = build_with(TASKS, &[]);
+    let data = plain.observe_state().into_iter().collect::<Vec<_>>();
+    let mut opts = PageOptions::default();
+    opts.state = data.clone();
+    let mut p = Page::from_module(module, opts).unwrap();
+    assert_eq!(ids(&p), ids(&plain));
+    press(&mut p, "Add");
+    assert_eq!(ids(&p).into_iter().collect::<std::collections::HashSet<_>>().len(), ids(&p).len());
+    assert_eq!(said(&p).into_iter().filter(|x| x.contains(':')).collect::<Vec<_>>(), vec!["a: 0", "b: 0", "new: 0"]);
+}

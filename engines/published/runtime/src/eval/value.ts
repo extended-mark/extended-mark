@@ -352,6 +352,30 @@ export function toIr(v: Value): ir.Expr {
   }
 }
 
+/** A value with its lists' items numbered anew, in the order they are in: `ids.next` is the last one given out. */
+export function numbered(v: Value, ids: { next: number }): Value {
+  switch (v.kind) {
+    case "list":
+      return { kind: "list", items: v.items.map((i) => ({ id: ++ids.next, value: numbered(i.value, ids) })) };
+    case "record":
+      return { ...v, fields: v.fields.map(([n, x]) => [n, numbered(x, ids)] as const) };
+    case "case":
+      return { ...v, values: v.values.map(([n, x]) => [n, numbered(x, ids)] as const) };
+    case "opt":
+      return v.value === null ? v : { kind: "opt", value: numbered(v.value, ids) };
+    default:
+      return v;
+  }
+}
+
+/** What a page starts with, numbered once it is settled: by what it holds, and not by how it came to hold it, so the
+ * same values give the same ids on a server as in a browser. Gives the last number. */
+export function numberedStart(...of: Map<string, Value>[]): number {
+  const ids = { next: 0 };
+  for (const m of of) for (const k of [...m.keys()].sort(compareText)) m.set(k, numbered(m.get(k)!, ids));
+  return ids.next;
+}
+
 /** The helpers, under the type's name: `Value.text("a")`, `Value.some(v)`, `Value.none()`. */
 export const Value = {
   num,

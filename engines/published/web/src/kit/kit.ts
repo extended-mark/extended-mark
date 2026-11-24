@@ -4,7 +4,7 @@
 
 import { Failure, MAX_DEPTH, Ops, type Binding, type Declared, type Place, type PlaceRoot } from "@extended-mark/runtime/ops";
 import { Num } from "@extended-mark/runtime/num";
-import { none, sortedEntries, toIr, type Value } from "@extended-mark/runtime/values";
+import { none, numberedStart, sortedEntries, toIr, type Value } from "@extended-mark/runtime/values";
 import type { Native } from "@extended-mark/runtime/natives";
 import type { Input, ir } from "@extended-mark/runtime";
 
@@ -257,7 +257,9 @@ export class Kit extends Ops {
     for (const [c, values] of Object.entries(given.externs ?? {})) for (const [k, x] of Object.entries(values)) this.giveExtern(c, k, this.given(x, `${c}.${k}`));
     if (given.page) this.applyPage(given.page);
     this.startFrom(given.state ?? {});
-    this.left = given.data && this.takeState(given.data.state ?? {}) ? this.drawWith(given.data.own ?? {}) : undefined;
+    const took = given.data && this.takeState(given.data.state ?? {});
+    this.nextId = numberedStart(this.state, this.externs);
+    this.left = given.data && took ? this.drawWith(given.data.own ?? {}) : undefined;
     if (!this.left) this.redraw();
   }
 

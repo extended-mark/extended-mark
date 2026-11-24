@@ -8,7 +8,7 @@
 import type * as ir from "./generated/ir.js";
 import { Constants, Failure, Machine, Num, Program, type Binding, type Host, type Outer, type Place, type Step } from "./eval/index.js";
 import { ENGINE_ONLY, exists as native } from "./eval/natives.js";
-import { Value, caseOf, none, toIr, type Value as V } from "./eval/value.js";
+import { Value, caseOf, none, numberedStart, toIr, type Value as V } from "./eval/value.js";
 
 /** What the host tells the page about where it is read. */
 export interface PageValues {
@@ -335,7 +335,9 @@ export class Core {
     }
     if (opts.page) this.applyPage(opts.page);
     this.startFrom(opts.state ?? {});
-    this.left = opts.data && this.takeState(opts.data.state ?? {}) ? this.drawWith(opts.data.own ?? {}) : undefined;
+    const took = opts.data && this.takeState(opts.data.state ?? {});
+    this.machine.nextId = numberedStart(this.state, this.externs);
+    this.left = opts.data && took ? this.drawWith(opts.data.own ?? {}) : undefined;
     if (!this.left) this.redraw();
   }
 

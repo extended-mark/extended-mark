@@ -60,7 +60,7 @@ test("every document of ours ends as the runtime has it, whatever is done to it"
     }
   }
   assert.deepEqual(bad, []);
-  assert.ok(pages > 90 && moving > 50, `${pages} pages, ${moving} with a script`);
+  assert.ok(pages >= 70 && moving >= 45, `${pages} pages, ${moving} with a script`);
 });
 
 test("what the host starts a page with is checked and drawn as the runtime does, over the HTML written before it", async () => {

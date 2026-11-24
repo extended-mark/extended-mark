@@ -16,7 +16,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use xtmd_eval::interp::{Outer, Place, PlaceRoot, Step, R};
-use xtmd_eval::value::{Case, Closure, Content, ContentOf, List, Record};
+use xtmd_eval::value::{Case, Closure, Content, ContentOf, Item, List, Record};
 use xtmd_eval::{Binding, Constants, FailKind, Failure, Host, Machine, Num, Program, Row, Value};
 use xtmd_ir::check::{Mounted, PageTheme, PageWidth};
 use xtmd_ir::ir::{self, Expr, Node, Stmt};
@@ -780,6 +780,24 @@ impl Host for PageHost {
             Some(ev) => self.0.run_handler(m, &ev.handler, &ev.env, args).map(|_| ()),
             None => Ok(()),
         }
+    }
+}
+
+/// A value with its lists' items numbered anew, in the order they are in.
+fn numbered(v: &Value, next: &mut u64) -> Value {
+    let entries = |of: &[(Rc<str>, Value)], next: &mut u64| of.iter().map(|(n, x)| (n.clone(), numbered(x, next))).collect::<Vec<_>>();
+    match v {
+        Value::List(l) => {
+            let item = |i: &Item| {
+                *next += 1;
+                Item { id: *next, value: numbered(&i.value, next) }
+            };
+            Value::List(Rc::new(List { items: l.items.iter().map(item).collect() }))
+        }
+        Value::Record(r) => Value::Record(Rc::new(Record { ty: r.ty.clone(), fields: entries(&r.fields, next) })),
+        Value::Case(c) => Value::Case(Rc::new(Case { ty: c.ty.clone(), name: c.name.clone(), values: entries(&c.values, next) })),
+        Value::Opt(Some(x)) => Value::Opt(Some(Rc::new(numbered(x, next)))),
+        v => v.clone(),
     }
 }
 
@@ -2122,11 +2140,36 @@ impl Page {
         }
         page.apply_page(opts.page);
         page.start_from(&opts.state)?;
+        let took = match &opts.data {
+            Some(d) => page.take_state(&d.state)?,
+            None => false,
+        };
+        page.number_start();
         match &opts.data {
-            Some(d) if page.take_state(&d.state)? => page.left = Some(page.draw_with(&d.own)?),
+            Some(d) if took => page.left = Some(page.draw_with(&d.own)?),
             _ => page.redraw()?,
         }
         Ok(page)
+    }
+
+    /// What a page starts with, numbered once it is settled: by what it holds, and not by how it came to hold it,
+    /// so the same values give the same ids on a server as in a browser.
+    fn number_start(&mut self) {
+        let mut w = self.rt.w();
+        let mut next = 0;
+        let mut names: Vec<String> = w.state.iter().map(|(k, _)| k.clone()).collect();
+        names.sort();
+        for k in names {
+            let (_, v) = w.state.iter_mut().find(|(n, _)| *n == k).unwrap();
+            *v = numbered(v, &mut next);
+        }
+        let mut names: Vec<String> = w.externs.keys().cloned().collect();
+        names.sort();
+        for k in names {
+            let v = w.externs.get_mut(&k).unwrap();
+            *v = numbered(v, &mut next);
+        }
+        w.next_id = next;
     }
 
     /// `$state` as the host gives it, before the page is drawn: checked as a host's write is, all
