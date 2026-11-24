@@ -12,7 +12,7 @@
   import { Live, type LiveProps } from "@extended-mark/live";
   import type { Doc, DocProps, Restored, Snapshot, Input, ir as Ir } from "@extended-mark/view";
 
-  let { source, path = undefined, packs = undefined, wasm = undefined, compiler = undefined, ...props }: Omit<DocProps, "ir" | "src"> & LiveProps & { class?: string; id?: string } = $props();
+  let { source, path = undefined, packs = undefined, wasm = undefined, compiler = undefined, ...props }: Omit<DocProps, "ir"> & LiveProps & { class?: string; id?: string } = $props();
 
   let ir: DocProps["ir"] = $state.raw(undefined);
   const live = new Live(() => (ir = live.ir));

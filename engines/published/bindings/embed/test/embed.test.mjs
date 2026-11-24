@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
 import { chromium } from "playwright-core";
 import * as cli from "extended-mark";
-import { blocksHtml, pageHtml } from "@extended-mark/embed/html";
+import { blocksHtml, pageHtml } from "@extended-mark/view/html";
 import { coreOf } from "../../../runtime/dist/host.js";
 import { makePage } from "../dist/page.js";
 import { bundle, compilePages, launch, open, steps } from "../../testing/browser.mjs";

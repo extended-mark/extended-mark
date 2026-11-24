@@ -27,7 +27,6 @@
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@extended-mark/embed": "file:../embed",
     "@extended-mark/live": "file:../live",
     "@extended-mark/solid": "file:../solid",
     "@extended-mark/view": "file:../view"

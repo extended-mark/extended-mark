@@ -167,7 +167,7 @@ export function toReact(c: Child): ReactNode {
 // ---- the component
 
 /**
- * An Extended Mark page. `src` is where its IR is fetched from, or `ir` the IR in hand. `state` with
+ * An Extended Mark page. `ir` is its IR. `state` with
  * `onStateChange` controls `$state`, or `defaultState` starts it; every write is checked by xtmd,
  * and what it refuses reaches `onError`. Its `ref` is the handle: `snapshot`, `restore`, `set`,
  * `state`, `markdown` and `expose`.

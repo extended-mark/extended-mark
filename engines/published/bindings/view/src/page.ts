@@ -9,8 +9,6 @@ export type Ir = ir.File | ir.Module;
 /** A value the host gives, in the IR's form: `{ "num": "3" }`. */
 export type Given = Input;
 
-export const empty = (): Outcome => ({ refused: [], failures: [] });
-
 /** `$state`'s fields in a module, by name. */
 export function stateFields(module: ir.Module): Map<string, ir.Type> {
   const out = new Map<string, ir.Type>();

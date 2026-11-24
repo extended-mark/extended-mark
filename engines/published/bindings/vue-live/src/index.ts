@@ -9,7 +9,7 @@ import { XtmdDoc, docProps as all, type XtmdDocRef } from "@extended-mark/vue";
 import { Live, type Builds, type PackFile, type WasmSource } from "@extended-mark/live";
 import type { Doc, DocError } from "@extended-mark/view";
 
-const { ir: _ir, src: _src, ...docProps } = all;
+const { ir: _ir, ...docProps } = all;
 
 /**
  * An Extended Mark document from its text. `wasm` is where xtmd.wasm is (`@extended-mark/wasm/xtmd.wasm` as the

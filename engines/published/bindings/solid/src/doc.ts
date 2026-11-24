@@ -142,7 +142,6 @@ export interface XtmdDocProps extends Omit<DocProps, "components"> {
 function current(p: XtmdDocProps): DocProps {
   return {
     ir: p.ir,
-    src: p.src,
     state: p.state,
     defaultState: p.defaultState,
     defaultSnapshot: p.defaultSnapshot,
@@ -159,7 +158,7 @@ function current(p: XtmdDocProps): DocProps {
 }
 
 /**
- * An Extended Mark page. `src` is where its IR is fetched from, or `ir` the IR in hand. `state` with
+ * An Extended Mark page. `ir` is its IR. `state` with
  * `onStateChange` controls `$state`, or `defaultState` starts it; every write is checked by xtmd,
  * and what it refuses reaches `onError`. `ref` is given the handle: `snapshot`, `restore`, `set`,
  * `state`, `markdown` and `expose`.

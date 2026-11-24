@@ -2,7 +2,7 @@
 // @extended-mark/embed's XtmdDoc, from an IR built ahead (build.mjs writes it with xtmd.wasm). Real time is
 // @extended-mark/embed-live's XtmdLiveDoc, from the text in the box, compiled by xtmd.wasm as it changes.
 
-import { XtmdDoc, type Snapshot } from "@extended-mark/embed";
+import { XtmdDoc, type DocProps, type Ir, type Snapshot } from "@extended-mark/embed";
 import { XtmdLiveDoc, type LiveDocProps } from "@extended-mark/embed-live";
 import type { Input } from "@extended-mark/runtime";
 import { mountReact } from "./engines-react.js";
@@ -29,14 +29,22 @@ function report(kind: string, message: string): void {
 // ---- run time
 
 const runState = el("run-state");
-const run = new XtmdDoc(el("run-page"), {
-  src: "/engines-counter.ir.json",
+const runProps: DocProps = {
   onStateChange: (s) => (runState.textContent = stateLine(s)),
-  onError: (e) => {
-    if (e.kind === "load") report("engines-load", e.message);
-  },
   onMount: () => (runState.textContent = stateLine(run.state())),
-});
+};
+const run: XtmdDoc = new XtmdDoc(el("run-page"), runProps);
+/** The host brings the IR: until it has come, the document shows that it waits. */
+async function bringIr(url: string): Promise<void> {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    run.update({ ...runProps, ir: (await r.json()) as Ir });
+  } catch (e) {
+    report("engines-load", `The page at ${url} couldn't be loaded: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+void bringIr("/engines-counter.ir.json");
 let saved: Snapshot | undefined;
 const restore = el<HTMLButtonElement>("restore");
 el("snapshot").addEventListener("click", () => {

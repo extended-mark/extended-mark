@@ -5,7 +5,7 @@
 // waits. When to compile (each key, a pause, a save) is the host's: it changes `source`.
 
 import { Compiler, type Built, type PackFile, type WasmSource } from "@extended-mark/wasm";
-import type { DocError, Ir } from "@extended-mark/embed";
+import type { DocError, Ir } from "@extended-mark/view";
 
 export { Compiler, type Built, type PackFile, type WasmSource } from "@extended-mark/wasm";
 

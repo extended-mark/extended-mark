@@ -7,9 +7,9 @@
 import { createComponent, createEffect, createSignal, mergeProps, onCleanup, splitProps, untrack, type JSX } from "solid-js";
 import { XtmdDoc, type XtmdDocProps } from "@extended-mark/solid";
 import { Live, type LiveProps } from "@extended-mark/live";
-import type { Ir } from "@extended-mark/embed";
+import type { Ir } from "@extended-mark/view";
 
-export interface XtmdLiveDocProps extends Omit<XtmdDocProps, "ir" | "src">, LiveProps {}
+export interface XtmdLiveDocProps extends Omit<XtmdDocProps, "ir">, LiveProps {}
 
 const LIVE = ["source", "path", "packs", "wasm", "compiler"] as const;
 

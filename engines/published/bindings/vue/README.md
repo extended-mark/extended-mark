@@ -18,7 +18,7 @@ const doc = ref(null);   // doc.value.snapshot(), .restore(…), .set(…)
 </script>
 
 <template>
-  <XtmdDoc ref="doc" src="/pages/shop.ir.json" :state="state" @state-change="(s) => (state = s)"
+  <XtmdDoc ref="doc" :ir="shop" :state="state" @state-change="(s) => (state = s)"
     :externs="{ shop: { currency: { text: 'EUR' } } }" @error="console.warn" @calls="handle" />
 </template>
 ```
@@ -29,7 +29,7 @@ The same in every framework (@extended-mark/view's `DocProps`):
 
 | Prop | What it does |
 |---|---|
-| `src` or `ir` | Where to fetch the IR from, or the IR in hand. A new one keeps `$state` where its fields still exist. |
+| `ir` | The page's IR, which the host brings. A new one keeps `$state` where its fields still exist. |
 | `state` and `onStateChange`, or `defaultState` | `$state` controlled by the host, or started from. A new `state` is a write checked by xtmd; one it refuses leaves the page as it was. |
 | `defaultSnapshot` | A snapshot to start from: `$state` and every widget's own variables. |
 | `onError` | `{ kind: "refused" }` (the rule, the code, the widget), `"failed"`, `"load"` (an IR that couldn't be had). |

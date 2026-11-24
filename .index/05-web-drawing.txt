@@ -20,5 +20,6 @@ engines/published/dom    npm @extended-mark/dom: the plain web's renderer
 
 engines/published/bindings/view    npm @extended-mark/view: a page as a framework engine holds it
   src/doc.ts            Doc: the page, its root element, what the host is told
+  src/page.ts           a page made from a host's props; src/snapshot.ts, src/html.ts (Markdown as HTML)
 
 ide/vscode/src/webview/widgets.ts is the same set in VS Code's look.

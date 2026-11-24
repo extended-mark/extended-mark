@@ -30,8 +30,7 @@
     "@extended-mark/dom": "file:../../dom",
     "@extended-mark/embed": "file:../embed",
     "@extended-mark/live": "file:../live",
-    "@extended-mark/runtime": "file:../../runtime",
-    "@extended-mark/wasm": "file:../../../../compiler/npm/wasm"
+    "@extended-mark/view": "file:../view"
   },
   "devDependencies": {
     "esbuild": "0.28.2",

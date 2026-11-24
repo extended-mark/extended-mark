@@ -20,7 +20,6 @@ export class XtmdDoc implements OnInit, OnChanges, OnDestroy {
   /** The page's IR, in hand. */
   @Input() ir?: DocProps["ir"];
   /** Where to fetch the page's IR from. */
-  @Input() src?: string;
   /** `$state`, controlled: `[(state)]` keeps a field of the host's in step. */
   @Input() state?: DocProps["state"];
   @Input() defaultState?: DocProps["defaultState"];
@@ -37,7 +36,7 @@ export class XtmdDoc implements OnInit, OnChanges, OnDestroy {
 
   /** `$state` after each change to it. */
   @Output() readonly stateChange = new EventEmitter<Record<string, Given>>();
-  /** A write xtmd refused, a widget that failed, or an IR that couldn't be had. */
+  /** A write xtmd refused, a widget that failed. */
   @Output() readonly error = new EventEmitter<DocError>();
   /** The host's extern fns the page called, after each change that called any. */
   @Output() readonly calls = new EventEmitter<Call[]>();
@@ -169,7 +168,6 @@ export class XtmdDoc implements OnInit, OnChanges, OnDestroy {
   private props(): DocProps {
     return {
       ir: this.ir,
-      src: this.src,
       state: this.state,
       defaultState: this.defaultState,
       defaultSnapshot: this.defaultSnapshot,

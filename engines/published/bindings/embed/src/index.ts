@@ -6,10 +6,10 @@
 
 import { type Call, type Outcome, type Page, type PageOptions, type PageValues, type Input, type ir } from "@extended-mark/runtime";
 import { mount, type MountOptions, type Mounted, type OwnWidget, type ViewWidget } from "@extended-mark/dom";
-import { channelName, channelsOf, empty, makePage, moduleOf, sameIr, type Given, type Ir } from "./page.js";
+import { channelName, channelsOf, makePage, moduleOf, sameIr, type Given, type Ir } from "@extended-mark/view";
 
-export { channelName, irText, makePage, sameIr, stateFields, type Given, type Ir } from "./page.js";
-export { RELEASE, dataOf, hash, type DocError, type Restored, type Snapshot } from "./snapshot.js";
+export { channelName, irText, makePage, sameIr, stateFields, type Given, type Ir } from "@extended-mark/view";
+export { RELEASE, dataOf, hash, type DocError, type Restored, type Snapshot } from "@extended-mark/view";
 export { XtmdDoc, type DocProps } from "./doc.js";
 
 /** What every binding takes: the page, what the host gives it, and what the host wants to hear. */
@@ -66,6 +66,8 @@ export interface Handle {
   /** The page as Markdown, with the values it has now. */
   markdown(): string;
 }
+
+const empty = (): Outcome => ({ refused: [], failures: [] });
 
 type Channels = Record<string, Record<string, Input>>;
 

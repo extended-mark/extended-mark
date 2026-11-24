@@ -9,7 +9,7 @@ import { createElement, useEffect, useRef, useState, type ReactElement } from "r
 import { XtmdDoc, type XtmdDocProps } from "@extended-mark/react";
 import { Live, type LiveProps } from "@extended-mark/live";
 
-export interface XtmdLiveDocProps extends Omit<XtmdDocProps, "ir" | "src">, LiveProps {}
+export interface XtmdLiveDocProps extends Omit<XtmdDocProps, "ir">, LiveProps {}
 
 /**
  * An Extended Mark document from its text. `wasm` is where xtmd.wasm is (`@extended-mark/wasm/xtmd.wasm` as the

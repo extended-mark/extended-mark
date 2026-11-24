@@ -8,7 +8,7 @@
 // package.json of ours (its version, and the `@extended-mark/…` and `extended-mark` pins that aren't a
 // `file:` path); each package-lock.json's own entries (the package, and its neighbours in this
 // repository; never a registry's); the Android example's Gradle versions; the schemas' examples'
-// `"xtmd"`; the runtime snapshots' release (`RELEASE`) in @extended-mark/embed and the Android
+// `"xtmd"`; the runtime snapshots' release (`RELEASE`) in @extended-mark/view and the Android
 // example (egui takes its crate's version); and the version the docs show (the release README, the VS
 // Code extension's README, the Android example's README). A 0.3.0 that means the language's first
 // release (`xtmd migrate`) is none of these.
@@ -101,7 +101,7 @@ function places(repo) {
   pattern(join(android, "README.md"), /(xtmd:xtmd-android:)(\d+\.\d+\.\d+)()/g);
   pattern(join(android, "xtmd-android", "src", "main", "kotlin", "xtmd", "android", "XtmdDoc.kt"), /(const val RELEASE = ")([^"]+)(")/g);
   for (const f of files(join(repo, "schemas", "examples"), (n) => n.endsWith(".json"))) pattern(f, /("xtmd": ")([^"]+)(")/g);
-  pattern(join(repo, "engines", "published", "bindings", "embed", "src", "snapshot.ts"), /(export const RELEASE = ")([^"]+)(")/g);
+  pattern(join(repo, "engines", "published", "bindings", "view", "src", "snapshot.ts"), /(export const RELEASE = ")([^"]+)(")/g);
   pattern(join(repo, "tools", "release", "README.md"), /(carries the release's version \()(\d+\.\d+\.\d+)(\))/g);
   pattern(join(repo, "ide", "vscode", "README.md"), /(# xtmd-)(\d+\.\d+\.\d+)(\.vsix)/g);
   return out.filter((p) => existsSync(p.file));

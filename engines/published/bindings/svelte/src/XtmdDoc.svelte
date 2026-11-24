@@ -1,5 +1,5 @@
 <!--
-  <XtmdDoc src={url} /> or <XtmdDoc ir={page} />: an Extended Mark page drawn by Svelte itself, on a server
+  <XtmdDoc ir={page} />: an Extended Mark page drawn by Svelte itself, on a server
   as on the client. `state` with `onStateChange` controls $state, or `defaultState` starts it;
   every write is checked by xtmd, and what it refuses reaches `onError`. bind:this gives
   snapshot(), restore(), set(), getState(), markdown() and expose().

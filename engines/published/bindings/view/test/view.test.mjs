@@ -117,22 +117,12 @@ test("a snapshot brings back `$state` and widgets' own variables in the same IR,
   assert.deepEqual(strict.state(), { n: num(0) });
 });
 
-test("a document fetched from `src` shows that it is loading, then the page, or why it couldn't be had", async () => {
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url) => (url === "/ok.json" ? { ok: true, json: async () => irs.v1 } : { ok: false, status: 404, statusText: "Not Found" });
-  try {
-    const errors = [];
-    const doc = new Doc({ src: "/ok.json", externs });
-    assert.ok(toHtml(doc.render()).includes("data-xtmd-loading"));
-    await tick();
-    assert.ok(toHtml(doc.render()).includes("Count: 0 items"));
-    const missing = new Doc({ src: "/missing.json", onError: (e) => errors.push(e) });
-    await tick();
-    assert.equal(errors[0].kind, "load");
-    assert.match(toHtml(missing.render()), /role="alert"[^>]*>The page at \/missing\.json couldn&#39;t be loaded: 404 Not Found</);
-  } finally {
-    globalThis.fetch = realFetch;
-  }
+test("a document the host has no IR for yet shows that it waits, then the page", () => {
+  const doc = new Doc({ externs });
+  assert.match(toHtml(doc.render()), /data-xtmd-loading/);
+  assert.equal(doc.running, undefined);
+  doc.update({ externs, ir: irs.v1 });
+  assert.ok(toHtml(doc.render()).includes("Count: 0 items"), toHtml(doc.render()));
 });
 
 test("an IR is told apart by its content: the same page given again goes on", async () => {

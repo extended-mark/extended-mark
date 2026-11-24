@@ -28,7 +28,6 @@
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@extended-mark/embed": "file:../embed",
     "@extended-mark/view": "file:../view"
   },
   "peerDependencies": {

@@ -41,7 +41,6 @@ export const docProps = {
   /** The page's IR, in hand. Kept as given: Vue doesn't make it reactive. */
   ir: Object as PropType<DocProps["ir"]>,
   /** Where to fetch the page's IR from. */
-  src: String,
   state: Object as PropType<DocProps["state"]>,
   defaultState: Object as PropType<DocProps["defaultState"]>,
   defaultSnapshot: Object as PropType<DocProps["defaultSnapshot"]>,
@@ -70,7 +69,7 @@ export interface XtmdDocRef {
 }
 
 /**
- * An Extended Mark page. `src` is where its IR is fetched from, or `ir` the IR in hand. `state` with
+ * An Extended Mark page. `ir` is its IR. `state` with
  * `@state-change` controls `$state`, or `default-state` starts it; every write is checked by xtmd,
  * and what it refuses reaches `@error`. A template ref holds `snapshot`, `restore`, `set`,
  * `state`, `markdown` and `expose`.
@@ -81,7 +80,6 @@ export const XtmdDoc = defineComponent({
   setup(p, { expose }) {
     const current = (): DocProps => ({
       ir: p.ir,
-      src: p.src,
       state: p.state,
       defaultState: p.defaultState,
       defaultSnapshot: p.defaultSnapshot,

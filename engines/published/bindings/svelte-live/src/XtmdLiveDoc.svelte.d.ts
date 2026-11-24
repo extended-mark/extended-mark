@@ -3,7 +3,7 @@ import type { LiveProps } from "@extended-mark/live";
 import type { Doc, DocProps, Restored, Snapshot, Input, ir } from "@extended-mark/view";
 
 declare const XtmdLiveDoc: Component<
-  Omit<DocProps, "ir" | "src"> & LiveProps & { class?: string; id?: string },
+  Omit<DocProps, "ir"> & LiveProps & { class?: string; id?: string },
   {
     document(): Doc;
     set(changes: Record<string, Input>): void;

@@ -15,7 +15,7 @@ import { createSignal } from "solid-js";
 
 const [state, setState] = createSignal(saved);
 let doc: XtmdDocHandle;
-<XtmdDoc ref={(h) => (doc = h)} src="/pages/shop.ir.json" state={state()} onStateChange={setState}
+<XtmdDoc ref={(h) => (doc = h)} ir={shop} state={state()} onStateChange={setState}
   externs={{ shop: { currency: { text: "EUR" } } }} onError={console.warn} onCalls={handle} />
 ```
 
@@ -25,7 +25,7 @@ The same in every framework (@extended-mark/view's `DocProps`):
 
 | Prop | What it does |
 |---|---|
-| `src` or `ir` | Where to fetch the IR from, or the IR in hand. A new one keeps `$state` where its fields still exist. |
+| `ir` | The page's IR, which the host brings. A new one keeps `$state` where its fields still exist. |
 | `state` and `onStateChange`, or `defaultState` | `$state` controlled by the host, or started from. A new `state` is a write checked by xtmd; one it refuses leaves the page as it was. |
 | `defaultSnapshot` | A snapshot to start from: `$state` and every widget's own variables. |
 | `onError` | `{ kind: "refused" }` (the rule, the code, the widget), `"failed"`, `"load"` (an IR that couldn't be had). |

@@ -1,22 +1,18 @@
-// A document running, as a framework engine holds it: made from its IR (given, or fetched from a
-// URL), its `$state` the host's to control or to start from, every write checked by xtmd, what was
+// A document running, as a framework engine holds it: made from its IR, its `$state` the host's to control or to start from, every write checked by xtmd, what was
 // refused told to the host, and a snapshot that takes everything the page holds out and puts it
 // back. No framework here: an engine renders `render()` with its own renderer and calls `update`
 // with its props.
 
 import { Page, type Call, type Node, type Outcome, type PageOptions, type PageValues, type Input, type ir } from "@extended-mark/runtime";
-import { RELEASE, channelName, dataOf, hash, irText, makePage, sameIr, type DocError, type Ir, type Restored, type Snapshot } from "@extended-mark/embed";
-
-export { hash, type DocError, type Restored, type Snapshot } from "@extended-mark/embed";
-import { Num } from "@extended-mark/runtime";
+import { channelName, irText, makePage, sameIr, type Ir } from "./page.js";
+import { RELEASE, dataOf, hash, type DocError, type Restored, type Snapshot } from "./snapshot.js";
+import { Num } from "@extended-mark/runtime/num";
 import { Tokens, children, h, layoutPlanes, styleText, webFns, widgets as core, type Child, type Drawing, type Measure, type VNode, type ViewWidget } from "@extended-mark/widgets";
 
 /** What an engine gives the document: the same in every framework. */
 export interface DocProps {
   /** The page's IR, in hand: the file `xtmd build` writes. */
   ir?: Ir;
-  /** Where to fetch the page's IR from, when it isn't in hand. */
-  src?: string;
   /** `$state`, controlled: the page shows this, and every change goes through `onStateChange`. */
   state?: Record<string, Input>;
   /** `$state` to start from, when the host doesn't control it. */
@@ -40,7 +36,7 @@ export interface DocProps {
   measure?: (page: Page) => Measure;
   /** `$state` after each change to it. */
   onStateChange?: (state: Record<string, Input>) => void;
-  /** A write xtmd refused, a widget that failed, or an IR that couldn't be had. */
+  /** A write xtmd refused, a widget that failed. */
   onError?: (error: DocError) => void;
   /** The host's extern fns the page called, after each change that called any. */
   onCalls?: (calls: Call[]) => void;
@@ -56,8 +52,6 @@ export class Doc {
   /** The IR the page runs. */
   private irFile: Ir | undefined;
   private irHash = "";
-  private loading: string | undefined;
-  private loadFailed: string | undefined;
   private unlisten: (() => void) | undefined;
   private drawing: ReturnType<Doc["drawingOf"]> | undefined;
   private root: Element | undefined;
@@ -78,7 +72,6 @@ export class Doc {
     const web = webFns();
     this.fns = new Proxy({}, { get: (_t, name) => (typeof name === "string" ? (this.props.fns?.[name] ?? web[name]) : undefined), has: (_t, name) => typeof name === "string" && (name in web || !!this.props.fns?.[name]) });
     if (props.ir) this.start(props.ir, props.state ?? props.defaultState, props.defaultSnapshot);
-    else if (props.src) void this.fetch(props.src);
   }
 
   /** Called after every change the page draws: the engine renders again. */
@@ -92,11 +85,10 @@ export class Doc {
     return this.page;
   }
 
-  /** The page as elements: a placeholder while its IR is being fetched, or a notice if it couldn't be. */
+  /** The page as elements: a placeholder while the host has no IR for it yet. */
   render(): VNode {
     if (!this.page || !this.tokens) {
-      const why = this.loadFailed;
-      return h("div", undefined, { class: "xtmd-root", "data-xtmd-root": "", "data-xtmd-loading": why ? undefined : "" }, why ? [h("div", "notice", { role: "alert" }, [why])] : []);
+      return h("div", undefined, { class: "xtmd-root", "data-xtmd-root": "", "data-xtmd-loading": "" });
     }
     this.rendering = true;
     let root: VNode;
@@ -169,10 +161,6 @@ export class Doc {
     if (next.ir && !sameIr(next.ir, this.irFile)) {
       // a new page: `$state` carried over where its fields still exist
       this.start(next.ir, next.state ?? this.page?.state() ?? next.defaultState, undefined);
-      return;
-    }
-    if (!next.ir && next.src !== prev.src && next.src) {
-      void this.fetch(next.src);
       return;
     }
     const page = this.page;
@@ -248,27 +236,6 @@ export class Doc {
   }
 
   // ---- inside
-
-  private async fetch(src: string): Promise<void> {
-    this.loading = src;
-    this.loadFailed = undefined;
-    this.notify();
-    let irFile: Ir;
-    try {
-      const r = await fetch(src);
-      if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
-      irFile = (await r.json()) as Ir;
-    } catch (e) {
-      if (this.loading !== src) return;
-      this.loadFailed = `The page at ${src} couldn't be loaded: ${e instanceof Error ? e.message : String(e)}`;
-      this.props.onError?.({ kind: "load", message: this.loadFailed });
-      this.notify();
-      return;
-    }
-    if (this.gone || this.loading !== src) return;
-    this.loading = undefined;
-    this.start(irFile, this.props.state ?? this.page?.state() ?? this.props.defaultState, this.page ? undefined : this.props.defaultSnapshot);
-  }
 
   private start(irFile: Ir, given: Record<string, Input> | undefined, snap: Snapshot | undefined): void {
     this.unlisten?.();

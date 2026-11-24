@@ -8,9 +8,9 @@
 import { XtmdDoc, type DocProps, type Given, type Restored, type Snapshot } from "@extended-mark/embed";
 import { Live, type LiveProps } from "@extended-mark/live";
 import type { Mounted, Page } from "@extended-mark/dom";
-import type { Input } from "@extended-mark/runtime";
+import type { Input } from "@extended-mark/view";
 
-export interface LiveDocProps extends Omit<DocProps, "ir" | "src">, LiveProps {}
+export interface LiveDocProps extends Omit<DocProps, "ir">, LiveProps {}
 
 /** A document from its text, drawn by @extended-mark/dom into an element, following the props it is given. */
 export class XtmdLiveDoc {

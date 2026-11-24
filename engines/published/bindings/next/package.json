@@ -40,9 +40,9 @@
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {
-    "extended-mark": "file:../../../../compiler/npm/extended-mark",
-    "@extended-mark/embed": "file:../embed",
-    "@extended-mark/react": "file:../react"
+    "@extended-mark/react": "file:../react",
+    "@extended-mark/view": "file:../view",
+    "extended-mark": "file:../../../../compiler/npm/extended-mark"
   },
   "peerDependencies": {
     "next": ">=15.3.0",

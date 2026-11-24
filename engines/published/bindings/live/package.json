@@ -27,13 +27,10 @@
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@extended-mark/dom": "file:../../dom",
-    "@extended-mark/embed": "file:../embed",
-    "@extended-mark/runtime": "file:../../runtime",
+    "@extended-mark/view": "file:../view",
     "@extended-mark/wasm": "file:../../../../compiler/npm/wasm"
   },
   "devDependencies": {
-    "typescript": "5.9.3",
-    "@extended-mark/view": "file:../view"
+    "typescript": "5.9.3"
   }
 }

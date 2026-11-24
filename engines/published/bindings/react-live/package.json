@@ -27,13 +27,9 @@
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@extended-mark/dom": "file:../../dom",
-    "@extended-mark/embed": "file:../embed",
     "@extended-mark/live": "file:../live",
     "@extended-mark/react": "file:../react",
-    "@extended-mark/runtime": "file:../../runtime",
-    "@extended-mark/view": "file:../view",
-    "@extended-mark/wasm": "file:../../../../compiler/npm/wasm"
+    "@extended-mark/view": "file:../view"
   },
   "peerDependencies": {
     "react": "^19.0.0"

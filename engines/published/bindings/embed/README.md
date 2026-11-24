@@ -4,7 +4,7 @@ Extended Mark documents on the plain web, the static engine: `XtmdDoc` draws a p
 with @extended-mark/dom's widgets, into an element, and needs no framework, no compiler and no WebAssembly. It
 takes the same props as the frameworks' `<XtmdDoc>`. The live engine, which compiles a document's
 text in the browser, is [@extended-mark/embed-live](../embed-live). Under `XtmdDoc` is `Embed`, a page in an
-element following the props it is given; and `@extended-mark/embed/html` writes a page's Markdown as HTML,
+element following the props it is given; and `@extended-mark/view/html` writes a page's Markdown as HTML,
 with no DOM, for a server.
 
 ```sh
@@ -15,7 +15,7 @@ npm install @extended-mark/embed
 import { XtmdDoc } from "@extended-mark/embed";
 
 const doc = new XtmdDoc(document.getElementById("shop")!, {
-  src: "/pages/shop.ir.json",                   // or ir: the IR in hand
+  ir: shop,                                     // the IR, which the host brings
   defaultState: saved,                          // or state + onStateChange, controlled
   externs: { shop: { currency: { text: "EUR" } } },
   onError: (e) => console.warn(e),              // refused, failed, load
@@ -31,7 +31,7 @@ doc.destroy();
 draws them: `toHtml(new Doc({ ir }).render())`. Put it in the element, and `XtmdDoc` takes the element
 over in the browser.
 
-`XtmdDoc`'s props are the frameworks' (`src` or `ir`, `state` and `onStateChange` or `defaultState`,
+`XtmdDoc`'s props are the frameworks' (`ir`, `state` and `onStateChange` or `defaultState`,
 `defaultSnapshot`, `onError`, `onCalls`, `externs`, `fns`, `page`, `widgets`, `failed`, `measure`, and
 `onMount`); its handle is `set`, `state`, `markdown`, `expose`, `extern`, `snapshot`, `restore`,
 `running` and `mounted`.

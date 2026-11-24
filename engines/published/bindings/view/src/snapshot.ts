@@ -1,5 +1,4 @@
-// What every document engine shares of a snapshot, and of what it tells the host went wrong: the
-// plain web's XtmdDoc here, and @extended-mark/view's for the frameworks.
+// What every document shares of a snapshot, and of what it tells the host went wrong.
 
 import type { Input } from "@extended-mark/runtime";
 
@@ -7,6 +6,7 @@ import type { Input } from "@extended-mark/runtime";
 export type DocError =
   | { kind: "refused"; rule?: string; code?: string; site?: string }
   | { kind: "failed"; rule?: string; code?: string; site?: string }
+  /** A live engine's compiler couldn't be loaded. */
   | { kind: "load"; message: string }
   | { kind: "compile"; message: string; diagnostics: unknown[] };
 
