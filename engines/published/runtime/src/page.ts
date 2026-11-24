@@ -775,7 +775,7 @@ export class Core {
       if (!t) continue;
       let v: V;
       try {
-        v = this.value(x);
+        v = this.outside(x);
       } catch {
         continue;
       }
@@ -811,7 +811,7 @@ export class Core {
    * own rule is false, is refused, and undefined. */
   given(x: ir.Expr, site: string): V | undefined {
     try {
-      return this.constant(x);
+      return this.outside(x);
     } catch (f) {
       this.errors.push(f);
       this.outcome.refused.push(refused(f, site));
@@ -840,6 +840,12 @@ export class Core {
       }
     }
     return true;
+  }
+
+  /** A value from outside: widgets and fns are the page's own, and are never given to it. */
+  private outside(x: ir.Expr): V {
+    if (own(x)) throw Failure.ir("a fn is the page's own, and isn't given to it");
+    return this.constant(x);
   }
 
   /** A value in the IR's form, as the host and the checks give them. */
@@ -1758,6 +1764,16 @@ export class Core {
   externsNow(): Map<string, V> {
     return this.externs;
   }
+}
+
+/** Whether a value written for the outside stands for a fn or for widgets, or holds one that does. */
+function own(x: ir.Expr): boolean {
+  if ("fn" in x || "nodes" in x) return true;
+  if ("list" in x) return x.list.some(own);
+  if ("record" in x) return Object.values(x.record.fields ?? {}).some(own);
+  if ("case" in x) return Object.values(x.case.values ?? {}).some(own);
+  if ("tokval" in x) return own(x.tokval.value);
+  return "some" in x && own(x.some);
 }
 
 function sameRecord<T>(a: Record<string, T>, b: Record<string, T>): boolean {

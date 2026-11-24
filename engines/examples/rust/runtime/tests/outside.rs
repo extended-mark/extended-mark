@@ -252,3 +252,21 @@ fn a_list_the_host_replaces_has_its_rows_made_again() {
     give(&mut p, &["c", "d"]);
     assert_eq!(said(&p).into_iter().filter(|x| x.contains(':')).collect::<Vec<_>>(), vec!["c: 0", "d: 0"]);
 }
+
+#[test]
+fn a_fn_is_the_pages_own_and_isnt_put_back() {
+    let doc = "$state {\n    n: number = 1;\n}\n\nwidget w() {\n    mut f: fn(): number = fn() { return 1; };\n    mut k: number = 0;\n\n    view {\n        @label(value = \"\\{f()} \\{k}\");\n        @press(label = \"Take\", click = fn() { f = fn() { return $state.n + 1; }; k = k + 1; });\n    }\n    markdown { }\n}\n@@@\n@w;\n";
+    let mut p = page(doc);
+    press(&mut p, "Take");
+    let data = serde_json::to_value(p.data().unwrap()).unwrap();
+    let mut q = page(doc);
+    q.act(&serde_json::from_value(json!({"restore": {"data": data}})).unwrap()).unwrap();
+    let own = serde_json::to_value(q.data().unwrap()).unwrap()["own"]["s0"].clone();
+    assert_eq!(own["k"], num_json("1"));
+    assert_eq!(q.take_outcome().failures, vec![]);
+    assert_eq!(q.tree()[0].prop("value").and_then(|v| v.as_text()), Some("1 1"));
+}
+
+fn num_json(n: &str) -> Json {
+    json!({"num": n})
+}

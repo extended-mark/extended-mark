@@ -122,7 +122,7 @@ const TASKS = "record task {\n    mut title: text;\n}\n\n$state {\n    xs: list<
 /** The same with no widget of its own in a row, so nothing else takes a number. */
 const PLAIN = TASKS.replace("                @row(x = x);\n", "");
 const labels = (p) => everyNode(p.tree().nodes).map((x) => x.inputs.label.text);
-const press = (p, label) => p.event(everyNode(p.tree().nodes).find((x) => x.inputs.label.text === label).id, "click");
+const press = (p, label) => p.event(everyNode(p.tree().nodes).find((x) => x.inputs.label?.text === label).id, "click");
 const titles = (p) => p.state().xs.list.map((x) => x.record.fields.title.text);
 const list = (...of) => ({ list: of.map((x) => ({ record: { type: "doc/task", fields: { title: { text: x } } } })) });
 
@@ -148,4 +148,16 @@ test("a list the host replaces has its rows made again: a row's memory never mov
   press(q, "a: 0");
   q.restore(data);
   assert.deepEqual(labels(q).filter((x) => x.includes(":")), ["c: 0", "d: 0"]);
+});
+
+test("a fn is the page's own: data put back leaves out a variable that holds one, and puts back the rest", () => {
+  const doc = "$state {\n    n: number = 1;\n}\n\nwidget w() {\n    mut f: fn(): number = fn() { return 1; };\n    mut k: number = 0;\n\n    view {\n        @label(value = \"\\{f()} \\{k}\");\n        @press(label = \"Take\", click = fn() { f = fn() { return $state.n + 1; }; k = k + 1; });\n    }\n    markdown { }\n}\n@@@\n@w;\n";
+  const label = (p) => everyNode(p.tree().nodes)[0].inputs.label?.text ?? everyNode(p.tree().nodes)[0].inputs.value?.text;
+  const p = page(doc);
+  press(p, "Take");
+  assert.equal(label(p), "2 1");
+  const data = JSON.parse(JSON.stringify(p.data()));
+  const q = page(doc);
+  assert.deepEqual(q.restore(data), ["s0.f"]);
+  assert.deepEqual([label(q), q.takeOutcome().failures], ["1 1", []]);
 });

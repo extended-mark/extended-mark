@@ -22,19 +22,19 @@ pub(crate) struct HeldFn {
     version: i64,
 }
 
-/// A value a host gives, as the IR writes one: a token is the case it is.
-fn expr_of(x: &Input) -> R<ir::Expr> {
+/// A value a host gives, as the IR writes one: a token is the case it is. Widgets and fns are the page's own, so one
+/// that stands for either is nothing that can be worked out, and is refused as that is.
+fn expr_of(x: &Input) -> ir::Expr {
     if let Input::Token(t) = x {
         if let Some((ty, name)) = t.rsplit_once('.') {
-            return Ok(ir::Expr::Case(ir::ExprCase { enum_: ty.to_string(), name: name.to_string(), values: BTreeMap::new() }));
+            return ir::Expr::Case(ir::ExprCase { enum_: ty.to_string(), name: name.to_string(), values: BTreeMap::new() });
         }
     }
-    let json = serde_json::to_value(x).map_err(|e| Failure::ir(e.to_string()))?;
-    serde_json::from_value(json).map_err(|e| Failure::ir(format!("widgets and fns are the page's own: {}", e)))
+    serde_json::to_value(x).and_then(serde_json::from_value).unwrap_or_else(|_| ir::Expr::Get(ir::Get::Local(String::new())))
 }
 
-fn exprs(xs: &BTreeMap<String, Input>) -> R<Vec<(String, ir::Expr)>> {
-    xs.iter().map(|(k, x)| Ok((k.clone(), expr_of(x)?))).collect()
+fn exprs(xs: &BTreeMap<String, Input>) -> Vec<(String, ir::Expr)> {
+    xs.iter().map(|(k, x)| (k.clone(), expr_of(x))).collect()
 }
 
 /// A host's fns, by node and input.
@@ -102,16 +102,16 @@ impl Page {
                 Some(args) => self.event(&e.id, &e.name, args),
                 None => Ok(()),
             },
-            Action::Write(w) => match self.given(&expr_of(&w.value)?, &w.id) {
+            Action::Write(w) => match self.given(&expr_of(&w.value), &w.id) {
                 Some(v) => self.write(&w.id, &w.input, v),
                 None => Ok(()),
             },
-            Action::Set(s) => self.set_given(&exprs(&s.fields)?),
+            Action::Set(s) => self.set_given(&exprs(&s.fields)),
             Action::Expose(e) => match self.given_all(&e.args, &format!("{}.{}", e.channel, e.name)) {
                 Some(args) => self.expose(&e.channel, &e.name, args),
                 None => Ok(()),
             },
-            Action::Extern(x) => self.set_extern_given(&x.channel, &exprs(&x.values)?),
+            Action::Extern(x) => self.set_extern_given(&x.channel, &exprs(&x.values)),
             Action::Page(p) => {
                 let name = |k: &str| match p.values.get(k) {
                     Some(Input::Case(c)) => serde_json::Value::String(c.name.clone()),
@@ -121,8 +121,8 @@ impl Page {
                 self.set_page(PageValues { width: serde_json::from_value(name("width")).map_err(read)?, theme: serde_json::from_value(name("theme")).map_err(read)? })
             }
             Action::Restore(r) => {
-                let own = r.data.own.iter().map(|(p, vs)| Ok((p.clone(), exprs(vs)?.into_iter().collect()))).collect::<R<_>>()?;
-                self.restore(&PageData { state: exprs(&r.data.state)?, own }).map(|_| ())
+                let own = r.data.own.iter().map(|(p, vs)| (p.clone(), exprs(vs).into_iter().collect())).collect();
+                self.restore(&PageData { state: exprs(&r.data.state), own }).map(|_| ())
             }
         }
     }
@@ -135,7 +135,7 @@ impl Page {
     }
 
     fn given_all(&self, args: &[Input], site: &str) -> Option<Vec<Value>> {
-        args.iter().map(|a| expr_of(a).ok().and_then(|x| self.given(&x, site))).collect()
+        args.iter().map(|a| self.given(&expr_of(a), site)).collect()
     }
 
     // ---- inside
