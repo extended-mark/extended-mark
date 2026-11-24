@@ -25,7 +25,7 @@ impl Schema {
 }
 
 /// Each schema whose types are written.
-pub const MODULES: [&str; 8] = ["ir", "tree", "state", "actions", "told", "blocks", "build", "check"];
+pub const MODULES: [&str; 9] = ["ir", "tree", "state", "actions", "told", "blocks", "build", "web", "check"];
 
 /// The files to write, relative to the repository: (path, contents).
 pub fn generate(repo: &Path) -> Vec<(PathBuf, String)> {

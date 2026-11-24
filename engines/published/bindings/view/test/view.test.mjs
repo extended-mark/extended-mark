@@ -4,7 +4,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as cli from "extended-mark";
-import { Doc, Patcher, h, toHtml } from "../dist/index.js";
+import { execFileSync } from "node:child_process";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { Doc, Patcher, h, toHtml, toJson } from "../dist/index.js";
+import { fits } from "../../../runtime/test/fits.mjs";
 import { compilePages } from "../../testing/browser.mjs";
 
 const irs = await compilePages(cli);
@@ -189,4 +194,28 @@ test("an IR is told apart by its content: the same page given again goes on", as
   assert.deepEqual(doc.state(), { n: num(1) });
   doc.update({ ir: irs.v2, externs });
   assert.notEqual(doc.running, page);
+});
+
+test("what each widget draws fits the widget set's format", () => {
+  const repo = join(dirname(fileURLToPath(import.meta.url)), "../../../../..");
+  const xtmd = ["release", "debug"].map((k) => join(repo, "compiler/target", k, "xtmd")).find(existsSync);
+  const dir = join(repo, "engines/published/runtime/test/cases");
+  const seen = new Set();
+  const walk = (x, f) => (f(x), (x.children ?? []).forEach((c) => c.element && walk(c.element, f)));
+  for (const f of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
+    const c = JSON.parse(readFileSync(join(dir, f), "utf8"));
+    let file;
+    try {
+      file = JSON.parse(execFileSync(xtmd, ["build", join(dir, c.source), ...(c.packs ?? []).flatMap((p) => ["--pack", join(dir, p)])], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }));
+    } catch {
+      continue; // a case of a page that doesn't compile
+    }
+    const doc = new Doc({ ir: file });
+    const root = toJson(doc.render());
+    assert.equal(fits(root, "web", "drawn"), undefined, c.id);
+    walk(root.element, (e) => e.attrs?.["data-xtmd-widget"] && seen.add(e.attrs["data-xtmd-widget"]));
+    // every listener and hook is named, with nothing of its code
+    assert.deepEqual(JSON.parse(JSON.stringify(root)), root, c.id);
+  }
+  assert.ok(seen.size > 25, [...seen].join(" "));
 });

@@ -12,6 +12,7 @@ The contracts between the compiler and every engine, as JSON Schema (draft 2020-
 | `told.schema.json` | What a page tells its host: the fns it called, what was refused or failed, its warnings. |
 | `blocks.schema.json` | A page's Markdown as blocks, before it is text, as `xtmd md --format json` writes them. |
 | `build.schema.json` | What `xtmd build --engine` gives an engine, and the files it gives back. |
+| `web.schema.json` | What a web widget set gives for a widget: plain elements, for any renderer or engine. |
 | `check.schema.json` | A compiler case: a source, its diagnostics and its Markdown; and what a case's steps observe. |
 | `ir-history/<version>/` | An earlier IR's schema, kept as it was, and pages as the xtmd of its time wrote them, each with the Markdown it must keep or why it is refused: `xtmd migrate` is held to them by `cargo test -p xtmd-migrate`. |
 | `examples/*.rir.json` | A resolved IR beside the source it was made from (`examples/counter.xtmd`), held to the schema, its spans inside that source. |
@@ -31,7 +32,7 @@ cargo run -p xtmd-schemagen -- --check # only says whether they are current
 
 | Generated | From |
 |---|---|
-| `compiler/ir/src/ir.rs`, `tree.rs`, `state.rs`, `actions.rs`, `told.rs`, `blocks.rs`, `build.rs`, `check.rs` | the crate `xtmd-ir` |
+| `compiler/ir/src/ir.rs`, `tree.rs`, `state.rs`, `actions.rs`, `told.rs`, `blocks.rs`, `build.rs`, `web.rs`, `check.rs` | the crate `xtmd-ir` |
 | `engines/published/runtime/src/generated/`, the same names | `@extended-mark/runtime` |
 
 `cargo test -p xtmd-ir` fails when a generated file is not current, when an example or a check case doesn't fit its schema, or when the Rust types don't read and write it back unchanged.

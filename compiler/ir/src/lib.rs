@@ -13,6 +13,7 @@ pub mod ir;
 pub mod state;
 pub mod told;
 pub mod tree;
+pub mod web;
 
 impl ir::Type {
     /// A type by its name, with nothing else: `core/number`, `doc/task`.

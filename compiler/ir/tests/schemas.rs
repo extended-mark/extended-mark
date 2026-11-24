@@ -137,7 +137,7 @@ fn the_resolved_ir_schema_reads_and_its_examples_fit_it() {
 
 #[test]
 fn each_format_says_its_version_and_its_name() {
-    let versions = [("tree", xtmd_ir::tree::VERSION), ("state", xtmd_ir::state::VERSION), ("actions", xtmd_ir::actions::VERSION), ("told", xtmd_ir::told::VERSION), ("blocks", xtmd_ir::blocks::VERSION), ("build", xtmd_ir::build::VERSION)];
+    let versions = [("tree", xtmd_ir::tree::VERSION), ("state", xtmd_ir::state::VERSION), ("actions", xtmd_ir::actions::VERSION), ("told", xtmd_ir::told::VERSION), ("blocks", xtmd_ir::blocks::VERSION), ("build", xtmd_ir::build::VERSION), ("web", xtmd_ir::web::VERSION)];
     for (name, v) in versions {
         let s = json(&repo().join(format!("schemas/{name}.schema.json")));
         assert_eq!(s["x-version"], v, "{name}");
