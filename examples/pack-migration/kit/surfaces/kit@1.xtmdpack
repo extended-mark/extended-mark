@@ -1,0 +1,9 @@
+package kit@1;
+
+enum status { GOOD, SLOW, LATE }
+
+//@about A share of a whole, as a number from 0 to 1.
+extern widget meter(part: number 0..1, label: text, colour: color = color.ACCENT);
+
+//@about A line of text in a box.
+extern widget note(message: text, loud: bool = false, state: status = status.GOOD);

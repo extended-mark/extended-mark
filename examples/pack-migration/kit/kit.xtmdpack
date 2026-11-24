@@ -1,0 +1,35 @@
+package kit;
+
+pack kit@2 {
+    uses core@1;
+    provides gauge, note, status;
+}
+
+enum status { GOOD, SLOW, OVERDUE }
+
+//@about A share of a whole, as a number from 0 to 1.
+widget gauge(part: number 0..1, label: text, tone: color = color.INK) {
+    view {
+        @row(gap = space.S) {
+            @label(value = label);
+            @label(value = "\{(part * 100).floor()}%", tone = tone);
+        }
+    }
+    markdown {
+        \{label}: \{(part * 100).floor()}%
+    }
+}
+
+//@about Anything, in a box.
+widget note(state: status = status.GOOD) {
+    slot body: view;
+
+    view {
+        @column(pad = space.M, stroke = state == status.GOOD ? color.LINE : color.BAD, radius = radius.CARD) {
+            @body;
+        }
+    }
+    markdown {
+        @body;
+    }
+}

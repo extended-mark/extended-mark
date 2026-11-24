@@ -12,6 +12,20 @@ Extended Mark (called MKP, Markdown Markup, up to 0.2) is a statically typed lan
 | File types | **2** (.xtmdpack and .xtmd) |
 | Rules | **19** |
 
+### One compiler, and modules around it
+
+Extended Mark has one compiler, and everything a page means is in the IR it writes. Every other part is a module with a set input and a set output, and any of them can be replaced: what draws a page, what runs it, what renders it to a file, the bindings to a framework, the host that shows it.
+
+| Part | Takes | Gives |
+|---|---|---|
+| The compiler | A document's text and the packs it uses | The IR, or what is wrong and where |
+| An engine's runtime | The IR, and what the host gives (`$state`, extern values, the page's own) | The drawn tree, what changed in it, and the page's Markdown (page 6) |
+| What draws | The drawn tree | Whatever a reader sees, and the reader's events and writes, by a widget's id |
+| A host | A page, through those calls | Its own values, and what becomes of the calls the page makes |
+
+- **The IR decides.** A module never works out what the language means: a default, a rule, which widget a call is, what a slot holds and what Markdown says are in the IR. A module that had to know more would be a second compiler, and the two would drift.
+- **No module is special.** The ones that come with Extended Mark use the same inputs and outputs as anyone's, and nothing more. Core is the same: a pack like any other (rule 10), with slots that are inputs and externs whoever draws supplies.
+
 ### The rules
 
 1. **Two file types.** .xtmdpack holds definitions only and can't draw. .xtmd is a document: definitions, then a line that holds only `@@@`, then Markdown that Extended Mark renders. Nothing above the line draws, and below it an `xtmd` code fence is ordinary code.

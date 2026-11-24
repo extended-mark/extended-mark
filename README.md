@@ -53,4 +53,30 @@ branch [`legacy-0.2.x`](https://github.com/extended-mark/extended-mark/tree/lega
 | [8 Open questions](docs/specs/08-open-questions.md) | What this version decided, and what was left for later |
 | [9 Grammar](docs/specs/09-grammar.md) | The grammar of files, documents and prose |
 
+## Guides
+
+- [Writing a host](docs/guides/host.md): drawing a page with code of your own, from its tree.
+- [Writing an engine](docs/guides/engine.md): running the IR on another platform, or rendering it to a file.
+
+## Releasing a new version of a pack
+
+A pack's version is a promise: what compiles against one release of `kit@1` compiles against every later one.
+A change that could break a document makes `kit@2`, which ships a **migration**, checked by the compiler.
+
+```sh
+xtmd surface kit              # at each release: writes surfaces/kit@1.xtmdpack. Commit it
+# … change the pack, write `pack kit@2`, and migrations/kit@2.xtmdpack:
+#     migration kit@1 to kit@2 {
+#         widget meter {
+#             rename(to = gauge);
+#             rename(input = colour, to = tone);
+#         }
+#     }
+xtmd check kit                # the migration type-checks from kit@1's surface to kit@2, and leaves nothing out
+xtmd surface kit              # kit@2's surface
+xtmd migrate docs --dry-run   # whoever uses it: each change and why, then --yes
+```
+
+[examples/pack-migration](examples/pack-migration) is one worked through, with a document before and after.
+
 `notes/` has what each release changed.
