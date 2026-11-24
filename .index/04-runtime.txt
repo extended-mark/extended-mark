@@ -14,7 +14,8 @@ RUNTIME (TypeScript)  engines/published/runtime    npm @extended-mark/runtime
   src/eval/num.ts       decimal128 (decimal.js underneath)
   src/eval/value.ts     values, and to and from the IR's form
   src/layout.ts         where boxes on a plane go: sizes in, places out; knows no page
-  src/markdown.ts       the page as Markdown: blocks from the live page, and their text
+  src/markdown.ts       the live page as Markdown blocks
+  src/write.ts          blocks as text; knows no page
   src/internal.ts       insides, for its tests
   src/generated/        types from schemas/
 

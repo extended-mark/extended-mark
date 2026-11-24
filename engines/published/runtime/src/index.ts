@@ -10,6 +10,6 @@ export type { Blocks } from "./generated/blocks.js";
 export type { Built, Job } from "./generated/build.js";
 export type * as web from "./generated/web.js";
 export { Num } from "./eval/num.js";
-export { writeMarkdown, writeInline, type Block, type Inline } from "./markdown.js";
+export { writeMarkdown, writeInline, type Block, type Inline } from "./write.js";
 export { lay, place, around, keepInside, type Box, type Places, type Plane, type Pt, type Region, type Size } from "./layout.js";
 export type * as ir from "./generated/ir.js";

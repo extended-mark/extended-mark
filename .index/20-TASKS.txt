@@ -35,7 +35,8 @@ change inline Markdown
 
 change how Markdown is written
   compiler/markdown/src/lib.rs (text) and render.rs (starting blocks);
-  engines/published/runtime/src/markdown.ts; engines/examples/rust/runtime/src/markdown.rs
+  engines/published/runtime/src/write.ts (text) and markdown.ts (blocks);
+  engines/examples/rust/runtime/src/markdown.rs
 
 change the host's calls (tree, write, data, ...)
   docs/specs/06-hosts-packs-implementers.md -> schemas/tree.schema.json

@@ -7,7 +7,8 @@ import type { Data } from "./generated/state.js";
 import type { Change, Child, Contract, Ends, Input, Node, Tree } from "./generated/tree.js";
 import { Failure } from "./eval/index.js";
 import { toIr, type Value as V } from "./eval/value.js";
-import { pageBlocks, type Block } from "./markdown.js";
+import { pageBlocks } from "./markdown.js";
+import type { Block } from "./write.js";
 import { Core, IR_VERSION, childrenOf, type Broken, type Drawn, type CoreOptions, type Outcome, type PageValues } from "./page.js";
 
 export { IR_VERSION };

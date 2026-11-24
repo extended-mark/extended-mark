@@ -16,6 +16,18 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./num": {
+      "types": "./dist/eval/num.d.ts",
+      "default": "./dist/eval/num.js"
+    },
+    "./layout": {
+      "types": "./dist/layout.d.ts",
+      "default": "./dist/layout.js"
+    },
+    "./write": {
+      "types": "./dist/write.d.ts",
+      "default": "./dist/write.js"
     }
   },
   "files": [
