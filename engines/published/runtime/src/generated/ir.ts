@@ -81,6 +81,8 @@ export interface ExposeFns {
   body: Stmt[];
   name: string;
   params: Param[];
+  /** What it may write, the fns it calls included. */
+  writes?: Root[];
 }
 
 /** Fns the host may call, answering the extern channel of the same name. */
@@ -133,6 +135,8 @@ export interface ExprOp {
   args: Expr[];
   name: OpName;
   type?: Type;
+  /** Proved: what it works on, and the number it gives when it gives one, are whole and within 9007199254740991 of zero, so any engine's whole numbers hold them exactly. */
+  whole?: boolean;
 }
 
 export interface ExprShow {
@@ -257,7 +261,11 @@ export interface FnDecl {
   /** A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`). */
   name: string;
   params?: Param[];
+  /** What it reads beside its parameters, the fns it calls included. */
+  reads?: Read[];
   returns?: Type;
+  /** What it may write beside its `mut` parameters, the fns it calls included. */
+  writes?: Root[];
 }
 
 /** A read of something by name. */
@@ -276,6 +284,10 @@ export interface Handler {
   body: Stmt[];
   id: string;
   params?: Param[];
+  /** What it reads, the fns it calls included. */
+  reads?: Read[];
+  /** What it may write, the fns it calls included. An event it invokes writes what that event's handler does. */
+  writes?: Root[];
 }
 
 export interface Interface {
@@ -351,6 +363,8 @@ export interface NodeExtern {
   levels?: Level[];
   name: string;
   props?: { [key: string]: Expr };
+  /** What each input reads, by its name. One that isn't here reads nothing that changes: it is the same for as long as the page is open. What is inside a view or a rich_text it holds says its own. */
+  reads?: { [key: string]: Read[] };
   site: string;
   slots?: { [key: string]: Node[] };
   /** Where each `mut` input writes. */
@@ -364,6 +378,8 @@ export interface NodeUse {
   /** The levels this call needs beyond core.draw (page 6), its slots' included. */
   levels?: Level[];
   name: string;
+  /** What each argument reads, by its name, as an extern's inputs do. */
+  reads?: { [key: string]: Read[] };
   site: string;
   slots?: { [key: string]: Node[] };
 }
@@ -379,11 +395,15 @@ export interface NodeFor {
   name: string;
   over: Expr;
   position?: string;
+  /** What the list or the range reads. */
+  reads?: Read[];
   site: string;
   type: Type;
 }
 
 export interface NodeIfBranches {
+  /** What the condition reads. */
+  reads?: Read[];
   then: Node[];
   when: Cond;
 }
@@ -402,12 +422,16 @@ export interface NodeMatchCases {
 export interface NodeMatch {
   cases: NodeMatchCases[];
   else?: Node[];
+  /** What the value reads. */
+  reads?: Read[];
   site: string;
   value: Expr;
 }
 
 /** A view value or a slot, drawn here. */
 export interface NodePlace {
+  /** What the view reads. */
+  reads?: Read[];
   /** It goes in a sentence, so a rich_text placed here is one: blocks are a failure. */
   sentence?: boolean;
   site: string;
@@ -417,6 +441,8 @@ export interface NodePlace {
 /** A `let` in a view. */
 export interface NodeDeclare {
   let: Local;
+  /** What the value reads. */
+  reads?: Read[];
 }
 
 /** A node of a template's view. */
@@ -456,6 +482,16 @@ export interface Place {
   root: Root;
 }
 
+/** Something that may be another value later, which a place in the page reads. Constants, tokens and a fn's own locals are none. */
+export type Read =
+  | { local: string }
+  | { input: string }
+  | { cell: string }
+  | { "$state": string }
+  | { slot: string }
+  | { extern: string }
+  | { any: { [key: string]: never } };
+
 export interface Record {
   fields: Field[];
   /** A declaration's full name: its pack, a slash, its name (`core/date`, `doc/task`). A fn on a type adds a dot and the fn's name (`core/list.some`). */
@@ -471,6 +507,8 @@ export interface Record {
 export interface Require {
   body: Stmt[];
   message: string;
+  /** What the rule reads, the fns it calls included. */
+  reads?: Read[];
   /** A `warn` block: false is told, and refuses nothing. */
   warn?: boolean;
 }
@@ -632,6 +670,8 @@ export interface TypeParam {
 export interface ViewValue {
   args?: { [key: string]: Expr };
   events?: { [key: string]: string };
+  /** What each argument reads, by its name, as an extern's inputs do. */
+  reads?: { [key: string]: Read[] };
   slots?: { [key: string]: Node[] };
   widget: string;
 }

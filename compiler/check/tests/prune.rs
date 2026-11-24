@@ -80,7 +80,7 @@ fn cases(m: &Module, name: &str) -> Vec<String> {
 
 #[test]
 fn a_page_keeps_what_it_calls_and_drops_the_rest_its_own_too() {
-    let m = page("record used {\n    a: int;\n}\n\nrecord unused {\n    a: int;\n}\n\nfn called(x: used): int {\n    return x.a;\n}\n\nfn never(x: int): int {\n    return x;\n}\n\nwidget shown() {\n    fn own(): int {\n        return called(used { a = 1 });\n    }\n    fn idle(): int {\n        return never(2);\n    }\n    view {\n        @label(value = \"\\{own()}\");\n    }\n}\n\nwidget hidden() {\n    view {\n        @icon(name = glyph.STAR);\n    }\n}\n@@@\n@shown;\n");
+    let m = page("record used {\n    a: int;\n}\n\nrecord unused {\n    a: int;\n}\n\nfn called(x: used): int {\n    return x.a;\n}\n\nfn never(x: int): int {\n    return x;\n}\n\nwidget shown() {\n    mut k: int = 1;\n    fn own(): int {\n        return called(used { a = k });\n    }\n    fn idle(): int {\n        return never(2);\n    }\n    view {\n        @label(value = \"\\{own()}\");\n        @press(label = \"More\", click = fn() { k = k + 1; });\n    }\n}\n\nwidget hidden() {\n    view {\n        @icon(name = glyph.STAR);\n    }\n}\n@@@\n@shown;\n");
     let n = names(&m);
     assert!(n.contains("doc/used") && n.contains("doc/called") && n.contains("core/label"), "{n:?}");
     assert!(!n.contains("doc/unused") && !n.contains("doc/never") && !n.contains("core/icon") && !n.contains("core/glyph"), "{n:?}");
@@ -104,12 +104,14 @@ fn a_cases_arm_is_kept_when_the_page_can_make_the_case() {
 
 #[test]
 fn a_records_rules_are_kept_when_the_page_makes_one_as_it_runs() {
-    let doc = |view: &str| format!("record even {{\n    n: int = 2;\n    require \"n is even\" {{\n        return is_even(n);\n    }}\n}}\n\nfn is_even(n: int): bool {{\n    return n % 2 == 0;\n}}\n\nlet four: even = even {{ n = 4 }};\nlet two: even = even {{ }};\n\nwidget w() {{\n    mut k: int = 2;\n    view {{\n        @press(label = \"\\{{k}}\", click = fn() {{ k = k + 2; }});\n        {view}\n    }}\n}}\n@@@\n@w;\n");
-    let m = page(&doc("@label(value = \"\\{four.n}\");"));
+    let doc = |view: &str| format!("record even {{\n    n: int = 2;\n    require \"n is even\" {{\n        return is_even(n);\n    }}\n}}\n\nfn is_even(n: int): bool {{\n    return n % 2 == 0;\n}}\n\nlet four: even = even {{ n = 4 }};\nlet two: even = even {{ }};\n\nwidget seen(e: even) {{\n    view {{\n        @label(value = \"\\{{e.n}}\");\n    }}\n}}\n\nwidget w() {{\n    mut k: int = 2;\n    view {{\n        @press(label = \"\\{{k}}\", click = fn() {{ k = k + 2; }});\n        {view}\n    }}\n}}\n@@@\n@w;\n");
+    // worked out, so there is no record to make
+    assert!(!names(&page(&doc("@label(value = \"\\{four.n}\");"))).contains("doc/even"));
+    let m = page(&doc("@seen(e = four);"));
     assert!(record(&m, "doc/even").requires.is_empty() && record(&m, "doc/even").fields[0].default.is_none());
     assert!(!names(&m).contains("doc/is_even"));
     // made when the page was compiled, with a field left out: its value is in the IR, or its default is
-    let m = page(&doc("@label(value = \"\\{two.n}\");"));
+    let m = page(&doc("@seen(e = two);"));
     assert!(record(&m, "doc/even").requires.is_empty());
     assert!(record(&m, "doc/even").fields[0].default.is_some() || serde_json::to_string(&m).unwrap().contains("\"fields\":{\"n\":{\"num\":\"2\"}}"));
     let m = page(&doc("@label(value = \"\\{(even { n = k }).n}\");"));

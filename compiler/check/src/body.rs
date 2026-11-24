@@ -129,7 +129,7 @@ fn call(name: &str, args: Vec<ir::Expr>, ty: Option<ir::Type>) -> ir::Expr {
 }
 
 fn op(name: ir::OpName, args: Vec<ir::Expr>, ty: ir::Type) -> ir::Expr {
-    ir::Expr::Op(Box::new(ir::ExprOp { name, args, ty: Some(ty) }))
+    ir::Expr::Op(Box::new(ir::ExprOp { name, args, ty: Some(ty), whole: Default::default() }))
 }
 
 impl Checker {

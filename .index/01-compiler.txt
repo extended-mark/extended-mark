@@ -32,6 +32,9 @@ compiler/check/     xtmd-check: names, types, rules; gives whole IR
 
 compiler/lower/     xtmd-lower: the IR an engine runs
   src/reach.rs        keeps only what the page can run
+  src/fold.rs         constants worked out
+  src/reads.rs        what each place reads, what each handler and fn writes
+  src/whole.rs        which arithmetic is proved to stay in whole numbers
   src/walk.rs         every node, statement and expression, to change in place
 
 compiler/ir/        xtmd-ir: Rust types; src/ir.rs, check.rs, tree.rs are generated

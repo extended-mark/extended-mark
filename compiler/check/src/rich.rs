@@ -58,8 +58,8 @@ impl Checker {
     pub(crate) fn alone_value(&mut self, x: ir::Expr) -> ir::Expr {
         let mut args = BTreeMap::new();
         args.insert("value".to_string(), x.clone());
-        let paragraph = ir::Expr::View(ir::ViewValue { widget: "core/paragraph".into(), args, slots: BTreeMap::new(), events: BTreeMap::new() });
-        ir::Expr::Op(Box::new(ir::ExprOp { name: ir::OpName::Pick, args: vec![ir::Expr::Sentence(Box::new(x.clone())), paragraph, x], ty: Some(ir::Type::named("core/view")) }))
+        let paragraph = ir::Expr::View(ir::ViewValue { widget: "core/paragraph".into(), args, slots: BTreeMap::new(), events: BTreeMap::new(), reads: Default::default() });
+        ir::Expr::Op(Box::new(ir::ExprOp { name: ir::OpName::Pick, args: vec![ir::Expr::Sentence(Box::new(x.clone())), paragraph, x], ty: Some(ir::Type::named("core/view")), whole: Default::default() }))
     }
 
     /// What a block of prose gives a slot: for a rich_text slot, its one paragraph's sentence.
@@ -69,7 +69,7 @@ impl Checker {
         }
         match nodes.as_slice() {
             [ir::Node::Extern(p)] if p.name == "core/paragraph" => match p.props.get("value") {
-                Some(value) => return vec![ir::Node::Place(ir::NodePlace { sentence: true, site: p.site.clone(), view: value.clone() })],
+                Some(value) => return vec![ir::Node::Place(ir::NodePlace { sentence: true, site: p.site.clone(), view: value.clone(), reads: Default::default() })],
                 None => {}
             },
             _ => {}
@@ -89,11 +89,11 @@ pub(crate) fn alone(site: String, x: ir::Expr) -> Vec<ir::Node> {
     let get = || ir::Expr::Get(ir::Get::Local(name.clone()));
     let paragraph = extern_node("core/paragraph", format!("{}p", site), vec![("value", get())], BTreeMap::new());
     vec![
-        ir::Node::Declare(ir::NodeDeclare { let_: ir::Local { name: name.clone(), ty: ir::Type::named("core/rich_text"), value: x } }),
+        ir::Node::Declare(ir::NodeDeclare { let_: ir::Local { name: name.clone(), ty: ir::Type::named("core/rich_text"), value: x }, reads: Default::default() }),
         ir::Node::If(ir::NodeIf {
             site: site.clone(),
-            branches: vec![ir::NodeIfBranches { when: ir::Cond::Cond(ir::Expr::Sentence(Box::new(get()))), then: vec![paragraph] }],
-            else_: vec![ir::Node::Place(ir::NodePlace { sentence: false, site: format!("{}b", site), view: get() })],
+            branches: vec![ir::NodeIfBranches { when: ir::Cond::Cond(ir::Expr::Sentence(Box::new(get()))), then: vec![paragraph], reads: Default::default() }],
+            else_: vec![ir::Node::Place(ir::NodePlace { sentence: false, site: format!("{}b", site), view: get(), reads: Default::default() })],
         }),
     ]
 }
@@ -185,8 +185,8 @@ impl Rich<'_> {
                 Some(k) => {
                     let value = self.holes.get(k).cloned().unwrap_or(ir::Expr::Text(String::new()));
                     match self.kinds.get(k) {
-                        Some(Hole::View) => ir::Node::Place(ir::NodePlace { sentence: false, site: self.site(), view: value }),
-                        Some(Hole::Rich) => ir::Node::Place(ir::NodePlace { sentence: true, site: self.site(), view: value }),
+                        Some(Hole::View) => ir::Node::Place(ir::NodePlace { sentence: false, site: self.site(), view: value, reads: Default::default() }),
+                        Some(Hole::Rich) => ir::Node::Place(ir::NodePlace { sentence: true, site: self.site(), view: value, reads: Default::default() }),
                         _ => self.call("core/words", vec![("value", value)], BTreeMap::new()),
                     }
                 }
@@ -288,7 +288,7 @@ impl Rich<'_> {
         let x = self.holes.get(k).cloned()?;
         let site = self.site();
         match self.kinds.get(k)? {
-            Hole::View => Some(vec![ir::Node::Place(ir::NodePlace { sentence: false, site, view: x })]),
+            Hole::View => Some(vec![ir::Node::Place(ir::NodePlace { sentence: false, site, view: x, reads: Default::default() })]),
             Hole::Rich => Some(alone(site, x)),
             Hole::Words => None,
         }

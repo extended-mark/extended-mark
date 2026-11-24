@@ -1,10 +1,15 @@
 //! Lowering: the IR an engine runs, from a checked module.
 //!
-//! A page keeps only what it can run (`reach`). A widget whose Markdown is its view has it once, and
-//! the types the checker worked out for expressions stay behind: an engine runs values.
+//! A page keeps only what it can run (`reach`), with what is the same on every page worked out
+//! (`fold`). A widget whose Markdown is its view has it once, and the types the checker worked out for
+//! expressions stay behind: an engine runs values. What each place reads, what each handler writes
+//! (`reads`) and which numbers are whole (`whole`) is told.
 
+mod fold;
 mod reach;
+mod reads;
 pub mod walk;
+mod whole;
 
 use xtmd_ir::ir::{self, Expr, Stmt};
 
@@ -17,7 +22,11 @@ pub fn lower(m: &mut ir::Module) {
     }
     if m.module == "doc" {
         reach::prune(m);
+        if fold::fold(m) {
+            reach::prune(m);
+        }
     }
+    tell(m);
     walk::module(m, &mut |p| match p {
         walk::Part::Expr(Expr::Call(c)) => c.ty = None,
         walk::Part::Expr(Expr::Op(o)) => o.ty = None,
@@ -25,4 +34,11 @@ pub fn lower(m: &mut ir::Module) {
         walk::Part::Stmt(Stmt::Call(c)) => c.ty = None,
         _ => {}
     });
+}
+
+/// Tells in a module what is read, written and whole: what `lower` does last, for an IR made another
+/// way.
+pub fn tell(m: &mut ir::Module) {
+    whole::tell(m);
+    reads::tell(m);
 }

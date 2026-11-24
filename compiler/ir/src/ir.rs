@@ -149,6 +149,9 @@ pub struct ExposeFns {
     pub body: Vec<Stmt>,
     pub name: String,
     pub params: Vec<Param>,
+    /// What it may write, the fns it calls included.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub writes: Vec<Root>,
 }
 
 /// Fns the host may call, answering the extern channel of the same name.
@@ -231,6 +234,9 @@ pub struct ExprOp {
     pub name: OpName,
     #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
     pub ty: Option<Type>,
+    /// Proved: what it works on, and the number it gives when it gives one, are whole and within 9007199254740991 of zero, so any engine's whole numbers hold them exactly.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub whole: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -447,8 +453,14 @@ pub struct FnDecl {
     pub name: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub params: Vec<Param>,
+    /// What it reads beside its parameters, the fns it calls included.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reads: Vec<Read>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub returns: Option<Type>,
+    /// What it may write beside its `mut` parameters, the fns it calls included.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub writes: Vec<Root>,
 }
 
 /// A read of something by name.
@@ -488,6 +500,12 @@ pub struct Handler {
     pub id: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub params: Vec<Param>,
+    /// What it reads, the fns it calls included.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reads: Vec<Read>,
+    /// What it may write, the fns it calls included. An event it invokes writes what that event's handler does.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub writes: Vec<Root>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -601,6 +619,9 @@ pub struct NodeExtern {
     pub name: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub props: BTreeMap<String, Expr>,
+    /// What each input reads, by its name. One that isn't here reads nothing that changes: it is the same for as long as the page is open. What is inside a view or a rich_text it holds says its own.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub reads: BTreeMap<String, Vec<Read>>,
     pub site: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub slots: BTreeMap<String, Vec<Node>>,
@@ -621,6 +642,9 @@ pub struct NodeUse {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub levels: Vec<Level>,
     pub name: String,
+    /// What each argument reads, by its name, as an extern's inputs do.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub reads: BTreeMap<String, Vec<Read>>,
     pub site: String,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub slots: BTreeMap<String, Vec<Node>>,
@@ -647,6 +671,9 @@ pub struct NodeFor {
     pub over: Expr,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<String>,
+    /// What the list or the range reads.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reads: Vec<Read>,
     pub site: String,
     #[serde(rename = "type")]
     pub ty: Type,
@@ -655,6 +682,9 @@ pub struct NodeFor {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NodeIfBranches {
+    /// What the condition reads.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reads: Vec<Read>,
     pub then: Vec<Node>,
     pub when: Cond,
 }
@@ -681,6 +711,9 @@ pub struct NodeMatch {
     pub cases: Vec<NodeMatchCases>,
     #[serde(rename = "else", default, skip_serializing_if = "Vec::is_empty")]
     pub else_: Vec<Node>,
+    /// What the value reads.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reads: Vec<Read>,
     pub site: String,
     pub value: Expr,
 }
@@ -689,6 +722,9 @@ pub struct NodeMatch {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NodePlace {
+    /// What the view reads.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reads: Vec<Read>,
     /// It goes in a sentence, so a rich_text placed here is one: blocks are a failure.
     #[serde(default, skip_serializing_if = "is_false")]
     pub sentence: bool,
@@ -702,6 +738,9 @@ pub struct NodePlace {
 pub struct NodeDeclare {
     #[serde(rename = "let")]
     pub let_: Local,
+    /// What the value reads.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reads: Vec<Read>,
 }
 
 /// A node of a template's view.
@@ -799,6 +838,32 @@ pub struct Place {
     pub root: Root,
 }
 
+/// Something that may be another value later, which a place in the page reads. Constants, tokens and a fn's own locals are none.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum Read {
+    /// A local of the view around it: a loop's variable, a `let`, what a condition or a match binds.
+    #[serde(rename = "local")]
+    Local(String),
+    /// An input of the widget the code is in.
+    #[serde(rename = "input")]
+    Input(String),
+    /// A widget's own variable.
+    #[serde(rename = "cell")]
+    Cell(String),
+    /// A field of the document's `$state`.
+    #[serde(rename = "$state")]
+    State(String),
+    /// A slot of the widget the code is in.
+    #[serde(rename = "slot")]
+    Slot(String),
+    /// A value of an extern channel: `core/page.width`.
+    #[serde(rename = "extern")]
+    Extern(String),
+    /// It can't be known: a fn held in a variable is called. It is worked out again after every change.
+    #[serde(rename = "any")]
+    Any(Empty),
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Record {
@@ -821,6 +886,9 @@ pub struct Record {
 pub struct Require {
     pub body: Vec<Stmt>,
     pub message: String,
+    /// What the rule reads, the fns it calls included.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reads: Vec<Read>,
     /// A `warn` block: false is told, and refuses nothing.
     #[serde(default, skip_serializing_if = "is_false")]
     pub warn: bool,
@@ -1086,6 +1154,9 @@ pub struct ViewValue {
     pub args: BTreeMap<String, Expr>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub events: BTreeMap<String, String>,
+    /// What each argument reads, by its name, as an extern's inputs do.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub reads: BTreeMap<String, Vec<Read>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub slots: BTreeMap<String, Vec<Node>>,
     pub widget: String,

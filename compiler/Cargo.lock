@@ -4505,6 +4505,7 @@ dependencies = [
 name = "xtmd-lower"
 version = "0.4.0"
 dependencies = [
+ "xtmd-eval",
  "xtmd-ir",
 ]
 
@@ -4536,6 +4537,7 @@ dependencies = [
  "toml 0.8.23",
  "xtmd-check",
  "xtmd-ir",
+ "xtmd-lower",
  "xtmd-markdown",
  "xtmd-syntax",
 ]

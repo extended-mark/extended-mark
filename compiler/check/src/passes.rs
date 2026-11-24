@@ -77,7 +77,7 @@ impl Checker {
                                 cx.scopes.last_mut().unwrap().push(Local { name: fl.name.clone(), ty: fl.ty.clone(), mutable: false, kind: LocalKind::Plain, known: Some(crate::proof::Known::of(&fl.ir)), own_origin: false });
                             }
                             let b = self.block(&mut cx, &req.body);
-                            rules.push(ir::Require { warn: req.warn, message: text_of(&req.message), body: b });
+                            rules.push(ir::Require { warn: req.warn, message: text_of(&req.message), body: b, reads: Default::default() });
                         }
                     }
                     self.out.requires.insert(d, rules);
@@ -195,7 +195,7 @@ impl Checker {
                         cx.state_rules = true;
                         cx.ret = Some(Some(Ty::Bool));
                         let b = self.block(&mut cx, &r.body);
-                        rules.push(ir::Require { warn: r.warn, message: text_of(&r.message), body: b });
+                        rules.push(ir::Require { warn: r.warn, message: text_of(&r.message), body: b, reads: Default::default() });
                     }
                 }
             }
@@ -230,7 +230,7 @@ impl Checker {
                     cx.scopes.last_mut().unwrap().push(Local { name: p.name.clone(), ty: p.ty.clone(), mutable: p.mutable, kind: LocalKind::Plain, known: Some(crate::proof::Known::of(&p.ir)), own_origin: false });
                 }
                 let body = f.body.as_ref().map(|b| self.block(&mut cx, b)).unwrap_or_default();
-                fns.push(ir::ExposeFns { name: f.sig.name.name.clone(), params: ps.iter().map(|p| ir::Param { name: p.name.clone(), ty: p.ir.clone(), mutable: false }).collect(), body });
+                fns.push(ir::ExposeFns { name: f.sig.name.name.clone(), params: ps.iter().map(|p| ir::Param { name: p.name.clone(), ty: p.ir.clone(), mutable: false }).collect(), body, writes: Default::default() });
             }
             self.out.exposes.push(ir::Expose { channel, fns });
         }

@@ -583,7 +583,7 @@ impl Checker {
             let mut p = prog.clone();
             let given = std::rc::Rc::new(given);
             for r in &rules {
-                p.fns.insert(name.clone(), std::rc::Rc::new(ir::FnDecl { name: name.clone(), generics: Vec::new(), params: Vec::new(), returns: Some(ir::Type::named("core/bool")), body: r.body.clone() }));
+                p.fns.insert(name.clone(), std::rc::Rc::new(ir::FnDecl { name: name.clone(), generics: Vec::new(), params: Vec::new(), returns: Some(ir::Type::named("core/bool")), body: r.body.clone(), reads: Default::default(), writes: Default::default() }));
                 let mut m = Machine::new(&p, Box::new(Given { inputs: given.inputs.clone(), slots: given.slots.clone() }));
                 if let Ok(Some(Value::Bool(false))) = m.call(&name, Vec::new()) {
                     if r.warn {
@@ -1022,7 +1022,7 @@ fn constant_calls(prog: &Program, nodes: &[ir::Node]) -> Option<Vec<Value>> {
         };
         // an input only known when the page runs is left out: a rule that reads it isn't decided
         let known = given.iter().filter(|(_, x)| Machine::new(prog, Box::new(Constants)).eval(x).is_ok()).map(|(k, x)| (k.clone(), x.clone())).collect();
-        let x = ir::Expr::View(ir::ViewValue { widget: name.clone(), args: known, slots: slots.clone(), events: events.clone() });
+        let x = ir::Expr::View(ir::ViewValue { widget: name.clone(), args: known, slots: slots.clone(), events: events.clone(), reads: Default::default() });
         out.push(Machine::new(prog, Box::new(Constants)).eval(&x).ok()?);
     }
     Some(out)

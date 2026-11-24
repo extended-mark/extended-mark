@@ -116,7 +116,7 @@ impl Checker {
         let parts = self.call_parts(cx, d, call, None);
         let full = self.defs[d].full.clone();
         let args = parts.props.into_iter().chain(parts.places.into_iter().map(|(k, p)| (k, ir::Expr::Place(p)))).collect();
-        (ir::Expr::View(ir::ViewValue { widget: full, args, slots: parts.slots, events: parts.events }), Ty::Def(d, Vec::new()))
+        (ir::Expr::View(ir::ViewValue { widget: full, args, slots: parts.slots, events: parts.events, reads: Default::default() }), Ty::Def(d, Vec::new()))
     }
 
     /// The nodes a block of view code makes.
@@ -141,7 +141,7 @@ impl Checker {
                 self.want(cx, &v.value, &x, &ty_ir, format!("`{}`", v.name.name));
                 self.declare_local(cx, &v.name, ty, false, LocalKind::Plain);
                 crate::proof::set_known(cx, &v.name.name, crate::proof::Known::of(&ty_ir));
-                vec![ir::Node::Declare(ir::NodeDeclare { let_: ir::Local { name: v.name.name.clone(), ty: ty_ir, value: x } })]
+                vec![ir::Node::Declare(ir::NodeDeclare { let_: ir::Local { name: v.name.name.clone(), ty: ty_ir, value: x }, reads: Default::default() })]
             }
             S::If(i) => {
                 let site = self.site("s");
@@ -151,7 +151,7 @@ impl Checker {
                     let when = self.cond(cx, c);
                     let then = self.view_nodes(cx, b);
                     cx.pop();
-                    branches.push(ir::NodeIfBranches { when, then });
+                    branches.push(ir::NodeIfBranches { when, then, reads: Default::default() });
                 }
                 let else_ = i.otherwise.as_ref().map(|b| self.view_nodes(cx, b)).unwrap_or_default();
                 vec![ir::Node::If(ir::NodeIf { site, branches, else_ })]
@@ -172,7 +172,7 @@ impl Checker {
                 self.begin_walk(cx, f.mutable, &f.over, &f.name);
                 let body = self.view_nodes(cx, &f.body);
                 cx.pop();
-                vec![ir::Node::For(ir::NodeFor { mutable: f.mutable, name: f.name.name.clone(), position: f.key.as_ref().map(|k| k.name.clone()), ty: self.ir_ty(&item), over, key, site, body })]
+                vec![ir::Node::For(ir::NodeFor { mutable: f.mutable, name: f.name.name.clone(), position: f.key.as_ref().map(|k| k.name.clone()), ty: self.ir_ty(&item), over, key, site, body, reads: Default::default() })]
             }
             S::Match(m) => {
                 let site = self.site("s");
@@ -193,7 +193,7 @@ impl Checker {
                     cx.pop();
                 }
                 self.check_match(file, &vt, &m.cases.items.iter().map(|n| n.item.patterns.clone()).collect::<Vec<_>>(), has_else, m.span);
-                vec![ir::Node::Match(ir::NodeMatch { site, value: v, cases, else_ })]
+                vec![ir::Node::Match(ir::NodeMatch { site, value: v, cases, else_, reads: Default::default() })]
             }
             S::Expr(ast::Expr { kind: E::View(call), .. }) => self.view_call_node(cx, call),
             other => {
@@ -240,8 +240,9 @@ impl Checker {
                     site: site.clone(),
                     body: match &inner {
                         Ty::Rich if !cx.sentence => crate::rich::alone(format!("{}p", site), ir::Expr::Get(ir::Get::Local(name))),
-                        t => vec![ir::Node::Place(ir::NodePlace { sentence: cx.sentence && *t == Ty::Rich, site: format!("{}p", site), view: ir::Expr::Get(ir::Get::Local(name)) })],
+                        t => vec![ir::Node::Place(ir::NodePlace { sentence: cx.sentence && *t == Ty::Rich, site: format!("{}p", site), view: ir::Expr::Get(ir::Get::Local(name)), reads: Default::default() })],
                     },
+                    reads: Default::default(),
                 })];
             }
             // an opt of one is placed when it is there
@@ -253,7 +254,7 @@ impl Checker {
             if rich && !cx.sentence {
                 return crate::rich::alone(site, x);
             }
-            return vec![ir::Node::Place(ir::NodePlace { sentence: rich, site, view: x })];
+            return vec![ir::Node::Place(ir::NodePlace { sentence: rich, site, view: x, reads: Default::default() })];
         }
         let Some(d) = self.widget_of(cx, &call.name.name) else {
             let known = self.widget_names(cx.file);
@@ -267,13 +268,13 @@ impl Checker {
         let full = self.defs[d].full.clone();
         let external = matches!(self.defs[d].kind, DefKind::Widget { external: true, .. });
         if external {
-            vec![ir::Node::Extern(ir::NodeExtern { name: full, site, props: parts.props, slots: parts.slots, events: parts.events, writes: parts.places, levels: Vec::new() })]
+            vec![ir::Node::Extern(ir::NodeExtern { name: full, site, props: parts.props, slots: parts.slots, events: parts.events, writes: parts.places, levels: Vec::new(), reads: Default::default() })]
         } else {
             let mut args = parts.props;
             for (k, p) in parts.places {
                 args.insert(k, ir::Expr::Place(p));
             }
-            vec![ir::Node::Use(ir::NodeUse { name: full, site, args, slots: parts.slots, events: parts.events, levels: Vec::new() })]
+            vec![ir::Node::Use(ir::NodeUse { name: full, site, args, slots: parts.slots, events: parts.events, levels: Vec::new(), reads: Default::default() })]
         }
     }
 
@@ -469,7 +470,7 @@ impl Checker {
             }
         };
         let _ = file;
-        self.handlers.push(ir::Handler { id: id.clone(), params, body });
+        self.handlers.push(ir::Handler { id: id.clone(), params, body, reads: Default::default(), writes: Default::default() });
         id
     }
 
@@ -565,14 +566,14 @@ impl Checker {
                     self.want(&cx, &v.value, &x, &ti, format!("`{}`", v.name.name));
                     self.declare_local(&mut cx, &v.name, t, false, LocalKind::Plain);
                     crate::proof::set_known(&mut cx, &v.name.name, crate::proof::Known::of(&ti));
-                    prefix.push(ir::Node::Declare(ir::NodeDeclare { let_: ir::Local { name: v.name.name.clone(), ty: ti, value: x } }));
+                    prefix.push(ir::Node::Declare(ir::NodeDeclare { let_: ir::Local { name: v.name.name.clone(), ty: ti, value: x }, reads: Default::default() }));
                 }
                 ast::WidgetMember::Require(r) => {
                     let mut c = cx.clone();
                     c.ret = Some(Some(Ty::Bool));
                     let b = self.block(&mut c, &r.body);
                     let message = r.message.parts.iter().map(|p| if let ast::TextPart::Piece { raw, .. } = p { xtmd_syntax::lexer::decode_piece(raw) } else { String::new() }).collect();
-                    requires.push(ir::Require { warn: r.warn, message, body: b });
+                    requires.push(ir::Require { warn: r.warn, message, body: b, reads: Default::default() });
                 }
                 ast::WidgetMember::Fn(f) => {
                     let id = wcx.fns[&f.sig.name.name];
@@ -595,6 +596,7 @@ impl Checker {
                         generics: Vec::new(),
                         returns: s.ret_ir.clone(),
                         body: b,
+                        reads: Default::default(), writes: Default::default(),
                     });
                 }
                 ast::WidgetMember::View(b) => {
@@ -749,7 +751,7 @@ impl Checker {
                                 let when = self.cond(cx, c);
                                 let then = self.prose_nodes(cx, body);
                                 cx.pop();
-                                bs.push(ir::NodeIfBranches { when, then });
+                                bs.push(ir::NodeIfBranches { when, then, reads: Default::default() });
                             }
                             let else_ = otherwise.as_ref().map(|(b, _)| self.prose_nodes(cx, b)).unwrap_or_default();
                             out.push(ir::Node::If(ir::NodeIf { site, branches: bs, else_ }));
@@ -769,7 +771,7 @@ impl Checker {
                             self.begin_walk(cx, *mutable, over, name);
                             let b = self.prose_nodes(cx, body);
                             cx.pop();
-                            out.push(ir::Node::For(ir::NodeFor { mutable: *mutable, name: name.name.clone(), position: key.as_ref().map(|k| k.name.clone()), ty: self.ir_ty(&item), over: o, key: ir::NodeForKey::Item, site, body: b }));
+                            out.push(ir::Node::For(ir::NodeFor { mutable: *mutable, name: name.name.clone(), position: key.as_ref().map(|k| k.name.clone()), ty: self.ir_ty(&item), over: o, key: ir::NodeForKey::Item, site, body: b, reads: Default::default() }));
                         }
                         ProseNode::Match { subject, cases, span, .. } => {
                             let site = self.site("m");
@@ -790,7 +792,7 @@ impl Checker {
                                 cx.pop();
                             }
                             self.check_match(file, &vt, &cases.iter().map(|c| c.patterns.clone()).collect::<Vec<_>>(), has_else, *span);
-                            out.push(ir::Node::Match(ir::NodeMatch { site, value: v, cases: cs, else_ }));
+                            out.push(ir::Node::Match(ir::NodeMatch { site, value: v, cases: cs, else_, reads: Default::default() }));
                         }
                         ProseNode::Slot { .. } | ProseNode::Text(_) | ProseNode::Fence(_) | ProseNode::Comment { .. } => {}
                     }
@@ -845,7 +847,7 @@ impl Checker {
                             return crate::rich::alone(site, x.clone());
                         }
                         if self.is_view_type(ty) {
-                            return vec![ir::Node::Place(ir::NodePlace { sentence: false, site, view: x.clone() })];
+                            return vec![ir::Node::Place(ir::NodePlace { sentence: false, site, view: x.clone(), reads: Default::default() })];
                         }
                     }
                 }
@@ -999,6 +1001,7 @@ pub(crate) fn extern_node(name: &str, site: String, props: Vec<(&str, ir::Expr)>
         events: BTreeMap::new(),
         writes: BTreeMap::new(),
         levels: Vec::new(),
+        reads: Default::default(),
     })
 }
 

@@ -1,0 +1,9 @@
+WHAT THE IR TELLS BESIDE THE CODE  (compiler/lower/src: reads.rs, whole.rs, fold.rs)
+reads   on each input, loop, branch, match, place, let and rule: what can be another value later. Left
+        out, it reads nothing that changes. {any} means it can't be known: a fn kept in a variable.
+writes  on each handler, fn and exposed fn. An event invoked writes what its handler does.
+whole   on an operator: what it takes and gives are whole and fit a double exactly. From contracts of
+        variables, inputs, fields, locals and declared fns' parameters; not of items or lambdas'.
+Constants of plain kinds are worked out, then what they alone used is dropped (reach runs again).
+What would fail is left to fail as the page runs. Told last, so an IR brought from 3 is told too.
+Markdown has no reads: it is written whole. Tests: compiler/check/tests/reads.rs.

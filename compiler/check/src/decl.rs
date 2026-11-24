@@ -580,6 +580,7 @@ impl Checker {
                 generics: self.ir_generics(&f.generics),
                 returns: f.ret_ir.clone(),
                 body,
+                reads: Default::default(), writes: Default::default(),
             })
         })
     }

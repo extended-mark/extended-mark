@@ -218,6 +218,7 @@ impl Value {
                 args: v.args.iter().map(|(k, x)| (k.clone(), x.to_ir())).collect(),
                 slots: v.slots.clone(),
                 events: v.events.clone(),
+                reads: Default::default(),
             }),
             Value::Content(c) => {
                 let nodes = match &c.of {
@@ -226,7 +227,7 @@ impl Value {
                         let mut out: Vec<Node> = captured
                             .iter()
                             .filter_map(|(n, b)| match b {
-                                crate::interp::Binding::Value(v) => Some(Node::Declare(xtmd_ir::ir::NodeDeclare { let_: xtmd_ir::ir::Local { name: n.to_string(), ty: xtmd_ir::ir::Type::named(v.type_name()), value: v.to_ir() } })),
+                                crate::interp::Binding::Value(v) => Some(Node::Declare(xtmd_ir::ir::NodeDeclare { let_: xtmd_ir::ir::Local { name: n.to_string(), ty: xtmd_ir::ir::Type::named(v.type_name()), value: v.to_ir() }, reads: Default::default() })),
                                 _ => None,
                             })
                             .collect();
@@ -237,7 +238,7 @@ impl Value {
                         out
                     }
                     ContentOf::Drawn(_) => Vec::new(),
-                    ContentOf::Parts(parts) => parts.iter().enumerate().map(|(k, v)| Node::Place(xtmd_ir::ir::NodePlace { sentence: !c.blocks, site: format!("j{}", k), view: v.to_ir() })).collect(),
+                    ContentOf::Parts(parts) => parts.iter().enumerate().map(|(k, v)| Node::Place(xtmd_ir::ir::NodePlace { sentence: !c.blocks, site: format!("j{}", k), view: v.to_ir(), reads: Default::default() })).collect(),
                 };
                 Expr::Rich(xtmd_ir::ir::Rich { blocks: c.blocks, nodes: Arc::new(nodes) })
             }

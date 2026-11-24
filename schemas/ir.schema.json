@@ -488,6 +488,22 @@
           "items": {
             "$ref": "#/$defs/stmt"
           }
+        },
+        "reads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/read"
+          },
+          "uniqueItems": true,
+          "description": "What it reads beside its parameters, the fns it calls included."
+        },
+        "writes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/root"
+          },
+          "uniqueItems": true,
+          "description": "What it may write beside its `mut` parameters, the fns it calls included."
         }
       },
       "required": [
@@ -786,6 +802,14 @@
                 "items": {
                   "$ref": "#/$defs/stmt"
                 }
+              },
+              "writes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/root"
+                },
+                "uniqueItems": true,
+                "description": "What it may write, the fns it calls included."
               }
             },
             "required": [
@@ -935,6 +959,14 @@
         "warn": {
           "type": "boolean",
           "description": "A `warn` block: false is told, and refuses nothing."
+        },
+        "reads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/read"
+          },
+          "uniqueItems": true,
+          "description": "What the rule reads, the fns it calls included."
         }
       },
       "required": [
@@ -1417,6 +1449,10 @@
                 },
                 "type": {
                   "$ref": "#/$defs/type"
+                },
+                "whole": {
+                  "type": "boolean",
+                  "description": "Proved: what it works on, and the number it gives when it gives one, are whole and within 9007199254740991 of zero, so any engine's whole numbers hold them exactly."
                 }
               },
               "required": [
@@ -1725,6 +1761,104 @@
       ],
       "additionalProperties": false
     },
+    "read": {
+      "description": "Something that may be another value later, which a place in the page reads. Constants, tokens and a fn's own locals are none.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "local": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "local"
+          ],
+          "additionalProperties": false,
+          "description": "A local of the view around it: a loop's variable, a `let`, what a condition or a match binds."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "input"
+          ],
+          "additionalProperties": false,
+          "description": "An input of the widget the code is in."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cell": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cell"
+          ],
+          "additionalProperties": false,
+          "description": "A widget's own variable."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "$state": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "$state"
+          ],
+          "additionalProperties": false,
+          "description": "A field of the document's `$state`."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "slot": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "slot"
+          ],
+          "additionalProperties": false,
+          "description": "A slot of the widget the code is in."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "extern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "extern"
+          ],
+          "additionalProperties": false,
+          "description": "A value of an extern channel: `core/page.width`."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "any": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "any"
+          ],
+          "additionalProperties": false,
+          "description": "It can't be known: a fn held in a variable is called. It is worked out again after every change."
+        }
+      ]
+    },
     "root": {
       "oneOf": [
         {
@@ -1868,6 +2002,17 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "reads": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/read"
+            },
+            "uniqueItems": true
+          },
+          "description": "What each argument reads, by its name, as an extern's inputs do."
         }
       },
       "required": [
@@ -2444,6 +2589,17 @@
                   },
                   "uniqueItems": true,
                   "description": "The levels this call needs beyond core.draw (page 6), its slots' included."
+                },
+                "reads": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/read"
+                    },
+                    "uniqueItems": true
+                  },
+                  "description": "What each input reads, by its name. One that isn't here reads nothing that changes: it is the same for as long as the page is open. What is inside a view or a rich_text it holds says its own."
                 }
               },
               "required": [
@@ -2499,6 +2655,17 @@
                   },
                   "uniqueItems": true,
                   "description": "The levels this call needs beyond core.draw (page 6), its slots' included."
+                },
+                "reads": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/read"
+                    },
+                    "uniqueItems": true
+                  },
+                  "description": "What each argument reads, by its name, as an extern's inputs do."
                 }
               },
               "required": [
@@ -2550,6 +2717,14 @@
                   "items": {
                     "$ref": "#/$defs/node"
                   }
+                },
+                "reads": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/read"
+                  },
+                  "uniqueItems": true,
+                  "description": "What the list or the range reads."
                 }
               },
               "required": [
@@ -2590,6 +2765,14 @@
                         "items": {
                           "$ref": "#/$defs/node"
                         }
+                      },
+                      "reads": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/read"
+                        },
+                        "uniqueItems": true,
+                        "description": "What the condition reads."
                       }
                     },
                     "required": [
@@ -2660,6 +2843,14 @@
                   "items": {
                     "$ref": "#/$defs/node"
                   }
+                },
+                "reads": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/read"
+                  },
+                  "uniqueItems": true,
+                  "description": "What the value reads."
                 }
               },
               "required": [
@@ -2691,6 +2882,14 @@
                 "sentence": {
                   "type": "boolean",
                   "description": "It goes in a sentence, so a rich_text placed here is one: blocks are a failure."
+                },
+                "reads": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/read"
+                  },
+                  "uniqueItems": true,
+                  "description": "What the view reads."
                 }
               },
               "required": [
@@ -2714,6 +2913,14 @@
               "properties": {
                 "let": {
                   "$ref": "#/$defs/local"
+                },
+                "reads": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/read"
+                  },
+                  "uniqueItems": true,
+                  "description": "What the value reads."
                 }
               },
               "required": [
@@ -2747,6 +2954,22 @@
           "items": {
             "$ref": "#/$defs/stmt"
           }
+        },
+        "reads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/read"
+          },
+          "uniqueItems": true,
+          "description": "What it reads, the fns it calls included."
+        },
+        "writes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/root"
+          },
+          "uniqueItems": true,
+          "description": "What it may write, the fns it calls included. An event it invokes writes what that event's handler does."
         }
       },
       "required": [

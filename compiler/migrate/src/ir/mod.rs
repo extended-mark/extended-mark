@@ -49,7 +49,7 @@ pub fn migrate(text: &str) -> Result<(Value, i64), Vec<String>> {
         fits(&v, NOW, VERSION)?;
     }
     // what it writes as Markdown is what a person would notice missing
-    let file: xtmd_ir::ir::File = serde_json::from_value(v.clone()).map_err(|e| vec![e.to_string()])?;
+    let mut file: xtmd_ir::ir::File = serde_json::from_value(v.clone()).map_err(|e| vec![e.to_string()])?;
     if file.ir.module == "doc" {
         xtmd_markdown::page(&file.ir).map_err(|e| {
             vec![match e.0.contains("core/rich_text.show") {
@@ -57,6 +57,12 @@ pub fn migrate(text: &str) -> Result<(Value, i64), Vec<String>> {
                 false => format!("its Markdown can't be written: {}", e.0),
             }]
         })?;
+    }
+    // what an earlier IR didn't tell: what is read, written and whole
+    if from < VERSION {
+        xtmd_lower::tell(&mut file.ir);
+        v = serde_json::to_value(&file).map_err(|e| vec![e.to_string()])?;
+        fits(&v, NOW, VERSION)?;
     }
     Ok((v, from))
 }
