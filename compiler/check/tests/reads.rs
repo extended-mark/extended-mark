@@ -308,6 +308,25 @@ fn area(w: number): number {
 }
 
 #[test]
+fn what_an_engine_or_a_host_may_supply_is_left_to_it() {
+    // a fn with a default: called plainly, through a fn, and in an expression
+    let dir = repo().join("checks/pages/pick/pick.xtmdpack");
+    let pack = vec![Source { path: "pick.xtmdpack".into(), text: std::fs::read_to_string(dir).unwrap() }];
+    for code in ["dial(1)", "turned()", "dial(1) + 1"] {
+        let text = format!("import pick;\n\nfn turned(): int {{\n    return dial(1);\n}}\n@@@\n@label(value = \"\\{{{code}}}\");\n");
+        let c = compile_on(&base(), &[pack.clone()], &[Source { path: "page.xtmd".into(), text }], "doc");
+        let errors: Vec<String> = c.errors().map(|d| d.diagnostic.message.clone()).collect();
+        assert!(errors.is_empty(), "{:?}", errors);
+        let mut m = c.module.unwrap();
+        xtmd_lower::lower(&mut m);
+        let v = serde_json::to_value(&m).unwrap();
+        let value = &node(template(&v, "doc"), "extern", None)["props"]["value"];
+        assert!(value.get("text").is_none(), "{code}: {value}");
+        assert!(serde_json::to_string(&v["needs"]).unwrap().contains("pick/dial"), "{code}: {}", v["needs"]);
+    }
+}
+
+#[test]
 fn what_would_fail_is_left_to_fail_as_the_page_runs() {
     let v = page("widget w(n: number) {\n    view {\n        @label(value = \"\\{n}\");\n    }\n    markdown {\n    }\n}\n@@@\n@w(n = 1 / 0);\n");
     assert!(node(template(&v, "doc"), "use", None)["args"]["n"].get("op").is_some());

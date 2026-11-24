@@ -824,7 +824,7 @@ fn migrate_says_what_stops_it_and_how_to_go_on() {
 
 #[test]
 fn a_pages_ir_holds_only_what_the_page_uses() {
-    let dir = scratch("page-only-ir", &[("page.xtmd", "let when: moment = \"2026-07-01T12:00+00:00\";\n$state { n: number = 0; }\n@@@\n# Hi\n\nAt \\{when}.\n\n@press(label = \"Add\", click = fn() { $state.n = $state.n + 1; });\n"), ("pack.xtmdpack", "package t;\n"), ("local.xtmd", "let when: moment = \"2026-07-01T12:00+00:00\";\n@@@\nHere: \\{when.local()}\n")]);
+    let dir = scratch("page-only-ir", &[("page.xtmd", "$state { n: number = 0; when: moment = \"2026-07-01T12:00+00:00\"; }\n@@@\n# Hi\n\nAt \\{$state.when}.\n\n@press(label = \"Add\", click = fn() { $state.n = $state.n + 1; });\n"), ("pack.xtmdpack", "package t;\n"), ("local.xtmd", "let when: moment = \"2026-07-01T12:00+00:00\";\n@@@\nHere: \\{when.local()}\n")]);
     let ir_of = |f: &str| -> serde_json::Value {
         let (code, out, err) = xtmd(&["build", dir.join(f).to_str().unwrap()]);
         assert_eq!(code, 0, "{}", err);

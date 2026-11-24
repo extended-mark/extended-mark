@@ -10,7 +10,8 @@ use xtmd_ir::ir::{self, Decl, Expr, Get};
 
 use crate::walk;
 
-/// Constants alone. A token's value is the engine's, so it is none.
+/// Constants alone. A token's value is the engine's, and an extern fn whoever supplies it, though it has a
+/// default: neither is one.
 struct Closed;
 
 impl Host for Closed {
@@ -22,6 +23,10 @@ impl Host for Closed {
     }
 
     fn write(&self, _m: &mut Machine, _what: &Outer, _owner: Option<u64>, _value: Value) -> Result<(), Failure> {
+        Err(unknown())
+    }
+
+    fn call_extern(&self, _m: &mut Machine, _name: &str, _args: &[Value]) -> Result<Option<Option<Value>>, Failure> {
         Err(unknown())
     }
 
