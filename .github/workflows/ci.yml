@@ -152,6 +152,10 @@ jobs:
         run: node tools/release/build-ts.mjs
       - name: Tested
         run: node tools/release/build-ts.mjs --test-only
+      - name: The notes for agents, held to the repository
+        run: |
+          node --test tools/llm/test/*.test.mjs
+          node tools/llm/check.mjs
       - name: The VS Code extension, built and tested
         working-directory: ide/vscode
         run: npm install --no-audit --no-fund && npm test

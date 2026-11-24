@@ -1,0 +1,15 @@
+WEB BINDINGS  engines/published/bindings    each a package on npm, @extended-mark/<folder>
+
+  embed/         plain web, static: src/doc.ts XtmdDoc, src/index.ts Embed, src/html.ts (Markdown as
+                 HTML), src/page.ts, src/snapshot.ts
+  embed-live/    plain web, live
+  live/          what every live engine shares: `compiler`, `Live`
+  view/          what every framework engine draws from (05-web-drawing.txt)
+  react/  vue/  svelte/  solid/  angular/       <XtmdDoc>, static
+  react-live/  vue-live/  svelte-live/  solid-live/  angular-live/    <XtmdLiveDoc>
+  next/          React's, for Next.js: src/config.ts (the loader), src/server.ts
+  testing/       shared by their tests, not a package: browser.mjs (docSteps, liveSteps),
+                 showcase/ (all of them on one page)
+
+Where the props are read: engines/published/bindings/<name>/src/doc.ts (svelte: src/XtmdDoc.svelte).
+Order they build in: tools/release/packages.mjs (by dependencies).

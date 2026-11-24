@@ -1,0 +1,27 @@
+CORE  core/    the standard library: a pack, imported by every file
+
+  core/pack.xtmdpack         what core provides
+  core/interfaces.xtmdpack   shown, same, ordered, numeric, scaled, literal: how types join the syntax
+  core/types.xtmdpack        map, date, moment, template, hole, latex, point, region
+  core/list.xtmdpack, core/range.xtmdpack, core/text.xtmdpack   fns on lists, ranges, text
+  core/tokens.xtmdpack       colours, lengths, fonts, strokes: token types and their values
+  core/options.xtmdpack      small enums: align, justify, axis, glyph, ...
+  core/page.xtmdpack         `extern page`: width, theme, today, now
+  core/layout.xtmdpack       extern flex, grid, cell, sizing, plane, spot
+  core/blocks.xtmdpack       extern paragraph, heading, bullets, ..., and a sentence's: words, bold, link
+  core/controls.xtmdpack     extern label, image, icon, press, field, slider, overlay
+  core/gfx.xtmdpack          extern canvas, layer, circle, path, place, handle, shade
+  core/widgets.xtmdpack      written in Extended Mark on the externs: column, row, stack, meter, frame
+  core/markdown.xtmdpack     md_inline: a sentence's Markdown
+  core/mdblocks.xtmdpack     a page's Markdown blocks, for text made as it runs
+  core/mdcalls.xtmdpack      what the parser reads Markdown as, before it is calls
+  core/entities.xtmdpack     HTML's named characters (a table)
+
+40 extern widgets: 33 of core.draw, 7 of core.gfx. Who draws them:
+  web      engines/published/dom/src/widgets/ and engines/published/bindings/view/src/widgets/
+  egui     engines/examples/rust/egui/src/widgets/
+  Android  engines/examples/misc/android/compose/xtmd-android/src/main/kotlin/xtmd/android/widgets/
+  VS Code  ide/vscode/src/webview/widgets.ts (on the web's)
+
+Spec: docs/specs/05-standard-library.md. Tests in Extended Mark: checks/core/.
+core is embedded in the binary and the wasm at build time: rebuild xtmd after editing it.

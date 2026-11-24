@@ -1,0 +1,19 @@
+RUST ENGINES  engines/examples/rust    examples: built and tested, never published
+
+engines/examples/rust/runtime    xtmd-runtime: the native runtime
+  src/page.rs           Page and Rt: the page running (port of engines/published/runtime/src/page.ts)
+  src/host.rs           the host's side: tree, changes, data
+  src/layout.rs         a plane's layout
+  src/markdown.rs       blocks from the live page; text is written by xtmd-markdown
+  tests/                page, host, memo, outside; common/mod.rs compiles in process
+  examples/drag_bench.rs
+  Evaluator and numbers are compiler/eval.
+
+engines/examples/rust/egui       xtmd-egui: draws with egui
+  src/lib.rs            XtmdPage; src/doc.rs XtmdDoc (a host's)
+  src/widgets/          blocks, controls, gfx, layout, plane, notice; kit.rs is shared
+  src/rich.rs, look.rs, measure.rs, values.rs, a11y.rs, fns.rs
+  src/check/mod.rs      a page driven headless (egui_kittest)
+  tests/                doc, widgets
+
+engines/examples/rust/egui-live  xtmd-egui-live: XtmdLiveDoc; examples/engines.rs shows both kinds

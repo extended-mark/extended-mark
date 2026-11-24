@@ -1,0 +1,4 @@
+XTMD FMT  (compiler/syntax/src/printer.rs)
+One canonical layout. Inside a line spacing is always the same; across lines the printer keeps what
+the author chose (a bracketed list on one line or many), since the tree remembers it.
+A block in prose is indented four spaces past its opening line, and means what the flat one does.

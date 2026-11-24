@@ -1,0 +1,20 @@
+APPS AND EXAMPLES
+
+apps/playground      edit a page, see it drawn; compiles in the browser
+  server.mjs           files and examples, reports from the browser
+  src/app.ts           the page; compiler.worker.ts (xtmd.wasm), editor.ts (Monaco), language.ts,
+                       failures.ts, values.ts ($state shown), highlight.ts, themes.ts, host.ts
+  src/engines.ts, engines-react.ts    the Engines page
+  examples/            its pages; build.mjs; test/ (server, real Chromium)
+
+apps/example-host    a host written from the spec alone: draw.mjs, server.mjs, client.mjs
+                     test/page.tree.json is a tree to compare with
+
+examples/pages       shop.xtmd, used by the three below
+examples/web-plain, examples/web-react, examples/web-next    the same page in three hosts
+examples/test        the three driven through the same steps
+examples/graphs      a pack: graphs drawn on a plane
+examples/pack-migration    a pack's version 2 and the document it moves
+
+brand/               logo and icons; render.mjs makes the files from the SVGs
+devbench/takes/      scripts of recorded demos

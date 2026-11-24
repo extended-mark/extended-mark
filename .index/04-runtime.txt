@@ -1,0 +1,25 @@
+RUNTIME (TypeScript)  engines/published/runtime    npm @extended-mark/runtime
+
+  src/index.ts          what a host imports: Page, apply, Num, layout, writeMarkdown
+  src/host.ts           Page: the host's side, values as JSON in the IR's form; the tree and changes
+  src/page.ts           Core: the page running
+                          redraw, drawNodes, drawNode, drawExtern, drawUse    drawing
+                          Frame, hold, enter, exit, unchanged, reuse          what is kept from last time
+                          event, write, set, expose, setExtern, transaction   changes
+                          takes, refusal, given, takesArgs, stateRefusal      what comes from outside
+                          restoreData, restoreOwn                             page data put back
+                          contains, failed, checkRules                        failures
+  src/eval/interp.ts    Machine: statements, expressions, limits (port of compiler/eval/src/interp.rs)
+  src/eval/natives.ts   extern fns of core with no body
+  src/eval/num.ts       decimal128 (decimal.js underneath)
+  src/eval/value.ts     values, and to and from the IR's form
+  src/layout.ts         where a plane's spots go, from what the engine measured
+  src/markdown.ts       the page as Markdown: blocks from the live page, and their text
+  src/internal.ts       insides, for its tests
+  src/generated/        types from schemas/
+
+Tests  engines/published/runtime/test/
+  cases.test.mjs (test/cases/*), page, host, memo, outside, machine, num, core, externs,
+  differential.test.mjs (the Rust evaluator against this one)
+
+The same in Rust: 07-rust-engines.txt.

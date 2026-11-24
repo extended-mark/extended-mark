@@ -1,0 +1,15 @@
+ANDROID  engines/examples/misc/android    examples: built and tested, never published
+
+  xtmd/          Rust crate xtmd-android: xtmd-runtime behind UniFFI
+                   src/lib.rs, convert.rs (values), diff.rs (only what changed crosses), fns.rs
+                   build.sh (host | android): the library and its Kotlin bindings
+  xtmd-live/     Rust crate xtmd-android-live: the compiler behind UniFFI; build.sh
+  compose/       the Gradle project; README.md
+    xtmd-android/       XtmdDoc.kt, XtmdPage.kt, Page.kt, Values.kt, Rich.kt, Math.kt, Theme.kt,
+                        FrameWriter.kt (a drag's writes), widgets/ (Blocks, Controls, Gfx, Layout, Plane)
+    xtmd-android-live/  XtmdLiveDoc.kt
+    sample/             a host with two pages
+    tokens.xtmdpack     core's tokens as Material 3 draws them
+
+Kotlin sources: engines/examples/misc/android/compose/xtmd-android/src/main/kotlin/xtmd/android/
+Tests (JVM, Robolectric): engines/examples/misc/android/compose/xtmd-android/src/test/

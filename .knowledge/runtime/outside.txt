@@ -1,0 +1,7 @@
+WHAT COMES FROM OUTSIDE IS CHECKED WHOLE
+Host writes, extern values, an exposed fn's arguments, what a widget writes, an event's arguments,
+what an engine's fn gives, data put back: each is checked against its type (Machine.takes: shape,
+every contract and require inside) before anything uses it. If not of its type it is refused with
+contracts.outside and nothing changes.
+The compiler proved only the page's own values, so this is the only check those get.
+checks/pages/outside.json holds both runtimes to the same answers.

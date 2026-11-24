@@ -1,0 +1,5 @@
+GENERATED, COPIED AND BUILT FILES
+Generated: compiler/ir/src/ir.rs, check.rs, tree.rs; engines/published/runtime/src/generated.
+Copied: engines/published/dom style.ts reads style.css; Android's glyphs from dom's icons.ts.
+Built, never committed: target, dist, *.ir.json (but in checks and schemas), xtmd.wasm.
+Versions are raised by tools/release/bump.mjs, never by hand.

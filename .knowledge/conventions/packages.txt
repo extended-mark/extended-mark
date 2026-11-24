@@ -1,0 +1,5 @@
+WHAT IS PUBLISHED
+npm: extended-mark (the command), @extended-mark/wasm, runtime, dom and the bindings.
+crates.io: the compiler's crates (tools/release/publish-crates.sh). VS Code: the extension.
+Never: engines/examples, apps, examples, bindings/testing. Packages go out together, one version.
+A neighbour is a `file:` dependency; tools/release/publish-npm.mjs writes the version in its place.

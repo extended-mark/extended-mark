@@ -1,0 +1,26 @@
+WEB DRAWING
+
+engines/published/dom    npm @extended-mark/dom: draws a page with plain DOM
+  src/api.ts            WidgetContext, WidgetView, Widget, MountOptions, Mounted
+  src/mount.ts          a tree reconciled by id after each change; unmount
+  src/widgets/          core's widgets: blocks, controls, gfx, layout, plane, words, notice
+  src/style.css         the stylesheet, also view's; src/style.ts holds it as text
+  src/tokens.ts         tokens as CSS custom properties, both themes
+  src/values.ts         reading a node's inputs; src/shared.ts shares it with view
+  src/tex.ts            TeX as MathML
+  src/shade.ts          a shade's pixels
+  src/rich.ts           links and pictures checked
+  src/icons.ts          glyph drawings
+  src/kit.ts, fns.ts    what our widgets need; the fns the web supplies (moment.local)
+  test/                 real Chromium: widgets, interact, plane; harness.mjs, browser.mjs
+
+engines/published/bindings/view    npm @extended-mark/view: the same widgets as plain elements
+  src/vnode.ts          VNode: tag, attrs, props, style, on, children, hook, component
+  src/render.ts         a tree as VNodes, keyed by id
+  src/widgets/          core's widgets again, as VNodes (the same parts and classes as dom's)
+  src/doc.ts            Doc: a page as a framework engine holds it
+  src/html.ts           VNodes as HTML, for a server
+  src/patch.ts          VNodes followed onto a live tree (Angular)
+  src/act.ts            a reader acting on an element, for tests
+
+core's web widgets are in both: a change to how one looks or acts goes in both.

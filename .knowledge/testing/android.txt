@@ -1,0 +1,8 @@
+ANDROID'S TESTS
+ANDROID_HOME set; Java 21. Build the host's libraries first:
+  engines/examples/misc/android/xtmd/build.sh host
+  engines/examples/misc/android/xtmd-live/build.sh host
+then in engines/examples/misc/android/compose: ./gradlew testDebugUnitTest --continue
+Add --rerun after rebuilding a library: Gradle doesn't see that it changed.
+They run on the JVM (Robolectric). Compose is not idle while work runs off the main thread:
+wait with Idling.kt, in the tests' check folder.

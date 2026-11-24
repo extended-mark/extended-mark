@@ -1,0 +1,16 @@
+SCHEMAS  schemas/    the JSON between modules; the source of the types
+
+  schemas/ir.schema.json      IR 4: a page as engines run it
+  schemas/rir.schema.json     the resolved IR: what the checker understood, for tools
+  schemas/tree.schema.json    the drawn tree (tree, node), what changed (change), page data (data)
+  schemas/check.schema.json   compiler cases; blocks and inline (Markdown); call, outcome, broken
+  schemas/ir-history/3/       IR 3 as it was, with pages of its time
+  schemas/examples/           whole files held to the schemas, byte for byte
+  schemas/README.md           the rules the IR's shape follows
+
+Top of the IR: version, xtmd, module, levels, front_matter, needs, declarations, templates, handlers.
+
+Generated, never edited (cargo run -p xtmd-schemagen, from compiler/):
+  Rust         compiler/ir/src/ir.rs, compiler/ir/src/check.rs, compiler/ir/src/tree.rs
+  TypeScript   engines/published/runtime/src/generated/
+Held by: compiler/ir/tests/schemas.rs, compiler/check/tests/schema.rs.

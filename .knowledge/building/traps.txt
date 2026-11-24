@@ -1,0 +1,7 @@
+TRAPS
+- npm tests pass against an old dist or an old xtmd binary: rebuild what you changed.
+- cargo's workspace is in compiler/: from the root use --manifest-path compiler/Cargo.toml.
+- Adding lines to a spec page moves the lines in checks/rules.json.
+- Svelte and Angular ship or compile their own sources: run their tests, not only React's.
+- A new file under core/ is picked up by name; add it to core/pack.xtmdpack's `provides` too.
+- A pack's IR isn't pruned and a document's is: test both when changing lowering.

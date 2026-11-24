@@ -1,0 +1,52 @@
+I WANT TO...    the places to touch, in order
+
+add or change a rule of the language
+  docs/specs (its text) -> compiler/syntax or compiler/check (a code in compiler/syntax/src/diag.rs or
+  compiler/check/src/lib.rs) -> a case in checks/cases -> a row in checks/rules.json -> notes/<version>.md
+
+add syntax
+  docs/specs/09-grammar.md -> compiler/syntax/src (lexer.rs, ast.rs, parser.rs or
+  prose.rs, printer.rs) -> compiler/check -> compiler/check/src/rir.rs -> ide/vscode/syntaxes,
+  apps/playground/src/language.ts -> checks/cases/read
+
+change the IR
+  schemas/ir.schema.json -> xtmd-schemagen -> compiler/check, compiler/lower (walk.rs, reach.rs)
+  -> both evaluators and runtimes -> compiler/migrate/src/ir (if the version shipped)
+  -> docs/specs/06-hosts-packs-implementers.md
+
+add a fn to core
+  in Extended Mark: core/*.xtmdpack, core/pack.xtmdpack, docs/specs/05-standard-library.md, checks/core
+  extern: also compiler/eval/src/natives.rs and engines/published/runtime/src/eval/natives.ts
+
+add or change an extern widget of core
+  core/*.xtmdpack -> docs/specs/05-standard-library.md -> engines/published/dom/src/widgets
+  AND engines/published/bindings/view/src/widgets -> engines/examples/rust/egui/src/widgets -> Android
+  -> ide/vscode/src/webview/widgets.ts -> engines/published/runtime/test/cases
+
+change what a page does as it runs
+  engines/published/runtime/src/page.ts AND engines/examples/rust/runtime/src/page.rs, a test in each
+
+change the evaluator
+  compiler/eval/src/interp.rs AND engines/published/runtime/src/eval/interp.ts;
+  engines/published/runtime/test/differential.test.mjs compares them
+
+change inline Markdown
+  core/markdown.xtmdpack AND compiler/eval/src/md.rs; compiler/check/tests/md_inline.rs compares them
+
+change how Markdown is written
+  compiler/markdown/src/lib.rs (text) and render.rs (starting blocks);
+  engines/published/runtime/src/markdown.ts; engines/examples/rust/runtime/src/markdown.rs
+
+change the host's calls (tree, write, data, ...)
+  docs/specs/06-hosts-packs-implementers.md -> schemas/tree.schema.json
+  -> engines/published/runtime/src/host.ts AND engines/examples/rust/runtime/src/host.rs
+  -> docs/guides/host.md, apps/example-host
+
+add a command or flag to xtmd
+  compiler/cli/src/main.rs, flags.rs, help.rs -> compiler/cli/tests/cli.rs
+
+change what editors show
+  ide/lsp/src/analysis.rs, server.rs -> ide/lsp/tests/server.rs; rebuild xtmd.wasm for VS Code
+
+raise the version
+  node tools/release/bump.mjs <version>, then notes/<version>.md

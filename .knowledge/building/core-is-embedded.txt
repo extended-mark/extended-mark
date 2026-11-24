@@ -1,0 +1,4 @@
+CORE IS EMBEDDED
+compiler/cli/build.rs and compiler/live/build.rs put core's files in the binary and the wasm;
+compiler/syntax/build.rs reads core/entities.xtmdpack. Editing core needs a rebuild of xtmd, and of
+the wasm. A published crate carries its own copy, put in by the release.

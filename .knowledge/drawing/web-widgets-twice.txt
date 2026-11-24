@@ -1,0 +1,4 @@
+CORE'S WEB WIDGETS ARE WRITTEN TWICE
+engines/published/dom draws elements itself; engines/published/bindings/view gives them as VNodes
+for frameworks. Same parts, classes and roles, one stylesheet (engines/published/dom/src/style.css).
+Change a widget in both. Shared: engines/published/dom/src/values.ts, shade.ts, tex.ts, icons.ts.

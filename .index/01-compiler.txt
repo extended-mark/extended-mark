@@ -1,0 +1,60 @@
+COMPILER  compiler/    (cargo workspace: compiler/Cargo.toml)
+
+compiler/syntax/    xtmd-syntax: text to a lossless syntax tree, and back
+  src/lexer.rs        tokens; comments and blank lines travel with them as trivia
+  src/parser.rs       page 9's grammar for code: declarations, types, statements, views, expressions
+  src/prose.rs        a document below @@@ and a `markdown` block, line by line: calls, control lines
+  src/markdown.rs     Markdown's blocks (CommonMark, GitHub's tables, tasks, footnotes)
+  src/ast.rs          the tree
+  src/printer.rs      xtmd fmt
+  src/diag.rs         diagnostics, and the codes the reader reports
+  src/span.rs         byte spans, lines and columns
+  build.rs            reads core/entities.xtmdpack into the crate
+
+compiler/check/     xtmd-check: names, types, rules; gives whole IR
+  src/lib.rs          Checker, symbols, scopes, the codes; compile_core, compile_on, compile_refs
+  src/decl.rs         signatures, and the IR of declarations
+  src/declared.rs     rules on declarations: interfaces, recursion, type parameters
+  src/passes.rs       bodies of everything, the document, constants (`constants`)
+  src/body.rs         expressions and statements, typed and written as IR
+  src/view.rs         widget calls, slots, events, templates, markdown blocks
+  src/rich.rs         rich_text as calls
+  src/pieces.rs       Markdown's pieces an extern may be (`markdown #quote;`)
+  src/ty.rs, fit.rs   types; interfaces, finding a value's fns, accepting one type for another
+  src/effects.rs      what may change what
+  src/proof.rs        contracts and proofs
+  src/levels.rs       core.draw, core.live, core.gfx for each call
+  src/versions.rs     a pack's surfaces and the promise of a version
+  src/migrations.rs   `migration kit@1 to kit@2` checked
+  src/rir.rs          the resolved IR
+  src/shared.rs       core shared between compiles, cloned without copying
+  examples/speed.rs   how long compiling takes
+
+compiler/lower/     xtmd-lower: the IR an engine runs
+  src/reach.rs        keeps only what the page can run
+  src/walk.rs         every node, statement and expression, to change in place
+
+compiler/ir/        xtmd-ir: Rust types; src/ir.rs, check.rs, tree.rs are generated
+compiler/schemagen/ xtmd-schemagen: schemas/ to Rust and TypeScript types
+compiler/eval/      xtmd-eval: the evaluator, shared by compiler and native runtime
+  src/interp.rs       statements, expressions, limits, `takes` (is a value of this type)
+  src/natives.rs      extern fns of core with no body
+  src/num.rs          decimal128, 34 digits
+  src/value.rs        values
+  src/md.rs           core's md_inline in Rust, for speed
+compiler/markdown/  xtmd-markdown: blocks, blocks to text (lib.rs); a page's starting blocks (render.rs)
+compiler/migrate/   xtmd-migrate: text and IR brought up to a version
+  src/step.rs         one pack migration applied to one file
+  src/releases.rs     the steps between releases; slots.rs, externs.rs, texts.rs are 0.3 to 0.4's
+  src/ir/             an earlier IR to the next: mod.rs, v3.rs, schema.rs
+compiler/live/      xtmd-live: the compiler embedded, core compiled once; `Live` follows a text
+compiler/wasm/      xtmd-wasm: the same for the browser; build.sh, zig/ (C compiler for wasm)
+compiler/cli/       xtmd: the command
+  src/main.rs         commands; batch.rs (folders), flags.rs, help.rs, out.rs (--format json)
+  src/render.rs       xtmd render --engine
+  src/migrate.rs      xtmd migrate; migrate_ir.rs (*.ir.json); examples.rs (a pack's examples)
+  src/surface.rs      xtmd surface
+  build.rs            embeds core/
+
+compiler/npm/extended-mark/   npm `extended-mark`: the xtmd command, JS API, vite plugin, platforms/*
+compiler/npm/wasm/            npm @extended-mark/wasm: Compiler, LanguageServer over xtmd.wasm

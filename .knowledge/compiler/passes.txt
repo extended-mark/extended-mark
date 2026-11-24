@@ -1,0 +1,12 @@
+THE CHECKER'S PASSES  (compiler/check/src/lib.rs: compile_with)
+add_file   each file parsed; a syntax error in any stops here
+collect    every declaration gets a symbol
+scopes     imports, names visible in each file
+signatures, check_declarations    types of everything declared, rules on declarations
+bodies     (compiler/check/src/passes.rs) fns, records' defaults and rules, widgets, tokens, lets,
+           $state and expose, the document's prose; then effects settled, then constants
+constants  worked out by the evaluator; proofs settled with them
+check_versions    a pack against its released surfaces and migrations
+module_ir  the IR, only when nothing is an error
+
+compile_core once, then compile_on for each build: `from` marks where the build's own things start.

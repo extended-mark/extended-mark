@@ -1,0 +1,6 @@
+MIGRATION
+Three kinds, all from what is understood, never by searching text:
+  packs      kit@1 to kit@2, by the pack's own migration block   compiler/migrate/src/step.rs
+  releases   what a release of xtmd changes in files             compiler/migrate/src/releases.rs
+  IR         a *.ir.json of an earlier version                   compiler/migrate/src/ir
+What can't be settled is asked, or left with a TODO. Nothing is written before a summary and a yes.

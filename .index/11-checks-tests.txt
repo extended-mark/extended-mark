@@ -1,0 +1,24 @@
+CHECKS AND TESTS
+
+checks/cases/<pass>/<name>.json + .xtmd or .xtmdpack    compiler cases: expected diagnostics, Markdown
+  contracts effects graphs markdown names packs prose read types versions views widgets
+checks/rules.json             every error and warning: spec line, pass, codes, cases
+checks/spec-examples.json     how each code block of the spec is read
+checks/spec-markdown/         what the spec's documents write as Markdown, by hand
+checks/commonmark/            CommonMark's and GitHub's examples; xtmd-readings.json (ours)
+checks/core/                  core's own tests, in Extended Mark
+checks/pages/                 pages both runtimes are held to: outside (values from outside), parts
+checks/packs/badge/           a pack whose externs each engine supplies
+
+Who runs what
+  compiler/cli/tests/checks.rs       checks/cases           rules.rs   checks/rules.json
+  compiler/cli/tests/markdown.rs     Markdown of cases      cli.rs     the binary
+  compiler/check/tests/commonmark.rs, md_inline.rs, prune.rs, schema.rs, levels.rs, surface.rs
+  compiler/syntax/tests/             fmt, keywords, spec_examples, prose_indent, divider
+  compiler/migrate/tests/ir_history.rs, compiler/cli/tests/migrate_040.rs, pack_migration.rs
+  compiler/ir/tests/schemas.rs       schemas, examples, generated types
+  engines/published/*/test, engines/published/bindings/*/test    node --test, some in Chromium
+  engines/examples/rust/*/tests      cargo
+  engines/examples/misc/android      Gradle, testDebugUnitTest
+  ide/lsp/tests, ide/vscode/test     apps/*/test     tools/release/test, tools/llm/test
+How to run them: .knowledge/testing/.

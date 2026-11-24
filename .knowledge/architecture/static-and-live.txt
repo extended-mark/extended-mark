@@ -1,0 +1,7 @@
+STATIC AND LIVE ENGINES
+static  given IR built ahead; ships no compiler
+live    given text; compiles in place (compiler/live in a program, @extended-mark/wasm in a browser),
+        then does what its static twin does. A draft with errors keeps the last page that compiled.
+        $state carries over where its fields still exist.
+Core is compiled once when the compiler is made, and every build is made on a clone of it
+(compiler/check/src/shared.rs copies nothing).

@@ -1,0 +1,5 @@
+A PACK'S VERSIONS  (compiler/check/src/versions.rs, migrations.rs)
+A surface (surfaces/kit@1.xtmdpack, written by `xtmd surface`) is what a release provided. What
+compiled against one release of kit@1 compiles against every later one, or it is an error.
+kit@2 ships migrations/kit@2.xtmdpack, which must account for every difference from kit@1's surface.
+Worked through: examples/pack-migration.

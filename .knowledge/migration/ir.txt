@@ -1,0 +1,4 @@
+AN EARLIER IR
+Plain steps from one version's JSON to the next's, one way. Each version's schema and pages are kept
+in schemas/ir-history; a migrated page keeps its Markdown, or is refused with the reason.
+A step is written when a version has shipped. IR 4 hasn't: change it, and the step from 3 with it.

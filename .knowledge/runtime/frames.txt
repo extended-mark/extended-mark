@@ -1,0 +1,9 @@
+FRAMES: WHAT WAS READ
+Keys: s:field ($state), x:channel.value, c:id:cell (a widget's variable), o:key (an extern's own
+mut). Each has a version, bumped when written. `stamp` moves with every bump: what is found fresh at
+one is fresh until the next.
+A frame is a tree: kids, deps, parts. It holds only what it read itself.
+parts: a read of xs[2].name depends on that place alone, so another row's change is nothing to it.
+`dirty` (failed, or asked the host): never kept. `epoch` moves on an undo: everything is drawn anew.
+The memo must never show: engines/published/runtime/test/memo.test.mjs and
+engines/examples/rust/runtime/tests/memo.rs run pages with and without it.

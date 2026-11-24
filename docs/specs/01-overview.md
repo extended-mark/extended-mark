@@ -8,7 +8,7 @@ Extended Mark is a statically typed language for drawing widgets in Markdown doc
 
 | | |
 |---|---|
-| Keywords | **41** |
+| Keywords | **46** |
 | File types | **2** (.xtmdpack and .xtmd) |
 | Rules | **19** |
 

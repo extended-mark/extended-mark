@@ -1,0 +1,5 @@
+A RELEASE  (tools/release/README.md)
+A merge into main that raises VERSION publishes it. staging has the tests and publishes nothing.
+A tree of files is tested once (an artifact named by its hash); changing .github tests afresh.
+Before: the dry run asks every registry. What a registry has taken can't be taken back.
+Never push to main or staging directly; never publish by hand what the workflow publishes.

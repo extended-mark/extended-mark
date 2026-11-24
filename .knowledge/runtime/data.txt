@@ -1,0 +1,5 @@
+A PAGE'S DATA
+{ state, own }: $state's fields, and each widget's own variables by the place it is drawn at.
+Given to a page as it is made, it is drawn once with it; restore(data) is one change. $state goes
+back whole or not at all; a widget's own value that doesn't fit is left out and named.
+Into another IR only $state goes back, checked as a host's write.

@@ -1,0 +1,8 @@
+ROLES  (docs/specs/06-hosts-packs-implementers.md)
+host         shows a page: holds the IR and state, gives extern values, hears extern fns
+engine       Extended Mark on one platform: runs the IR, supplies core's externs
+implementer  whoever provides an engine, and checks it
+pack author  supplies a pack's own externs
+
+Where state is kept, and how IR reaches a page, is the host's. Nothing of ours stores or sends it.
+How well an engine keeps the spec is its implementer's: xtmd doesn't test engines.

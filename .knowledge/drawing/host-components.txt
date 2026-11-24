@@ -1,0 +1,5 @@
+A HOST'S OWN WIDGETS
+Given by full name (`acme/chart`, `core/press`), they replace ours: `widgets` in dom's mount, a
+component in a framework's XtmdDoc, XtmdPage::widget in egui, the registry on Android.
+An extern nobody supplies is drawn as its Markdown and told by lacking().
+checks/packs/badge is a pack each engine supplies, for tests.

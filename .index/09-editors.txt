@@ -1,0 +1,18 @@
+EDITORS  ide/
+
+ide/lsp       crate xtmd-lsp: the language server, with no input or output of its own
+  src/server.rs     the protocol's messages in and out
+  src/analysis.rs   hover, definition, references, outline, completion, from the resolved IR
+  src/text.rs       positions: the protocol's, xtmd's, bytes
+  src/config.rs     packs from xtmd.toml
+  src/rules.rs      each code's place in the spec (checks/rules.json)
+  Run by `xtmd lsp` (stdio) and by @extended-mark/wasm (browser, VS Code).
+
+ide/vscode    the extension
+  src/common.ts, node.ts, web.ts    both kinds of host
+  src/commands.ts   show IR, show Markdown, check a folder, migrate
+  src/preview.ts    the preview; src/webview/ is the vscode engine (main.ts, widgets.ts, codicons.ts)
+  src/server/       the server in a Node process or a worker
+  src/language.ts, packs.ts, log.ts
+  syntaxes/         grammars
+  test/             grammar and language tests; vscode.mjs, preview.mjs, look.mjs drive real VS Code

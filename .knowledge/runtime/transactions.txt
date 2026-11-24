@@ -1,0 +1,5 @@
+CHANGES ARE WHOLE OR UNDONE
+An event, a widget's write, a host's set, an expose call and data put back are each one change:
+snapshot, run, check $state's requires, keep or restore, then redraw once. A failure in a handler
+undoes everything it did. A refused write is told in takeOutcome().refused, with its rule or code.
+A layout pass writes in one change of its own (layoutWrite).

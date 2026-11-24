@@ -1,0 +1,6 @@
+A PLANE'S LAYOUT
+An engine measures each spot's child; the layout works out where spots land, the bounds, the centre
+and the region, and writes them as one change a pass, at most eight passes. One that never settles
+is a failure of the plane. Sizes are in the plane's units, so panning and zooming change none.
+engines/published/runtime/src/layout.ts, engines/examples/rust/runtime/src/layout.rs.
+Tests give fixed sizes (engines/published/runtime/test/sizes.mjs), so places are exact.

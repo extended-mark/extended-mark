@@ -1,0 +1,20 @@
+TOOLS, RELEASE, CI
+
+tools/release/
+  bump.mjs            raises VERSION everywhere; --check names what disagrees
+  check-notes.mjs     the release notes' form
+  packages.mjs        npm packages in the order they build
+  build-ts.mjs        installs, builds, tests them (--test, --test-only)
+  publish-npm.mjs, publish-crates.sh
+  preflight.mjs       could every registry take this release
+  README.md           how a release happens; test/
+tools/llm/check.mjs   holds CLAUDE.md, .index/ and .knowledge/ to the repository; test/
+tools/cli-usability/  harness.py, the command tried as a person would
+
+.github/workflows/ci.yml        tests, once for each tree; the release dry run
+.github/workflows/notes.yml     release notes and versions, on merge requests into main
+.github/workflows/release.yml   binaries, wasm, tests, publishing, on main
+.github/rulesets/               what main requires
+
+install.sh, install.ps1         the binary from a release
+VERSION                         the version everything is written with

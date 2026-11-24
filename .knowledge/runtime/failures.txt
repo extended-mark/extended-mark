@@ -1,0 +1,7 @@
+FAILURES
+A failure is a bug no compile could see: it is contained and reported, the rest carries on.
+- drawing a widget: its node says `failed`, a notice is drawn, its Markdown is a quote
+- in the document's own code: that call, branch or loop alone (`contains`)
+- in a handler: everything it did is undone
+Limits: 1,000,000 steps, 10,000 items, depth 64, the same in the compiler.
+Kinds are FailKind in compiler/eval/src/interp.rs and engines/published/runtime/src/eval/interp.ts.

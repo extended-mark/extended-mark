@@ -37,3 +37,15 @@ fn a_documents_names_are_held_to_it_too() {
         assert!(d.iter().any(|d| d.is_error()), "`{word}` is a field of $state's");
     }
 }
+
+#[test]
+fn page_1_lists_them_all_and_counts_them() {
+    let page = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/specs/01-overview.md")).unwrap();
+    let list = page.split("```txt\n").find(|b| b.starts_with("package import ")).and_then(|b| b.split("\n```").next()).expect("page 1's list");
+    let mut listed: Vec<&str> = list.split_whitespace().collect();
+    let mut read: Vec<&str> = KEYWORDS.iter().map(|(w, _)| *w).collect();
+    listed.sort_unstable();
+    read.sort_unstable();
+    assert_eq!(listed, read);
+    assert!(page.contains(&format!("| Keywords | **{}** |", read.len())), "page 1 counts {} keywords", read.len());
+}

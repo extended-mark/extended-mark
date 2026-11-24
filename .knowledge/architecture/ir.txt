@@ -1,0 +1,10 @@
+THE IR  (schemas/ir.schema.json; docs/specs/06-hosts-packs-implementers.md, "The IR")
+- Whole, static, only what the page can run. A page's values are beside it, never in it.
+- IR 4 is this version's. 0.3.0 to 0.3.2 wrote IR 3. A version that hasn't shipped changes in place.
+- An engine reads one version and refuses others by name.
+- Shape: one key per node where kinds vary; one key, one meaning; linked parts together; the
+  language's own words. What is empty is left out.
+- `needs` says what others must give: core's externs, a pack's, the host's.
+- templates are widgets written in Extended Mark, as nodes; `doc` is the page itself.
+- Nodes: for, if, match, place (a value that is a view), extern (a widget the engine draws), use
+  (a template). Each has a site, counted within its template.

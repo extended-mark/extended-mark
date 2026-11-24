@@ -1,0 +1,5 @@
+NUMBERS
+One number type: base-10, decimal128, 34 digits, halves to even. Never a binary float.
+compiler/eval/src/num.rs (decNumber, the dec crate) for compiler and native runtime;
+engines/published/runtime/src/eval/num.ts (decimal.js) for the web. Values cross as decimal strings
+({ "num": "3" }). engines/published/runtime/test/differential.test.mjs compares the two.
