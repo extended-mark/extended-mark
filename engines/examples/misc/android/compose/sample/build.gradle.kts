@@ -52,7 +52,7 @@ dependencies {
 tasks.withType<Test>().configureEach {
     systemProperty("jna.library.path", rootProject.file("xtmd-android/native/host/linux-x86-64").absolutePath)
     maxHeapSize = "2g"
-    // `-Pxtmd.render=<folder>`: RenderTest draws both pages there, as PNGs (README: Looking at it)
+    // RenderTest draws both pages as PNGs in build/render, or where `-Pxtmd.render=<folder>` says (README: Looking at it)
     (project.findProperty("xtmd.render") as String?)?.let { systemProperty("xtmd.render", file(it).absolutePath) }
 }
 

@@ -35,7 +35,9 @@ import xtmd.android.XtmdDocState
 import xtmd.android.XtmdWork
 import xtmd.android.Snapshot
 import xtmd.android.ffi.Val
-import org.junit.Assume.assumeTrue
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -44,9 +46,9 @@ import org.robolectric.annotation.GraphicsMode
 
 /**
  * Compose's two kinds of engine in one screen, as frames for a video: xtmd-android's XtmdDoc drawing
- * the IR `xtmd build` wrote (run time) and XtmdLiveDoc compiling its text on the device (real time),
+ * the IR `xtmd build` wrote (static) and XtmdLiveDoc compiling its text on the device (live),
  * driven through a script, each step's frame rendered by Robolectric's native graphics and written
- * with how long it shows. Runs only when asked:
+ * with how long it shows, in build/video or where `-Pxtmd.video.out=<folder>` says:
  *
  *   ./gradlew :xtmd-android-live:testDebugUnitTest --tests '*EnginesVideo*' -Pxtmd.video.out=/path/to/frames
  *
@@ -57,7 +59,7 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [36], qualifiers = "w1280dp-h800dp-land-notnight-mdpi")
 class EnginesVideo {
-    private val out = System.getProperty("xtmd.video.out")
+    private val out = System.getProperty("xtmd.video.out") ?: "build/video"
     private val repo = generateSequence(File(System.getProperty("user.dir")).absoluteFile) { it.parentFile }.first { File(it, "checks").isDirectory }
 
     private fun ComposeUiTest.done() {
@@ -73,10 +75,14 @@ class EnginesVideo {
 
     @Test
     fun record() = runAndroidComposeUiTest<ComponentActivity> {
-        assumeTrue("set -Pxtmd.video.out to write the frames", out != null)
-        val dir = File(out!!).apply { mkdirs() }
+        val dir = File(out).apply { mkdirs() }
         val text0 = File(repo, "apps/playground/examples/counter.xtmd").readText()
-        val ir = File(dir, "counter.ir.json").readText()
+        val written = File(dir, "counter.ir.json")
+        val xtmd = File(repo, "compiler/target/release/xtmd")
+        val p = ProcessBuilder(xtmd.path, "build", File(repo, "apps/playground/examples/counter.xtmd").path, "--out", written.path).redirectErrorStream(true).start()
+        val log = p.inputStream.bufferedReader().readText()
+        assertEquals(log, 0, p.waitFor())
+        val ir = written.readText()
         val run = XtmdDocState()
         val live = XtmdDocState()
         var source by mutableStateOf(text0)
@@ -93,7 +99,7 @@ class EnginesVideo {
                         Text("One page, Compose's two kinds of engine", fontSize = 20.sp, color = Color(0xFF1A1C1F))
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
                             Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                                Text("Run time: XtmdDoc (xtmd-android)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Static: XtmdDoc (xtmd-android)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 Text("XtmdDoc(ir = …): the IR xtmd build wrote. No compiler on the device.", fontSize = 12.sp, color = Color(0xFF6B7280))
                                 Box(Modifier.padding(top = 6.dp).border(1.dp, Color(0xFFD4D7DC)).background(Color.White).padding(8.dp)) {
                                     XtmdDoc(ir = ir, docState = run, onStateChange = { runState = line(it) })
@@ -102,7 +108,7 @@ class EnginesVideo {
                                 saved?.let { Text("snapshot taken", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = Color(0xFF6B7280)) }
                             }
                             Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                                Text("Real time: XtmdLiveDoc (xtmd-android-live)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Live: XtmdLiveDoc (xtmd-android-live)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 Text("XtmdLiveDoc(source = text): compiled on the device as it changes.", fontSize = 12.sp, color = Color(0xFF6B7280))
                                 Text(
                                     shown.lines().takeLast(6).joinToString("\n"),
@@ -163,7 +169,7 @@ class EnginesVideo {
         }
 
         say("Compose's two kinds of engine, on one screen.", 3.0)
-        say("Run time: XtmdDoc draws an IR built ahead (xtmd build). No compiler.", 3.2)
+        say("Static: XtmdDoc draws an IR built ahead (xtmd build). No compiler.", 3.2)
         caption = "A press: the page writes \$state, checked by xtmd."
         onAllNodesWithText("Add 1")[0].performClick()
         frame(1.4)
@@ -177,13 +183,14 @@ class EnginesVideo {
         caption = "...and restore puts it back."
         run.restore(saved!!)
         frame(2.6)
-        say("Real time: XtmdLiveDoc compiles this text on the device, with libxtmd_android_live.so.", 3.4)
+        say("Live: XtmdLiveDoc compiles this text on the device, with libxtmd_android_live.so.", 3.4)
         caption = "An edit: a counter that steps by 10."
         type("\n@counter(by = 10);\n")
         frame(3.0)
         caption = "A mistake: the step left out."
         type("@counter(by = );")
         frame(1.0)
+        assertTrue("the mistake is told: $status", broken)
         say("It doesn't compile: the error says where, and the last page stays.", 3.6)
         caption = "Taking the mistake out draws it again."
         shown = shown.removeSuffix("@counter(by = );")
@@ -191,6 +198,9 @@ class EnginesVideo {
         status = "Compiled on the device"
         broken = false
         frame(2.8)
+        assertFalse("the page compiles again: $status", broken)
+        // two presses, and the third taken back by the snapshot
+        assertEquals(saved!!.stateJson, run.snapshot()!!.stateJson)
         say("Compose: XtmdDoc and XtmdLiveDoc, side by side.", 3.6)
         File(dir, "list.txt").writeText(list.toString() + "file '${File(dir, "f%04d.png".format(n - 1)).absolutePath}'\n")
     }
@@ -199,8 +209,7 @@ class EnginesVideo {
      * `<xtmd.video.out>/inline`. */
     @Test
     fun aPressInASentence() = runAndroidComposeUiTest<ComponentActivity> {
-        assumeTrue("set -Pxtmd.video.out to write the frames", out != null)
-        val dir = File(out!!, "inline").apply { mkdirs() }
+        val dir = File(out, "inline").apply { mkdirs() }
         val source = """
             ${'$'}state {
                 count: int = 0;
@@ -256,6 +265,7 @@ class EnginesVideo {
         frame(1.6)
         onNodeWithText("Add one").performClick()
         frame(2.4)
+        assertEquals("count = 3", line(live.state()))
         caption = "egui and the web do the same."
         frame(3.4)
         File(dir, "list.txt").writeText(list.toString() + "file '${File(dir, "f%04d.png".format(n - 1)).absolutePath}'\n")

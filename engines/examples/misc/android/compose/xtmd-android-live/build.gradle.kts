@@ -77,10 +77,6 @@ tasks.withType<Test>().configureEach {
     val runtime = project(":xtmd-android").layout.projectDirectory.dir("native/host/linux-x86-64").asFile
     systemProperty("jna.library.path", listOf(native.dir("host/linux-x86-64").asFile, runtime).joinToString(File.pathSeparator) { it.absolutePath })
     maxHeapSize = "2g"
-    // `-Pxtmd.video.out=<folder>`: EnginesVideo writes its frames there
-    (project.findProperty("xtmd.video.out") as String?)?.let {
-        systemProperty("xtmd.video.out", it)
-        // captureToImage copies the pixels the hardware renderer drew
-        systemProperty("robolectric.pixelCopyRenderMode", "hardware")
-    }
+    // EnginesVideo writes its frames in build/video, or where `-Pxtmd.video.out=<folder>` says
+    (project.findProperty("xtmd.video.out") as String?)?.let { systemProperty("xtmd.video.out", it) }
 }

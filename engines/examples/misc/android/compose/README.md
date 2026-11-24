@@ -175,8 +175,8 @@ a Java Flight Recording of the tests, and `-Pxtmd.perf.only=handle|plane|slider`
 
 ## Looking at it
 
-`./gradlew :sample:testDebugUnitTest -Pxtmd.render=<folder>` draws the sample under Robolectric's native graphics
-(Skia, real fonts), as an Infinix X6516 shows it (360 by 806 dp at density 2), light and dark: each tab's first
+`./gradlew :sample:testDebugUnitTest` draws the sample in `sample/build/render` (or where `-Pxtmd.render=<folder>`
+says) under Robolectric's native graphics (Skia, real fonts), as an Infinix X6516 shows it (360 by 806 dp at density 2), light and dark: each tab's first
 screen with the host around it, and each page whole. The same pages drawn by @extended-mark/dom in Chromium at 360 px wide
 are what to hold them against. Compose's `captureToImage()` waits for a frame Robolectric's paused looper never
 draws, so `RenderTest` draws the window's views on a canvas itself.

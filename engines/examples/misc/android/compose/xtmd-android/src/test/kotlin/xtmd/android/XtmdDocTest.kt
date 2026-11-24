@@ -15,7 +15,6 @@ import xtmd.android.ffi.Val
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -34,7 +33,7 @@ class XtmdDocTest {
     private val xtmd = File(repo, "compiler/target/release/xtmd")
 
     private fun build(source: File): String {
-        assumeTrue("the xtmd binary isn't built", xtmd.canExecute())
+        check(xtmd.canExecute()) { "the xtmd binary isn't built: cargo build --release -p xtmd in compiler/" }
         val out = File.createTempFile("xtmd-doc", ".ir.json")
         val p = ProcessBuilder(xtmd.path, "build", source.path, "--out", out.path).redirectErrorStream(true).start()
         val log = p.inputStream.bufferedReader().readText()

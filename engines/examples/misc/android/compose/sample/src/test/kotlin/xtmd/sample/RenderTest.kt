@@ -22,7 +22,7 @@ import java.io.File
 import xtmd.android.CompiledPage
 import xtmd.android.XtmdPage
 import xtmd.android.XtmdTheme
-import org.junit.Assume.assumeTrue
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -31,16 +31,17 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * Pictures of the sample, to look at beside @extended-mark/dom's: run with `-Pxtmd.render=<folder>`. A phone's
+ * Pictures of the sample, to look at beside @extended-mark/dom's, in build/render or where
+ * `-Pxtmd.render=<folder>` says, and each held to have something drawn on it. A phone's
  * first screen of each tab (360 by 806 dp at density 2, as an Infinix X6516), and each page whole,
- * light and dark. Without the property it draws nothing.
+ * light and dark.
  */
 @OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [36])
 class RenderTest {
-    private val out = System.getProperty("xtmd.render")?.let(::File)
+    private val out = File(System.getProperty("xtmd.render") ?: "build/render")
 
     /** The activity's window as the screen shows it, drawn by its views on Robolectric's native
      * (Skia) canvas: captureToImage() waits for a frame the paused main looper never draws. */
@@ -56,12 +57,15 @@ class RenderTest {
     }
 
     private fun save(b: Bitmap, name: String) {
-        out!!.mkdirs()
+        out.mkdirs()
         File(out, "$name.png").outputStream().use { b.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        // a page of one colour drew nothing: its words alone have many shades
+        val shades = HashSet<Int>()
+        for (y in 0 until b.height step 3) for (x in 0 until b.width step 3) shades += b.getPixel(x, y)
+        assertTrue("$name has ${shades.size} colours", shades.size > 16)
     }
 
     private fun screens(dark: Boolean) {
-        assumeTrue(out != null)
         val scheme = if (dark) "dark" else "light"
         RuntimeEnvironment.setQualifiers("w360dp-h806dp-port-${if (dark) "night" else "notnight"}-xhdpi")
         runAndroidComposeUiTest<MainActivity> {
@@ -75,7 +79,6 @@ class RenderTest {
     }
 
     private fun whole(page: String, dark: Boolean) {
-        assumeTrue(out != null)
         val scheme = if (dark) "dark" else "light"
         RuntimeEnvironment.setQualifiers("w360dp-h3200dp-port-${if (dark) "night" else "notnight"}-xhdpi")
         runAndroidComposeUiTest<ComponentActivity> {

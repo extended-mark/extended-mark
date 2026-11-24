@@ -210,6 +210,13 @@ jobs:
       - name: Tested
         working-directory: engines/examples/misc/android/compose
         run: ./gradlew --no-daemon testDebugUnitTest --continue
+      - name: Not one was skipped
+        working-directory: engines/examples/misc/android/compose
+        run: |
+          ran=$(cat */build/test-results/testDebugUnitTest/*.xml | grep -c "<testcase")
+          skipped=$(cat */build/test-results/testDebugUnitTest/*.xml | grep -c "<skipped" || true)
+          echo "$ran tests, $skipped skipped"
+          test "$ran" -gt 0 && test "$skipped" -eq 0
 
   release:
     name: Release dry run

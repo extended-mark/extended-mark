@@ -18,7 +18,6 @@ import androidx.compose.ui.test.runAndroidComposeUiTest
 import androidx.compose.ui.unit.dp
 import java.io.File
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import xtmd.android.check.settle
 import xtmd.android.check.waitsForXtmd
 import org.junit.Test
@@ -53,7 +52,7 @@ class DragPerfTest {
     private val xtmd = File(repo, "compiler/target/release/xtmd")
 
     private fun ir(source: File): String {
-        assumeTrue("the xtmd binary isn't built", xtmd.canExecute())
+        check(xtmd.canExecute()) { "the xtmd binary isn't built: cargo build --release -p xtmd in compiler/" }
         val out = File.createTempFile("xtmd-page", ".ir.json")
         val p = ProcessBuilder(xtmd.path, "build", source.path, "--out", out.path).redirectErrorStream(true).start()
         p.inputStream.bufferedReader().readText()
