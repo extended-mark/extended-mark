@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-pub(crate) use xtmd_migrate::v02::{looks_02, speaks_03, stamped, Failed, Migrated};
+pub(crate) use xtmd_migrate::v02::{fill, looks_02, speaks_03, stamped, Failed, Migrated};
 
 /// The frozen file's SHA-256, from the lock this binary was built beside; empty when it carries no
 /// 0.2 step.
@@ -36,8 +36,40 @@ fn frozen() -> Result<PathBuf, String> {
     Ok(path)
 }
 
-/// Runs the frozen step on one document, with the 0.2 packs it is built with.
+/// Runs the frozen step on one document, with the 0.2 packs it is built with. One that 0.2.10 refuses only
+/// for summaries it lacks is run again with a placeholder in each.
 pub(crate) fn run(doc: &Path, packs: &[PathBuf]) -> Result<Migrated, Failed> {
+    let source = std::fs::read_to_string(doc).unwrap_or_default();
+    let v = run_step(doc, packs)?;
+    if let Some(filled) = fill(&source, &v) {
+        if let Ok(m) = run_text(doc, &filled.text, packs).and_then(|again| Migrated::read_filled(&again, &source, &filled)) {
+            return Ok(m);
+        }
+    }
+    Migrated::read(&v, &source)
+}
+
+/// Runs the step on a document with another text: a file of its name, with its definitions beside it.
+fn run_text(doc: &Path, text: &str, packs: &[PathBuf]) -> Result<serde_json::Value, Failed> {
+    let not_run = |e: std::io::Error| Failed::NotRun(format!("the 0.2 → 0.3 step: {}", e));
+    let dir = std::env::temp_dir().join(format!("xtmd-migrate-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).map_err(not_run)?;
+    let copy = dir.join(doc.file_name().unwrap_or_default());
+    let made = std::fs::write(&copy, text).and_then(|_| {
+        // the document's own definitions, name.mkp beside name.mkp.md
+        let own = doc.with_extension("");
+        if own.is_file() {
+            std::fs::copy(&own, dir.join(own.file_name().unwrap_or_default()))?;
+        }
+        Ok(())
+    });
+    let out = made.map_err(not_run).and_then(|_| run_step(&copy, packs));
+    let _ = std::fs::remove_dir_all(&dir);
+    out
+}
+
+/// What the frozen step prints for a document.
+fn run_step(doc: &Path, packs: &[PathBuf]) -> Result<serde_json::Value, Failed> {
     let file = frozen().map_err(Failed::NotRun)?;
     let node = std::env::var_os("XTMD_NODE").unwrap_or_else(|| "node".into());
     let mut cmd = Command::new(&node);
@@ -46,8 +78,6 @@ pub(crate) fn run(doc: &Path, packs: &[PathBuf]) -> Result<Migrated, Failed> {
         cmd.arg("--pack").arg(p);
     }
     let out = cmd.output().map_err(|e| Failed::NotRun(format!("the 0.2 → 0.3 step runs with Node 20 or later, and `{}` can't be run: {}", node.to_string_lossy(), e)))?;
-    let v: serde_json::Value = serde_json::from_slice(&out.stdout).map_err(|_| Failed::NotRun(format!("the 0.2 → 0.3 step failed: {}", String::from_utf8_lossy(&out.stderr).lines().next().unwrap_or("no output"))))?;
-    let source = std::fs::read_to_string(doc).unwrap_or_default();
-    Migrated::read(&v, &source)
+    serde_json::from_slice(&out.stdout).map_err(|_| Failed::NotRun(format!("the 0.2 → 0.3 step failed: {}", String::from_utf8_lossy(&out.stderr).lines().next().unwrap_or("no output"))))
 }
 

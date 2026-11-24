@@ -32,9 +32,10 @@ pub(crate) const USAGE: &str = "usage: xtmd migrate [<file|folder>…] [--pack a
                  (even where that code doesn't compile); a 0.2 pack with no 0.3 release gets a stand-in
   --allow-errors writes a file that doesn't compile afterwards
   --report f     the whole run, as Markdown (f.md) or JSON (f.json)
-  --from kit@1   the version the files are written for, where nothing says (xtmd.toml's [uses] does)
-  A document written for MKP 0.2 is moved by 0.2.10's own compiler, run with Node (Extended Mark 0.3.0
-  only); --pack takes its 0.2 packs (folders with a manifest.mkp) beside the 0.3 ones. Its name
+  --from kit@1   the version the files are written for, where nothing says (xtmd.toml's [uses] does);
+                 --from mkp@0.2 says they are MKP 0.2's, where no front matter does
+  A document written for MKP 0.2 is moved by 0.2.10's own compiler, run with Node; a
+  widget block with no summary gets a placeholder, a TODO that stops nothing; --pack takes its 0.2 packs (folders with a manifest.mkp) beside the 0.3 ones. Its name
   moves too: MKP named a document name.mkp.md, and Extended Mark names it name.xtmd.
   xtmd.toml's xtmd = \"0.3.x\" says the release the tree is written for (0.3.0 when it says none),
   and [uses] each pack's version; a run that moves the tree writes both.
@@ -62,6 +63,7 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
     let mut yes_all = false;
     let mut yes_to: BTreeSet<usize> = BTreeSet::new();
     let mut from: BTreeMap<String, u32> = BTreeMap::new();
+    let mut from_02 = false;
     let mut answers: Option<PathBuf> = None;
     let mut json = false;
     let mut report: Option<String> = None;
@@ -73,6 +75,11 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
                 if let Some(r) = args.get(k + 1).filter(|v| release_of(v).is_some()) {
                     eprintln!("error: --from {} names a release, as mkp 0.2's did; since xtmd 0.3.0 it names a pack and the version the files are written for (--from kit@1), and xtmd.toml's xtmd = \"…\" says the release", r);
                     return ExitCode::from(2);
+                }
+                if args.get(k + 1).map(String::as_str) == Some("mkp@0.2") {
+                    from_02 = true;
+                    k += 2;
+                    continue;
                 }
                 let Some(v) = args.get(k + 1).and_then(|v| v.split_once('@')).and_then(|(p, n)| Some((p.to_string(), n.parse::<u32>().ok()?))) else {
                     eprintln!("--from takes a pack and the version the files are written for: --from kit@1");
@@ -244,7 +251,7 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
         texts.push((d.clone(), text));
     }
     let run_02 = |p: &Path| crate::migrate_02::run(p, &packs02);
-    let step02 = Step02 { run: &run_02, packs_given: !packs02.is_empty() };
+    let step02 = Step02 { run: &run_02, packs_given: !packs02.is_empty(), from: from_02 };
     let tree = Tree { base: &base, sources: &sources, packs: &packs, stepped: &stepped, step_refused: &step_refused, release_steps: &release_steps, release_label: &release_label, from: &from, uses: &uses, stand_in_dir: &stand_in_dir, step02: &step02 };
     let (results, stand_ins) = loop {
         let (results, stand_ins) = pass(&tree, &texts);
@@ -305,7 +312,7 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
             say!("{}  {}  not written: {}", name, o.moved.join(", "), o.refused.join("; "));
         } else if o.text == *old && written_as(p) == *p {
             fine += 1;
-            say!("{}  up to date", name);
+            say!("{}  up to date{}", name, if o.notices.is_empty() { String::new() } else { format!(": {}", o.notices.join("; ")) });
         } else {
             // a 0.2 document whose text reads the same in 0.3 only moves to its new name
             let mut parts = if o.text == *old { Vec::new() } else { vec![format!("{} change{}", o.changes, if o.changes == 1 { "" } else { "s" })] };

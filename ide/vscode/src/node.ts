@@ -3,7 +3,9 @@
 // document that is migrated. Nothing needs to be installed.
 
 import { fork } from "node:child_process";
-import { existsSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, join } from "node:path";
 import * as vscode from "vscode";
 import { LanguageClient, TransportKind } from "vscode-languageclient/node";
 import { activate as start, type Host } from "./common.js";
@@ -13,15 +15,24 @@ export function activate(context: vscode.ExtensionContext): Promise<void> {
   const host: Host = {
     // as `xtmd migrate` runs it: the document and its 0.2 packs in, one JSON object out
     run02: existsSync(step02)
-      ? (doc, packs) =>
+      ? (doc, packs, text) =>
           new Promise((done) => {
-            const child = fork(step02, [doc, ...packs.flatMap((p) => ["--pack", p])], { silent: true, execArgv: [] });
+            // another text of the document is a file of its name, with its definitions (name.mkp) beside it
+            const dir = text === undefined ? undefined : mkdtempSync(join(tmpdir(), "xtmd-migrate-"));
+            let file = doc;
+            if (dir) {
+              writeFileSync((file = join(dir, basename(doc))), text!);
+              const own = doc.replace(/\.mkp\.md$/, ".mkp");
+              if (own !== doc && existsSync(own)) copyFileSync(own, join(dir, basename(own)));
+            }
+            const child = fork(step02, [file, ...packs.flatMap((p) => ["--pack", p])], { silent: true, execArgv: [] });
             let out = "";
             let err = "";
             child.stdout?.on("data", (b: Buffer) => (out += b.toString()));
             child.stderr?.on("data", (b: Buffer) => (err += b.toString()));
             child.on("error", (e) => done({ notRun: `the 0.2 → 0.3 step can't be run: ${e.message}` }));
             child.on("close", () => {
+              if (dir) rmSync(dir, { recursive: true, force: true });
               try {
                 done(JSON.parse(out));
               } catch {

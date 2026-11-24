@@ -1,29 +1,46 @@
 //! Declarations: their signatures, and the IR they become.
 
 use crate::ty::{FnParam, Ty};
+use crate::shared::Over;
 use crate::*;
 
 /// What the bodies became, for the IR.
 #[derive(Default, Clone)]
 pub struct Out {
-    pub fn_bodies: HashMap<usize, Vec<ir::Stmt>>,
-    pub let_values: HashMap<usize, ir::Expr>,
-    pub requires: HashMap<DefId, Vec<ir::Require>>,
-    pub defaults: HashMap<(DefId, String), ir::Expr>,
-    pub case_defaults: HashMap<(DefId, String, String), ir::Expr>,
-    pub token_values: HashMap<(DefId, String), ir::Expr>,
-    pub channel_defaults: HashMap<(usize, String), ir::Expr>,
+    pub fn_bodies: Over<usize, Vec<ir::Stmt>>,
+    pub let_values: Over<usize, ir::Expr>,
+    pub requires: Over<DefId, Vec<ir::Require>>,
+    pub defaults: Over<(DefId, String), ir::Expr>,
+    pub case_defaults: Over<(DefId, String, String), ir::Expr>,
+    pub token_values: Over<(DefId, String), ir::Expr>,
+    pub channel_defaults: Over<(usize, String), ir::Expr>,
     pub state: Option<ir::State>,
     pub exposes: Vec<ir::Expose>,
     /// Widgets written in Extended Mark, lowered, by their def.
-    pub templates: Vec<(DefId, ir::Template)>,
+    pub templates: Vec<(DefId, std::rc::Rc<ir::Template>)>,
     /// Extern widgets' markdown, as nodes.
-    pub extern_markdown: HashMap<DefId, Vec<ir::Node>>,
+    pub extern_markdown: Over<DefId, Vec<ir::Node>>,
     /// The piece of Markdown an extern widget is.
-    pub extern_piece: HashMap<DefId, String>,
-    pub extern_tokens: HashMap<DefId, Vec<String>>,
-    pub extern_uses: HashMap<DefId, Vec<ir::Level>>,
+    pub extern_piece: Over<DefId, String>,
+    pub extern_tokens: Over<DefId, Vec<String>>,
+    pub extern_uses: Over<DefId, Vec<ir::Level>>,
     pub doc: Option<ir::Template>,
+}
+
+impl Out {
+    pub fn settle(&mut self) {
+        self.fn_bodies.settle();
+        self.let_values.settle();
+        self.requires.settle();
+        self.defaults.settle();
+        self.case_defaults.settle();
+        self.token_values.settle();
+        self.channel_defaults.settle();
+        self.extern_markdown.settle();
+        self.extern_piece.settle();
+        self.extern_tokens.settle();
+        self.extern_uses.settle();
+    }
 }
 
 impl Checker {
@@ -363,7 +380,7 @@ impl Checker {
         sym.ret_ir = ret_ir;
         if let Some(r) = on {
             let name = sym.name.clone();
-            self.methods.entry(r).or_default().entry(name).or_default().push(f);
+            std::rc::Rc::make_mut(self.methods.entry(r).or_default()).entry(name).or_default().push(f);
         }
     }
 
@@ -462,137 +479,168 @@ impl Checker {
         }
     }
 
+    /// A declared type as the IR has it.
+    fn def_decl(&self, out: &Out, d: DefId) -> Option<ir::Decl> {
+        let def = &self.defs[d];
+        // a surface's declarations never reach a page
+        if def.pack.contains('@') {
+            return None;
+        }
+        Some(match &def.kind {
+            DefKind::Record { fields } => {
+                let same = self.methods.get(&Recv::Def(d)).and_then(|m| m.get("same")).and_then(|f| f.first()).map(|f| self.fns[*f].full.clone());
+                ir::Decl::Record(ir::Record {
+                    name: def.full.clone(),
+                    params: self.ir_generics(&def.generics),
+                    fields: self.ir_fields(fields, |n| out.defaults.get(&(d, n.to_string())).cloned()),
+                    requires: out.requires.get(&d).cloned().unwrap_or_default(),
+                    same,
+                })
+            }
+            DefKind::Enum { cases } => {
+                let ordered = cases.iter().all(|c| c.fields.is_empty());
+                ir::Decl::Enum(ir::Enum {
+                    name: def.full.clone(),
+                    params: self.ir_generics(&def.generics),
+                    cases: cases.iter().map(|c| ir::CaseDecl { name: c.name.clone(), fields: self.ir_fields(&c.fields, |_| None) }).collect(),
+                    ordered,
+                })
+            }
+            DefKind::Token { value_ir, cases, .. } => {
+                let values = cases.iter().filter_map(|c| out.token_values.get(&(d, c.name.clone())).map(|v| (c.name.clone(), v.clone()))).collect();
+                ir::Decl::Token(ir::Token {
+                    name: def.full.clone(),
+                    value: value_ir.clone(),
+                    cases: cases.iter().map(|c| ir::CaseDecl { name: c.name.clone(), fields: self.ir_fields(&c.fields, |_| None) }).collect(),
+                    values,
+                })
+            }
+            DefKind::Alias { target } => {
+                let is = target.clone().map(|t| t.1).unwrap_or_else(|| ir::Type::named("T"));
+                ir::Decl::Type(ir::DeclType { name: def.full.clone(), params: Vec::new(), is })
+            }
+            DefKind::Interface { widget, fields, fns, events } => {
+                ir::Decl::Interface(ir::Interface {
+                    name: def.full.clone(),
+                    widget: *widget,
+                    params: self.ir_generics(&def.generics),
+                    fields: self.ir_fields(fields, |_| None),
+                    fns: fns.clone(),
+                    events: events.iter().map(|e| ir::Event { name: e.name.clone(), params: self.ir_params(&e.params) }).collect(),
+                })
+            }
+            DefKind::Widget { external: true, inputs, slots, events } => {
+                let levels = out.extern_uses.get(&d).filter(|l| !l.is_empty()).cloned().unwrap_or_default();
+                ir::Decl::Extern(ir::Extern::Widget(ir::ExternWidget {
+                    name: def.full.clone(),
+                    generics: self.ir_generics(&def.generics),
+                    inputs: self.ir_fields(inputs, |n| out.defaults.get(&(d, n.to_string())).cloned()),
+                    slots: slots.iter().map(|s| ir::Slot { name: s.name.clone(), ty: s.ir.clone() }).collect(),
+                    events: events.iter().map(|e| ir::Event { name: e.name.clone(), params: self.ir_params(&e.params) }).collect(),
+                    tokens: out.extern_tokens.get(&d).cloned().unwrap_or_default(),
+                    requires: out.requires.get(&d).cloned().unwrap_or_default(),
+                    piece: out.extern_piece.get(&d).cloned(),
+                    markdown: out.extern_markdown.get(&d).cloned().unwrap_or_default(),
+                    levels,
+                    supplier: self.supplier(&def.pack),
+                }))
+            }
+            DefKind::ExternType => {
+                ir::Decl::Extern(ir::Extern::Type(ir::ExternType { name: def.full.clone(), params: self.ir_generics(&def.generics), supplier: self.supplier(&def.pack) }))
+            }
+            DefKind::Widget { .. } => return None,
+        })
+    }
+
+    /// A fn as the IR has it.
+    fn fn_decl(&self, out: &Out, k: usize) -> Option<ir::Decl> {
+        let f = &self.fns[k];
+        if f.sig.is_none() || (f.body.is_none() && !f.external) || f.pack.contains('@') {
+            return None;
+        }
+        if f.external && matches!(f.on, Some(Recv::Iface(_))) && f.body.is_none() && self.is_member(k) {
+            return None;
+        }
+        if f.widget.is_some() {
+            return None;
+        }
+        let body = out.fn_bodies.get(&k).cloned().unwrap_or_default();
+        Some(if f.external {
+            ir::Decl::Extern(ir::Extern::Fn(ir::ExternFn {
+                name: f.full.clone(),
+                params: self.ir_params(&f.params),
+                returns: f.ret_ir.clone(),
+                default: body,
+                supplier: self.supplier(&f.pack),
+            }))
+        } else {
+            ir::Decl::Fn(ir::FnDecl {
+                name: f.full.clone(),
+                params: self.ir_params(&f.params),
+                generics: self.ir_generics(&f.generics),
+                returns: f.ret_ir.clone(),
+                body,
+            })
+        })
+    }
+
+    /// An extern block as the IR has it.
+    fn channel_decl(&self, out: &Out, k: usize) -> Option<ir::Decl> {
+        let c = &self.channels[k];
+        if c.pack.contains('@') {
+            return None;
+        }
+        Some(ir::Decl::Extern(ir::Extern::Channel(ir::ExternChannel {
+            name: c.full.clone(),
+            values: self.ir_fields(&c.values, |n| out.channel_defaults.get(&(k, n.to_string())).cloned()),
+            fns: c.fns.iter().map(|(n, ps, _, r)| ir::ExternChannelFns { name: n.clone(), params: self.ir_params(ps), returns: r.clone() }).collect(),
+            tokens: c.tokens.clone(),
+            supplier: self.supplier(&c.pack),
+        })))
+    }
+
+    /// A constant as the IR has it.
+    fn let_decl(&self, out: &Out, k: usize) -> Option<ir::Decl> {
+        let l = &self.lets[k];
+        if l.pack.contains('@') {
+            return None;
+        }
+        out.let_values.get(&k).map(|v| ir::Decl::Let(ir::LetDecl { name: l.full.clone(), ty: l.ir.clone(), value: v.clone() }))
+    }
+
+    /// The declarations made from `from` on.
+    pub(crate) fn decls_from<'a>(&'a self, out: &'a Out, from: From) -> impl Iterator<Item = ir::Decl> + 'a {
+        let defs = (from.defs..self.defs.len()).filter_map(move |d| self.def_decl(out, d));
+        let fns = (from.fns..self.fns.len()).filter_map(move |k| self.fn_decl(out, k));
+        let channels = (from.channels..self.channels.len()).filter_map(move |k| self.channel_decl(out, k));
+        let lets = (from.lets..self.lets.len()).filter_map(move |k| self.let_decl(out, k));
+        defs.chain(fns).chain(channels).chain(lets)
+    }
+
+    /// The declarations from before `self.from` that this compile changed: core's tokens, given cases and
+    /// values by a pack, and a record it says how to compare.
+    pub(crate) fn decls_changed<'a>(&'a self, out: &'a Out) -> impl Iterator<Item = ir::Decl> + 'a {
+        (0..self.from.defs)
+            .filter(move |d| match &self.defs[*d].kind {
+                DefKind::Token { .. } => true,
+                DefKind::Record { .. } => self.methods.get(&Recv::Def(*d)).and_then(|m| m.get("same")).and_then(|f| f.first()).map_or(false, |f| *f >= self.from.fns),
+                _ => false,
+            })
+            .filter_map(move |d| self.def_decl(out, d))
+    }
+
     /// The whole build as one IR module.
     pub(crate) fn module_ir(&mut self) -> ir::Module {
         let out = std::mem::take(&mut self.out);
-        let mut decls = Vec::new();
+        let mut decls: Vec<ir::Declaration> = self.decls_from(&out, From::default()).map(|d| ir::Declaration { declare: d }).collect();
         let decl = |d: ir::Decl| ir::Declaration { declare: d };
-        for (d, def) in self.defs.iter().enumerate() {
-            // a surface's declarations never reach a page
-            if def.pack.contains('@') {
-                continue;
-            }
-            match &def.kind {
-                DefKind::Record { fields } => {
-                    let same = self.methods.get(&Recv::Def(d)).and_then(|m| m.get("same")).and_then(|f| f.first()).map(|f| self.fns[*f].full.clone());
-                    decls.push(decl(ir::Decl::Record(ir::Record {
-                        name: def.full.clone(),
-                        params: self.ir_generics(&def.generics),
-                        fields: self.ir_fields(fields, |n| out.defaults.get(&(d, n.to_string())).cloned()),
-                        requires: out.requires.get(&d).cloned().unwrap_or_default(),
-                        same,
-                    })));
-                }
-                DefKind::Enum { cases } => {
-                    let ordered = cases.iter().all(|c| c.fields.is_empty());
-                    decls.push(decl(ir::Decl::Enum(ir::Enum {
-                        name: def.full.clone(),
-                        params: self.ir_generics(&def.generics),
-                        cases: cases.iter().map(|c| ir::CaseDecl { name: c.name.clone(), fields: self.ir_fields(&c.fields, |_| None) }).collect(),
-                        ordered,
-                    })));
-                }
-                DefKind::Token { value_ir, cases, .. } => {
-                    let values = cases.iter().filter_map(|c| out.token_values.get(&(d, c.name.clone())).map(|v| (c.name.clone(), v.clone()))).collect();
-                    decls.push(decl(ir::Decl::Token(ir::Token {
-                        name: def.full.clone(),
-                        value: value_ir.clone(),
-                        cases: cases.iter().map(|c| ir::CaseDecl { name: c.name.clone(), fields: self.ir_fields(&c.fields, |_| None) }).collect(),
-                        values,
-                    })));
-                }
-                DefKind::Alias { target } => {
-                    let is = target.clone().map(|t| t.1).unwrap_or_else(|| ir::Type::named("T"));
-                    decls.push(decl(ir::Decl::Type(ir::DeclType { name: def.full.clone(), params: Vec::new(), is })));
-                }
-                DefKind::Interface { widget, fields, fns, events } => {
-                    decls.push(decl(ir::Decl::Interface(ir::Interface {
-                        name: def.full.clone(),
-                        widget: *widget,
-                        params: self.ir_generics(&def.generics),
-                        fields: self.ir_fields(fields, |_| None),
-                        fns: fns.clone(),
-                        events: events.iter().map(|e| ir::Event { name: e.name.clone(), params: self.ir_params(&e.params) }).collect(),
-                    })));
-                }
-                DefKind::Widget { external: true, inputs, slots, events } => {
-                    let levels = out.extern_uses.get(&d).filter(|l| !l.is_empty()).cloned().unwrap_or_default();
-                    decls.push(decl(ir::Decl::Extern(ir::Extern::Widget(ir::ExternWidget {
-                        name: def.full.clone(),
-                        generics: self.ir_generics(&def.generics),
-                        inputs: self.ir_fields(inputs, |n| out.defaults.get(&(d, n.to_string())).cloned()),
-                        slots: slots.iter().map(|s| ir::Slot { name: s.name.clone(), ty: s.ir.clone() }).collect(),
-                        events: events.iter().map(|e| ir::Event { name: e.name.clone(), params: self.ir_params(&e.params) }).collect(),
-                        tokens: out.extern_tokens.get(&d).cloned().unwrap_or_default(),
-                        requires: out.requires.get(&d).cloned().unwrap_or_default(),
-                        piece: out.extern_piece.get(&d).cloned(),
-                        markdown: out.extern_markdown.get(&d).cloned().unwrap_or_default(),
-                        levels,
-                        supplier: self.supplier(&def.pack),
-                    }))));
-                }
-                DefKind::ExternType => {
-                    decls.push(decl(ir::Decl::Extern(ir::Extern::Type(ir::ExternType { name: def.full.clone(), params: self.ir_generics(&def.generics), supplier: self.supplier(&def.pack) }))));
-                }
-                DefKind::Widget { .. } => {}
-            }
-        }
-        for (k, f) in self.fns.iter().enumerate() {
-            if f.sig.is_none() || (f.body.is_none() && !f.external) || f.pack.contains('@') {
-                continue;
-            }
-            if f.external && matches!(f.on, Some(Recv::Iface(_))) && f.body.is_none() && self.is_member(k) {
-                continue;
-            }
-            if f.widget.is_some() {
-                continue;
-            }
-            let body = out.fn_bodies.get(&k).cloned().unwrap_or_default();
-            if f.external {
-                decls.push(decl(ir::Decl::Extern(ir::Extern::Fn(ir::ExternFn {
-                    name: f.full.clone(),
-                    params: self.ir_params(&f.params),
-                    returns: f.ret_ir.clone(),
-                    default: body,
-                    supplier: self.supplier(&f.pack),
-                }))));
-            } else {
-                decls.push(decl(ir::Decl::Fn(ir::FnDecl {
-                    name: f.full.clone(),
-                    params: self.ir_params(&f.params),
-                    generics: self.ir_generics(&f.generics),
-                    returns: f.ret_ir.clone(),
-                    body,
-                })));
-            }
-        }
-        for (k, c) in self.channels.iter().enumerate() {
-            if c.pack.contains('@') {
-                continue;
-            }
-            decls.push(decl(ir::Decl::Extern(ir::Extern::Channel(ir::ExternChannel {
-                name: c.full.clone(),
-                values: self.ir_fields(&c.values, |n| out.channel_defaults.get(&(k, n.to_string())).cloned()),
-                fns: c.fns.iter().map(|(n, ps, _, r)| ir::ExternChannelFns { name: n.clone(), params: self.ir_params(ps), returns: r.clone() }).collect(),
-                tokens: c.tokens.clone(),
-                supplier: self.supplier(&c.pack),
-            }))));
-        }
-        for (k, l) in self.lets.iter().enumerate() {
-            if l.pack.contains('@') {
-                continue;
-            }
-            if let Some(v) = out.let_values.get(&k) {
-                decls.push(decl(ir::Decl::Let(ir::LetDecl { name: l.full.clone(), ty: l.ir.clone(), value: v.clone() })));
-            }
-        }
         if let Some(s) = out.state {
             decls.push(decl(ir::Decl::State(s)));
         }
         for e in out.exposes {
             decls.push(decl(ir::Decl::Expose(e)));
         }
-        let mut templates: Vec<ir::Template> = out.templates.into_iter().map(|(_, t)| t).collect();
+        let mut templates: Vec<ir::Template> = out.templates.into_iter().map(|(_, t)| std::rc::Rc::unwrap_or_clone(t)).collect();
         if let Some(doc) = out.doc {
             templates.push(doc);
         }

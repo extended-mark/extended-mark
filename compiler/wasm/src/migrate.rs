@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use serde_json::{json, Value};
 use xtmd_live::{Compiler, Source};
 use xtmd_migrate::step::{self, Answers};
-use xtmd_migrate::v02::{Failed, Migrated};
+use xtmd_migrate::v02::{fill, Failed, Migrated};
 use xtmd_migrate::{is_doc, packs_of, pass, release_in, release_of, step_packs, uses_after, uses_in, with_release, with_uses, written_as, Step02, Tree, ALLOW_ERRORS, FIRST, RELEASE};
 
 fn sources(v: &Value) -> Vec<Source> {
@@ -21,13 +21,15 @@ fn sources(v: &Value) -> Vec<Source> {
 /// `{ "sources": [{path, text}], "docs": [{path, text}], "config": {path, text} | null,
 ///    "from": {pack: version}, "answers": {"confirm": {key: bool}, "split": {key: case}},
 ///    "allowTodos": bool, "allowErrors": bool, "standIns": folder,
-///    "step02": {doc path: what the frozen 0.2 step printed | {"notRun": why}}, "packs02": bool }`.
+///    "step02": {doc path: what the frozen 0.2 step printed | {"notRun": why}}, "packs02": bool,
+///    "from02": bool }`.
 ///
 /// `sources` are the 0.3 packs' files (xtmd.toml's), `docs` the documents. A document that needs the
 /// 0.2 step and has no `step02` entry is named in `needs02`: the editor runs the step (it needs Node)
-/// and asks again. Gives `{ "files": [{path, to, old, text, result, moved, changes, deletions,
+/// and asks again. One the step refused only for summaries it lacks is in `fill02`, as `{path, text}`: the
+/// editor runs the step on that text too, and adds what it printed to the document's entry as `filled`. Gives `{ "files": [{path, to, old, text, result, moved, changes, deletions,
 /// notices, refused, inferred, todos, changed, errors, standIns}], "standIns": [{name, path, text}],
-/// "questions": [{number, key, asks, options}], "asked": [{number, asks, answer, by}], "needs02": [...],
+/// "questions": [{number, key, asks, options}], "asked": [{number, asks, answer, by}], "needs02": [...], "fill02": [...],
 /// "config": {path, old, text} | null, "release": {from, to} }`, or `{ "error" }`: what `xtmd migrate`
 /// stops at before it plans anything.
 pub fn migrate_json(c: &Compiler, req: &Value) -> String {
@@ -80,13 +82,25 @@ fn plan(c: &Compiler, req: &Value) -> Result<Value, String> {
     // the 0.2 step: what the editor ran, or a note that it is needed
     let ran = req["step02"].as_object().cloned().unwrap_or_default();
     let needs02: RefCell<Vec<String>> = RefCell::new(Vec::new());
+    let fill02: RefCell<Vec<Value>> = RefCell::new(Vec::new());
     let docs_text: BTreeMap<String, String> = docs.iter().map(|(p, t)| (p.display().to_string(), t.clone())).collect();
     let run_02 = |p: &Path| -> Result<Migrated, Failed> {
         let key = p.display().to_string();
         match ran.get(&key) {
             Some(v) => match v["notRun"].as_str() {
                 Some(why) => Err(Failed::NotRun(why.to_string())),
-                None => Migrated::read(v, docs_text.get(&key).map(String::as_str).unwrap_or("")),
+                None => {
+                    let source = docs_text.get(&key).map(String::as_str).unwrap_or("");
+                    // refused only for summaries it lacks: run again, by the editor, with placeholders
+                    if let Some(filled) = fill(source, v) {
+                        match v.get("filled") {
+                            Some(again) if again["error"].is_null() && again["notRun"].is_null() => return Migrated::read_filled(again, source, &filled),
+                            Some(_) => {}
+                            None => fill02.borrow_mut().push(json!({ "path": key, "text": filled.text })),
+                        }
+                    }
+                    Migrated::read(v, source)
+                }
             },
             None => {
                 needs02.borrow_mut().push(key);
@@ -94,7 +108,7 @@ fn plan(c: &Compiler, req: &Value) -> Result<Value, String> {
             }
         }
     };
-    let step02 = Step02 { run: &run_02, packs_given: req["packs02"].as_bool().unwrap_or(false) };
+    let step02 = Step02 { run: &run_02, packs_given: req["packs02"].as_bool().unwrap_or(false), from: req["from02"].as_bool().unwrap_or(false) };
     let tree = Tree { base: c.checker(), sources: &sources, packs: &packs, stepped: &stepped, step_refused: &step_refused, release_steps: &release_steps, release_label: &release_label, from: &from, uses: &uses, stand_in_dir: &stand_in_dir, step02: &step02 };
     let (results, stand_ins) = pass(&tree, &docs);
 
@@ -137,7 +151,7 @@ fn plan(c: &Compiler, req: &Value) -> Result<Value, String> {
         "standIns": written.iter().map(|n| json!({ "name": n, "path": stand_ins[*n].0.display().to_string(), "text": stand_ins[*n].1 })).collect::<Vec<_>>(),
         "questions": questions,
         "asked": asked,
-        "needs02": needs02.into_inner(),
+        "needs02": needs02.into_inner(), "fill02": fill02.into_inner(),
         "config": config_after,
         "release": { "from": from_release, "to": RELEASE },
     }))
@@ -220,6 +234,21 @@ mod tests {
         // where the step can't run, the document is refused with why
         let r = run(&c, &json!({ "docs": docs, "step02": { "docs/a.mkp.md": { "notRun": "no Node here" } } }));
         assert_eq!(r["files"][0]["refused"], json!(["no Node here"]));
+        // one that only lacks a summary is run again with a placeholder, which stops nothing
+        let doc = "---\nmkp: 0.2.9\n---\n```stat@1\nvalue: 4\n```\n";
+        let docs = json!([{ "path": "docs/b.mkp.md", "text": doc }]);
+        let refused = json!({ "error": "0.2.10 doesn't build it", "diagnostics": ["b.mkp.md:4:1 error mkp.missing-summary: the stat block needs a summary: line, one sentence; found no summary: line. Add one"] });
+        let r = run(&c, &json!({ "docs": docs, "step02": { "docs/b.mkp.md": refused } }));
+        assert_eq!(r["files"][0]["result"], "refused");
+        assert!(r["fill02"][0]["text"].as_str().unwrap().contains("```stat@1\nsummary: \"TODO(xtmd migrate): "), "{}", r);
+        let mut entry = refused.clone();
+        entry["filled"] = json!({ "doc": "// Migrated from MKP 0.2.\n// Nothing to finish by hand.\n@@@\n# B\n", "packs": {}, "notes": [], "counts": { "widgets": 1 } });
+        let r = run(&c, &json!({ "docs": docs, "step02": { "docs/b.mkp.md": entry } }));
+        assert_eq!((r["files"][0]["result"].as_str(), r["fill02"].clone()), (Some("migrate"), json!([])), "{}", r);
+        assert!(r["files"][0]["todos"][0].as_str().unwrap().starts_with("0.2 line 4: the stat block has no summary"), "{}", r);
+        // --from mkp@0.2: a file with no mark of 0.2's is taken for one
+        let docs = json!([{ "path": "docs/c.xtmd", "text": "# C\n" }]);
+        assert_eq!(run(&c, &json!({ "docs": docs, "from02": true, "step02": { "docs/c.xtmd": { "notRun": "no Node" } } }))["files"][0]["refused"], json!(["no Node"]));
         let newer = run(&c, &json!({ "config": { "path": "xtmd.toml", "text": "xtmd = \"9.0.0\"\n" } }));
         assert!(newer["error"].as_str().unwrap().contains("newer than this extension's"), "{}", newer);
     }

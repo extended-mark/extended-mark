@@ -245,6 +245,8 @@ Extended Mark ends at the IR. The compiler is one, and everything a page means i
 
 An engine is of one of two kinds, and a host picks one. A **static** engine takes compiled IR, as `.json`, and never a document's text, and carries no compiler. A **live** engine is given the document's text and compiles it where it runs, with the one compiler built into it (WebAssembly in a browser, a native library in a program), for an editor or a live preview; it then does with the IR exactly what a static engine does. While a draft has errors, it keeps the last page that compiled and says why. A page goes on when it is given an IR with the same content as its own: an IR is told apart by its content, whichever file or object holds it.
 
+An engine that is a program is run by `xtmd render page.xtmd --engine web`: the IR goes to its standard input, what it draws is read from its standard output as bytes, whatever they are, and its errors are its standard error and its exit code. Its name is one of `[engines]` in `xtmd.toml`, each a command as a list (`web = ["node", "render.mjs"]`), run in that file's folder; or it is a path. Everything after the name is the engine's own, and reaches it untouched. There is no engine by default.
+
 ```java
 package acme;
 

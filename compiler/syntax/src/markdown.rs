@@ -858,23 +858,20 @@ pub fn entity_at(b: &[char]) -> Option<(String, usize)> {
     if body.is_empty() || !body.chars().all(|c| c.is_ascii_alphanumeric()) {
         return None;
     }
-    entities().get(&body).map(|v| (v.clone(), semi + 1))
+    entity(&body).map(|v| (v.to_string(), semi + 1))
 }
 
-/// HTML5's named character references, read from core's own table.
-fn entities() -> &'static std::collections::HashMap<String, String> {
-    static TABLE: std::sync::OnceLock<std::collections::HashMap<String, String>> = std::sync::OnceLock::new();
-    TABLE.get_or_init(|| {
-        let mut m = std::collections::HashMap::new();
-        for line in include_str!(env!("XTMD_ENTITIES")).lines() {
-            let line = line.trim();
-            let Some(rest) = line.strip_prefix("{ key = \"") else { continue };
-            let Some((key, rest)) = rest.split_once("\", value = \"") else { continue };
-            let Some(value) = rest.strip_suffix("\" },").or_else(|| rest.strip_suffix("\" }")) else { continue };
-            m.insert(key.to_string(), crate::lexer::decode_piece(value));
-        }
-        m
-    })
+/// HTML5's named character references, as core's own file has them, in order.
+mod table {
+    include!(concat!(env!("OUT_DIR"), "/entities.rs"));
+}
+pub use table::ENTITIES;
+
+/// The file they are from, as it is written.
+pub const ENTITIES_FILE: &str = include_str!(env!("XTMD_ENTITIES"));
+
+fn entity(name: &str) -> Option<&'static str> {
+    ENTITIES.binary_search_by(|(k, _)| (*k).cmp(name)).ok().map(|k| ENTITIES[k].1)
 }
 
 fn is_thematic(s: &str) -> bool {

@@ -166,10 +166,8 @@ impl XtmdDoc {
         let hash = hash(&serde_json::to_string(&file).unwrap_or_default());
         let module = file.ir.module.clone();
         let mut page = start(file, &mut opts)?;
-        let errors = match opts.state.take() {
-            Some(given) => give(&mut page, &given, true)?,
-            None => Vec::new(),
-        };
+        let o = page.take_outcome();
+        let errors = o.refused.into_iter().map(DocError::Refused).chain(o.failures.into_iter().map(DocError::Failed)).collect();
         let mut view = XtmdPage::new(page);
         if let Some(r) = opts.registry.take() {
             view = view.with_registry(r);
@@ -214,12 +212,10 @@ impl XtmdDoc {
         }
         self.hash = now;
         self.module = file.ir.module.clone();
-        let mut page = start(file, &mut DocOptions { externs, ..DocOptions::default() })?;
-        let fields = page.observe_state();
-        let kept: State = carried.into_iter().filter(|(k, _)| fields.contains_key(k)).collect();
-        // what no longer fits isn't the host's write: it starts from its default, unsaid
-        let failed = give(&mut page, &kept, false)?;
-        self.errors.extend(failed);
+        let mut page = start(file, &mut DocOptions { externs, state: Some(carried), ..DocOptions::default() })?;
+        // what no longer fits isn't the host's write: it starts from its default, unsaid; what failed is
+        // told either way
+        self.errors.extend(page.take_outcome().failures.into_iter().map(DocError::Failed));
         self.view.replace(page);
         self.shown = self.view.page().observe_state();
         self.given = None;
@@ -364,41 +360,6 @@ fn start(file: ir::File, opts: &mut DocOptions) -> Result<Page, DocError> {
     let mut fns = fns::egui_fns();
     fns.extend(opts.fns.drain());
     let externs = opts.externs.iter().map(|(c, values)| (channel(&module, c), values.iter().map(|(k, x)| (k.clone(), x.clone())).collect())).collect();
-    Page::new(file, PageOptions { page: opts.page, externs, fns, ..PageOptions::default() }).map_err(|f| DocError::Load(format!("the page couldn't start: {}", f.message)))
-}
-
-/// `$state` as the host gives it, checked as a host's write is: all together, or else each field
-/// that fits and keeps the rules, one at a time. What was refused, when `tell`.
-fn give(page: &mut Page, given: &State, tell: bool) -> Result<Vec<DocError>, DocError> {
-    let mut errors = Vec::new();
-    let mut values = Vec::new();
-    for (k, x) in given {
-        match page.value(x) {
-            Ok(v) => values.push((k.clone(), v)),
-            Err(_) => errors.push(DocError::Refused(Broken { rule: None, code: Some("contracts.outside".into()), site: Some(format!("$state.{}", k)) })),
-        }
-    }
-    if values.is_empty() {
-        if !tell {
-            errors.clear();
-        }
-        return Ok(errors);
-    }
-    page.set(values.clone()).map_err(|f| DocError::Load(f.message))?;
-    let o = page.take_outcome();
-    let mut failed: Vec<DocError> = o.failures.into_iter().map(DocError::Failed).collect();
-    if !o.refused.is_empty() {
-        for (k, v) in values {
-            page.set(vec![(k, v)]).map_err(|f| DocError::Load(f.message))?;
-            let o = page.take_outcome();
-            errors.extend(o.refused.into_iter().map(DocError::Refused));
-            failed.extend(o.failures.into_iter().map(DocError::Failed));
-        }
-    }
-    // what failed is told either way: it isn't the host's write that was wrong
-    if !tell {
-        errors.clear();
-    }
-    errors.extend(failed);
-    Ok(errors)
+    let state = opts.state.take().unwrap_or_default().into_iter().collect();
+    Page::new(file, PageOptions { page: opts.page, state, externs, fns, ..PageOptions::default() }).map_err(|f| DocError::Load(format!("the page couldn't start: {}", f.message)))
 }

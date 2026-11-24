@@ -15,8 +15,8 @@ import { Previews } from "./preview.js";
 export interface Host {
   /** Runs the frozen 0.2 → 0.3 step (tools/migrate-0.2/frozen) on an MKP 0.2 document, with the 0.2
    * packs it is built with: what it prints, or `{ notRun: why }`. None in a browser, which has no
-   * Node, or in a build that doesn't carry the step. */
-  run02?(doc: string, packs: string[]): Promise<unknown>;
+   * Node, or in a build that doesn't carry the step. `text` is run in the document's place. */
+  run02?(doc: string, packs: string[], text?: string): Promise<unknown>;
 }
 
 export type ClientMaker = (options: LanguageClientOptions, log: Log) => Promise<{ client: BaseLanguageClient; server: string }>;

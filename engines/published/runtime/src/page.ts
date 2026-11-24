@@ -19,7 +19,8 @@ export interface PageValues {
 /** How a page is mounted: what the host and the engine give it. */
 export interface CoreOptions {
   page?: PageValues;
-  /** `$state`'s values, in the IR's form, over its starting ones. */
+  /** `$state`'s values, in the IR's form, over its starting ones: checked as a host's write is, and what
+   * doesn't fit is in the outcome and keeps its starting value. */
   state?: Record<string, ir.Expr>;
   /** Each channel's values, in the IR's form. */
   externs?: Record<string, Record<string, ir.Expr>>;
@@ -209,6 +210,8 @@ export class Core {
   /** How many changes came from outside the layout: the reader's, the host's, the page's
    * values. A layout that didn't settle is held until the next one. */
   changes = 0;
+  /** How many times the page was drawn, for a test that counts them. */
+  draws = 0;
   /** Warnings for the host, since it last took them: not failures, the page carries on. */
   private warnings: Broken[] = [];
   /** The `warn` rules that don't hold now, so each is told once as it becomes false. */
@@ -267,12 +270,29 @@ export class Core {
     for (const f of state?.fields ?? []) {
       if (f.default) this.state.set(f.name, this.constant(f.default));
     }
-    for (const [k, x] of Object.entries(opts.state ?? {})) this.state.set(k, this.constant(x));
     for (const [c, values] of Object.entries(opts.externs ?? {})) {
       for (const [k, x] of Object.entries(values)) this.externs.set(`${c}.${k}`, this.constant(x));
     }
     if (opts.page) this.applyPage(opts.page);
+    this.startFrom(opts.state ?? {});
     this.redraw();
+  }
+
+  /** `$state` as the host gives it, before the page is drawn: checked as a host's write is, all together, or
+   * else each field that fits and keeps the rules, one at a time. What doesn't keeps its starting value. */
+  private startFrom(given: Record<string, ir.Expr>): void {
+    const values: Record<string, V> = {};
+    for (const [k, x] of Object.entries(given)) {
+      try {
+        values[k] = this.constant(x);
+      } catch {
+        this.outcome.refused.push({ code: "contracts.outside", site: `$state.${k}` });
+      }
+    }
+    const told = this.outcome.refused.length;
+    if (Object.keys(values).length === 0 || this.writeState(values)) return;
+    this.outcome.refused.length = told;
+    for (const [k, v] of Object.entries(values)) this.writeState({ [k]: v });
   }
 
   // ---- reading the page
@@ -516,6 +536,11 @@ export class Core {
   set(changes: Record<string, V>): void {
     this.changes++;
     this.machine.resetSteps();
+    if (this.writeState(changes)) this.redraw();
+  }
+
+  /** `$state` fields written, checked: refused whole, or done. Nothing is drawn. */
+  private writeState(changes: Record<string, V>): boolean {
     const snap = this.snapshot();
     const fields = new Map((this.stateDecl?.fields ?? []).map((f) => [f.name, f]));
     for (const [k, v] of Object.entries(changes)) {
@@ -523,7 +548,7 @@ export class Core {
       if (!f || !this.ofType(v, f.type) || !this.machine.fits(v, f.type)) {
         this.restore(snap);
         this.outcome.refused.push({ code: "contracts.outside", site: `$state.${k}` });
-        return;
+        return false;
       }
       this.state.set(k, v);
       this.bump(`s:${k}`);
@@ -532,9 +557,9 @@ export class Core {
     if (rule) {
       this.restore(snap);
       this.outcome.refused.push({ rule });
-      return;
+      return false;
     }
-    this.redraw();
+    return true;
   }
 
   /** A host calling a fn the document exposes. */
@@ -569,9 +594,12 @@ export class Core {
   }
 
   /** Which extern widgets the engine draws: set by an engine before it first draws the page,
-   * as @extended-mark/dom does from its registry. The page is drawn again. */
+   * as @extended-mark/dom does from its registry. The page is drawn again, if any of its widgets is. */
   setSupplies(supplies: (widget: string) => boolean): void {
+    const before = this.supplies;
     this.supplies = supplies;
+    // what decides is the page's own extern widgets: the same for each, and nothing changes
+    if ([...this.externWidgets.keys()].every((w) => before(w) === supplies(w))) return;
     this.epoch++;
     this.missed.clear();
     this.redraw();
@@ -946,6 +974,7 @@ export class Core {
 
   /** Draws the whole page again: once per change. */
   redraw(): void {
+    this.draws++;
     // each redraw has the step limit to itself, as each event does: steps never pile up across changes
     this.machine.resetSteps();
     for (const i of this.instances.values()) i.seen = false;

@@ -21,8 +21,10 @@ The [releases](https://github.com/extended-mark/extended-mark/releases) have the
 ```sh
 xtmd check docs/              # every error and warning
 xtmd fmt docs/                # the canonical layout, in place
-xtmd build page.xtmd          # the IR a runtime draws
+xtmd build page.xtmd          # the IR an engine draws
+xtmd build docs --out dist    # every document's, core compiled once
 xtmd md page.xtmd             # the page as Markdown
+xtmd render page.xtmd --engine ./draw   # drawn by an engine: IR in, what it draws out
 xtmd migrate docs/            # documents brought up to the packs they use
 xtmd lsp                      # the language server, for an editor
 xtmd help <command>           # each command's flags and an example

@@ -17,6 +17,8 @@ pub struct Migrated {
     /// 0.2 found nothing of its own in it: no widget block, definition, constant or state, and the
     /// Markdown comes out as it went in. Such a file reads the same in 0.3.
     pub plain: bool,
+    /// The summaries that were missing, each with a placeholder in its place (see [`fill`]).
+    pub placeholders: Vec<String>,
 }
 
 /// Why the step gave no 0.3 document: 0.2.10 doesn't build the file, or the step couldn't run.
@@ -45,8 +47,118 @@ impl Migrated {
             todos: notes.iter().filter(|n| n["kind"] == "todo").map(|n| format!("{}{}", line(n), n["what"].as_str().unwrap_or(""))).collect(),
             notes: notes.iter().filter(|n| n["kind"] != "todo").map(|n| format!("{}{}", line(n), n["what"].as_str().unwrap_or(""))).collect(),
             plain,
+            placeholders: Vec::new(),
         })
     }
+
+    /// What the frozen step printed for the document [`fill`] made, whose text was `source`.
+    pub fn read_filled(v: &serde_json::Value, source: &str, filled: &Filled) -> Result<Migrated, Failed> {
+        let mut v = v.clone();
+        let mut dropped = Vec::new();
+        if let Some(notes) = v["notes"].as_array_mut() {
+            for n in notes.iter_mut() {
+                if let Some(l) = n["line"].as_u64() {
+                    n["line"] = filled.line(l as usize).into();
+                }
+            }
+            // a summary 0.3 has no use for is no one's to write
+            notes.retain(|n| {
+                let of_ours = n["what"].as_str().map_or(false, |w| w.contains(PLACEHOLDER) && w.contains("was dropped"));
+                if of_ours {
+                    dropped.extend(n["line"].as_u64());
+                }
+                !of_ours
+            });
+        }
+        let mut m = Migrated::read(&v, source)?;
+        // the header names the same lines
+        let head = m.doc.find("\n@@@").unwrap_or(0);
+        let said: Vec<String> = m.doc[..head].lines().filter(|l| !(l.starts_with("// ") && l.contains(PLACEHOLDER) && l.contains("was dropped"))).map(|l| filled.renumbered(l)).collect();
+        m.doc = format!("{}{}", said.join("\n"), &m.doc[head..]);
+        m.placeholders = filled.at.iter().filter(|(l, _)| !dropped.contains(&(*l as u64))).map(|(l, w)| format!("0.2 line {}: the {} block has no summary, so a placeholder stands for it: write one sentence of what it shows", l, w)).collect();
+        if !m.placeholders.is_empty() {
+            let n = m.placeholders.len();
+            m.doc = m.doc.replacen("// Nothing to finish by hand.\n", &format!("// TODO(xtmd migrate): {} to write, where it says so.\n", if n == 1 { "a summary".to_string() } else { format!("{} summaries", n) }), 1);
+        }
+        Ok(m)
+    }
+}
+
+/// What stands for a summary that is missing.
+const PLACEHOLDER: &str = "TODO(xtmd migrate): say in one sentence what this shows";
+
+/// A document with a placeholder for each summary it lacks.
+pub struct Filled {
+    pub text: String,
+    /// Each block's line in the document, and its name.
+    at: Vec<(usize, String)>,
+    /// The lines put in.
+    new: Vec<usize>,
+}
+
+impl Filled {
+    /// A header line about a line of the filled text (`// CHANGED line 21: …`), about the document's.
+    fn renumbered(&self, l: &str) -> String {
+        let Some((what, rest)) = l.strip_prefix("// ").and_then(|r| r.split_once(" line ")) else { return l.to_string() };
+        let Some((n, rest)) = rest.split_once(':') else { return l.to_string() };
+        match n.parse::<usize>() {
+            Ok(n) if ["NOTE", "CHANGED", "TODO"].iter().any(|w| what.starts_with(w)) => format!("// {} line {}:{}", what, self.line(n), rest),
+            _ => l.to_string(),
+        }
+    }
+
+    /// A line of the filled text, in the document.
+    fn line(&self, l: usize) -> usize {
+        l - self.new.iter().filter(|n| **n <= l).count()
+    }
+}
+
+/// A document that 0.2.10 refuses, as the frozen step printed, only for widget blocks with no summary,
+/// which 0.2.9 took: the same with a placeholder in each. `None` when something else is wrong too.
+pub fn fill(source: &str, v: &serde_json::Value) -> Option<Filled> {
+    let errors: Vec<&str> = v["diagnostics"].as_array()?.iter().filter_map(|d| d.as_str()).filter(|d| d.contains(" error ")).collect();
+    let mut want: Vec<(usize, String, bool)> = Vec::new();
+    for e in &errors {
+        let (at, rest) = e.split_once(" error mkp.missing-summary: the ")?;
+        let line: usize = at.rsplit(':').nth(1)?.parse().ok()?;
+        let (name, why) = rest.split_once(" block needs a summary: line")?;
+        let empty = why.contains("found an empty summary");
+        if !empty && !why.contains("found no summary: line") {
+            return None;
+        }
+        want.push((line, name.to_string(), empty));
+    }
+    want.sort();
+    want.dedup();
+    if want.is_empty() {
+        return None;
+    }
+    let lines: Vec<&str> = source.split('\n').collect();
+    let (mut out, mut at, mut new): (Vec<String>, Vec<(usize, String)>, Vec<usize>) = (Vec::new(), Vec::new(), Vec::new());
+    for (k, l) in lines.iter().enumerate() {
+        let end = if l.ends_with('\r') { "\r" } else { "" };
+        match want.iter().find(|(n, _, _)| *n == k + 1) {
+            // a fence: the summary is its first line, under the marks the fence is under
+            Some((n, name, false)) => {
+                let inside = l.trim_start_matches([' ', '\t', '>']);
+                if !inside.starts_with("```") && !inside.starts_with("~~~") {
+                    return None;
+                }
+                out.push(l.to_string());
+                out.push(format!("{}summary: \"{}\"{}", &l[..l.len() - inside.len()], PLACEHOLDER, end));
+                new.push(out.len());
+                at.push((*n, name.clone()));
+            }
+            Some((n, name, true)) => {
+                let i = l.find("summary:")?;
+                out.push(format!("{}summary: \"{}\"{}", &l[..i], PLACEHOLDER, end));
+                let fence = lines[..k].iter().rposition(|l| l.trim_start_matches([' ', '\t', '>']).starts_with(['`', '~']));
+                at.push((fence.map_or(*n, |f| f + 1), name.clone()));
+            }
+            None => out.push(l.to_string()),
+        }
+    }
+    Some(Filled { text: out.join("\n"), at, new })
 }
 
 /// A front matter that says the document is MKP 0.2's: `mkp: 0.2.…` or `ir: 1`, as 0.2 stamps it.
@@ -74,6 +186,29 @@ pub fn looks_02(text: &str) -> Option<&'static str> {
         }
         l.strip_prefix(":::").and_then(|r| r.chars().next()).filter(|c| c.is_ascii_lowercase()).map(|_| "a :::container")
     })
+}
+
+/// What makes a file that isn't taken for 0.2's look like one all the same: what only 0.2 wrote, or a fence
+/// with a `summary:` line, which every widget block of 0.2 has.
+pub fn may_be_02(text: &str) -> Option<&'static str> {
+    // the marks of the fence a line is in, and whether it may be a widget's
+    let mut fence: Option<(String, bool)> = None;
+    for l in text.lines().map(str::trim) {
+        match &fence {
+            Some((marks, _)) if l == marks => fence = None,
+            Some((_, true)) if l.starts_with("summary:") => return Some("a fence with a summary: line, as a widget's block has"),
+            Some(_) => {}
+            None => {
+                let marks: String = l.chars().take_while(|c| *c == '`').collect();
+                if marks.len() >= 3 {
+                    let info = &l[marks.len()..];
+                    let code = matches!(info.trim(), "" | "yaml" | "yml" | "toml" | "md" | "markdown" | "text" | "txt");
+                    fence = Some((marks.clone(), !code));
+                }
+            }
+        }
+    }
+    looks_02(text)
 }
 
 /// Extended Mark 0.3 in a document's prose: a call, a control line or a hole, as 0.3's parser reads it. A
@@ -176,6 +311,28 @@ mod tests {
         assert!(speaks_03("# A\n\n@press(label = \"x\");\n"));
         assert!(speaks_03("The count is \\{$state.n}.\n"));
         assert!(!speaks_03("# A\n\n```mkp\ncounter\n  @click set n=(n + 1)\n```\n"));
+    }
+
+    #[test]
+    fn a_missing_summary_gets_a_placeholder_and_every_line_is_still_the_documents() {
+        let doc = "# A\n\n> ```stat@1\n> value: 4\n> ```\n\n```rows\nsummary:\nitems: []\n```\n\nEnd.\n";
+        let said = |more: &str| serde_json::json!({ "error": "0.2.10 doesn't build it", "diagnostics": ["C:\\\\a.mkp.md:3:1 error mkp.missing-summary: the stat block needs a summary: line, one sentence of what it shows; found no summary: line. Add one", "C:\\\\a.mkp.md:8:1 error mkp.missing-summary: the rows block needs a summary: line, one sentence; found an empty summary. Add one", "a.mkp.md:1:1 warning mkp.other: x", more] });
+        let f = fill(doc, &said("a.mkp.md:2:1 note x")).unwrap();
+        assert_eq!(f.text, format!("# A\n\n> ```stat@1\n> summary: \"{p}\"\n> value: 4\n> ```\n\n```rows\nsummary: \"{p}\"\nitems: []\n```\n\nEnd.\n", p = PLACEHOLDER));
+        assert!(fill(doc, &said("a.mkp.md:9:1 error mkp.unknown-widget: no rows")).is_none());
+        assert!(fill(doc, &serde_json::json!({ "error": "x" })).is_none());
+        let ran = serde_json::json!({ "doc": format!("// Migrated from MKP 0.2.\n// CHANGED line 12: near the end\n// CHANGED line 3: the summary of this stat block was dropped (\"{}\")\n// Nothing to finish by hand.\n@@@\n", PLACEHOLDER), "counts": { "widgets": 2 }, "notes": [{ "kind": "note", "line": 12, "what": "near the end" }, { "kind": "lossy", "line": 3, "what": format!("the summary of this stat block was dropped: it has no use (\"{}\")", PLACEHOLDER) }] });
+        let m = Migrated::read_filled(&ran, doc, &f).ok().unwrap();
+        assert_eq!(m.notes, ["0.2 line 11: near the end"]);
+        assert_eq!(m.placeholders, ["0.2 line 7: the rows block has no summary, so a placeholder stands for it: write one sentence of what it shows"]);
+        assert_eq!(m.doc, "// Migrated from MKP 0.2.\n// CHANGED line 11: near the end\n// TODO(xtmd migrate): a summary to write, where it says so.\n@@@\n");
+    }
+
+    #[test]
+    fn a_fence_with_a_summary_may_be_0_2s() {
+        assert_eq!(may_be_02("# A\n\n```stats\nitems: []\nsummary: Two.\n```\n"), Some("a fence with a summary: line, as a widget's block has"));
+        assert_eq!(may_be_02("```yaml\nsummary: Two.\n```\n\nsummary: no\n"), None);
+        assert_eq!(may_be_02("```distance@1\nkm: 1\n```\n"), looks_02("```distance@1\n```\n"));
     }
 
     #[test]

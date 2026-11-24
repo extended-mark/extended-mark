@@ -732,7 +732,7 @@ fn commonmark_and_github_examples() {
     }
     let mut report = String::new();
     let mut total_failed = 0;
-    let mut b = base.clone();
+    let b = base.clone();
     let prog = b.program();
     for (file, through) in [("commonmark-0.31.2.json", None), ("gfm-0.29.json", None), ("commonmark-0.31.2.json", Some(&prog)), ("gfm-0.29.json", Some(&prog))] {
         let o = run(file, &base, &readings, through);

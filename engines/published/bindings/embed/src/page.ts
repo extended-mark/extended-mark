@@ -69,36 +69,15 @@ export function moduleOf(irFile: Ir): ir.Module {
  * A page made from its IR with `$state` given by the host, checked as a host's write is (page 6,
  * "Keeping things"): a field the page doesn't have, or a value that doesn't fit, keeps its
  * starting value, and so does a field whose value breaks a `require` that the others keep. What
- * was refused is in the outcome. The page is made with the values that passed, so every widget
+ * was refused is in the outcome, with what failed as it was drawn. The page is drawn once, with the values that passed, so every widget
  * starts from them.
  */
 export function makePage(irFile: Ir, options: Omit<PageOptions, "state">, given?: Record<string, Input>, report = true): { page: Page; outcome: Outcome } {
-  const opts = { ...options, externs: channelsOf(moduleOf(irFile), options.externs) };
-  const outcome = empty();
-  if (!given || Object.keys(given).length === 0) return { page: new Page(irFile, opts), outcome };
-  const probe = new Page(irFile, opts);
-  const fields = stateFields(probe.ir);
-  const values: Record<string, Input> = {};
-  for (const [k, x] of Object.entries(given)) {
-    if (!fields.has(k)) {
-      if (report) outcome.refused.push({ code: "contracts.outside", site: `$state.${k}` });
-      continue;
-    }
-    values[k] = x;
-  }
-  let kept = Object.keys(values);
-  probe.set(values);
-  if (probe.takeOutcome().refused.length) {
-    // not all together: each field that fits, and keeps the rules, one at a time
-    kept = [];
-    for (const [k, v] of Object.entries(values)) {
-      probe.set({ [k]: v });
-      const o = probe.takeOutcome();
-      if (o.refused.length) outcome.refused.push(...o.refused);
-      else kept.push(k);
-    }
-  }
-  const state = Object.fromEntries(kept.map((k) => [k, given[k]]));
-  return { page: new Page(irFile, { ...opts, state }), outcome };
+  const module = moduleOf(irFile);
+  const opts = { ...options, externs: channelsOf(module, options.externs) };
+  const fields = stateFields(module);
+  // a field the page doesn't have: told, or, when a page takes over from another, dropped without a word
+  const state = report ? given : given && Object.fromEntries(Object.entries(given).filter(([k]) => fields.has(k)));
+  const page = new Page(irFile, { ...opts, state });
+  return { page, outcome: page.takeOutcome() };
 }
-

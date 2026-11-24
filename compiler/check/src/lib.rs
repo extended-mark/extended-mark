@@ -18,6 +18,7 @@ pub mod ty;
 mod migrations;
 pub mod pieces;
 mod rir;
+mod shared;
 pub use rir::{compile_rir, compile_rir_with, sha256_hex, RirOptions};
 mod versions;
 mod view;
@@ -28,6 +29,7 @@ use xtmd_syntax::diag::Diagnostic;
 use xtmd_syntax::span::Span;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
+use shared::{Diags, Shared};
 use ty::{DefId, FnParam, Ty, Vars};
 
 /// Every code the checker reports.
@@ -397,26 +399,26 @@ pub enum RefTarget {
 
 #[derive(Clone)]
 pub struct Checker {
-    pub files: Vec<FileRec>,
-    pub packs: BTreeMap<String, PackRec>,
-    pub defs: Vec<Def>,
-    pub fns: Vec<FnSym>,
-    pub lets: Vec<LetSym>,
-    pub channels: Vec<ChannelSym>,
-    pub methods: HashMap<Recv, HashMap<String, Vec<usize>>>,
+    pub files: Shared<FileRec>,
+    pub packs: BTreeMap<String, Rc<PackRec>>,
+    pub defs: Shared<Def>,
+    pub fns: Shared<FnSym>,
+    pub lets: Shared<LetSym>,
+    pub channels: Shared<ChannelSym>,
+    pub methods: HashMap<Recv, Rc<HashMap<String, Vec<usize>>>>,
     pub vars: Vars,
-    pub diags: Vec<Found>,
-    pub decls: Vec<ir::Declaration>,
-    pub templates: Vec<ir::Template>,
+    pub diags: Diags,
     pub handlers: Vec<ir::Handler>,
     pub next_handler: usize,
     /// Token values from every tokens block: (token def, case) -> (file, value).
-    pub token_values: Vec<(DefId, String, usize, ast::Expr)>,
+    pub token_values: Shared<(DefId, String, usize, ast::Expr)>,
     /// The document's `$state` fields, and its extern channels' expose blocks.
     pub state: Option<(usize, ast::StateBlock)>,
     pub exposes: Vec<(usize, ast::Expose)>,
     /// Constants worked out at compile time, by the let's full name.
     pub constants: HashMap<String, xtmd_eval::Value>,
+    /// The program of what this compile is made on.
+    pub(crate) base: Option<Rc<xtmd_eval::Program>>,
     pub module: String,
     pub out: decl::Out,
     pub pending: Vec<body::Pending>,
@@ -461,23 +463,22 @@ pub struct Checker {
 impl Checker {
     pub fn new() -> Checker {
         Checker {
-            files: Vec::new(),
+            files: Shared::default(),
             packs: BTreeMap::new(),
-            defs: Vec::new(),
-            fns: Vec::new(),
-            lets: Vec::new(),
-            channels: Vec::new(),
+            defs: Shared::default(),
+            fns: Shared::default(),
+            lets: Shared::default(),
+            channels: Shared::default(),
             methods: HashMap::new(),
             vars: Vars::default(),
-            diags: Vec::new(),
-            decls: Vec::new(),
-            templates: Vec::new(),
+            diags: Diags::default(),
             handlers: Vec::new(),
             next_handler: 0,
-            token_values: Vec::new(),
+            token_values: Shared::default(),
             state: None,
             exposes: Vec::new(),
             constants: HashMap::new(),
+            base: None,
             module: "doc".into(),
             out: decl::Out::default(),
             pending: Vec::new(),
@@ -529,10 +530,7 @@ impl Checker {
 
     /// A diagnostic, once: a name read in several passes is reported where it is, not once a pass.
     fn report(&mut self, f: Found) {
-        let d = &f.diagnostic;
-        if !self.diags.iter().any(|x| x.file == f.file && x.diagnostic.code == d.code && x.diagnostic.span == d.span && x.diagnostic.message == d.message) {
-            self.diags.push(f);
-        }
+        self.diags.once(f);
     }
 
     /// A reference, logged when the log is on.
@@ -581,7 +579,7 @@ impl Checker {
         };
         let id = self.files.len();
         self.files.push(FileRec { path: src.path.clone(), src: Rc::from(src.text.as_str()), ast: Rc::new(file), pack: pack.clone(), scope: Scope::default() });
-        self.packs.entry(pack).or_default().files.push(id);
+        Rc::make_mut(self.packs.entry(pack).or_default()).files.push(id);
         Some(id)
     }
 
@@ -672,7 +670,7 @@ impl Checker {
     }
 
     fn declare_type(&mut self, file: usize, pack: &str, name: &ast::Ident, def: DefId) {
-        let p = self.packs.get_mut(pack).unwrap();
+        let p = Rc::make_mut(self.packs.get_mut(pack).unwrap());
         if p.types.contains_key(&name.name) {
             self.error(file, codes::DUPLICATE, name.span, format!("`{}` is declared twice in pack `{}`", name.name, pack));
             return;
@@ -681,7 +679,7 @@ impl Checker {
     }
 
     fn declare_value(&mut self, file: usize, pack: &str, name: &ast::Ident, v: ValueSym) {
-        let p = self.packs.get_mut(pack).unwrap();
+        let p = Rc::make_mut(self.packs.get_mut(pack).unwrap());
         if p.values.contains_key(&name.name) {
             self.error(file, codes::DUPLICATE, name.span, format!("`{}` is declared twice in pack `{}`", name.name, pack));
             return;
@@ -788,7 +786,7 @@ impl Checker {
                         }
                     }
                 }
-                let rec = self.packs.get_mut(pack).unwrap();
+                let rec = Rc::make_mut(self.packs.get_mut(pack).unwrap());
                 rec.provides.get_or_insert_with(HashSet::new).extend(names);
             }
             K::Tokens(_) => {}
@@ -1184,6 +1182,20 @@ impl Checker {
         }
     }
 
+    /// The declaration of a full name.
+    pub(crate) fn full_def(&self, full: &str) -> Option<DefId> {
+        self.defs.iter().position(|d| d.full == full)
+    }
+
+    /// Ready to compile on: what is here is shared from now on, and what only checking it needed is gone.
+    fn settle(&mut self) {
+        self.base = Some(Rc::new(self.program()));
+        self.out.settle();
+        self.known_at = HashMap::new();
+        self.sites = Vec::new();
+        self.slot_finds = Vec::new();
+    }
+
     pub fn generics(&mut self, file: usize, g: &Option<ast::Generics>) -> Vec<TParam> {
         let Some(g) = g else { return Vec::new() };
         let mut out = Vec::new();
@@ -1245,7 +1257,12 @@ fn core_checker(core: &[Source], logged: bool) -> Checker {
     }
     c.module = "core".into();
     for s in core {
-        c.add_file(s);
+        // the table of named characters is checked already, when the compiler is built
+        if !logged && s.text == xtmd_syntax::markdown::ENTITIES_FILE {
+            c.add_file(&Source { path: s.path.clone(), text: passes::NO_ENTITIES.into() });
+        } else {
+            c.add_file(s);
+        }
     }
     c.collect();
     c.scopes();
@@ -1253,6 +1270,7 @@ fn core_checker(core: &[Source], logged: bool) -> Checker {
     c.signatures();
     c.check_declarations();
     c.bodies();
+    c.settle();
     c
 }
 
@@ -1274,7 +1292,7 @@ pub(crate) fn compile_with(mut c: Checker, packs: &[Vec<Source>], main: &[Source
         texts.entry(s.path.clone()).or_insert_with(|| s.text.clone());
     }
     if c.diags[before..].iter().any(|d| d.diagnostic.is_error()) {
-        let diagnostics = std::mem::take(&mut c.diags);
+        let diagnostics = c.diags.take();
         return (Compiled { module: None, diagnostics, texts, constants: HashMap::new(), sites: Vec::new(), slots: Vec::new() }, c);
     }
     c.collect();
@@ -1288,7 +1306,7 @@ pub(crate) fn compile_with(mut c: Checker, packs: &[Vec<Source>], main: &[Source
     }
     let failed = c.diags.iter().any(|d| d.diagnostic.is_error());
     let module = if failed { None } else { Some(c.module_ir()) };
-    let diagnostics = std::mem::take(&mut c.diags);
+    let diagnostics = c.diags.take();
     let constants = std::mem::take(&mut c.constants);
     let sites = c.sites.iter().filter(|s| s.file >= c.from.files).map(|s| CallSite { template: s.template.clone(), site: s.site.clone(), file: c.files[s.file].path.clone(), span: s.span }).collect();
     let slots = c

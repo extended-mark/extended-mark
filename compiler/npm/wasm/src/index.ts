@@ -108,6 +108,8 @@ export interface MigrateRequest {
   step02?: Record<string, unknown>;
   /** Whether 0.2 packs were given to the 0.2 step. */
   packs02?: boolean;
+  /** As `--from mkp@0.2`: every document is MKP 0.2's, whatever it looks like. */
+  from02?: boolean;
 }
 
 /** One file's part of a migration. `result`: `migrate` (it changes, or moves to `to`), `up to date`,
@@ -141,6 +143,9 @@ export interface Migration {
   questions: Array<{ number: number; key: string; asks: string; options: string[] }>;
   asked: Array<{ number: number; asks: string; answer: boolean; by: string }>;
   needs02: string[];
+  /** Documents 0.2.10 refuses only for summaries they lack, with a placeholder in each: run the 0.2 step on
+   * `text`, and add what it printed to the document's `step02` entry as `filled`. */
+  fill02: Array<{ path: string; text: string }>;
   config: { path: string; old: string; text: string } | null;
   release: { from: string; to: string };
   error?: string;

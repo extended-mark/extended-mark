@@ -5,6 +5,7 @@ import * as esbuild from "esbuild";
 import { chromium } from "playwright-core";
 import * as cli from "extended-mark";
 import { blocksHtml, pageHtml } from "@extended-mark/embed/html";
+import { coreOf } from "../../../runtime/dist/host.js";
 import { makePage } from "../dist/page.js";
 import { bundle, compilePages, launch, open, steps } from "../../testing/browser.mjs";
 
@@ -18,11 +19,22 @@ test("makePage keeps the host's $state that fits, and says what it refused", () 
   const some = makePage(irs.v2, {}, { n: { num: "40" }, stride: { num: "3" }, gone: { num: "1" } });
   assert.deepEqual(some.page.state(), { n: { num: "0" }, stride: { num: "3" } });
   assert.deepEqual(some.outcome.refused, [
-    { code: "contracts.outside", site: "$state.gone" },
     { code: "contracts.outside", site: "$state.n" },
+    { code: "contracts.outside", site: "$state.gone" },
   ]);
   // a remount drops fields the new page doesn't have without a word
   assert.deepEqual(makePage(irs.v1, {}, { n: { num: "2" }, stride: { num: "3" } }, false).outcome.refused, []);
+});
+
+test("a page is drawn once, whatever $state it is given, and a host that draws its widgets adds no draw", () => {
+  const draws = (given) => {
+    const { page } = makePage(irs.v2, { supplies: () => true }, given);
+    page.setSupplies((w) => w.startsWith("core/"));
+    return coreOf(page).draws;
+  };
+  assert.equal(draws(undefined), 1);
+  assert.equal(draws({ n: { num: "4" }, stride: { num: "3" } }), 1);
+  assert.equal(draws({ n: { num: "40" }, stride: { num: "3" } }), 1);
 });
 
 test("pageHtml writes the page's Markdown as HTML, escaped", () => {

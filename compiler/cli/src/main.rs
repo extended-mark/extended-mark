@@ -5,9 +5,11 @@ use std::process::ExitCode;
 mod migrate;
 mod migrate_ir;
 mod examples;
+mod batch;
 mod flags;
 mod help;
 mod out;
+mod render;
 mod migrate_02;
 pub(crate) use xtmd_migrate::step as migrate_step;
 mod surface;
@@ -73,6 +75,14 @@ struct Config {
     #[serde(default)]
     #[allow(dead_code)]
     uses: std::collections::BTreeMap<String, u32>,
+    /// The engines `xtmd render` runs, each a command: `web = ["node", "render.mjs"]`.
+    #[serde(default)]
+    engines: std::collections::BTreeMap<String, Vec<String>>,
+}
+
+fn read_config(path: &std::path::Path) -> Result<Config, String> {
+    let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {}", path.display(), e))?;
+    toml::from_str(&text).map_err(|e| format!("{}: {}", path.display(), e.message()))
 }
 
 /// The `xtmd.toml` for a file or folder: the one in its folder (a folder's own, for a folder) or in a
@@ -90,8 +100,7 @@ fn config_for(named: Option<&str>, file: Option<&String>) -> Result<Vec<xtmd_che
         None => find_config(file.map(String::as_str)),
     };
     let Some(path) = path else { return Ok(Vec::new()) };
-    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {}", path.display(), e))?;
-    let config: Config = toml::from_str(&text).map_err(|e| format!("{}: {}", path.display(), e.message()))?;
+    let config = read_config(&path)?;
     let dir = path.parent().map(|d| d.to_path_buf()).unwrap_or_default();
     let mut out = Vec::new();
     for p in &config.packs {
@@ -101,7 +110,34 @@ fn config_for(named: Option<&str>, file: Option<&String>) -> Result<Vec<xtmd_che
     Ok(out)
 }
 
+/// A flag's value, as the next argument or after `=`.
+fn value_of(args: &[String], flag: &str) -> Option<String> {
+    args.iter().enumerate().rev().find_map(|(k, a)| if a == flag { args.get(k + 1).cloned() } else { a.strip_prefix(flag).and_then(|r| r.strip_prefix('=')).map(str::to_string) })
+}
+
 fn options(args: &[String]) -> Result<(Vec<String>, Vec<xtmd_check::Source>, Option<String>), String> {
+    let (files, packs, config, out) = given(args)?;
+    let all = all_packs(config.as_deref(), files.first(), packs)?;
+    Ok((files, all, out))
+}
+
+/// The packs one of the files named is compiled with.
+fn packs_for(args: &[String], file: &str) -> Result<Vec<xtmd_check::Source>, String> {
+    let (_, packs, config, _) = given(args)?;
+    all_packs(config.as_deref(), Some(&file.to_string()), packs)
+}
+
+/// The config's packs, then `--pack`'s; a file named twice is read once.
+fn all_packs(config: Option<&str>, file: Option<&String>, packs: Vec<xtmd_check::Source>) -> Result<Vec<xtmd_check::Source>, String> {
+    let mut all = config_for(config, file)?;
+    all.extend(packs);
+    let mut seen = std::collections::HashSet::new();
+    all.retain(|s| seen.insert(std::fs::canonicalize(&s.path).unwrap_or_else(|_| s.path.clone().into())));
+    Ok(all)
+}
+
+/// The files, `--pack`'s packs, `--config` and `--out`, as given.
+fn given(args: &[String]) -> Result<(Vec<String>, Vec<xtmd_check::Source>, Option<String>, Option<String>), String> {
     let (mut files, mut packs, mut out) = (Vec::new(), Vec::new(), None);
     let mut config: Option<String> = None;
     let mut k = 0;
@@ -121,6 +157,14 @@ fn options(args: &[String]) -> Result<(Vec<String>, Vec<xtmd_check::Source>, Opt
                 packs.extend(pack_sources(&a["--pack=".len()..])?);
                 k += 1;
             }
+            a if a.starts_with("--out=") => {
+                out = Some(a["--out=".len()..].to_string());
+                k += 1;
+            }
+            a if a.starts_with("--config=") => {
+                config = Some(a["--config=".len()..].to_string());
+                k += 1;
+            }
             a if flags::is_flag(a) => k += 1,
             _ => {
                 files.push(args[k].clone());
@@ -128,12 +172,7 @@ fn options(args: &[String]) -> Result<(Vec<String>, Vec<xtmd_check::Source>, Opt
             }
         }
     }
-    // the config's packs, then --pack's; a file named twice is read once
-    let mut all = config_for(config.as_deref(), files.first())?;
-    all.extend(packs);
-    let mut seen = std::collections::HashSet::new();
-    all.retain(|s| seen.insert(std::fs::canonicalize(&s.path).unwrap_or_else(|_| s.path.clone().into())));
-    Ok((files, all, out))
+    Ok((files, packs, config, out))
 }
 
 /// The packs without the file itself, however each names it: a relative path given, and the
@@ -259,31 +298,71 @@ fn plural(n: usize, one: &str) -> String {
     format!("{} {}{}", n, one, if n == 1 { "" } else { "s" })
 }
 
-/// `xtmd build doc.xtmd [--pack a,b] [--rir] [--pretty] [--out out.ir.json]`: one standalone IR, core and the packs
-/// in it; with `--rir`, the resolved IR of the document and its packs instead.
+/// A file's IR, as `xtmd build` writes it; its diagnostics are reported, and what stops it is its exit code.
+fn build_ir(base: &xtmd_check::Checker, path: &str, packs: &[xtmd_check::Source], json: bool, pretty: bool) -> Result<String, u8> {
+    let mut m = compile_file(base, path, packs, json, true)?;
+    xtmd_lower::lower(&mut m);
+    Ok(json_text(&xtmd_ir::ir::File { ir: m }, pretty))
+}
+
+/// A file compiled, its errors (and its own warnings, when asked) reported.
+fn compile_file(base: &xtmd_check::Checker, path: &str, packs: &[xtmd_check::Source], json: bool, warnings: bool) -> Result<xtmd_ir::ir::Module, u8> {
+    let text = match read(path) {
+        Ok((t, _)) => t,
+        Err(e) => {
+            eprintln!("{}", e);
+            return Err(2);
+        }
+    };
+    let module = if migrate::is_doc(path) { "doc" } else { "main" };
+    let mut c = xtmd_check::compile_on(base, &[without(packs, path)], &[xtmd_check::Source { path: path.to_string(), text }], module);
+    missing_packs(&mut c);
+    report_found(&c, path, json, warnings);
+    c.module.ok_or(1)
+}
+
+fn report_found(c: &xtmd_check::Compiled, path: &str, json: bool, warnings: bool) {
+    for d in c.diagnostics.iter().filter(|d| d.diagnostic.is_error() || (warnings && d.file == path)) {
+        if json {
+            eprintln!("{}", out::diagnostic(&d.file, &c.texts[&d.file], &d.diagnostic));
+        } else {
+            eprintln!("{}", d.diagnostic.render(&d.file, &c.texts[&d.file]));
+        }
+    }
+}
+
+/// What `build` or `md` makes of one file, written where `--out` says or printed.
+fn write_one(made: Result<String, u8>, out: Option<String>, print: impl Fn(&str)) -> ExitCode {
+    match (made, out) {
+        (Err(c), _) => ExitCode::from(c),
+        (Ok(text), Some(o)) => match out::write_file(&o, text) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("{}", e);
+                ExitCode::from(1)
+            }
+        },
+        (Ok(text), None) => {
+            print(&text);
+            ExitCode::SUCCESS
+        }
+    }
+}
+
+/// `xtmd build <files|folders>… [--pack a,b] [--rir] [--pretty] [--out out]`: each document as one standalone
+/// IR, core and the packs in it; with `--rir`, the resolved IR of the document and its packs instead.
 fn build(args: &[String]) -> ExitCode {
-    let (files, packs, out) = match options(args) {
+    let (files, _, _, out) = match given(args) {
         Ok(x) => x,
         Err(e) => {
             eprintln!("{}", e);
             return ExitCode::from(2);
         }
     };
-    if let Err(c) = one_file("build", &files) {
-        return c;
-    }
-    let Some(path) = files.first() else {
+    if files.is_empty() {
         eprintln!("{}", help::of("build").unwrap());
         return ExitCode::from(2);
-    };
-    let text = match std::fs::read_to_string(path) {
-        Ok(t) => t,
-        Err(e) => {
-            eprintln!("{}: {}", path, e);
-            return ExitCode::from(2);
-        }
-    };
-    let module = if migrate::is_doc(path) { "doc" } else { "main" };
+    }
     let rir = args.iter().any(|a| a == "--rir");
     let pretty = args.iter().any(|a| a == "--pretty");
     let with_core = args.iter().any(|a| a == "--core");
@@ -291,51 +370,46 @@ fn build(args: &[String]) -> ExitCode {
         eprintln!("--core adds core's files to the resolved IR: it goes with --rir");
         return ExitCode::from(2);
     }
-    let json_diags = match json_or_exit(args) {
+    let json = match json_or_exit(args) {
         Ok(j) => j,
         Err(c) => return c,
     };
-    let main = [xtmd_check::Source { path: path.clone(), text }];
-    let packs = without(&packs, path);
-    let (mut c, resolved) = if rir && with_core {
-        // core compiled with what its names resolve to kept, so its files are written resolved too
-        let base = xtmd_check::compile_core_logged(&core_sources());
-        xtmd_check::compile_rir_with(&base, &[packs], &main, module, xtmd_check::RirOptions { core: true, partial: false })
-    } else if rir {
-        let base = xtmd_check::compile_core(&core_sources());
-        xtmd_check::compile_rir(&base, &[packs], &main, module)
-    } else {
-        (xtmd_check::compile(&core_sources(), &[packs], &main, module), None)
-    };
-    missing_packs(&mut c);
-    for d in &c.diagnostics {
-        if d.file == *path || d.diagnostic.is_error() {
-            if json_diags {
-                eprintln!("{}", out::diagnostic(&d.file, &c.texts[&d.file], &d.diagnostic));
-            } else {
-                eprintln!("{}", d.diagnostic.render(&d.file, &c.texts[&d.file]));
-            }
+    // core compiled with what its names resolve to kept, so its files are written resolved too
+    let base = std::cell::OnceCell::new();
+    let base = || base.get_or_init(|| if with_core { xtmd_check::compile_core_logged(&core_sources()) } else { xtmd_check::compile_core(&core_sources()) });
+    let one = |path: &str, packs: &[xtmd_check::Source]| -> Result<String, u8> {
+        if !rir {
+            return build_ir(base(), path, packs, json, pretty);
         }
-    }
-    let Some(mut m) = c.module else { return ExitCode::from(1) };
-    let json = match resolved {
+        let text = read(path).map(|x| x.0).map_err(|e| {
+            eprintln!("{}", e);
+            2
+        })?;
+        let module = if migrate::is_doc(path) { "doc" } else { "main" };
+        let opts = xtmd_check::RirOptions { core: with_core, partial: false };
+        let (mut c, r) = xtmd_check::compile_rir_with(base(), &[without(packs, path)], &[xtmd_check::Source { path: path.to_string(), text }], module, opts);
+        missing_packs(&mut c);
+        report_found(&c, path, json, true);
         // the resolved IR: what the checker understood, for tools, and what the document needs
-        Some(r) => json_text(&r, pretty),
-        None => {
-            xtmd_lower::lower(&mut m);
-            json_text(&xtmd_ir::ir::File { ir: m }, pretty)
-        }
+        c.module.ok_or(1)?;
+        r.map(|r| json_text(&r, pretty)).ok_or(1)
     };
-    match out {
-        Some(o) => {
-            if let Err(e) = out::write_file(&o, json) {
+    if batch::wanted(&files, out.as_deref()) {
+        return match batch::jobs("build", &files, out.as_deref(), if rir { "rir.json" } else { "ir.json" }) {
+            Ok(jobs) => batch::run(&jobs, args, json, one),
+            Err(e) => {
                 eprintln!("{}", e);
-                return ExitCode::from(1);
+                ExitCode::from(2)
             }
-        }
-        None => out::text(&json),
+        };
     }
-    ExitCode::SUCCESS
+    match packs_for(args, &files[0]) {
+        Ok(packs) => write_one(one(&files[0], &packs), out, out::text),
+        Err(e) => {
+            eprintln!("{}", e);
+            ExitCode::from(2)
+        }
+    }
 }
 
 fn read(path: &str) -> Result<(String, xtmd_syntax::Entry), String> {
@@ -736,68 +810,55 @@ fn check(args: &[String]) -> ExitCode {
     ExitCode::from(code)
 }
 
-/// `xtmd md doc.xtmd [--pack a,b] [--format json] [--out out.md]`: the page as Markdown, with its
+/// `xtmd md <files|folders>… [--pack a,b] [--format json] [--out out]`: each page as Markdown, with its
 /// starting values; `--format json` gives its blocks as the checks read them.
 fn md(args: &[String]) -> ExitCode {
     let json = match json_or_exit(args) {
         Ok(j) => j,
         Err(c) => return c,
     };
-    let (files, packs, out) = match options(args) {
+    let (files, _, _, out) = match given(args) {
         Ok(x) => x,
         Err(e) => {
             eprintln!("{}", e);
             return ExitCode::from(2);
         }
     };
-    if let Err(c) = one_file("md", &files) {
-        return c;
-    }
-    let Some(path) = files.first() else {
+    if files.is_empty() {
         eprintln!("{}", help::of("md").unwrap());
         return ExitCode::from(2);
+    }
+    let base = std::cell::OnceCell::new();
+    let base = || base.get_or_init(|| xtmd_check::compile_core(&core_sources()));
+    let one = |path: &str, packs: &[xtmd_check::Source]| -> Result<String, u8> {
+        let mut m = compile_file(base(), path, packs, json, false)?;
+        xtmd_lower::lower(&mut m);
+        let blocks = xtmd_markdown::page(&m).map_err(|e| {
+            eprintln!("{}: writing its Markdown failed: {}", path, e.0);
+            1
+        })?;
+        Ok(if json { serde_json::to_string_pretty(&xtmd_markdown::blocks_json(&blocks)).unwrap() + "\n" } else { xtmd_markdown::write_page(m.front_matter.as_deref(), &blocks) })
     };
-    let text = match read(path) {
-        Ok((t, _)) => t,
+    if batch::wanted(&files, out.as_deref()) {
+        return match batch::jobs("md", &files, out.as_deref(), if json { "blocks.json" } else { "md" }) {
+            Ok(jobs) => batch::run(&jobs, args, json, one),
+            Err(e) => {
+                eprintln!("{}", e);
+                ExitCode::from(2)
+            }
+        };
+    }
+    match packs_for(args, &files[0]) {
+        Ok(packs) => write_one(one(&files[0], &packs), out, out::print),
         Err(e) => {
             eprintln!("{}", e);
-            return ExitCode::from(2);
-        }
-    };
-    let module = if migrate::is_doc(path) { "doc" } else { "main" };
-    let mut c = xtmd_check::compile(&core_sources(), &[without(&packs, path)], &[xtmd_check::Source { path: path.clone(), text }], module);
-    missing_packs(&mut c);
-    for d in c.diagnostics.iter().filter(|d| d.diagnostic.is_error()) {
-        if json {
-            eprintln!("{}", out::diagnostic(&d.file, &c.texts[&d.file], &d.diagnostic));
-        } else {
-            eprintln!("{}", d.diagnostic.render(&d.file, &c.texts[&d.file]));
+            ExitCode::from(2)
         }
     }
-    let Some(mut m) = c.module else { return ExitCode::from(1) };
-    xtmd_lower::lower(&mut m);
-    let blocks = match xtmd_markdown::page(&m) {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("{}: writing its Markdown failed: {}", path, e.0);
-            return ExitCode::from(1);
-        }
-    };
-    let written = if json { serde_json::to_string_pretty(&xtmd_markdown::blocks_json(&blocks)).unwrap() + "\n" } else { xtmd_markdown::write_page(m.front_matter.as_deref(), &blocks) };
-    match out {
-        Some(o) => {
-            if let Err(e) = out::write_file(&o, written) {
-                eprintln!("{}", e);
-                return ExitCode::from(1);
-            }
-        }
-        None => out::print(&written),
-    }
-    ExitCode::SUCCESS
 }
 
 /// The commands, as `xtmd help` names them.
-const COMMANDS: &[&str] = &["fmt", "check", "parse", "build", "md", "surface", "migrate", "lsp"];
+const COMMANDS: &[&str] = &["fmt", "check", "parse", "build", "md", "render", "surface", "migrate", "lsp"];
 
 /// Flags written before the command (`xtmd --format json check …`), moved to after it, where each
 /// command reads them.
@@ -849,6 +910,9 @@ fn run(args: &[String]) -> ExitCode {
         _ => {}
     }
     let (cmd, rest) = (args[0].as_str(), &args[1..]);
+    // render's: what follows the engine's name is the engine's, and nothing here reads it
+    let (own, engine) = if cmd == "render" { render::split(rest) } else { (rest.to_vec(), None) };
+    let rest = &own[..];
     if !COMMANDS.contains(&cmd) {
         if flags::is_flag(cmd) {
             eprintln!("xtmd: {} isn't a command; a flag goes with one: xtmd <command> {} …", cmd, cmd);
@@ -887,8 +951,8 @@ fn run(args: &[String]) -> ExitCode {
         eprintln!("Nothing written: xtmd {} doesn't know {}, so it stops before writing any file. Correct it and run it again.", cmd, unknown.join(", "));
         return ExitCode::from(2);
     }
-    // --out: build, md and surface write their document there; the rest, what they print
-    if !matches!(cmd, "build" | "md" | "surface") {
+    // --out: build, md, render and surface write their document there; the rest, what they print
+    if !matches!(cmd, "build" | "md" | "render" | "surface") {
         if let Some(p) = out::out_path(rest) {
             out::to_file(&p);
         }
@@ -899,6 +963,7 @@ fn run(args: &[String]) -> ExitCode {
         "check" => check(rest),
         "build" => build(rest),
         "md" => md(rest),
+        "render" => render::render_cmd(rest, engine),
         "surface" => surface::surface_cmd(rest),
         "migrate" => migrate::migrate_cmd(rest),
         // the language server: the protocol over stdin and stdout, for an editor (ide/lsp)

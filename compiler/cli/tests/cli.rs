@@ -361,6 +361,40 @@ fn migrate_moves_a_0_2_document_with_0_2_10s_own_compiler() {
 }
 
 #[test]
+fn migrate_takes_a_0_2_document_with_no_summary_and_one_named_by_from() {
+    // 0.2.9 only warned of a missing summary; 0.2.10 refuses it
+    let bare = COUNTER_02.replace("summary: A counter that starts at 3.\n", "");
+    let units3 = "package units;\n\npack units@1 {\n    uses core@1;\n    provides distance;\n}\n\nextern widget distance(km: number, label: text = \"\", summary: text = \"\") {\n    markdown { }\n}\n";
+    let runs = RUNS_02.replace("summary: A half marathon's distance.\n", "summary:\n");
+    let dir = scratch("migrate-02-summary", &[("docs/counter.mkp.md", &bare), ("docs/runs.mkp.md", &runs), ("old/units/manifest.mkp", UNITS_02_MANIFEST), ("old/units/distance.mkp", UNITS_02_DISTANCE), ("units/units.xtmdpack", units3)]);
+    let docs = dir.join("docs");
+    let packs = format!("{},{}", dir.join("old/units").display(), dir.join("units").display());
+    // the placeholder stops nothing, and is said where 0.3 keeps it
+    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--pack", &packs, "--yes"]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    let runs = std::fs::read_to_string(docs.join("runs.xtmd")).unwrap();
+    assert!(runs.contains("summary = \"TODO(xtmd migrate): say in one sentence what this shows\"") && runs.contains("// TODO(xtmd migrate): a summary to write"), "{}", runs);
+    assert!(out.contains("0.2 line 7: the distance block has no summary") || out.contains("0.2 line 6: the distance block has no summary"), "{}", out);
+    // a document's own widget has no use for one
+    let counter = std::fs::read_to_string(docs.join("counter.xtmd")).unwrap();
+    assert!(counter.contains("@counter(start = 3);") && !counter.contains("TODO("), "{}", counter);
+    assert!(!std::env::temp_dir().join(format!("xtmd-migrate-{}", std::process::id())).exists());
+
+    // one with no mark of 0.2's but a widget's fence: left as it is, and told; named as 0.2's, it moves
+    let plain = "# Runs\n\n```distance\nkm: 5\nsummary: Five kilometres.\n```\n";
+    let dir = scratch("migrate-02-from", &[("a.xtmd", plain), ("old/units/manifest.mkp", UNITS_02_MANIFEST), ("old/units/distance.mkp", UNITS_02_DISTANCE), ("units/units.xtmdpack", units3)]);
+    let a = dir.join("a.xtmd");
+    let (code, out, _) = xtmd(&["migrate", a.to_str().unwrap(), "--yes"]);
+    assert_eq!(code, 0, "{}", out);
+    assert!(out.contains("a fence with a summary: line, as a widget's block has: if it was written for MKP 0.2, xtmd migrate --from mkp@0.2 says so"), "{}", out);
+    assert_eq!(std::fs::read_to_string(&a).unwrap(), plain);
+    let packs = format!("{},{}", dir.join("old/units").display(), dir.join("units").display());
+    let (code, out, err) = xtmd(&["migrate", a.to_str().unwrap(), "--from", "mkp@0.2", "--pack", &packs, "--yes"]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    assert!(std::fs::read_to_string(&a).unwrap().contains("@distance(km = 5"));
+}
+
+#[test]
 fn migrate_uses_a_packs_own_0_3_release_and_checks_the_0_2_step_it_runs() {
     let units3 = "package units;\n\npack units@1 {\n    uses core@1;\n    provides distance;\n}\n\nextern widget distance(km: number, label: text = \"\", summary: text = \"\") {\n    markdown { }\n}\n";
     let dir = scratch("migrate-02-own", &[("docs/runs.mkp.md", RUNS_02), ("old/units/manifest.mkp", UNITS_02_MANIFEST), ("old/units/distance.mkp", UNITS_02_DISTANCE), ("units/units.xtmdpack", units3)]);

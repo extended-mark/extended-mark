@@ -115,6 +115,16 @@ pub(crate) fn print(s: &str) {
     }
 }
 
+/// Bytes to standard output, as they are.
+pub(crate) fn bytes(b: &[u8]) {
+    use std::io::Write;
+    if let Err(e) = std::io::stdout().write_all(b).and_then(|_| std::io::stdout().flush()) {
+        if e.kind() == std::io::ErrorKind::BrokenPipe {
+            std::process::exit(141);
+        }
+    }
+}
+
 /// A line for a person, beside what the command prints: on standard error, or with `--out` in the
 /// file with the rest.
 pub(crate) fn note(s: &str) {

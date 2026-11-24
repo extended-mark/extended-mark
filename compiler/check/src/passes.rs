@@ -5,6 +5,17 @@ use crate::ty::Ty;
 use crate::*;
 use xtmd_eval::{interp::Constants, FailKind, Machine, Program};
 
+/// What stands in for core/entities.xtmdpack: its table is [`entities`].
+pub(crate) const NO_ENTITIES: &str = "package core;\n\nlet entities: map<text> = map { entries = [] };\n";
+
+/// core's `entities`, as checking its file gives it.
+fn entities() -> xtmd_eval::Value {
+    use xtmd_eval::Value;
+    let record = |ty: &str, fields: Vec<(&str, Value)>| Value::Record(Rc::new(xtmd_eval::value::Record { ty: Rc::from(ty), fields: fields.into_iter().map(|(n, v)| (Rc::from(n), v)).collect() }));
+    let entries = xtmd_syntax::markdown::ENTITIES.iter().map(|(k, v)| record("record", vec![("key", Value::text(k)), ("value", Value::text(v))])).collect();
+    record("core/map", vec![("entries", Value::list(entries, &mut 0))])
+}
+
 impl Checker {
     pub(crate) fn bodies(&mut self) {
         // fns, written in Extended Mark or extern with a default
@@ -76,7 +87,7 @@ impl Checker {
             }
         }
         // tokens blocks
-        for (d, case, file, value) in self.token_values.clone().into_iter().skip(self.from.tokens) {
+        for (d, case, file, value) in self.token_values.iter().skip(self.from.tokens).cloned().collect::<Vec<_>>() {
             let DefKind::Token { value: vt, cases, .. } = self.defs[d].kind.clone() else { continue };
             let mut cx = Cx::new(file);
             let carrying = cases.iter().find(|c| c.name == case).map_or(false, |c| !c.fields.is_empty());
@@ -225,16 +236,16 @@ impl Checker {
         }
     }
 
-    /// The program so far, for the evaluator.
-    pub fn program(&mut self) -> Program {
-        let saved_out = self.out.clone();
-        let saved_handlers = self.handlers.clone();
-        let m = self.module_ir();
-        self.out = saved_out;
-        self.handlers = saved_handlers;
-        let mut p = Program::from_module(&m);
+    /// The program so far, for the evaluator: core's, made once, and what this compile declares.
+    pub fn program(&self) -> Program {
+        let mut p = self.base.as_deref().cloned().unwrap_or_default();
+        for d in self.decls_changed(&self.out).chain(self.decls_from(&self.out, self.from)) {
+            p.add(&d);
+        }
         for (k, v) in &self.constants {
-            p.lets.insert(k.clone(), v.clone());
+            if !self.base.as_ref().map_or(false, |b| b.lets.contains_key(k)) {
+                p.lets.insert(k.clone(), v.clone());
+            }
         }
         p
     }
@@ -273,7 +284,7 @@ impl Checker {
                     }
                 }
             };
-            walk_out(&mut self.out, &mut patch);
+            walk_out(&mut self.out, self.from.defs, &mut patch);
             for h in &mut self.handlers {
                 for s in &mut h.body {
                     walk_stmt(s, &mut patch);
@@ -343,7 +354,7 @@ impl Checker {
                     Err(f) => errors.push((p.file, p.span, format!("reading this Markdown failed: {}", f.message))),
                 }
             };
-            walk_out(&mut self.out, &mut patch);
+            walk_out(&mut self.out, self.from.defs, &mut patch);
             for h in &mut self.handlers {
                 for s in &mut h.body {
                     walk_stmt(s, &mut patch);
@@ -362,6 +373,14 @@ impl Checker {
         // constant lets, each once the ones it reads are known
         let mut prog = self.program();
         let mut left: Vec<usize> = (self.from.lets..self.lets.len()).collect();
+        if let Some(l) = left.iter().position(|l| &*self.files[self.lets[*l].file].src == NO_ENTITIES) {
+            let l = left.swap_remove(l);
+            let v = entities();
+            let full = self.lets[l].full.clone();
+            prog.lets.insert(full.clone(), v.clone());
+            self.out.let_values.insert(l, v.to_ir());
+            self.constants.insert(full, v);
+        }
         loop {
             let mut progress = false;
             let mut still = Vec::new();
@@ -395,7 +414,7 @@ impl Checker {
             }
         }
         // token values: constants, with their records' rules checked now
-        for (d, case, file, src) in self.token_values.clone().into_iter().skip(self.from.tokens) {
+        for (d, case, file, src) in self.token_values.iter().skip(self.from.tokens).cloned().collect::<Vec<_>>() {
             let Some(x) = self.out.token_values.get(&(d, case.clone())).cloned() else { continue };
             let mut m = Machine::new(&prog, Box::new(Constants));
             match m.eval(&x) {
@@ -408,9 +427,9 @@ impl Checker {
             }
         }
         // defaults that are constants become their values
-        let keys: Vec<(DefId, String)> = self.out.defaults.keys().cloned().collect();
+        let keys: Vec<(DefId, String)> = self.out.defaults.own().keys().cloned().collect();
         for k in keys {
-            let x = self.out.defaults[&k].clone();
+            let x = self.out.defaults.own()[&k].clone();
             let mut m = Machine::new(&prog, Box::new(Constants));
             match m.eval(&x) {
                 Ok(v) if !matches!(v, xtmd_eval::Value::Fn(_) | xtmd_eval::Value::View(_)) => {
@@ -425,9 +444,9 @@ impl Checker {
                 _ => {}
             }
         }
-        let keys: Vec<(usize, String)> = self.out.channel_defaults.keys().cloned().collect();
+        let keys: Vec<(usize, String)> = self.out.channel_defaults.own().keys().cloned().collect();
         for k in keys {
-            let x = self.out.channel_defaults[&k].clone();
+            let x = self.out.channel_defaults.own()[&k].clone();
             let mut m = Machine::new(&prog, Box::new(Constants));
             if let Ok(v) = m.eval(&x) {
                 self.out.channel_defaults.insert(k, v.to_ir());
@@ -513,23 +532,24 @@ pub(crate) fn text_of(t: &ast::TextLit) -> String {
     t.parts.iter().map(|p| if let ast::TextPart::Piece { raw, .. } = p { xtmd_syntax::lexer::decode_piece(raw) } else { String::new() }).collect()
 }
 
-fn walk_out(out: &mut decl::Out, f: &mut dyn FnMut(&mut ir::Expr)) {
-    for b in out.fn_bodies.values_mut() {
+/// Every expression this compile made: those of what it is made on are done.
+fn walk_out(out: &mut decl::Out, first: DefId, f: &mut dyn FnMut(&mut ir::Expr)) {
+    for b in out.fn_bodies.own_mut().values_mut() {
         for s in b {
             walk_stmt(s, f);
         }
     }
-    for x in out.let_values.values_mut() {
+    for x in out.let_values.own_mut().values_mut() {
         walk_expr(x, f);
     }
-    for rs in out.requires.values_mut() {
+    for rs in out.requires.own_mut().values_mut() {
         for r in rs {
             for s in &mut r.body {
                 walk_stmt(s, f);
             }
         }
     }
-    for x in out.defaults.values_mut().chain(out.token_values.values_mut()).chain(out.channel_defaults.values_mut()).chain(out.case_defaults.values_mut()) {
+    for x in out.defaults.own_mut().values_mut().chain(out.token_values.own_mut().values_mut()).chain(out.channel_defaults.own_mut().values_mut()).chain(out.case_defaults.own_mut().values_mut()) {
         walk_expr(x, f);
     }
     if let Some(s) = &mut out.state {
@@ -551,13 +571,13 @@ fn walk_out(out: &mut decl::Out, f: &mut dyn FnMut(&mut ir::Expr)) {
             }
         }
     }
-    for (_, t) in &mut out.templates {
-        walk_template(t, f);
+    for (_, t) in out.templates.iter_mut().filter(|(d, _)| *d >= first) {
+        walk_template(Rc::make_mut(t), f);
     }
     if let Some(t) = &mut out.doc {
         walk_template(t, f);
     }
-    for ns in out.extern_markdown.values_mut() {
+    for ns in out.extern_markdown.own_mut().values_mut() {
         for n in ns {
             walk_node(n, f);
         }

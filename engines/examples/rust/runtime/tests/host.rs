@@ -201,3 +201,19 @@ fn a_change_works_out_only_what_reads_it_whatever_else_is_on_the_page() {
     let per = worked(21, "other") - worked(20, "other");
     assert_eq!(worked(40, "other") - worked(20, "other"), 20 * per);
 }
+
+#[test]
+fn the_hosts_state_is_checked_before_the_page_is_drawn() {
+    let text = "$state {\n    n: int 0..10 = 3;\n    m: int = 0;\n    require \"m is over n\" {\n        return m <= n;\n    }\n}\n@@@\nn is \\{$state.n}\n";
+    let start = |state: &[(&str, &str)]| {
+        let mut p = page_with(text, PageOptions { state: state.iter().map(|(k, x)| (k.to_string(), num(x))).collect(), ..PageOptions::default() });
+        let told: Vec<String> = p.take_outcome().refused.into_iter().map(|b| b.rule.or(b.site).unwrap()).collect();
+        (p.observe_state(), told, p.revision())
+    };
+    let is = |n: &str, m: &str| BTreeMap::from([("n".to_string(), num(n)), ("m".to_string(), num(m))]);
+    // all together, where one alone would break a rule
+    assert_eq!(start(&[("m", "5"), ("n", "6")]), (is("6", "5"), vec![], 1));
+    // else each that fits, in order
+    assert_eq!(start(&[("n", "40"), ("m", "2"), ("gone", "1")]), (is("3", "2"), vec!["$state.n".into(), "$state.gone".into()], 1));
+    assert_eq!(start(&[("m", "5")]), (is("3", "0"), vec!["m is over n".into()], 1));
+}

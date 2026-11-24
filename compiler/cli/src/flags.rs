@@ -11,9 +11,10 @@ fn known(cmd: &str) -> &'static [&'static str] {
         "check" => &["--pack", "--config", "--format", "--out", "--help"],
         "build" => &["--rir", "--core", "--pretty", "--pack", "--config", "--format", "--out", "--help"],
         "md" => &["--pack", "--config", "--format", "--out", "--help"],
+        "render" => &["--engine", "--pack", "--config", "--format", "--out", "--help"],
         "surface" => &["--check", "--diff", "--stdout", "--force", "--pack", "--config", "--format", "--out", "--help"],
         "migrate" => &[
-            "--pack", "--config", "--from", "--answers", "--format", "--out", "--report", "--dry-run", "--check", "--diff", "--stdout", "--yes", "--allow-dirty", "--allow-errors", "--allow-todos", "--help",
+            "--pack", "--config", "--engine", "--from", "--answers", "--format", "--out", "--report", "--dry-run", "--check", "--diff", "--stdout", "--yes", "--allow-dirty", "--allow-errors", "--allow-todos", "--help",
         ],
         "lsp" => &["--help"],
         _ => &[],

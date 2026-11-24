@@ -44,7 +44,8 @@ pub struct PageValues {
 #[derive(Clone)]
 pub struct PageOptions {
     pub page: PageValues,
-    /// `$state`'s values, in the IR's form, over its starting ones.
+    /// `$state`'s values, in the IR's form, over its starting ones: checked as a host's write is, and what
+    /// doesn't fit is in the outcome and keeps its starting value.
     pub state: Vec<(String, Expr)>,
     /// Each channel's values, in the IR's form: `("doc/scores", [("unit", …)])`.
     pub externs: Vec<(String, Vec<(String, Expr)>)>,
@@ -1823,10 +1824,6 @@ impl Page {
                 page.rt.w().state_set(&f.name, v);
             }
         }
-        for (k, x) in &opts.state {
-            let v = page.constant(x)?;
-            page.rt.w().state_set(k, v);
-        }
         for (c, values) in &opts.externs {
             for (k, x) in values {
                 let v = page.constant(x)?;
@@ -1834,8 +1831,31 @@ impl Page {
             }
         }
         page.apply_page(opts.page);
+        page.start_from(&opts.state)?;
         page.redraw()?;
         Ok(page)
+    }
+
+    /// `$state` as the host gives it, before the page is drawn: checked as a host's write is, all
+    /// together, or else each field that fits and keeps the rules, one at a time. What doesn't keeps its
+    /// starting value.
+    fn start_from(&mut self, given: &[(String, Expr)]) -> R<()> {
+        let mut values = Vec::new();
+        for (k, x) in given {
+            match self.constant(x) {
+                Ok(v) => values.push((k.clone(), v)),
+                Err(_) => self.rt.w().outcome.refused.push(broken_code("contracts.outside", &format!("$state.{}", k))),
+            }
+        }
+        let told = self.rt.w.borrow().outcome.refused.len();
+        if values.is_empty() || self.write_state(values.clone())? {
+            return Ok(());
+        }
+        self.rt.w().outcome.refused.truncate(told);
+        for (k, v) in values {
+            self.write_state(vec![(k, v)])?;
+        }
+        Ok(())
     }
 
     /// Runs `f` with a machine on the page's program, its host the page: one per change, its
@@ -2218,6 +2238,14 @@ impl Page {
     pub fn set(&mut self, changes: Vec<(String, Value)>) -> R<()> {
         self.changes += 1;
         self.reset_steps();
+        if self.write_state(changes)? {
+            self.redraw()?;
+        }
+        Ok(())
+    }
+
+    /// `$state` fields written, checked: refused whole, or done. Nothing is drawn.
+    fn write_state(&mut self, changes: Vec<(String, Value)>) -> R<bool> {
         let snap = self.snapshot();
         for (k, v) in changes {
             let f = self.rt.s.state_decl.as_ref().and_then(|s| s.fields.iter().find(|f| f.name == k)).cloned();
@@ -2228,7 +2256,7 @@ impl Page {
             if !ok {
                 self.restore(snap);
                 self.rt.w().outcome.refused.push(broken_code("contracts.outside", &format!("$state.{}", k)));
-                return Ok(());
+                return Ok(false);
             }
             let mut w = self.rt.w();
             w.state_set(&k, v);
@@ -2238,9 +2266,9 @@ impl Page {
         if let Some(rule) = rule {
             self.restore(snap);
             self.rt.w().outcome.refused.push(broken_rule(&rule));
-            return Ok(());
+            return Ok(false);
         }
-        self.redraw()
+        Ok(true)
     }
 
     /// A host calling a fn the document exposes.

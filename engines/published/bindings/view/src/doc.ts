@@ -241,13 +241,13 @@ export class Doc {
     this.irHash = hash(irText(irFile));
     const p = this.props;
     // `$state` as the host gives it, checked as a host's write is: what doesn't fit is refused
-    const { page, outcome } = makePage(irFile, { page: p.page, externs: p.externs, fns: this.fns }, given);
     const registry = { ...core, ...(p.widgets ?? {}), ...(p.components ?? {}) };
-    page.setSupplies((w) => Object.hasOwn(registry, w));
+    const { page, outcome } = makePage(irFile, { page: p.page, externs: p.externs, fns: this.fns, supplies: (w) => Object.hasOwn(registry, w) }, given);
     this.page = page;
     this.tokens = new Tokens(page);
     this.shown = JSON.stringify(page.state());
     for (const r of outcome.refused) p.onError?.({ kind: "refused", ...r });
+    for (const f of outcome.failures) p.onError?.({ kind: "failed", ...f });
     if (snap) this.restore(snap);
     this.unlisten = page.onChange(() => this.changed());
     this.notify();

@@ -237,7 +237,8 @@ fn migrate_02_doc(base: &xtmd_check::Checker, packs: &[Pack], sources: &[Source]
     // compiled as what it becomes: a 0.2 name is checked as the document it is written as
     let doc_path = written_as(path).display().to_string();
     let compiles = |world: &[Source], text: &str| xtmd_check::compile_on(base, &[world.to_vec()], &[Source { path: doc_path.clone(), text: text.to_string() }], "doc");
-    let stamped = crate::v02::stamped(text);
+    // `--from mkp@0.2` says it as a front matter would
+    let stamped = step02.from || crate::v02::stamped(text);
     // 0.3's: a `@@@` line, or 0.3 in its prose; Markdown alone reads the same in both
     if !stamped && (xtmd_syntax::has_divider(text) || crate::v02::speaks_03(text)) {
         return None;
@@ -321,6 +322,8 @@ fn migrate_02_doc(base: &xtmd_check::Checker, packs: &[Pack], sources: &[Source]
         o.refused.push(format!("0.3 can't yet say {} thing{} the way 0.2 did ({}): --allow-todos writes it with a TODO at each", n, if n == 1 { "" } else { "s" }, what.join("; ")));
         return Some(o);
     }
+    // a summary to write never stops it: 0.2.9 only warned of one that was missing
+    o.todos.extend(m.placeholders);
     // then up to the versions of the 0.3 packs it uses, through their migrations
     if !from.is_empty() {
         let next = migrate_doc(base, packs, sources, &world, path, &o.text, &from, uses);
@@ -718,6 +721,8 @@ pub struct Step02<'a> {
     pub run: &'a dyn Fn(&Path) -> Result<v02::Migrated, v02::Failed>,
     /// Whether 0.2 packs were given to build the documents with.
     pub packs_given: bool,
+    /// Whether every document is 0.2's, whatever it looks like: `--from mkp@0.2`.
+    pub from: bool,
 }
 
 /// What a pass over the files works with: the build as the release steps left it, and what the tree
@@ -823,7 +828,13 @@ pub fn pass(t: &Tree, docs: &[(PathBuf, String)]) -> (Vec<(PathBuf, String, Outc
     for (d, text) in docs {
         let o = match migrate_02_doc(base, packs, sources, &now, d, text, t.step02, &mut stand_ins, t.stand_in_dir, t.uses) {
             Some(o) => o,
-            None => doc_through_releases(base, packs, sources, &now, d, text, t.from, t.uses, t.release_steps, t.release_label),
+            None => {
+                let mut o = doc_through_releases(base, packs, sources, &now, d, text, t.from, t.uses, t.release_steps, t.release_label);
+                if let Some(why) = v02::may_be_02(text).filter(|_| !xtmd_syntax::has_divider(text) && !v02::speaks_03(text)) {
+                    o.notices.push(format!("it has {}: if it was written for MKP 0.2, xtmd migrate --from mkp@0.2 says so, and the 0.2 step takes it", why));
+                }
+                o
+            }
         };
         results.push((d.clone(), text.clone(), o));
     }

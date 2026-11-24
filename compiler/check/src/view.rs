@@ -603,11 +603,11 @@ impl Checker {
                 }
                 ast::WidgetMember::Tokens(refs) => {
                     let tokens = self.extern_tokens(file, refs);
-                    self.out.extern_tokens.entry(d).or_default().extend(tokens);
+                    self.out.extern_tokens.entry_or_default(d).extend(tokens);
                 }
                 ast::WidgetMember::Uses(refs) => {
                     let levels = self.extern_uses(file, refs);
-                    self.out.extern_uses.entry(d).or_default().extend(levels);
+                    self.out.extern_uses.entry_or_default(d).extend(levels);
                 }
                 ast::WidgetMember::Markdown(md) => {
                     if let Some(p) = &md.piece {
@@ -654,7 +654,7 @@ impl Checker {
             markdown: md,
             levels: Vec::new(),
         };
-        self.out.templates.push((d, t));
+        self.out.templates.push((d, Rc::new(t)));
     }
 
     /// Prose as nodes. Each run of Markdown between Extended Mark's own lines is split into blocks, and
@@ -1051,7 +1051,7 @@ impl Checker {
         if let Some((name, iface)) = &want {
             for c in &calls {
                 let ok = match (c, iface) {
-                    (Some(called), Some(i)) => match self.defs.iter().position(|d| d.full == *called) {
+                    (Some(called), Some(i)) => match self.full_def(called) {
                         Some(w) => self.accepts(&Ty::Any(*i, Vec::new()), &Ty::Def(w, self.defs[w].generics.iter().map(|_| Ty::Err).collect()), &[]).is_some(),
                         None => false,
                     },

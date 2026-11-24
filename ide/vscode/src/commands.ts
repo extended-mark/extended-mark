@@ -235,16 +235,19 @@ export function commands(context: vscode.ExtensionContext, { log, host, previews
       const packs02 = root ? (await vscode.workspace.findFiles(new vscode.RelativePattern(root, "**/manifest.mkp"), "**/node_modules/**")).map((m) => vscode.Uri.joinPath(m, "..")) : [];
       request.packs02 = packs02.length > 0;
       request.step02 = {};
+      const run = async (n: string, text?: string): Promise<unknown> => {
+        const doc = uri(n);
+        return host.run02 && doc.scheme === "file"
+          ? await host.run02(doc.fsPath, packs02.filter((p) => p.scheme === "file").map((p) => p.fsPath), text).catch((e: unknown) => ({ notRun: `the 0.2 → 0.3 step didn't run: ${e instanceof Error ? e.message : String(e)}` }))
+          : { notRun: "the 0.2 → 0.3 step runs with Node, which VS Code in a browser doesn't have: migrate it in VS Code on the desktop" };
+      };
       await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "Extended Mark: reading the MKP 0.2 documents" }, async () => {
-        for (const n of plan.needs02) {
-          const doc = uri(n);
-          request.step02![n] =
-            host.run02 && doc.scheme === "file"
-              ? await host.run02(doc.fsPath, packs02.filter((p) => p.scheme === "file").map((p) => p.fsPath)).catch((e: unknown) => ({ notRun: `the 0.2 → 0.3 step didn't run: ${e instanceof Error ? e.message : String(e)}` }))
-              : { notRun: "the 0.2 → 0.3 step runs with Node, which VS Code in a browser doesn't have: migrate it in VS Code on the desktop" };
-        }
+        for (const n of plan.needs02) request.step02![n] = await run(n);
+        plan = c.migrate(request);
+        // those 0.2.10 refuses only for summaries they lack, with a placeholder in each
+        for (const f of plan.fill02) request.step02![f.path] = { ...(request.step02![f.path] as object), filled: await run(f.path, f.text) };
+        if (plan.fill02.length) plan = c.migrate(request);
       });
-      plan = c.migrate(request);
     }
 
     // the questions only a person can answer, one at a time; the plan is made again with the answers
