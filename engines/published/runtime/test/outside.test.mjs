@@ -8,6 +8,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Page } from "../dist/index.js";
+import { fits } from "./fits.mjs";
 import { xtmdBinary, workdir, repo } from "./xtmd.mjs";
 
 const pages = join(repo, "checks/pages");
@@ -25,6 +26,43 @@ function change(p, d) {
   if (d.write) p.write(d.write.id, d.write.input, d.write.value);
   if (d.event) p.event(d.event.id, d.event.name, d.event.args);
 }
+
+/** The same changes, as actions. */
+const actions = (d) => [
+  ...(d.set ? [{ set: { fields: d.set } }] : []),
+  ...(d.extern ? [{ extern: { channel: "doc/host", values: d.extern } }] : []),
+  ...(d.expose ? [{ expose: { channel: "doc/host", name: d.expose.name, args: d.expose.args } }] : []),
+  ...(d.write ? [{ write: d.write }] : []),
+  ...(d.event ? [{ event: d.event }] : []),
+];
+
+test("each change is the same as an action, and what it led to is told once", () => {
+  for (const c of changes) {
+    const p = new Page(ir);
+    const before = holds(p);
+    for (const a of actions(c.do)) {
+      // what comes wrong is an action all the same: the page says no
+      assert.equal(fits(a, "actions", "action"), undefined, c.name);
+      p.act(a);
+    }
+    const told = p.told();
+    assert.equal(fits(told, "told", "told"), undefined, c.name);
+    assert.deepEqual(told, { ...(c.refused ? { refused: c.refused } : {}), ...(c.failures ? { failures: c.failures } : {}) }, c.name);
+    assert.deepEqual(p.told(), {}, c.name);
+    assert.deepEqual(holds(p), { ...before, ...c.state }, c.name);
+  }
+});
+
+test("the page's values and its data are actions too", () => {
+  const p = new Page(ir);
+  const data = p.data();
+  p.act({ set: { fields: { n: { num: "7" } } } });
+  p.act({ page: { values: { theme: { case: { enum: "core/theme", name: "DARK" } } } } });
+  assert.equal(p.given()["core/page.theme"].case.name, "DARK");
+  p.act({ restore: { data } });
+  assert.deepEqual(p.data(), data);
+  assert.throws(() => p.act({ erase: {} }), /is no action/);
+});
 
 for (const c of changes) {
   test(`from outside: ${c.name}`, () => {

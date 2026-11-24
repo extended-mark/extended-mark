@@ -79,6 +79,61 @@ fn what_comes_from_outside_is_of_its_type_or_refused() {
     }
 }
 
+/// A change of outside.json's, as actions.
+fn actions(d: &Json) -> Vec<Json> {
+    let mut out = Vec::new();
+    if d["set"].is_object() {
+        out.push(json!({"set": {"fields": d["set"]}}));
+    }
+    if d["extern"].is_object() {
+        out.push(json!({"extern": {"channel": "doc/host", "values": d["extern"]}}));
+    }
+    if d["expose"].is_object() {
+        out.push(json!({"expose": {"channel": "doc/host", "name": d["expose"]["name"], "args": d["expose"]["args"]}}));
+    }
+    out.extend(["write", "event"].iter().filter(|k| d[**k].is_object()).map(|k| json!({*k: d[*k]})));
+    out
+}
+
+#[test]
+fn each_change_is_the_same_as_an_action_and_what_it_led_to_is_told_once() {
+    let m = module();
+    let cases: Json = serde_json::from_str(&std::fs::read_to_string(repo().join("checks/pages/outside.json")).unwrap()).unwrap();
+    for c in cases["changes"].as_array().unwrap() {
+        let name = c["name"].as_str().unwrap();
+        let mut p = Page::from_module(m.clone(), PageOptions::default()).unwrap();
+        let mut want = holds(&p);
+        for a in actions(&c["do"]) {
+            let a: xtmd_runtime::actions::Action = serde_json::from_value(a.clone()).unwrap_or_else(|e| panic!("{name}: {a}: {e}"));
+            p.act(&a).unwrap();
+        }
+        let mut told = serde_json::Map::new();
+        for k in ["refused", "failures"] {
+            if let Some(x) = c.get(k) {
+                told.insert(k.into(), x.clone());
+            }
+        }
+        assert_eq!(serde_json::to_value(p.told()).unwrap(), Json::Object(told), "{name}");
+        assert_eq!(serde_json::to_value(p.told()).unwrap(), json!({}), "{name}");
+        if c["state"].is_object() {
+            want.extend(fields(&c["state"]));
+        }
+        assert_eq!(holds(&p), want, "{name}");
+    }
+}
+
+#[test]
+fn the_pages_values_and_its_data_are_actions_too() {
+    let mut p = Page::from_module(module(), PageOptions::default()).unwrap();
+    let data = p.data().unwrap();
+    let act = |p: &mut Page, a: Json| p.act(&serde_json::from_value(a).unwrap()).unwrap();
+    act(&mut p, json!({"set": {"fields": {"n": {"num": "7"}}}}));
+    act(&mut p, json!({"page": {"values": {"theme": {"case": {"enum": "core/theme", "name": "DARK"}}}}}));
+    assert_eq!(serde_json::to_value(p.given_extern("core/page.theme").unwrap().to_ir()).unwrap()["case"]["name"], "DARK");
+    act(&mut p, json!({"restore": {"data": data}}));
+    assert_eq!(p.data().unwrap(), data);
+}
+
 #[test]
 fn what_a_page_starts_from_is_checked_as_what_comes_later_is() {
     let mut opts = PageOptions::default();

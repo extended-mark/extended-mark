@@ -5,11 +5,13 @@
 use std::collections::{BTreeMap, HashMap};
 
 use xtmd_eval::{Failure, Value};
+use xtmd_ir::actions::Action;
 use xtmd_ir::ir;
 use xtmd_ir::state::Data;
+use xtmd_ir::told::Told;
 use xtmd_ir::tree::{Change, Child, Contract, Ends, Input, InputCase, InputFn, InputRange, InputRecord, InputTokval, Node, Tree};
 
-use crate::page::{Drawn, Page};
+use crate::page::{Drawn, Page, PageData, PageValues};
 
 type R<T> = Result<T, Failure>;
 
@@ -18,6 +20,21 @@ pub(crate) struct HeldFn {
     value: Value,
     deps: HashMap<String, u64>,
     version: i64,
+}
+
+/// A value a host gives, as the IR writes one: a token is the case it is.
+fn expr_of(x: &Input) -> R<ir::Expr> {
+    if let Input::Token(t) = x {
+        if let Some((ty, name)) = t.rsplit_once('.') {
+            return Ok(ir::Expr::Case(ir::ExprCase { enum_: ty.to_string(), name: name.to_string(), values: BTreeMap::new() }));
+        }
+    }
+    let json = serde_json::to_value(x).map_err(|e| Failure::ir(e.to_string()))?;
+    serde_json::from_value(json).map_err(|e| Failure::ir(format!("widgets and fns are the page's own: {}", e)))
+}
+
+fn exprs(xs: &BTreeMap<String, Input>) -> R<Vec<(String, ir::Expr)>> {
+    xs.iter().map(|(k, x)| Ok((k.clone(), expr_of(x)?))).collect()
 }
 
 /// A host's fns, by node and input.
@@ -74,6 +91,51 @@ impl Page {
         let json = serde_json::to_value(x).map_err(|e| Failure::ir(e.to_string()))?;
         let e: ir::Expr = serde_json::from_value(json).map_err(|e| Failure::ir(format!("widgets and fns are the page's own: {}", e)))?;
         self.value(&e)
+    }
+
+    // ---- as the formats say: one change in, what it led to out
+
+    /// One change from outside (`schemas/actions.schema.json`): the same as the call of its name.
+    pub fn act(&mut self, a: &Action) -> R<()> {
+        match a {
+            Action::Event(e) => match self.given_all(&e.args, &e.id) {
+                Some(args) => self.event(&e.id, &e.name, args),
+                None => Ok(()),
+            },
+            Action::Write(w) => match self.given(&expr_of(&w.value)?, &w.id) {
+                Some(v) => self.write(&w.id, &w.input, v),
+                None => Ok(()),
+            },
+            Action::Set(s) => self.set_given(&exprs(&s.fields)?),
+            Action::Expose(e) => match self.given_all(&e.args, &format!("{}.{}", e.channel, e.name)) {
+                Some(args) => self.expose(&e.channel, &e.name, args),
+                None => Ok(()),
+            },
+            Action::Extern(x) => self.set_extern_given(&x.channel, &exprs(&x.values)?),
+            Action::Page(p) => {
+                let name = |k: &str| match p.values.get(k) {
+                    Some(Input::Case(c)) => serde_json::Value::String(c.name.clone()),
+                    _ => serde_json::Value::Null,
+                };
+                let read = |e: serde_json::Error| Failure::ir(e.to_string());
+                self.set_page(PageValues { width: serde_json::from_value(name("width")).map_err(read)?, theme: serde_json::from_value(name("theme")).map_err(read)? })
+            }
+            Action::Restore(r) => {
+                let own = r.data.own.iter().map(|(p, vs)| Ok((p.clone(), exprs(vs)?.into_iter().collect()))).collect::<R<_>>()?;
+                self.restore(&PageData { state: exprs(&r.data.state)?, own }).map(|_| ())
+            }
+        }
+    }
+
+    /// What the page tells since it was last taken (`schemas/told.schema.json`).
+    pub fn told(&mut self) -> Told {
+        let calls = serde_json::to_value(self.take_calls()).and_then(serde_json::from_value).unwrap_or_default();
+        let o = self.take_outcome();
+        Told { calls, refused: o.refused, failures: o.failures, warnings: self.take_warnings() }
+    }
+
+    fn given_all(&self, args: &[Input], site: &str) -> Option<Vec<Value>> {
+        args.iter().map(|a| expr_of(a).ok().and_then(|x| self.given(&x, site))).collect()
     }
 
     // ---- inside

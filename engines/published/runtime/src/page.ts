@@ -383,44 +383,6 @@ export class Core {
     return out;
   }
 
-  /** Every `shade` drawn, by path: the fn it was given, by name, and its arguments (plan tab 16,
-   * `shaded`). With `samples`, also the colour at the area's two corners and its middle, worked
-   * out by the shader itself, as the test engine does. */
-  observeShaded(samples = false): Record<string, { shader: string; args: ir.Expr; samples?: { at: ir.Expr; pixel: ir.Expr }[] }> {
-    const out: Record<string, { shader: string; args: ir.Expr; samples?: { at: ir.Expr; pixel: ir.Expr }[] }> = {};
-    const walk = (nodes: readonly Drawn[]) => {
-      for (const n of nodes) {
-        if (n.widget === "core/shade") {
-          const fn = n.props.get("shader");
-          const args = n.props.get("args") ?? none();
-          const entry: { shader: string; args: ir.Expr; samples?: { at: ir.Expr; pixel: ir.Expr }[] } = { shader: fn ? shaderName(fn) : "", args: toIr(args) };
-          const area = n.props.get("area");
-          if (samples && fn && area?.kind === "record") {
-            const pt = (name: string) => area.fields.find(([k]) => k === name)?.[1];
-            const from = pt("from");
-            const to = pt("to");
-            const coord = (p: V | undefined, k: string) => (p?.kind === "record" ? p.fields.find(([f]) => f === k)?.[1] : undefined);
-            const fx = coord(from, "x"), fy = coord(from, "y"), tx = coord(to, "x"), ty = coord(to, "y");
-            if (fx?.kind === "num" && fy?.kind === "num" && tx?.kind === "num" && ty?.kind === "num") {
-              const half = Num.literal("0.5")!;
-              const point = (x: Num, y: Num): V => ({ kind: "record", ty: "core/point", fields: [["x", { kind: "num", n: x }], ["y", { kind: "num", n: y }]] }) as V;
-              const px = { kind: "num", n: tx.n.sub(fx.n).abs().div(Num.int(64)) } as V;
-              entry.samples = [point(fx.n, fy.n), point(fx.n.add(tx.n).mul(half), fy.n.add(ty.n).mul(half)), point(tx.n, ty.n)].map((at) => {
-                this.machine.resetSteps();
-                const pixel = this.machine.apply(fn, [{ value: at }, { value: px }, { value: args }]);
-                return { at: toIr(at), pixel: pixel ? toIr(pixel) : { none: {} } };
-              });
-            }
-          }
-          out[n.path] = entry;
-        }
-        for (const kids of childrenOf(n)) walk(kids);
-      }
-    };
-    walk(this.drawn);
-    return out;
-  }
-
   /** `$state` as it is now, in the IR's form. */
   observeState(): Record<string, ir.Expr> {
     const out: Record<string, ir.Expr> = {};
@@ -1789,16 +1751,6 @@ export class Core {
   externsNow(): Map<string, V> {
     return this.externs;
   }
-}
-
-/** A shader's name: a named fn is lowered to a lambda that calls it with its own parameters. */
-function shaderName(f: V): string {
-  if (f.kind !== "fn" || f.body.length !== 1) return "";
-  const ret = (f.body[0] as { return?: { value?: ir.Expr } }).return?.value as { call?: ir.Call } | undefined;
-  const call = ret?.call;
-  if (!call) return "";
-  const passes = (call.args ?? []).length === f.params.length && (call.args ?? []).every((a, k) => (a as { get?: { local?: string } }).get?.local === f.params[k].name);
-  return passes ? call.name : "";
 }
 
 function sameRecord<T>(a: Record<string, T>, b: Record<string, T>): boolean {

@@ -53,14 +53,5 @@ pub fn observe(page: &mut Page, drawn: Option<Vec<String>>) -> Result<String, Xt
     if !found.is_empty() {
         o["boxes"] = Json::Object(found);
     }
-    // a shade's fn and arguments; the colour samples are the test engine's own
-    let shaded = page.observe_shaded(false)?;
-    if !shaded.is_empty() {
-        let mut s = Map::new();
-        for (path, sh) in shaded {
-            s.insert(path, json!({ "shader": sh.shader, "args": to_json(&sh.args)? }));
-        }
-        o["shaded"] = Json::Object(s);
-    }
     serde_json::to_string(&o).map_err(|e| failed(e.to_string()))
 }

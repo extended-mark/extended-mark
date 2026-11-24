@@ -8,7 +8,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
-import { HostPage, coreOf, pageBlocks, toIr, childrenOf } from "../dist/internal.js";
+import { HostPage, Num, coreOf, pageBlocks, toIr, childrenOf } from "../dist/internal.js";
 import { engineFns } from "./sizes.mjs";
 import { xtmdBinary, workdir } from "./xtmd.mjs";
 
@@ -29,6 +29,41 @@ function boxes(nodes, out = {}) {
     if (fields) out[d.path] = Object.fromEntries(["from", "to"].map((k) => [k, { x: fields[k].record.fields.x, y: fields[k].record.fields.y }]));
     for (const kids of childrenOf(d)) boxes(kids, out);
   }
+  return out;
+}
+
+/** A shader's name: a named fn is lowered to a lambda that calls it with its own parameters. */
+function shaderName(f) {
+  const call = f.kind === "fn" && f.body.length === 1 ? f.body[0].return?.value?.call : undefined;
+  return call && (call.args ?? []).length === f.params.length && (call.args ?? []).every((a, k) => a.get?.local === f.params[k].name) ? call.name : "";
+}
+
+/** Every shade drawn, by path: its shader's name, its arguments, and the colour the shader works out at the
+ * area's two corners and its middle. */
+function shaded(page) {
+  const out = {};
+  const num = (n) => ({ kind: "num", n });
+  const point = (x, y) => ({ kind: "record", ty: "core/point", fields: [["x", num(x)], ["y", num(y)]] });
+  const of = (v, k) => v.fields.find(([f]) => f === k)[1];
+  const walk = (nodes) => {
+    for (const n of nodes) {
+      if (n.widget === "core/shade") {
+        const [fn, args, area] = ["shader", "args", "area"].map((k) => n.props.get(k));
+        const entry = (out[n.path] = { shader: fn ? shaderName(fn) : "", args: args ? toIr(args) : { none: {} } });
+        if (fn && area) {
+          const [fx, fy, tx, ty] = [["from", "x"], ["from", "y"], ["to", "x"], ["to", "y"]].map(([p, k]) => of(of(area, p), k).n);
+          const half = Num.parse("0.5");
+          const px = num(tx.sub(fx).abs().div(Num.int(64)));
+          entry.samples = [point(fx, fy), point(fx.add(tx).mul(half), fy.add(ty).mul(half)), point(tx, ty)].map((at) => {
+            page.machine.resetSteps();
+            return { at: toIr(at), pixel: toIr(page.machine.apply(fn, [{ value: at }, { value: px }, { value: args }])) };
+          });
+        }
+      }
+      for (const kids of childrenOf(n)) walk(kids);
+    }
+  };
+  walk(page.tree());
   return out;
 }
 
@@ -64,7 +99,7 @@ function expect(page, want, at) {
         assert.deepEqual(boxes(page.tree()), { ...boxes(page.tree()), ...w }, `${at} boxes`);
         break;
       case "shaded":
-        within(w, page.observeShaded(true), `${at} shaded`);
+        within(w, shaded(page), `${at} shaded`);
         break;
       case "markdown":
         if (w.blocks) assert.deepEqual(JSON.parse(JSON.stringify(pageBlocks(page))), w.blocks, `${at} Markdown`);

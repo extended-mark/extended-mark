@@ -202,15 +202,6 @@ pub struct Outcome {
     pub failures: Vec<Broken>,
 }
 
-/// A shade drawn: the fn it was given, by name ("" for a lambda), and its arguments; with
-/// samples, the colour at the area's two corners and its middle.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Shaded {
-    pub shader: String,
-    pub args: Expr,
-    pub samples: Option<Vec<(Expr, Expr)>>,
-}
-
 fn broken_code(code: &str, site: &str) -> Broken {
     Broken { code: Some(code.to_string()), rule: None, site: Some(site.to_string()) }
 }
@@ -2209,61 +2200,6 @@ impl Page {
         out
     }
 
-    /// Every `shade` drawn, by path: the fn it was given, by name, and its arguments (plan tab
-    /// 16, `shaded`). With `samples`, also the colour at the area's two corners and its middle,
-    /// worked out by the shader itself, as the test engine does.
-    pub fn observe_shaded(&self, samples: bool) -> R<BTreeMap<String, Shaded>> {
-        fn shades<'a>(nodes: &'a [Drawn], out: &mut Vec<&'a Drawn>) {
-            for n in nodes {
-                if n.widget == "core/shade" {
-                    out.push(n);
-                }
-                for kids in n.slots.values().chain(n.held.iter()) {
-                    shades(kids, out);
-                }
-            }
-        }
-        let mut found = Vec::new();
-        shades(&self.drawn, &mut found);
-        let mut out = BTreeMap::new();
-        for n in found {
-            let f = n.props.get("shader");
-            let args = n.props.get("args").cloned().unwrap_or_else(Value::none);
-            let mut entry = Shaded { shader: f.map_or_else(String::new, shader_name), args: args.to_ir(), samples: None };
-            let corners = match n.props.get("area") {
-                Some(Value::Record(area)) => {
-                    let coord = |p: &str, k: &str| match area.get(p) {
-                        Some(Value::Record(pt)) => pt.get(k).and_then(|v| match v {
-                            Value::Num(n) => Some(*n),
-                            _ => None,
-                        }),
-                        _ => None,
-                    };
-                    match (coord("from", "x"), coord("from", "y"), coord("to", "x"), coord("to", "y")) {
-                        (Some(fx), Some(fy), Some(tx), Some(ty)) => Some((fx, fy, tx, ty)),
-                        _ => None,
-                    }
-                }
-                _ => None,
-            };
-            if let (true, Some(f), Some((fx, fy, tx, ty))) = (samples, f, corners) {
-                let half = Num::parse("0.5").unwrap();
-                let point = |x: Num, y: Num| Value::Record(Rc::new(Record { ty: Rc::from("core/point"), fields: vec![(Rc::from("x"), Value::Num(x)), (Rc::from("y"), Value::Num(y))] }));
-                let px = Value::Num(tx.sub(fx)?.abs().div(Num::int(64))?);
-                let ats = [point(fx, fy), point(fx.add(tx)?.mul(half)?, fy.add(ty)?.mul(half)?), point(tx, ty)];
-                let mut taken = Vec::new();
-                for at in ats {
-                    self.reset_steps();
-                    let pixel = self.with_machine(|_, m| m.apply(f, vec![Binding::Value(at.clone()), Binding::Value(px.clone()), Binding::Value(args.clone())]))?;
-                    taken.push((at.to_ir(), pixel.map_or(Expr::None(ir::Empty {}), |p| p.to_ir())));
-                }
-                entry.samples = Some(taken);
-            }
-            out.insert(n.path.clone(), entry);
-        }
-        Ok(out)
-    }
-
     /// `$state` as it is now, in the IR's form.
     pub fn observe_state(&self) -> BTreeMap<String, Expr> {
         self.rt.w.borrow().state.iter().map(|(k, v)| (k.clone(), v.to_ir())).collect()
@@ -2847,7 +2783,7 @@ impl Page {
 
     /// A value a host gives, in the IR's form: one that can't be made, such as a record whose own rule is
     /// false, is refused, and `None`.
-    fn given(&self, x: &Expr, site: &str) -> Option<Value> {
+    pub(crate) fn given(&self, x: &Expr, site: &str) -> Option<Value> {
         match self.constant(x) {
             Ok(v) => Some(v),
             Err(f) => {
@@ -2989,15 +2925,3 @@ fn find_node<'a>(nodes: &'a [Drawn], is: &dyn Fn(&Drawn) -> bool) -> Option<&'a 
     None
 }
 
-/// A shader's name: a named fn is lowered to a lambda that calls it with its own parameters.
-fn shader_name(f: &Value) -> String {
-    let Value::Fn(c) = f else { return String::new() };
-    let [Stmt::Return(r)] = c.body.as_slice() else { return String::new() };
-    let Some(Expr::Call(call)) = &r.value else { return String::new() };
-    let passes = call.args.len() == c.params.len() && call.args.iter().zip(c.params.iter()).all(|(a, p)| matches!(a, Expr::Get(ir::Get::Local(n)) if *n == p.name));
-    if passes {
-        call.name.clone()
-    } else {
-        String::new()
-    }
-}

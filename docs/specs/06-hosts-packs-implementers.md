@@ -295,6 +295,7 @@ A host and an engine share these kinds of JSON, each with a schema (`schemas/`),
 - **The drawn tree** (`tree.schema.json`, `tree`): what there is to draw now. It is made from the other two, and never stored.
 - **What the page tells** (`told.schema.json`): the host's fns it called, what was refused or failed, and its warnings.
 - **The page's Markdown as blocks** (`blocks.schema.json`), before it is text.
+- **What is done to the page** (`actions.schema.json`): the reader's events, the widgets' writes and the host's own changes, each one change.
 
 A host draws any page from the tree with no more than this page, page 5's extern widgets and the schemas.
 
@@ -325,7 +326,8 @@ A sentence is nodes too: `words`, the marks around them, and any other widget am
 | `setExtern(channel, values)`, `setPage(values)` | Gives a channel's values, and the page's width and theme |
 | `markdown()` | The page's Markdown, with the values it has now |
 | `lacking()` | What the page's `needs` lists that nobody gives |
-| `takeCalls()`, `takeOutcome()`, `takeWarnings()` | The host's fns the page called, what was refused or failed, and the `warn`s found false, since they were last taken |
+| `takeCalls()`, `takeOutcome()`, `takeWarnings()` | The host's fns the page called, what was refused or failed, and the `warn`s found false, since they were last taken. `told()` is all of it, as `told.schema.json` writes it |
+| `act(action)` | Any of the changes above, as `actions.schema.json` writes it, and the same as the call of its name |
 
 Every value in either direction is JSON in the IR's form. An engine gives these in its own language's way, with these names.
 

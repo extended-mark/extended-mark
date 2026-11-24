@@ -3,7 +3,9 @@
 // data, to keep and to put back. What it is made on is never part of it.
 
 import type * as ir from "./generated/ir.js";
+import type { Action } from "./generated/actions.js";
 import type { Data } from "./generated/state.js";
+import type { Told } from "./generated/told.js";
 import type { Change, Child, Contract, Ends, Input, Node, Tree } from "./generated/tree.js";
 import { Failure } from "./eval/index.js";
 import { toIr, type Value as V } from "./eval/value.js";
@@ -122,6 +124,29 @@ export class Page {
   onChange(listener: (changes: Change[]) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  // ---- as the formats say: one change in, what it led to out
+
+  /** One change from outside (`schemas/actions.schema.json`): the same as the call of its name below. */
+  act(a: Action): void {
+    if ("event" in a) this.event(a.event.id, a.event.name, a.event.args);
+    else if ("write" in a) this.write(a.write.id, a.write.input, a.write.value);
+    else if ("set" in a) this.set(a.set.fields);
+    else if ("expose" in a) this.expose(a.expose.channel, a.expose.name, a.expose.args);
+    else if ("extern" in a) this.setExtern(a.extern.channel, a.extern.values);
+    else if ("page" in a) {
+      const name = (x: Input | undefined) => (x && "case" in x ? x.case.name : undefined);
+      this.setPage({ width: name(a.page.values.width), theme: name(a.page.values.theme) } as PageValues);
+    } else if ("restore" in a) this.restore(a.restore.data);
+    else throw Failure.ir(`${JSON.stringify(a)} is no action`);
+  }
+
+  /** What the page tells since it was last taken (`schemas/told.schema.json`): what isn't there, there is none of. */
+  told(): Told {
+    const { refused, failures } = this.takeOutcome();
+    const all: Told = { calls: this.takeCalls(), refused, failures, warnings: this.takeWarnings() };
+    return Object.fromEntries(Object.entries(all).filter(([, x]) => x.length));
   }
 
   // ---- what the reader and the widgets do
