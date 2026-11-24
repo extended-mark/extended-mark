@@ -5,6 +5,6 @@ fn count(xs: list<number>): number {
     return xs.len();
 }
 
-fn uses(xs: list<number>): number {
+fn user(xs: list<number>): number {
     return count(xs);
 }

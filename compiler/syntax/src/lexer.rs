@@ -51,6 +51,10 @@ pub enum Kw {
     False,
     As,
     Token,
+    Provides,
+    Uses,
+    Migration,
+    Execute,
     State,
 }
 
@@ -96,6 +100,10 @@ pub const KEYWORDS: &[(&str, Kw)] = &[
     ("false", Kw::False),
     ("as", Kw::As),
     ("token", Kw::Token),
+    ("provides", Kw::Provides),
+    ("uses", Kw::Uses),
+    ("migration", Kw::Migration),
+    ("execute", Kw::Execute),
     ("$state", Kw::State),
 ];
 

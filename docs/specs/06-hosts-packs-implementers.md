@@ -74,7 +74,7 @@ migration kit@1 to kit@2 {
 - **A statement is a call with named arguments.** Where a parameter takes a name, the argument is written bare and checked: `input = color` is an input `chart` had in `kit@1`, and `to = tone` one `plot` has in `kit@2`. Anywhere else a name is the value the use gave, so in `set(input = values, value = values.map(…))` the first `values` is the input and the second its value. A case is written in full, `state.LATE`.
 - **`why`** is a text any statement takes. It is shown to whoever migrates, beside each change. Leaving it out of a statement that changes a use is a warning, `rename` aside, whose new name says what changed; `notify` says nothing without it, so there it is a compile error.
 - **`when`** is a condition some statements take, over the use: its inputs by name, `given(name)`, constants, and `&&`, `||` and `!`. The statement applies to the uses where it holds.
-- **The words** `migration`, `to` and `execute` mean something only where a migration is written, so they stay free as names.
+- **The words** `migration` and `execute` are keywords. `to` means something only where a migration is written, so it stays free as a name.
 
 | Statement | What it does to each use |
 |---|---|

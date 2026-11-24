@@ -3,7 +3,7 @@
 // colours its source with Monaco and Extended Mark's own tokenizer (language.ts) in the same colours.
 
 const KEYWORDS = new Set(
-  "package import enum record type interface implements widget extern expose fn pack tokens mut let event invoke view markdown require warn if else for in match case return only step void any param slot try with self true false as token".split(
+  "package import enum record type interface implements widget extern expose fn pack tokens mut let event invoke view markdown require warn if else for in match case return only step void any param slot try with self true false as token provides uses migration execute".split(
     " ",
   ),
 );

@@ -10,7 +10,7 @@ widget pick() {
     }
 }
 
-widget uses() {
+widget user() {
     view {
         @pick(chosen = 3);
     }

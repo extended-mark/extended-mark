@@ -86,8 +86,8 @@ fn a_migration_holds_blocks_headed_by_a_kind_and_an_old_name() {
     assert_eq!(err("package kit;\nmigration kit@1 to kit@2 { rename(to = plot); }\n"), "syntax.migration-line");
     assert_eq!(err("package kit;\nmigration kit@1 kit@2 { }\n"), "syntax.expected");
     assert_eq!(format("migration kit@1 to kit@2 { }\n@@@\nHi\n", Entry::Document).unwrap_err()[0].code, "syntax.migration-line");
-    // `migration` is a word only at the start of one
-    assert_eq!(fmt("package t;\n\nlet migration: number = 1;\n"), "package t;\n\nlet migration: number = 1;\n");
+    // and it is a keyword, so nothing else starts with it
+    assert_eq!(err("package t;\n\nlet migration: number = 1;\n"), "syntax.keyword-as-name");
 }
 
 #[test]

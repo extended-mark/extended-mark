@@ -494,7 +494,7 @@ impl<'a> Parser<'a> {
                 t.span,
                 "there are no fixtures in the language for now: core's tests are the compiler's own",
             )),
-            Tok::Name if self.text_of(t.span) == "migration" && self.starts_migration()? => {
+            Tok::Kw(Kw::Migration) => {
                 if !self.in_pack() {
                     return Err(Diagnostic::error(
                         codes::MIGRATION_LINE,
@@ -968,8 +968,7 @@ impl<'a> Parser<'a> {
             Tok::Kw(Kw::Tokens) if external => {
                 (3, WidgetMember::Tokens(self.tokens_line()?))
             }
-            // `uses` is a word only here and in a pack block
-            Tok::Name if external && self.text_of(t.span) == "uses" => {
+            Tok::Kw(Kw::Uses) if external => {
                 self.bump()?;
                 let mut refs = vec![self.uses_ref()?];
                 while self.eat(P::Comma)? {
@@ -1102,11 +1101,6 @@ impl<'a> Parser<'a> {
         self.token_ident()
     }
 
-    /// `migration kit@1 to …` or `migration fn …`: `migration` is a word only there.
-    fn starts_migration(&mut self) -> R<bool> {
-        Ok(self.kind_at(1)? == Tok::Kw(Kw::Fn) || (self.kind_at(1)? == Tok::Name && self.kind_at(2)? == Tok::P(P::At)))
-    }
-
     /// `migration kit@1 to kit@2 { widget chart { … } … }`
     fn migration_decl(&mut self) -> R<MigrationDecl> {
         self.bump()?;
@@ -1160,7 +1154,7 @@ impl<'a> Parser<'a> {
     fn migration_body(&mut self, open: Span) -> R<Body<MigrationStmt>> {
         self.body(open, |p| {
             let t = p.peek()?.clone();
-            if t.kind == Tok::Name && p.text_of(t.span) == "execute" && p.kind_at(1)? == Tok::P(P::LBrace) {
+            if t.kind == Tok::Kw(Kw::Execute) {
                 p.bump()?;
                 return Ok(MigrationStmt::Execute(p.block(BlockKind::Code)?));
             }
@@ -1209,8 +1203,7 @@ impl<'a> Parser<'a> {
         let open = self.expect(P::LBrace)?;
         let lines = self.body(open, |p| {
             let t = p.peek()?.clone();
-            let word = p.text_of(t.span);
-            let line = if t.kind == Tok::Name && word == "uses" {
+            let line = if t.kind == Tok::Kw(Kw::Uses) {
                 p.bump()?;
                 let mut refs = Vec::new();
                 loop {
@@ -1222,7 +1215,7 @@ impl<'a> Parser<'a> {
                     }
                 }
                 PackLine::Uses(refs)
-            } else if t.kind == Tok::Name && word == "provides" {
+            } else if t.kind == Tok::Kw(Kw::Provides) {
                 p.bump()?;
                 let mut names = vec![p.ident("a name")?];
                 while p.eat(P::Comma)? {

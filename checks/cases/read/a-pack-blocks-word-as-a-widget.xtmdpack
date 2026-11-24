@@ -1,0 +1,5 @@
+package t;
+
+extern widget provides() {
+    markdown { }
+}

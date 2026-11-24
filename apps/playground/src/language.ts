@@ -16,7 +16,7 @@ const keywords = [
   "package", "import", "enum", "record", "type", "interface", "implements", "widget", "extern", "expose", "fn",
   "pack", "tokens", "mut", "let", "event", "invoke", "view", "markdown", "require", "warn", "if", "else", "for", "in",
   "match", "case", "return", "only", "step", "void", "any", "param", "slot", "try", "with", "self", "true",
-  "false", "as", "token",
+  "false", "as", "token", "provides", "uses", "migration", "execute",
 ];
 
 // core's own types, coloured as types wherever they are named
