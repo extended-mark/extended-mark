@@ -82,10 +82,13 @@ test("a document with errors gives them, with no IR, and the compiler goes on", 
 
 test("a pack given as text is used, and one the document names but isn't given is an error", () => {
   const pack = { path: "shapes/shapes.xtmdpack", text: "package shapes;\n\npack shapes@1 {\n    provides double;\n}\n\nfn double(x: number): number {\n    return x * 2;\n}\n" };
-  const doc = "import shapes;\n@@@\nTwice: \\{double(4)}\n";
+  const doc = "import shapes;\n$state {\n    n: number = 4;\n}\n@@@\nTwice: \\{double($state.n)}\n";
   const ok = compiler.build("page.xtmd", doc, [pack]);
   assert.equal(ok.errors, 0, JSON.stringify(ok.diagnostics));
   assert.ok(JSON.stringify(ok.ir).includes("shapes/double"));
+  // one of a constant is worked out, and the fn isn't needed
+  const worked = compiler.build("page.xtmd", "import shapes;\n@@@\nTwice: \\{double(4)}\n", [pack]);
+  assert.ok(JSON.stringify(worked.ir).includes('"8"') && !JSON.stringify(worked.ir).includes("shapes/double"));
   const missing = compiler.build("page.xtmd", doc);
   assert.ok(missing.errors > 0 && missing.diagnostics.some((d) => d.code === "names.unknown-pack"), JSON.stringify(missing.diagnostics));
 });
