@@ -6,6 +6,7 @@ tools/release/
   packages.mjs        npm packages in the order they build
   build-ts.mjs        installs, builds, tests them (--test, --test-only)
   publish-npm.mjs, publish-crates.sh
+  android-failures.py which Android tests failed, and whether they may be tried again
   preflight.mjs       could every registry take this release
   README.md           how a release happens; test/
 tools/llm/check.mjs   holds CLAUDE.md, .index/ and .knowledge/ to the repository; test/
