@@ -74,3 +74,18 @@ export function layoutPlanes(page: Page, measure: Measure): void {
     return { writes: planes.flatMap((p) => writesOf(page, p, measure)), of: planes.map((p) => p.id) };
   });
 }
+
+/** The sizes read from a page's elements. */
+export function measured(element: (id: string) => HTMLElement | null | undefined): Measure {
+  return {
+    spot(s) {
+      const el = element(s.id);
+      return { width: Num.int(Math.max(0, el?.offsetWidth ?? 0)), height: Num.int(Math.max(0, el?.offsetHeight ?? 0)) };
+    },
+    planeWidth(p) {
+      const el = element(p.id);
+      const view = el?.querySelector?.("[data-part='plane.view']") as HTMLElement | null | undefined;
+      return Num.int(Math.max(0, Math.round((view ?? el)?.clientWidth ?? 0)));
+    },
+  };
+}

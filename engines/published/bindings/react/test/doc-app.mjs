@@ -1,8 +1,8 @@
-// The test host for <XtmdDoc>: drawn by React itself, `$state` controlled by the host, with the
+// The test host for <XtmdDoc> and for the pages the engine built (#pages): drawn by React itself, `$state` controlled by the host, with the
 // controls the shared doc steps use (testing/browser.mjs, docSteps).
 import { createElement as h, useState, useRef, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { XtmdDoc } from "@extended-mark/react";
+import { page } from "#pages";
 
 const heard = { states: [], errors: [], calls: [] };
 let controls;
@@ -21,9 +21,10 @@ function App() {
   const ref = useRef(null);
   controls = { setIr, setTheme, setUnit, setState, unmount: () => setShown(false), ref };
   if (!shown) return null;
-  return h(XtmdDoc, {
+  const { of, props } = page(which);
+  return h(of, {
     ref,
-    ir: window.__IR[which],
+    ...props,
     state,
     components: window.__mine ? components : undefined,
     page: { theme },

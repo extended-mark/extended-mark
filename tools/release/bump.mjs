@@ -100,7 +100,7 @@ function places(repo) {
   pattern(join(android, "README.md"), /(xtmd:xtmd-android:)(\d+\.\d+\.\d+)()/g);
   pattern(join(android, "xtmd-android", "src", "main", "kotlin", "xtmd", "android", "XtmdDoc.kt"), /(const val RELEASE = ")([^"]+)(")/g);
   for (const f of files(join(repo, "schemas", "examples"), (n) => n.endsWith(".json"))) pattern(f, /("xtmd": ")([^"]+)(")/g);
-  pattern(join(repo, "engines", "published", "bindings", "view", "src", "snapshot.ts"), /(export const RELEASE = ")([^"]+)(")/g);
+  pattern(join(repo, "engines", "published", "widgets", "src", "snapshot.ts"), /(export const RELEASE = ")([^"]+)(")/g);
   pattern(join(repo, "tools", "release", "README.md"), /(carries the release's version \()(\d+\.\d+\.\d+)(\))/g);
   pattern(join(repo, "ide", "vscode", "README.md"), /(# xtmd-)(\d+\.\d+\.\d+)(\.vsix)/g);
   return out.filter((p) => existsSync(p.file));

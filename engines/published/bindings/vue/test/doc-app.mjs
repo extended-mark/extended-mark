@@ -1,7 +1,7 @@
-// The test host for <XtmdDoc>: drawn by Vue itself, `$state` controlled by the host, with the controls
+// The test host for <XtmdDoc> and for the pages the engine built (#pages): drawn by Vue itself, `$state` controlled by the host, with the controls
 // the shared doc steps use (testing/browser.mjs, docSteps).
 import { createApp, h, ref, shallowRef } from "vue";
-import { XtmdDoc } from "@extended-mark/vue";
+import { page } from "#pages";
 
 const heard = { states: [], errors: [], calls: [] };
 const which = ref("v1");
@@ -20,9 +20,9 @@ const App = {
   setup() {
     return () =>
       shown.value
-        ? h(XtmdDoc, {
+        ? h(page(which.value).of, {
             ref: docRef,
-            ir: window.__IR[which.value],
+            ...page(which.value).props,
             state: state.value,
             components: window.__mine ? components : undefined,
             page: { theme: theme.value },

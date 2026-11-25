@@ -56,7 +56,7 @@ export interface Options {
 }
 
 /** The options, with which of ours the host's widgets replace. */
-interface Given extends Options {
+export interface GivenOptions extends Options {
   replaced?: ReadonlySet<string>;
 }
 
@@ -64,10 +64,15 @@ const require = createRequire(import.meta.url);
 /** Where a package of ours is, as this one finds it. */
 const here = dirname(require.resolve("@extended-mark/widgets")).replace(/dist$/, "");
 
+/** What is plugged in, and the widgets there are then. */
+export async function plugged(given: Options): Promise<{ options: GivenOptions; supplies: (widget: string) => boolean }> {
+  const mine: Record<string, ViewWidget> = given.widgets ? ((await import(pathToFileURL(resolve(given.widgets)).href)).widgets ?? {}) : {};
+  const options: GivenOptions = { ...given, replaced: new Set(Object.keys(mine)) };
+  return { options, supplies: (w) => Object.hasOwn(mine, w) || (!options.only && Object.hasOwn(NAMES, w)) };
+}
+
 export async function build(job: Job, given: Options = {}): Promise<Files> {
-  const mine: Record<string, ViewWidget> = given.widgets ? (await import(pathToFileURL(resolve(given.widgets)).href)).widgets ?? {} : {};
-  const options: Given = { ...given, replaced: new Set(Object.keys(mine)) };
-  const supplies = (w: string) => Object.hasOwn(mine, w) || (!options.only && Object.hasOwn(NAMES, w));
+  const { options, supplies } = await plugged(given);
   const pages: { name: string; page: Page; title: string; frontMatter?: string }[] = [];
   for (const d of job.documents) pages.push({ name: d.name, ...(await page(d.name, d.ir, supplies, options)) });
 
@@ -93,7 +98,7 @@ export async function build(job: Job, given: Options = {}): Promise<Files> {
   return { version: 1, files };
 }
 
-const escape = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+export const escape = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
 /** The page around a page, when the host has none. */
 function plain(p: Shell): string {
@@ -121,7 +126,7 @@ interface Page {
   script?: string;
 }
 
-async function page(name: string, m: ir.Module, supplies: (w: string) => boolean, options: Given): Promise<{ page: Page; title: string; frontMatter?: string }> {
+async function page(name: string, m: ir.Module, supplies: (w: string) => boolean, options: GivenOptions): Promise<{ page: Page; title: string; frontMatter?: string }> {
   const full = generate(m, { supplies });
   const made = await run(full, options);
   const doc = m.templates.find((t) => t.name === "doc")!;
@@ -162,22 +167,22 @@ function plainElement(c: Child): boolean {
   return is;
 }
 
-const TOKENS = (types: Record<string, Record<string, Input>>) => Object.entries(types).map(([name, values]) => ({ name, values }));
+export const TOKENS = (types: Record<string, Record<string, Input>>) => Object.entries(types).map(([name, values]) => ({ name, values }));
 
 /** The page's widgets and the host's, imported. */
-function widgetsCode(g: Generated, options: Given): { imports: string; registry: string } {
+export function widgetsCode(g: Generated, options: GivenOptions): { imports: string; registry: string } {
   const ours = options.only ? [] : g.widgets.filter((w) => Object.hasOwn(NAMES, w) && !options.replaced?.has(w));
   const imports = [ours.length ? `import{${ours.map((w) => `${NAMES[w]} as W${NAMES[w]}`).join(",")}}from"@extended-mark/widgets/each";` : "", options.widgets ? `import{widgets as mine}from${JSON.stringify(resolve(options.widgets))};` : ""].join("");
   return { imports, registry: `{${[...ours.map((w) => `${JSON.stringify(w)}:W${NAMES[w]}`), ...(options.widgets ? ["...mine"] : [])].join(",")}}` };
 }
 
-function fnsCode(g: Generated, options: Given): { imports: string; fns: string } {
+export function fnsCode(g: Generated, options: GivenOptions): { imports: string; fns: string } {
   const imports = [g.local ? `import{webFns}from"@extended-mark/widgets";` : "", options.fns ? `import{fns as given}from${JSON.stringify(resolve(options.fns))};` : ""].join("");
   const of = [g.local ? "...webFns()" : "", options.fns ? "...given" : ""].filter(Boolean);
   return { imports, fns: of.length ? `fns:()=>({${of.join(",")}}),` : "" };
 }
 
-function pageScript(name: string, g: Generated, tokens: Record<string, Record<string, Input>>, sheet: string, html: (true | number)[], options: Given): string {
+function pageScript(name: string, g: Generated, tokens: Record<string, Record<string, Input>>, sheet: string, html: (true | number)[], options: GivenOptions): string {
   const w = widgetsCode(g, options);
   const f = fnsCode(g, options);
   return `${w.imports}${f.imports}import{mount as start${g.calls ? ",withCalls" : ""}}from"@extended-mark/web/kit";${g.planes ? `import{layout}from"@extended-mark/web/layout";` : ""}
@@ -198,14 +203,14 @@ interface Run {
 }
 
 /** The whole page's code, run here: what it starts as. */
-async function run(g: Generated, options: Given): Promise<Run> {
+export async function run(g: Generated, options: GivenOptions): Promise<Run> {
   const w = widgetsCode(g, options);
   const f = fnsCode(g, options);
   const code = `${w.imports}${f.imports}import{kitOf,Nodes,drawingOf${g.calls ? ",withCalls" : ""}}from"@extended-mark/web/kit";
 ${g.code}
 export const built=tokens=>({program,widgets:${w.registry},tokens,html:[],${f.fns}${g.calls ? "calls:withCalls," : ""}});
 export {kitOf,Nodes,drawingOf};`;
-  const out = await esbuild.build({ stdin: { contents: code, resolveDir: here, loader: "js" }, bundle: true, write: false, format: "esm", platform: "node", plugins: [own], logLevel: "silent" });
+  const out = await esbuild.build({ stdin: { contents: code, resolveDir: here, loader: "js" }, bundle: true, write: false, format: "esm", platform: "node", plugins: [ours()], logLevel: "silent" });
   const mod = (await import(`data:text/javascript;base64,${Buffer.from(out.outputFiles[0].text).toString("base64")}`)) as {
     built(tokens: BuiltPage["tokens"]): BuiltPage;
     tokens(m: Kit): Record<string, Record<string, Input>>;
@@ -241,21 +246,29 @@ export {kitOf,Nodes,drawingOf};`;
   };
 }
 
-/** Our own packages, wherever the engine is run. */
-const own: esbuild.Plugin = {
+/** Our own packages, wherever the engine is run: this package's, or those of the one whose engine it is. */
+const ours = (theirs: NodeJS.Require = require): esbuild.Plugin => ({
   name: "xtmd",
   setup(b) {
     b.onResolve({ filter: /^@extended-mark\// }, (a) => {
-      const path = require.resolve(a.path);
-      return existsSync(path) ? { path, sideEffects: false } : undefined;
+      for (const from of [require, theirs]) {
+        try {
+          const path = from.resolve(a.path);
+          if (existsSync(path)) return { path, sideEffects: false };
+        } catch {
+          // not this one's
+        }
+      }
+      return undefined;
     });
     // numbers' library, which is only its classes
     b.onResolve({ filter: /^decimal\.js$/ }, async (a) => (a.pluginData === "asked" ? undefined : { path: (await b.resolve(a.path, { resolveDir: a.resolveDir, kind: a.kind, pluginData: "asked" })).path, sideEffects: false }));
   },
-};
+});
 
-/** The pages' scripts, sharing what they have in common. */
-async function bundle(pages: { name: string; code: string }[], options: Given, files: Files["files"]): Promise<Map<string, string>> {
+/** The pages' scripts, sharing what they have in common. `more` says what is left outside, whose packages are found, and
+ * whether a page's script keeps its page's name. */
+export async function bundle(pages: { name: string; code: string }[], options: GivenOptions, files: Files["files"], more: { external?: string[]; from?: NodeJS.Require; named?: boolean } = {}): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   if (!pages.length) return out;
   const entries: esbuild.Plugin = {
@@ -274,10 +287,11 @@ async function bundle(pages: { name: string; code: string }[], options: Given, f
     platform: "browser",
     target: "es2022",
     minify: !options.readable,
-    outdir: "assets",
-    entryNames: "[dir]/[name]-[hash]",
-    chunkNames: "shared-[hash]",
-    plugins: [own, entries],
+    outdir: more.named ? "." : "assets",
+    entryNames: more.named ? "[dir]/[name]" : "[dir]/[name]-[hash]",
+    chunkNames: more.named ? "assets/shared-[hash]" : "shared-[hash]",
+    external: more.external,
+    plugins: [ours(more.from), entries],
     metafile: true,
     legalComments: "none",
     logLevel: "silent",

@@ -1,8 +1,8 @@
-// The test host for <XtmdDoc>: drawn by Solid itself, `$state` controlled by the host, with the
+// The test host for <XtmdDoc> and for the pages the engine built (#pages): drawn by Solid itself, `$state` controlled by the host, with the
 // controls the shared doc steps use (testing/browser.mjs, docSteps).
 import { createComponent, createSignal, Show } from "solid-js";
 import { Dynamic, render } from "solid-js/web";
-import { XtmdDoc } from "@extended-mark/solid";
+import { page } from "#pages";
 
 const heard = { states: [], errors: [], calls: [] };
 const [which, setIr] = createSignal("v1");
@@ -28,10 +28,13 @@ render(
         return shown();
       },
       get children() {
-        return createComponent(XtmdDoc, {
+        return createComponent(Dynamic, {
+          get component() {
+            return page(which()).of;
+          },
           ref: (h) => (handle = h),
           get ir() {
-            return window.__IR[which()];
+            return page(which()).props.ir;
           },
           get state() {
             return state();

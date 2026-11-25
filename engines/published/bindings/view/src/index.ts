@@ -5,6 +5,6 @@
 
 export { Doc, type DocProps } from "./doc.js";
 export { channelName, channelsOf, irText, makePage, moduleOf, sameIr, stateFields, type Given, type Ir } from "./page.js";
-export { RELEASE, dataOf, hash, type DocError, type Restored, type Snapshot } from "./snapshot.js";
+export { Held, RELEASE, dataOf, hash, type DocError, type HeldProps, type Restored, type Snapshot } from "@extended-mark/widgets";
 export { Patcher, act, attr, children, cls, composing, css, escapeHtml, h, on, prop, s, slotsOf, textOf, toHtml, toJson, walk, widgets, type Action, type Child, type Component, type Drawing, type Hook, type Host, type VNode, type ViewContext, type ViewWidget, type WidgetProps } from "@extended-mark/widgets";
 export type { Call, Input, Node, Outcome, Page, PageValues, ir } from "@extended-mark/runtime";

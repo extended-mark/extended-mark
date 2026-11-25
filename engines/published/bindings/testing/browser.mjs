@@ -6,7 +6,7 @@
 //
 // A test host sets `window.__test` (see `steps` below for what it holds) and draws into #host.
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
@@ -22,6 +22,16 @@ export const pages = {
 /** The test pages' IR, compiled by the xtmd binary through xtmd. */
 export async function compilePages(cli) {
   return { v1: await cli.build(pages.v1), v2: await cli.build(pages.v2), notes: await cli.build(pages.notes) };
+}
+
+/** The test pages as an engine's components, written into `dir`: each page's file there, by its name. */
+export async function builtPages(build, irs, dir, options = {}) {
+  rmSync(dir, { recursive: true, force: true });
+  const job = { version: 1, documents: Object.entries(irs).map(([name, ir]) => ({ name, ir: ir.ir })) };
+  for (const f of (await build(job, options)).files) {
+    mkdirSync(dirname(join(dir, f.path)), { recursive: true });
+    writeFileSync(join(dir, f.path), f.text);
+  }
 }
 
 /** Chromium from the system: XTMD_CHROMIUM, or /usr/bin/chromium. Never downloaded. */
@@ -149,8 +159,9 @@ export async function steps(page) {
  *   "v2" | "notes")` and `unmount()`, as in `steps`.
  *
  * `stylesheet` is where the page's stylesheet is: in the page (@extended-mark/view's) or in the document (@extended-mark/dom's).
+ * A page an engine built has no Markdown (`markdown` false), and another page is another component.
  */
-export async function docSteps(page, { stylesheet = "page" } = {}) {
+export async function docSteps(page, { stylesheet = "page", markdown = true } = {}) {
   const app = () => page.evaluate(() => document.querySelector("#app")?.textContent ?? "");
   await until(page, () => document.querySelector("#app")?.textContent?.includes("Count: 0 items"), null, "the page to render");
   assert.equal(await page.evaluate(() => document.querySelectorAll("[data-xtmd-root]").length), 1, "one page drawn");
@@ -182,7 +193,7 @@ export async function docSteps(page, { stylesheet = "page" } = {}) {
   await until(page, () => document.querySelector("#app").textContent.includes("Count: 0 items"), null, "expose");
   await page.evaluate(() => window.__test.handle().set({ n: { num: "3" } }));
   await until(page, () => document.querySelector("#app").textContent.includes("Count: 3 items"), null, "the handle's write");
-  assert.equal(await page.evaluate(() => window.__test.handle().markdown()), "# Count: 3 items\n\nAdd one\n");
+  if (markdown) assert.equal(await page.evaluate(() => window.__test.handle().markdown()), "# Count: 3 items\n\nAdd one\n");
 
   // props: externs, the theme, a new IR with $state kept where its fields still exist
   await page.evaluate(() => window.__test.setUnit("pts"));

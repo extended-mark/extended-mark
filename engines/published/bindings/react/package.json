@@ -16,6 +16,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./built": {
+      "types": "./dist/built.d.ts",
+      "default": "./dist/built.js"
+    },
+    "./engine": {
+      "types": "./dist/engine.d.ts",
+      "default": "./dist/engine.js"
     }
   },
   "files": [
@@ -30,15 +38,26 @@
     "@extended-mark/view": "file:../view"
   },
   "peerDependencies": {
+    "@extended-mark/web": "0.4.0",
     "react": "^19.0.0"
   },
   "devDependencies": {
+    "@extended-mark/web": "file:../../web",
     "extended-mark": "file:../../../../compiler/npm/extended-mark",
     "@types/react": "19.3.0",
     "esbuild": "0.28.2",
     "playwright-core": "1.64.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "@types/node": "20.19.43"
+  },
+  "bin": {
+    "xtmd-react": "./dist/cli.js"
+  },
+  "peerDependenciesMeta": {
+    "@extended-mark/web": {
+      "optional": true
+    }
   }
 }
