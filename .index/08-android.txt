@@ -14,4 +14,5 @@ ANDROID  built and tested, never published. renderers/compose is the Gradle proj
     sample/             a host with two pages
     tokens.xtmdpack     core's tokens as Material 3 draws them
 
-Kotlin sources: src/main/kotlin/xtmd/android/ in each. Tests (JVM, Robolectric): src/test/ in each.
+Kotlin sources: src/main/kotlin/xtmd/android/ in each (runtime/kotlin: only what UniFFI writes, native/).
+Tests (JVM, Robolectric): src/test/ in each but runtime/kotlin.

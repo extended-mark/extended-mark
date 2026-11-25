@@ -1,8 +1,8 @@
 A PLANE'S LAYOUT
 Three parts. Pure: boxes in, places out (lay), in the plane's units, so panning and zooming change none.
 The driver, with the widgets: finds planes and spots, measures, writes back (layoutPlanes on the web).
-The page: settle runs passes until one changes nothing, at most eight; each pass's writes are one
-change. One that never settles is a failure of what it was for, held until something else changes.
+The page: settle runs passes until one changes nothing, at most eight; a pass's writes are
+all made or none. One that never settles is a failure of what it was for, held until something else changes.
 TypeScript: runtime/typescript/src/layout.ts, widgets/web/src/planes.ts, settle in
 runtime/typescript/src/page.ts.
 Rust: runtime/rust/src/layout.rs, runtime/planes, page.rs.

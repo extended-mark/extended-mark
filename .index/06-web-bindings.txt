@@ -1,4 +1,4 @@
-THE WEB'S RENDERERS AND LIVE DOCUMENTS  renderers/, live/    each a package on npm, @extended-mark/<folder>
+THE WEB'S RENDERERS AND LIVE DOCUMENTS  renderers/, live/    each a package on npm
 
   renderers/react, renderers/vue, renderers/svelte, renderers/solid, renderers/angular
                        <XtmdDoc>, a page from its IR; src/engine.ts its engine, for pages built ahead
@@ -11,6 +11,7 @@ THE WEB'S RENDERERS AND LIVE DOCUMENTS  renderers/, live/    each a package on n
                        @extended-mark/<name>-live: <XtmdLiveDoc>
 
 Where the props are read: renderers/<name>/src/doc.ts (svelte: src/XtmdDoc.svelte).
-What they mean: widgets/web/src/held.ts. How elements are made: src/elements.ts beside doc.ts.
+What they mean: widgets/web/src/held.ts. How elements are made: elements.ts beside
+doc.ts (svelte: node.ts and XtmdNode.svelte; angular: page.ts).
 Their engines: .index/14-web-engine.txt.
 Order they build in: tools/release/packages.mjs (by dependencies).

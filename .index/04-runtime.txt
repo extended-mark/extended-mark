@@ -1,12 +1,12 @@
 RUNTIME (TypeScript)  runtime/typescript    npm @extended-mark/runtime
 
-  src/index.ts          what a host imports: Page, apply, Num, layout, writeMarkdown
+  src/index.ts          what a host imports: Page, apply, Num, lay, writeMarkdown
   src/host.ts           Page: the host's side, values as JSON in the IR's form; the tree and changes
   src/page.ts           Core: the page running
                           redraw, drawNodes, drawNode, drawExtern, drawUse    drawing
                           Frame, hold, enter, exit, unchanged, reuse          what is kept from last time
                           event, write, set, expose, setExtern, transaction   changes
-                          takes, refusal, given, takesArgs, stateRefusal      what comes from outside
+                          refusal, given, takesArgs, stateRefusal      what comes from outside
                           restoreData, restoreOwn                             page data put back
                           contains, failed, checkRules                        failures
   src/eval/ops.ts       Ops: equality, contracts, records, places, limits; no IR walked
