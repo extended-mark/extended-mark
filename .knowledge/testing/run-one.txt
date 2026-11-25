@@ -1,7 +1,7 @@
 RUNNING ONE THING
-cargo test --release -p xtmd --test checks            every compiler case (also rules, markdown, cli)
+cargo test --release -p xtmd --test cli_checks        every compiler case (cli_rules, cli_markdown, cli)
 cargo test --release -p xtmd --test check_commonmark
 cd runtime/typescript && npm run build && node --test "test/memo*"
 npm tests run dist: build the package, and what it depends on, first. After a change in runtime, build
-runtime, then widgets, then dom or view, then the binding.
+runtime, then widgets, then the renderer, engine or live package.
 After a change in compiler or core: cargo build --release -p xtmd, or the tests use the old one.

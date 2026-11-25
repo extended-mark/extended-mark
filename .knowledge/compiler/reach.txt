@@ -2,5 +2,5 @@ WHAT A PAGE KEEPS  (compiler/xtmd/src/lower/reach.rs)
 The page's view, its $state and the fns a host may call are followed to everything they can run.
 Sets only grow, so the walk repeats until nothing is new. References are read where the IR makes
 them, never by searching strings.
-An enum keeps the cases the page can make, unless a host or engine can send the type in: then all.
+An enum keeps the cases the page can make, unless a host or renderer can send the type in: then all.
 A pack's IR is not pruned. A new kind of reference in the IR must be followed here, or it is dropped.

@@ -9,4 +9,5 @@ text -> tree -> whole IR -> the page's IR -> drawn tree -> elements, and the rea
 4. A runtime evaluates the IR and gives a drawn tree: extern widgets only, inputs worked out.
 5. What draws makes elements of the tree, and gives events and writes back by a node's id.
 
-Two kinds of engine: static takes IR and has no compiler; live takes text and has it inside.
+Two kinds of document: static is given IR and has no compiler; live is given text and has it inside.
+An engine stands in for steps 4 and 5: it writes, ahead of time, code that does both.

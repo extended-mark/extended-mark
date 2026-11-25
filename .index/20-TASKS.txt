@@ -22,15 +22,17 @@ add a fn to core
 
 add or change an extern widget of core
   core/*.xtmdpack -> docs/specs/05-standard-library.md -> widgets/web/src/widgets
-  -> widgets/egui/src/widgets -> Android
+  -> widgets/egui/src/widgets -> widgets/compose
   -> ide/vscode/src/webview/widgets.ts -> runtime/typescript/test/cases
 
 change what a page does as it runs
   runtime/typescript/src/page.ts AND runtime/rust/src/page.rs, a test in each
+  -> engines/web/src/kit/kit.ts, parts.ts
 
 change the evaluator
   compiler/xtmd/src/eval/interp.rs AND runtime/typescript/src/eval/{ops,interp}.ts;
   runtime/typescript/test/differential.test.mjs compares them
+  -> engines/web/src/generate.ts, when an expression or a statement is new
 
 change inline Markdown
   core/markdown.xtmdpack AND compiler/xtmd/src/eval/md.rs;
@@ -45,6 +47,14 @@ change the host's calls (tree, write, data, ...)
   docs/specs/06-hosts-packs-implementers.md -> schemas/tree.schema.json
   -> runtime/typescript/src/host.ts AND runtime/rust/src/host.rs
   -> docs/guides/host.md, apps/example-host
+
+change what an engine is given or gives
+  schemas/build.schema.json -> xtmd-schemagen -> compiler/xtmd/src/cli/engine.rs -> engines/web/src/run.ts
+  -> docs/guides/engine.md
+
+add a framework
+  renderers/<name> -> live/<name> -> its tests by renderers/testing
+  -> tools/release/README.md, .index/06-web-bindings.txt
 
 add a command or flag to xtmd
   compiler/xtmd/src/cli/mod.rs, flags.rs, help.rs -> compiler/xtmd/tests/cli.rs

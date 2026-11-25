@@ -17,7 +17,7 @@ SCHEMAS  schemas/    the JSON between modules (formats); the source of the types
 Top of the IR: version, xtmd, module, levels, front_matter, needs, declarations, templates, handlers.
 
 Generated, never edited (cargo run -p xtmd-schemagen, from compiler/; its list is MODULES):
-  Rust         compiler/xtmd/src/formats (all but lib.rs)
+  Rust         compiler/xtmd/src/formats (all but mod.rs)
   TypeScript   runtime/typescript/src/generated/
 Held by: compiler/xtmd/tests/formats_schemas.rs, compiler/xtmd/tests/check_schema.rs,
   runtime/typescript/test/host.test.mjs.

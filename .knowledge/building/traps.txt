@@ -5,3 +5,7 @@ TRAPS
 - Svelte and Angular ship or compile their own sources: run their tests, not only React's.
 - A new file under core/ is picked up by name; add it to core/pack.xtmdpack's `provides` too.
 - A pack's IR isn't pruned and a document's is: test both when changing lowering.
+- A package moved or renamed leaves old links in node_modules: remove it and install again.
+- Robolectric fetches its Android from Maven while tests run: a module whose every test fails at once may be
+  that (tools/release/android-failures.py).
+- compiler/npm/wasm's tests start the binary twice a case: minutes on a busy machine, not a hang.

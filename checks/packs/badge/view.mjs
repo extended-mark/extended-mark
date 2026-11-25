@@ -1,5 +1,5 @@
-// The badge pack's externs for the engines drawn from the widget set (React, Vue, Svelte, Solid,
-// Angular): a widget as an element, as a pack ships one per engine it supports.
+// The badge pack's externs for the renderers drawn from the widget set (React, Vue, Svelte, Solid,
+// Angular): a widget as an element, as a pack ships one per platform it supports.
 
 function text(v) {
   return v?.kind === "text" ? v.s : v?.kind === "num" ? v.n.show() : "";

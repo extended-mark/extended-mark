@@ -6,8 +6,8 @@ root. Why things are as they are is in .knowledge/, what the language means in d
   02-core.txt             core/: the standard library, a pack
   03-schemas.txt          schemas/: the JSON between modules, and the types generated from it
   04-runtime.txt          runtime/typescript: runs a page, in TypeScript
-  05-web-drawing.txt      widgets/web and dom: draw a page on the web
-  06-web-bindings.txt     renderers, live: React, Vue, Svelte, Solid, Angular, Next, plain
+  05-web-drawing.txt      widgets/web, renderers/dom: draw a page on the web
+  06-web-bindings.txt     the frameworks' renderers, live on the web
   07-rust.txt             the crates: the native runtime, egui
   08-android.txt          the native runtime in Kotlin, Compose
   09-editors.txt          ide/: language server, VS Code extension
@@ -21,7 +21,7 @@ root. Why things are as they are is in .knowledge/, what the language means in d
 THE TREE
   compiler/               the one compiler, in Rust (xtmd/); its cargo workspace holds every crate
   core/                   core, written in Extended Mark (.xtmdpack)
-  schemas/                JSON Schemas: ir, rir, tree, check; earlier IRs in schemas/ir-history
+  schemas/                JSON Schemas, one a format; earlier IRs in schemas/ir-history
   runtime/                runs a page: typescript (npm), rust, planes, kotlin
   widgets/                widget sets: web (npm), egui, compose
   renderers/              draw a running page: dom and the frameworks (npm), egui, compose; testing
@@ -43,4 +43,5 @@ THE TREE
 
 THE SHORTEST WAY THROUGH THE CODE
   text -> compiler/xtmd/src: syntax (tree) -> check (IR, whole) -> lower (IR, only what runs)
-       -> a runtime (drawn tree, changes) -> what draws (elements) -> the reader's events back
+       -> a runtime (drawn tree, changes) -> a renderer (elements) -> the reader's events back
+  Or the page's IR -> an engine (files), which do what both do.

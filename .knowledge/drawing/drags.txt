@@ -1,5 +1,5 @@
 DRAGS
 A drag writes on every move. The web writes as it goes; Android keeps one write a frame and one in
-flight, the latest winning (FrameWriter.kt in xtmd-android). Budgets: DragPerfTest on Android,
+flight, the latest winning (FrameWriter.kt in widgets/compose). Budgets: DragPerfTest on Android,
 renderers/dom/test/drag-bench.mjs, runtime/planes/examples/drag_bench.rs.
 DragPerfTest can time out on a busy machine: run it alone before believing it.

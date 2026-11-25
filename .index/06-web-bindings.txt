@@ -1,4 +1,4 @@
-WEB BINDINGS  renderers/, live/    each a package on npm, @extended-mark/<folder>
+THE WEB'S RENDERERS AND LIVE DOCUMENTS  renderers/, live/    each a package on npm, @extended-mark/<folder>
 
   renderers/react, renderers/vue, renderers/svelte, renderers/solid, renderers/angular
                        <XtmdDoc>, a page from its IR; src/engine.ts its engine, for pages built ahead

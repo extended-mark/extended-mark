@@ -1,8 +1,12 @@
 ROLES  (docs/specs/06-hosts-packs-implementers.md)
 host         shows a page: holds the IR and state, gives extern values, hears extern fns
-engine       Extended Mark on one platform: runs the IR, supplies core's externs
-implementer  whoever provides an engine, and checks it
+runtime      runs a page from its IR; supplies core's native fns
+renderer     draws the tree on a platform, with a widget set (core's extern widgets); gives page and
+             moment.local
+engine       turns a page into files ahead of time
+implementer  whoever provides one of these, and checks it
 pack author  supplies a pack's own externs
 
 Where state is kept, and how IR reaches a page, is the host's. Nothing of ours stores or sends it.
-How well an engine keeps the spec is its implementer's: xtmd doesn't test engines.
+How well one keeps the spec is its implementer's: xtmd tests none.
+"Engine" never means what runs or draws a page. Platform is the word for both together.

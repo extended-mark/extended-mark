@@ -1,0 +1,11 @@
+RUST IN KOTLIN
+There is no Kotlin compiler and no Kotlin runtime: they are the Rust ones, as native libraries (.so) in the
+app, built for each processor. UniFFI writes the Kotlin that calls them (JNA). egui links the same crates.
+
+libxtmd_android.so        the runtime   runtime/kotlin/rust     IR in; runs the page; compiles nothing
+libxtmd_android_live.so   the compiler  live/compose/rust       text in, IR out; runs nothing
+
+A live document: the compiler's library gives IR as JSON, Kotlin hands it to the runtime's. Nothing else
+crosses. Both libraries hold the evaluator, numbers and the IR's types, as each needs them.
+Compose itself draws: its widget set and renderer are the only Kotlin of ours (widgets/compose,
+renderers/compose).
