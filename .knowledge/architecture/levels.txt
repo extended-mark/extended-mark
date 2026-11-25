@@ -1,4 +1,4 @@
-LEVELS  (compiler/check/src/levels.rs)
+LEVELS  (compiler/xtmd/src/check/levels.rs)
 core.draw  every call            core.live  variables, writes, handlers that change something
 core.gfx   canvas, layer, circle, path, place, handle, shade, and a plane's background
 The compiler works out each call's. A call whose level an engine lacks shows its Markdown.

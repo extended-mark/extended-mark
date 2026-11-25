@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use egui::accesskit::Role;
 use egui::{Color32, Pos2, Rect, Sense, Shape as EShape, Stroke, Ui, UiBuilder};
-use xtmd_eval::value::Record;
+use xtmd::eval::value::Record;
 use xtmd_runtime::{Num, Value};
 
 use super::kit;

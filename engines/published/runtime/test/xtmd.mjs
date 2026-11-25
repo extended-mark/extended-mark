@@ -64,7 +64,7 @@ export function declarations(ir, kind) {
 }
 
 /** A Program for the module, with its constant lets worked out in order, as the Markdown writer
- * (compiler/markdown/src/render.rs) loads them. */
+ * (compiler/xtmd/src/markdown/render.rs) loads them. */
 export function program(ir) {
   const prog = Program.fromModule(ir);
   for (const [name, l] of declarations(ir, "let")) {

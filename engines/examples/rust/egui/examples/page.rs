@@ -15,17 +15,17 @@ use xtmd_egui::XtmdPage;
 /// The repository's core, compiled with the compiler's own crates (as `xtmd build` does).
 fn compile(doc: &str, packs: &[PathBuf]) -> Result<ir::File, String> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
-    let read = |dir: &Path| -> Vec<xtmd_check::Source> {
+    let read = |dir: &Path| -> Vec<xtmd::check::Source> {
         let mut files: Vec<PathBuf> = std::fs::read_dir(dir).map(|d| d.filter_map(|e| e.ok().map(|e| e.path())).collect()).unwrap_or_default();
         files.retain(|p| p.extension().is_some_and(|x| x == "xtmdpack"));
         files.sort();
-        files.into_iter().map(|p| xtmd_check::Source { path: p.to_string_lossy().into_owned(), text: std::fs::read_to_string(&p).unwrap_or_default() }).collect()
+        files.into_iter().map(|p| xtmd::check::Source { path: p.to_string_lossy().into_owned(), text: std::fs::read_to_string(&p).unwrap_or_default() }).collect()
     };
-    let packs: Vec<Vec<xtmd_check::Source>> = packs.iter().map(|p| read(p)).collect();
-    let c = xtmd_check::compile(&read(&root.join("core")), &packs, &[xtmd_check::Source { path: "page.xtmd".into(), text: doc.into() }], "doc");
+    let packs: Vec<Vec<xtmd::check::Source>> = packs.iter().map(|p| read(p)).collect();
+    let c = xtmd::check::compile(&read(&root.join("core")), &packs, &[xtmd::check::Source { path: "page.xtmd".into(), text: doc.into() }], "doc");
     let errors = format!("the page doesn't compile: {:?}", c.errors().collect::<Vec<_>>());
     let mut m = c.module.ok_or(errors)?;
-    xtmd_lower::lower(&mut m);
+    xtmd::lower::lower(&mut m);
     Ok(ir::File { ir: m })
 }
 

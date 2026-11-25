@@ -1,4 +1,4 @@
-//! Extended Mark's live Android engine, native side: [`NativeCompiler`], xtmd-live's compiler with core
+//! Extended Mark's live Android engine, native side: [`NativeCompiler`], xtmd's compiler with core
 //! compiled once, behind UniFFI (`xtmd.android.live.ffi`). Kotlin gives it a document's text and its
 //! packs' files, and gets back the IR `xtmd build` writes, as JSON, with the diagnostics. Nothing
 //! else crosses: xtmd-android's `XtmdDoc` runs the IR on xtmd-android's own library, so no object is
@@ -8,7 +8,7 @@ uniffi::setup_scaffolding!();
 
 use std::sync::{Arc, Mutex};
 
-use xtmd_live::{Compiler, Source};
+use xtmd::live::{Compiler, Source};
 
 /// A file a pack is made of: its path, as its `package` and imports name it, and its text.
 #[derive(Clone, Debug, uniffi::Record)]

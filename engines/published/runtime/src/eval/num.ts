@@ -1,5 +1,5 @@
 // Extended Mark's one number type: exact base-10, IEEE 754 decimal128 with 34 significant digits,
-// rounding halves to even (page 2). A port of compiler/eval/src/num.rs, which uses IBM's
+// rounding halves to even (page 2). A port of compiler/xtmd/src/eval/num.rs, which uses IBM's
 // libdecnumber; here a number is a whole number of JavaScript's own and a power of ten, and every
 // result is rounded into decimal128 (34 digits, exponents up to 10^6144, subnormals down to
 // 10^-6176), once, so the two agree digit for digit.

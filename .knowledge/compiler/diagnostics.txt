@@ -1,6 +1,6 @@
 DIAGNOSTICS
 A code is stable (`types.not-mut`); a message may be reworded. Codes are constants in
-compiler/syntax/src/diag.rs and in compiler/check/src/lib.rs (module codes).
+compiler/xtmd/src/syntax/diag.rs and in compiler/xtmd/src/check/mod.rs (module codes).
 The prefix says the pass: syntax file widget prose doc layout fmt names views types contracts effects.
 Every code belongs to a rule in checks/rules.json, whose `line` is a line of the spec page: adding
 lines to the spec moves them, so correct the lines of that page's rules.

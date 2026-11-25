@@ -8,8 +8,8 @@
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use xtmd_eval::value::ContentOf;
-use xtmd_eval::Binding;
+use xtmd::eval::value::ContentOf;
+use xtmd::eval::Binding;
 use xtmd_runtime::{Drawn, Page, Value};
 
 use crate::Node;

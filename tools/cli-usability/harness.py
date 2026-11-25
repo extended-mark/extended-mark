@@ -27,8 +27,8 @@ XTMD = REPO / "compiler/target/release/xtmd"
 
 
 def consts():
-    """The fixtures of compiler/cli/tests/cli.rs, by name, as the tests have them."""
-    src = (REPO / "compiler/cli/tests/cli.rs").read_text()
+    """The fixtures of compiler/xtmd/tests/cli.rs, by name, as the tests have them."""
+    src = (REPO / "compiler/xtmd/tests/cli.rs").read_text()
     out = {}
     for m in re.finditer(r'const ([A-Z0-9_]+): &str = "((?:[^"\\]|\\.)*)";', src):
         out[m.group(1)] = json.loads('"' + m.group(2) + '"')

@@ -290,7 +290,7 @@ fn a_list_in_a_record_and_a_channels_keep_their_rows_the_same_way() {
     p.set(vec![("b".into(), b)]).unwrap();
     assert_eq!(said(&p), vec!["c: 0", "a: 1"]);
     let mut p = page(&format!("extern host {{\n    xs: list<text> = [\"a\", \"b\"];\n}}\n\n{}@@@\n@for (x in host.xs) {{\n    @row(x = x);\n}}\n", row));
-    let mut give = |p: &mut Page, of: &[&str]| {
+    let give = |p: &mut Page, of: &[&str]| {
         let xs = serde_json::from_value(json!({"list": of.iter().map(|x| json!({"text": x})).collect::<Vec<_>>()})).unwrap();
         p.set_extern_given("doc/host", &[("xs".into(), xs)]).unwrap();
     };

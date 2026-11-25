@@ -3,8 +3,8 @@
 
 use std::collections::BTreeMap;
 
-use xtmd_ir::ir::{Empty, Expr, ExprCase, ExprRange, ExprRecord};
-use xtmd_eval::value::ContentOf;
+use xtmd::formats::ir::{Empty, Expr, ExprCase, ExprRange, ExprRecord};
+use xtmd::eval::value::ContentOf;
 use xtmd_runtime::{Page, Value};
 
 /// A value, as Kotlin reads and writes it. Numbers are exact decimals, written as Extended Mark writes

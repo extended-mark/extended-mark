@@ -14,9 +14,9 @@ The contracts between the compiler and every engine, as JSON Schema (draft 2020-
 | `build.schema.json` | What `xtmd build --engine` gives an engine, and the files it gives back. |
 | `web.schema.json` | What a web widget set gives for a widget: plain elements, for any renderer or engine. |
 | `check.schema.json` | A compiler case: a source, its diagnostics and its Markdown; and what a case's steps observe. |
-| `ir-history/<version>/` | An earlier IR's schema, kept as it was, and pages as the xtmd of its time wrote them, each with the Markdown it must keep or why it is refused: `xtmd migrate` is held to them by `cargo test -p xtmd-migrate`. |
+| `ir-history/<version>/` | An earlier IR's schema, kept as it was, and pages as the xtmd of its time wrote them, each with the Markdown it must keep or why it is refused: `xtmd migrate` is held to them by `cargo test -p xtmd --test migrate_ir_history`. |
 | `examples/*.rir.json` | A resolved IR beside the source it was made from (`examples/counter.xtmd`), held to the schema, its spans inside that source. |
-| `examples/*.ir.json` | Whole IR files: the counter is what `xtmd build --pretty` writes, and the sprint page is written by hand; held to the schema and to the Rust types by `cargo test -p xtmd-ir`. |
+| `examples/*.ir.json` | Whole IR files: the counter is what `xtmd build --pretty` writes, and the sprint page is written by hand; held to the schema and to the Rust types by `cargo test -p xtmd --test formats_schemas`. |
 
 Every one of these but the IR and the cases has `x-version`, its version, which the generated types hold as `VERSION`.
 
@@ -32,7 +32,7 @@ cargo run -p xtmd-schemagen -- --check # only says whether they are current
 
 | Generated | From |
 |---|---|
-| `compiler/ir/src/ir.rs`, `tree.rs`, `state.rs`, `actions.rs`, `told.rs`, `blocks.rs`, `build.rs`, `web.rs`, `check.rs` | the crate `xtmd-ir` |
+| `compiler/xtmd/src/formats/ir.rs`, `tree.rs`, `state.rs`, `actions.rs`, `told.rs`, `blocks.rs`, `build.rs`, `web.rs`, `check.rs` | the crate `xtmd`, its module `formats` |
 | `engines/published/runtime/src/generated/`, the same names | `@extended-mark/runtime` |
 
-`cargo test -p xtmd-ir` fails when a generated file is not current, when an example or a check case doesn't fit its schema, or when the Rust types don't read and write it back unchanged.
+`cargo test -p xtmd --test formats_schemas` fails when a generated file is not current, when an example or a check case doesn't fit its schema, or when the Rust types don't read and write it back unchanged.

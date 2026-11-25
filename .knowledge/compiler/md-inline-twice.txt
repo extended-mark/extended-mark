@@ -1,5 +1,5 @@
 INLINE MARKDOWN IS WRITTEN TWICE
 core/markdown.xtmdpack (md_inline) is the definition, and what engines run.
-compiler/eval/src/md.rs is the same in Rust, which the compiler uses: Machine.md_native, set in
-compiler/check/src/passes.rs. It made compiling long text many times faster.
-Change both. compiler/check/tests/md_inline.rs compares them on CommonMark, GitHub and made-up text.
+compiler/xtmd/src/eval/md.rs is the same in Rust, which the compiler uses: Machine.md_native, set in
+compiler/xtmd/src/check/passes.rs. It made compiling long text many times faster.
+Change both. compiler/xtmd/tests/check_md_inline.rs compares them on CommonMark, GitHub and made-up text.

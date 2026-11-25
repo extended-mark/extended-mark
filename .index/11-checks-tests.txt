@@ -11,14 +11,16 @@ checks/pages/                 pages both runtimes are held to: outside (values f
 checks/packs/badge/           a pack whose externs each engine supplies
 
 Who runs what
-  compiler/cli/tests/checks.rs       checks/cases           rules.rs   checks/rules.json
-  compiler/cli/tests/markdown.rs     Markdown of cases      cli.rs     the binary
-  compiler/check/tests/commonmark.rs, md_inline.rs, prune.rs, schema.rs, levels.rs, surface.rs
-  compiler/syntax/tests/             fmt, keywords, spec_examples, prose_indent, divider
-  compiler/migrate/tests/ir_history.rs, compiler/cli/tests/migrate_040.rs, pack_migration.rs
-  compiler/ir/tests/schemas.rs       schemas, examples, generated types
+  compiler/xtmd/tests, each file named by the part it tests (<part>_<name>.rs):
+    cli_checks.rs       checks/cases           cli_rules.rs        checks/rules.json
+    cli_markdown.rs     Markdown of cases      cli.rs              the binary
+    check_commonmark.rs, check_md_inline.rs, check_prune.rs, check_schema.rs, check_levels.rs
+    syntax_fmt.rs, syntax_keywords.rs, syntax_spec_examples.rs (docs/specs)
+    migrate_ir_history.rs, cli_migrate_040.rs, cli_pack_migration.rs
+    formats_schemas.rs  schemas, examples, generated types
+    live.rs, lsp_server.rs                     order.rs            which part uses which
   engines/published/*/test, engines/published/bindings/*/test    node --test, some in Chromium
   engines/examples/rust/*/tests      cargo
   engines/examples/misc/android      Gradle, testDebugUnitTest
-  ide/lsp/tests, ide/vscode/test     apps/*/test     tools/release/test, tools/llm/test
+  ide/vscode/test     apps/*/test     tools/release/test, tools/llm/test
 How to run them: .knowledge/testing/.

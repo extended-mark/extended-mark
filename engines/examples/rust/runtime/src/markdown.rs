@@ -1,16 +1,16 @@
 //! Markdown out (page 1, plan tab 13): the page written as Markdown with the values it has now,
 //! in one spelling for each block and mark. A port of @extended-mark/runtime's `markdown.ts`, reading the
 //! live page: `$state`, the page's values and each widget's own variables as they are. The
-//! blocks are written by xtmd-markdown, as the compiler writes a page's starting Markdown.
+//! blocks are written by xtmd::markdown, as the compiler writes a page's starting Markdown.
 
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use xtmd_eval::interp::R;
-use xtmd_eval::value::ContentOf;
-use xtmd_eval::{Binding, FailKind, Failure, Machine, Value};
-use xtmd_ir::ir::{Expr, Node};
-use xtmd_markdown::{join_runs, Align, Block, Inline, Item};
+use xtmd::eval::interp::R;
+use xtmd::eval::value::ContentOf;
+use xtmd::eval::{Binding, FailKind, Failure, Machine, Value};
+use xtmd::formats::ir::{Expr, Node};
+use xtmd::markdown::{join_runs, Align, Block, Inline, Item};
 
 use crate::page::{check_sentence, join, Args, Env, Rt};
 
@@ -284,7 +284,7 @@ impl Writer<'_> {
         self.depth += 1;
         if self.depth > 64 {
             self.depth -= 1;
-            return Err(Failure::new(FailKind::Limit(xtmd_eval::interp::Limit::Depth), format!("{} places itself more than 64 deep", name)));
+            return Err(Failure::new(FailKind::Limit(xtmd::eval::interp::Limit::Depth), format!("{} places itself more than 64 deep", name)));
         }
         let out = self.widget_inner(m, name, path, props, args, slots, env, key, events);
         self.depth -= 1;

@@ -11,7 +11,7 @@ RUNTIME (TypeScript)  engines/published/runtime    npm @extended-mark/runtime
                           contains, failed, checkRules                        failures
   src/eval/ops.ts       Ops: equality, contracts, records, places, limits; no IR walked
   src/eval/text.ts      texts by code points; durations shown
-  src/eval/interp.ts    Machine on Ops: statements and expressions (port of compiler/eval/src/interp.rs)
+  src/eval/interp.ts    Machine on Ops: statements and expressions (port of compiler/xtmd/src/eval/interp.rs)
   src/eval/natives.ts   extern fns of core with no body
   src/eval/num.ts       decimal128, on bigint
   src/eval/maths.ts     roots, powers, logarithms, angles (decimal.js)

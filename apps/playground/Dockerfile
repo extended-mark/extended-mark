@@ -23,7 +23,6 @@ WORKDIR /src
 COPY core ./core
 COPY compiler ./compiler
 # the other members of compiler/'s workspace, so cargo can load it
-COPY ide/lsp ./ide/lsp
 COPY engines/examples/rust ./engines/examples/rust
 COPY engines/examples/misc/android/xtmd ./engines/examples/misc/android/xtmd
 COPY engines/examples/misc/android/xtmd-live ./engines/examples/misc/android/xtmd-live

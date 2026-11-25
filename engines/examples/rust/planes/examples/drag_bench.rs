@@ -8,7 +8,7 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use xtmd_check::Source;
+use xtmd::check::Source;
 use xtmd_runtime::ir::{Expr, ExprRecord};
 use xtmd_planes::{Measure, Planes};
 use xtmd_runtime::{Drawn, Num, Page, PageOptions, Size};
@@ -73,10 +73,10 @@ fn median(mut xs: Vec<f64>) -> f64 {
 fn main() {
     let file = std::env::args().nth(1).expect("a page: drag_bench <page.xtmd>");
     let text = std::fs::read_to_string(&file).unwrap();
-    let base = xtmd_check::compile_core(&core());
-    let c = xtmd_check::compile_on(&base, &[], &[Source { path: file.clone(), text }], "doc");
+    let base = xtmd::check::compile_core(&core());
+    let c = xtmd::check::compile_on(&base, &[], &[Source { path: file.clone(), text }], "doc");
     let mut module = c.module.expect("the page compiles");
-    xtmd_lower::lower(&mut module);
+    xtmd::lower::lower(&mut module);
     let t = Instant::now();
     let mut page = Page::from_module(module, PageOptions::default()).unwrap();
     Planes::default().lay(&mut page, &mut Fixed).unwrap();

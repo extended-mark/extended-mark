@@ -51,7 +51,7 @@ android() {
     clang=${rest#*:}
     under=$(echo "$triple" | tr '-' '_')
     upper=$(echo "$under" | tr 'a-z' 'A-Z')
-    # the cc crate (libdecnumber, under xtmd-eval's decimals) and the linker both use the NDK's clang
+    # the cc crate (libdecnumber, under xtmd's decimals) and the linker both use the NDK's clang
     export "CC_$under=$bin/$clang$api-clang"
     export "AR_$under=$bin/llvm-ar"
     export "CARGO_TARGET_${upper}_LINKER=$bin/$clang$api-clang"

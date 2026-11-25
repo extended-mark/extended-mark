@@ -151,17 +151,13 @@ async function main() {
   if (!meta.ok) fail(`cargo metadata failed: ${meta.err.trim().split("\n").pop()}`);
   else {
     const crates = JSON.parse(meta.out).packages.filter((p) => !(Array.isArray(p.publish) && p.publish.length === 0));
-    const fresh = [];
     for (const c of crates) {
       if (c.version !== version) fail(`${c.name} is ${c.version}, not ${version}`);
       const { status, json } = await get(`https://crates.io/api/v1/crates/${c.name}`);
-      if (status === 404) fresh.push(c.name);
       if (status === 404 && cratesTrusted) fail(`${c.name} is new: trusted publishing is set up per crate, so its first release needs CARGO_REGISTRY_TOKEN`);
       else if (status === 200 && json.versions?.some((v) => v.num === version)) note(`${c.name} ${version} is on crates.io already: left out`);
       else if (status !== 200 && status !== 404) fail(`${c.name}: crates.io answered ${status}`);
     }
-    // crates.io's limit on new crates: 5 at once, then one every 10 minutes (publish-crates.sh waits)
-    if (fresh.length > 5) note(`${fresh.length} crates are new on crates.io, which takes 5 at once and then one every 10 minutes: the release waits about ${(fresh.length - 5) * 10} minutes for the rest`);
     if (cratesTrusted) ok(`trusted publishing publishes the ${crates.length} crates`);
     else if (env.CARGO_REGISTRY_TOKEN) ok(`CARGO_REGISTRY_TOKEN publishes the ${crates.length} crates`);
     else note("no trusted publishing and no CARGO_REGISTRY_TOKEN: crates.io is skipped");

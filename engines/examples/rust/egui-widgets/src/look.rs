@@ -93,7 +93,7 @@ impl Look {
 
     /// One of core's colours by name: `INK`, `MUTED`, `ACCENT`.
     pub fn core_color(&self, host: &dyn Host, name: &str) -> Color32 {
-        let v = Value::Case(std::rc::Rc::new(xtmd_eval::value::Case { ty: "core/color".into(), name: name.into(), values: Vec::new() }));
+        let v = Value::Case(std::rc::Rc::new(xtmd::eval::value::Case { ty: "core/color".into(), name: name.into(), values: Vec::new() }));
         self.color(host, Some(&v)).unwrap_or(match (name, self.dark) {
             ("SURFACE", false) => Color32::WHITE,
             ("SURFACE", true) => Color32::from_rgb(0x15, 0x17, 0x1a),
@@ -107,13 +107,13 @@ impl Look {
 
     /// One of core's spaces by name, in points: `XS` … `XL`.
     pub fn space(&self, host: &dyn Host, name: &str) -> f32 {
-        let v = Value::Case(std::rc::Rc::new(xtmd_eval::value::Case { ty: "core/space".into(), name: name.into(), values: Vec::new() }));
+        let v = Value::Case(std::rc::Rc::new(xtmd::eval::value::Case { ty: "core/space".into(), name: name.into(), values: Vec::new() }));
         self.number(host, Some(&v)).unwrap_or(8.0)
     }
 
     /// A font token by name: `BODY`, `HEADING`, `MONO`.
     pub fn font(&self, host: &dyn Host, name: &str) -> Font {
-        let v = Value::Case(std::rc::Rc::new(xtmd_eval::value::Case { ty: "core/font".into(), name: name.into(), values: Vec::new() }));
+        let v = Value::Case(std::rc::Rc::new(xtmd::eval::value::Case { ty: "core/font".into(), name: name.into(), values: Vec::new() }));
         let t = self.value(host, Some(&v));
         let size = num(field(t.as_ref(), "size")).unwrap_or(if name == "MONO" { 14.0 } else { 16.0 }) as f32;
         let weight = num(field(t.as_ref(), "weight")).unwrap_or(400.0);

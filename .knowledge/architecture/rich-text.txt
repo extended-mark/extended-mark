@@ -4,6 +4,6 @@ rich_text is a view: the calls of core's words, bold, link, ... that Markdown st
 - A rich_text a page makes as it runs is read by core's own parser, in Extended Mark.
 - A sentence may hold any widget; it takes its events like any other.
 - A hole's value is never read as Markdown.
-Blocks: compiler/syntax/src/markdown.rs while compiling, core/mdblocks.xtmdpack while running.
-Sentences: compiler/eval/src/md.rs while compiling, core/markdown.xtmdpack while running.
-The pairs give the same result, held by tests (compiler/check/tests/md_inline.rs).
+Blocks: compiler/xtmd/src/syntax/markdown.rs while compiling, core/mdblocks.xtmdpack while running.
+Sentences: compiler/xtmd/src/eval/md.rs while compiling, core/markdown.xtmdpack while running.
+The pairs give the same result, held by tests (compiler/xtmd/tests/check_md_inline.rs).

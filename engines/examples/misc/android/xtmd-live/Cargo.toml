@@ -1,6 +1,6 @@
 [package]
 name = "xtmd-android-live"
-description = "Extended Mark's live Android engine, native side: xtmd-live's compiler (core compiled once) behind a UniFFI interface. A document's text goes in, the IR xtmd build writes comes out as JSON, and xtmd-android's XtmdDoc runs it on xtmd-android's own library. The static engine carries no compiler; this library does."
+description = "Extended Mark's live Android engine, native side: xtmd's compiler (core compiled once) behind a UniFFI interface. A document's text goes in, the IR xtmd build writes comes out as JSON, and xtmd-android's XtmdDoc runs it on xtmd-android's own library. The static engine carries no compiler; this library does."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -16,6 +16,6 @@ name = "xtmd_android_live"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-xtmd-live = { path = "../../../../../compiler/live", version = "0.4.0" }
+xtmd = { path = "../../../../../compiler/xtmd", version = "0.4.0", default-features = false, features = ["compiler"] }
 serde_json.workspace = true
 uniffi = "=0.29.5"

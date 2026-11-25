@@ -4,15 +4,15 @@
 //! errors come back with the next frame ([`DocError::Compile`]) and from [`XtmdLiveDoc::diagnostics`].
 //! When to give it a new text (each key, a pause, a save) is the host's.
 //!
-//! The compiler is xtmd-live's, with core compiled once for the host ([`compiler`]). The static
+//! The compiler is xtmd's, with core compiled once for the host ([`compiler`]). The static
 //! engine, xtmd-egui, doesn't carry it.
 
 use std::rc::Rc;
 
 use egui::Ui;
 use xtmd_egui::doc::{DocError, DocOptions, DocResponse, XtmdDoc, State};
-pub use xtmd_live::{Compiler, Diagnostic, Followed, Source};
-use xtmd_live::Live;
+pub use xtmd::live::{Compiler, Diagnostic, Followed, Source};
+use xtmd::live::Live;
 
 thread_local! {
     static COMPILER: Rc<Compiler> = Rc::new(Compiler::new());

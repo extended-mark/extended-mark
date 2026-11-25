@@ -31,8 +31,7 @@ app = ["dep:eframe"]
 xtmd-runtime = { path = "../runtime", version = "0.4.0" }
 xtmd-egui-widgets = { path = "../egui-widgets", version = "0.4.0" }
 xtmd-planes = { path = "../planes", version = "0.4.0" }
-xtmd-eval = { path = "../../../../compiler/eval", version = "0.4.0" }
-xtmd-ir = { path = "../../../../compiler/ir", version = "0.4.0" }
+xtmd = { path = "../../../../compiler/xtmd", version = "0.4.0", default-features = false }
 serde.workspace = true
 serde_json.workspace = true
 egui = "0.37"
@@ -40,5 +39,4 @@ egui_kittest = { version = "0.37", optional = true }
 eframe = { version = "0.37", optional = true, default-features = false, features = ["accesskit", "default_fonts", "glow", "wayland", "x11"] }
 
 [dev-dependencies]
-xtmd-check = { path = "../../../../compiler/check" }
-xtmd-lower = { path = "../../../../compiler/lower" }
+xtmd = { path = "../../../../compiler/xtmd", default-features = false, features = ["compiler"] }

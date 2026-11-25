@@ -30,7 +30,6 @@ ENV XTMD_ZIG="/opt/zig/bin/python -m ziglang"
 COPY --from=source /src/core /src/core
 COPY --from=source /src/compiler /src/compiler
 # the other members of compiler/'s workspace, so cargo can load it
-COPY --from=source /src/ide/lsp /src/ide/lsp
 COPY --from=source /src/engines/examples/rust /src/engines/examples/rust
 COPY --from=source /src/engines/examples/misc/android/xtmd /src/engines/examples/misc/android/xtmd
 COPY --from=source /src/engines/examples/misc/android/xtmd-live /src/engines/examples/misc/android/xtmd-live

@@ -1,6 +1,6 @@
 WRITING THE SPEC
 A decision is written as the rule itself, in its place, self-contained. No dates, no "changed in".
 Every rule has a case, and checks/rules.json says which. Every code block is read and formatted by a
-test (compiler/syntax/tests/spec_examples.rs); checks/spec-examples.json says how each is read.
+test (compiler/xtmd/tests/syntax_spec_examples.rs); checks/spec-examples.json says how each is read.
 A document in the spec is compiled, and its Markdown may be held by checks/spec-markdown.
 The counts in a page (46 keywords, 33 and 7 externs) are part of its text: keep them.

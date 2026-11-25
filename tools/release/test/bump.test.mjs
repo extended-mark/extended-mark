@@ -17,7 +17,7 @@ const json = (o) => JSON.stringify(o, null, 2) + "\n";
 const tree = {
   VERSION: "0.3.1\n",
   "compiler/Cargo.toml": '[workspace.package]\nversion = "0.3.1"\nedition = "2021"\n\n[workspace.dependencies]\nserde = { version = "1", features = ["derive"] }\n',
-  "compiler/cli/Cargo.toml": '[package]\nname = "xtmd"\nversion.workspace = true\n\n[dependencies]\nxtmd-ir = { path = "../ir", version = "0.3.1" }\nanyhow = { version = "0.3.1" }\n',
+  "compiler/xtmd/Cargo.toml": '[package]\nname = "xtmd"\nversion.workspace = true\n\n[dependencies]\nxtmd-ir = { path = "../ir", version = "0.3.1" }\nanyhow = { version = "0.3.1" }\n',
   "compiler/Cargo.lock": '[[package]]\nname = "anyhow"\nversion = "0.3.1"\nsource = "registry+https://github.com/rust-lang/crates.io-index"\n\n[[package]]\nname = "xtmd-ir"\nversion = "0.3.1"\ndependencies = [\n "anyhow",\n]\n',
   "compiler/npm/extended-mark/package.json": json({ name: "extended-mark", version: "0.3.1", optionalDependencies: { "@extended-mark/wasm": "file:../wasm", "@extended-mark/cli-linux-x64": "0.3.1" }, devDependencies: { typescript: "0.3.1" } }),
   "compiler/npm/extended-mark/package-lock.json": json({ name: "extended-mark", version: "0.3.1", lockfileVersion: 3, packages: { "": { name: "extended-mark", version: "0.3.1" }, "../wasm": { version: "0.3.1" }, "../gone": { version: "0.3.0" }, "node_modules/typescript": { version: "0.3.1", resolved: "https://registry.npmjs.org/typescript/-/typescript-0.3.1.tgz" } } }),
@@ -30,7 +30,7 @@ const tree = {
   "ide/vscode/README.md": "npm run package       # xtmd-0.3.1.vsix\n",
   "schemas/examples/counter.ir.json": json({ ir: 3, meta: { xtmd: "0.3.1" } }),
   "tools/release/README.md": "Every package and crate carries the release's version (0.3.1); …\n",
-  "compiler/migrate/src/lib.rs": 'pub const FIRST: &str = "0.3.0";\n',
+  "compiler/xtmd/src/migrate/mod.rs": 'pub const FIRST: &str = "0.3.0";\n',
 };
 for (const [file, text] of Object.entries(tree)) {
   mkdirSync(dirname(join(scratch, file)), { recursive: true });
@@ -47,8 +47,8 @@ test("bump raises every place it owns, and nothing else", () => {
   assert.equal(read("VERSION"), "0.4.0\n");
   assert.match(read("compiler/Cargo.toml"), /^version = "0\.4\.0"$/m);
   assert.match(read("compiler/Cargo.toml"), /serde = \{ version = "1"/);
-  assert.match(read("compiler/cli/Cargo.toml"), /xtmd-ir = \{ path = "\.\.\/ir", version = "0\.4\.0" \}/);
-  assert.match(read("compiler/cli/Cargo.toml"), /anyhow = \{ version = "0\.3\.1" \}/, "a crates.io dependency of the same number");
+  assert.match(read("compiler/xtmd/Cargo.toml"), /xtmd-ir = \{ path = "\.\.\/ir", version = "0\.4\.0" \}/);
+  assert.match(read("compiler/xtmd/Cargo.toml"), /anyhow = \{ version = "0\.3\.1" \}/, "a crates.io dependency of the same number");
   assert.match(read("compiler/Cargo.lock"), /name = "xtmd-ir"\nversion = "0\.4\.0"/);
   assert.match(read("compiler/Cargo.lock"), /name = "anyhow"\nversion = "0\.3\.1"\nsource/, "crates.io's entry in the lock");
   const pkg = JSON.parse(read("compiler/npm/extended-mark/package.json"));
@@ -70,7 +70,7 @@ test("bump raises every place it owns, and nothing else", () => {
   assert.equal(read("ide/vscode/README.md"), "npm run package       # xtmd-0.4.0.vsix\n");
   assert.equal(JSON.parse(read("schemas/examples/counter.ir.json")).meta.xtmd, "0.4.0");
   assert.match(read("tools/release/README.md"), /\(0\.4\.0\)/);
-  assert.equal(read("compiler/migrate/src/lib.rs"), 'pub const FIRST: &str = "0.3.0";\n', "the language's first release");
+  assert.equal(read("compiler/xtmd/src/migrate/mod.rs"), 'pub const FIRST: &str = "0.3.0";\n', "the language's first release");
   assert.equal(new Set(changed).size, changed.length, "each file once");
   assert.deepEqual(drift(scratch, "0.4.0"), []);
   assert.deepEqual(bump(scratch, "0.4.0"), [], "a second bump changes nothing");

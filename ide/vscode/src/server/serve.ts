@@ -1,5 +1,5 @@
 // The language server's loop, in a Node process or a web worker: each message from the client to
-// the server built into xtmd.wasm (ide/lsp), and what it sends back to the client. Messages that
+// the server built into xtmd.wasm (compiler/xtmd/src/lsp), and what it sends back to the client. Messages that
 // come while it loads wait for it.
 
 import type { LanguageServer, LspMessage } from "@extended-mark/wasm";

@@ -4,9 +4,9 @@ engines/examples/rust/runtime    xtmd-runtime: the native runtime
   src/page.rs           Page and Rt: the page running (port of engines/published/runtime/src/page.ts)
   src/host.rs           the host's side: tree, changes, data
   src/layout.rs         where boxes on a plane go: sizes in, places out
-  src/markdown.rs       blocks from the live page; text is written by xtmd-markdown
+  src/markdown.rs       blocks from the live page; text is written by xtmd::markdown
   tests/                page, host, memo, outside; common/mod.rs compiles in process
-  Evaluator and numbers are compiler/eval.
+  Evaluator and numbers are compiler/xtmd/src/eval.
 
 engines/examples/rust/planes     xtmd-planes: a page's planes measured and laid out, for egui and Android
   src/lib.rs; tests/planes.rs; examples/drag_bench.rs

@@ -34,7 +34,7 @@ const SCRIPT: &[(f32, Step)] = &[
     (12.3, Step::Press),
     (13.8, Step::Say("...and restore puts it back.")),
     (14.6, Step::Restore),
-    (17.0, Step::Say("Live: XtmdLiveDoc compiles this text in the host, with xtmd-live.")),
+    (17.0, Step::Say("Live: XtmdLiveDoc compiles this text in the host, with xtmd.")),
     (19.5, Step::Say("An edit: a counter that steps by 10.")),
     (20.0, Step::Type("\n@counter(by = 10);\n")),
     (24.5, Step::Say("Compiled as it is typed, and drawn by egui.")),

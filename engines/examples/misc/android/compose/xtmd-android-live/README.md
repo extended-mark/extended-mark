@@ -2,7 +2,7 @@
 
 Extended Mark's Android engine, real time: `XtmdLiveDoc` compiles a document's text on the device as it is
 edited, and draws it with [xtmd-android](../xtmd-android)'s `XtmdDoc`. The compiler is in its own
-native library, `libxtmd_android_live.so` ([../../xtmd-live](../../xtmd-live): xtmd-live behind
+native library, `libxtmd_android_live.so` ([../../xtmd-live](../../xtmd-live): xtmd's compiler behind
 UniFFI, `xtmd.android.live.ffi`). It hands Kotlin the IR as JSON, which `XtmdDoc` runs on
 xtmd-android's own library, so nothing crosses between the two. A host that only draws pages it
 was given uses xtmd-android alone, and ships no compiler.

@@ -1,7 +1,7 @@
 # xtmd-egui-live
 
 Extended Mark's desktop engine, real time: a document's text compiled in the host as it is edited, by
-[xtmd-live](../../../../compiler/live)'s compiler (core compiled once for the host), and drawn by
+[xtmd](../../../../compiler/xtmd)'s compiler (core compiled once for the host), and drawn by
 [xtmd-egui](../egui)'s `XtmdDoc`. The static engine, xtmd-egui, carries no compiler; a host that
 only draws pages it was given uses that one.
 

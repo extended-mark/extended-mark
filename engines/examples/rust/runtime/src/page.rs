@@ -15,13 +15,13 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use xtmd_eval::interp::{Outer, Place, PlaceRoot, Step, R};
-use xtmd_eval::value::{Case, Closure, Content, ContentOf, Item, List, Record};
-use xtmd_eval::{Binding, Constants, FailKind, Failure, Host, Machine, Num, Program, Row, Value};
-use xtmd_ir::check::{Mounted, PageTheme, PageWidth};
-use xtmd_ir::ir::{self, Expr, Node, Stmt};
+use xtmd::eval::interp::{Outer, Place, PlaceRoot, Step, R};
+use xtmd::eval::value::{Case, Closure, Content, ContentOf, Item, List, Record};
+use xtmd::eval::{Binding, Constants, FailKind, Failure, Host, Machine, Num, Program, Row, Value};
+use xtmd::formats::check::{Mounted, PageTheme, PageWidth};
+use xtmd::formats::ir::{self, Expr, Node, Stmt};
 
-pub use xtmd_ir::told::Broken;
+pub use xtmd::formats::told::Broken;
 
 /// The locals around a node: values, or references to places (a `mut for` row's item).
 pub type Bindings = Vec<(Rc<str>, Binding)>;
@@ -2125,7 +2125,7 @@ impl Page {
             }
         }
         // core's fns are the engine's: one it doesn't have is another core's
-        let supplied = |n: &str| opts.fns.contains_key(n) || xtmd_eval::natives::exists(n) || xtmd_eval::natives::ENGINE_ONLY.contains(&n) || program.externs.get(n).map_or(false, |x| !x.default.is_empty());
+        let supplied = |n: &str| opts.fns.contains_key(n) || xtmd::eval::natives::exists(n) || xtmd::eval::natives::ENGINE_ONLY.contains(&n) || program.externs.get(n).map_or(false, |x| !x.default.is_empty());
         if let Some(n) = module.needs.core.iter().find(|n| !extern_widgets.contains_key(*n) && !supplied(n)) {
             return Err(Failure::ir(format!("this page needs `{}`, which this engine doesn't have", n)));
         }
@@ -2414,7 +2414,7 @@ impl Page {
         let s = &self.rt.s;
         let needs = &s.module.needs;
         let fns = needs.core.iter().chain(needs.packs.iter().flat_map(|p| &p.externs)).filter(|n| match s.program.externs.get(*n) {
-            Some(x) => !s.engine_fns.contains_key(*n) && !xtmd_eval::natives::exists(n) && x.default.is_empty() && !s.host_fns.contains(*n),
+            Some(x) => !s.engine_fns.contains_key(*n) && !xtmd::eval::natives::exists(n) && x.default.is_empty() && !s.host_fns.contains(*n),
             None => false,
         });
         let w = self.rt.w.borrow();
@@ -2713,11 +2713,11 @@ impl Page {
     pub fn markdown(&self) -> R<String> {
         self.reset_steps();
         let blocks = self.with_machine(|rt, m| crate::markdown::page_blocks(rt, m))?;
-        Ok(xtmd_markdown::write(&blocks))
+        Ok(xtmd::markdown::write(&blocks))
     }
 
     /// The page's Markdown as blocks, before they are written.
-    pub fn markdown_blocks(&self) -> R<Vec<xtmd_markdown::Block>> {
+    pub fn markdown_blocks(&self) -> R<Vec<xtmd::markdown::Block>> {
         self.reset_steps();
         self.with_machine(|rt, m| crate::markdown::page_blocks(rt, m))
     }

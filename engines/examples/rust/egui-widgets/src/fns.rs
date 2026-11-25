@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use chrono::{Datelike, Offset, TimeZone, Timelike};
-use xtmd_eval::value::Record;
+use xtmd::eval::value::Record;
 use xtmd_runtime::{Binding, Num, Value, ValueFn};
 
 use crate::values::{field, num};

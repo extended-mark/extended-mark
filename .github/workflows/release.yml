@@ -15,7 +15,7 @@
 #     (xtmd-<VERSION>-<os>-<cpu>.tar.gz, what install.sh and install.ps1 fetch), SHA256SUMS,
 #     xtmd.wasm (xtmd-<VERSION>.wasm) and the VS Code extension (xtmd-<VERSION>.vsix);
 #   - npm: the 24 packages of compiler/npm and engines/published (extended-mark, @extended-mark/*);
-#   - crates.io: the 10 crates of compiler/ and ide/lsp (xtmd, xtmd-live, xtmd-lsp and the compiler's);
+#   - crates.io: the crate xtmd;
 #   - the VS Code Marketplace and Open VSX, each by its trusted publishing (VSCE_TRUSTED_PUBLISHING,
 #     OVSX_TRUSTED_PUBLISHING = true; Open VSX with an OVSX_PAT token instead until it is set up): the extension.
 # engines/examples (Android, egui, the native runtime, the web and test engines) is built and

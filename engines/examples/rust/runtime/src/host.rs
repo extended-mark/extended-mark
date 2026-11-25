@@ -4,12 +4,12 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use xtmd_eval::{Failure, Value};
-use xtmd_ir::actions::Action;
-use xtmd_ir::ir;
-use xtmd_ir::state::Data;
-use xtmd_ir::told::Told;
-use xtmd_ir::tree::{Change, Child, Contract, Ends, Input, InputCase, InputFn, InputRange, InputRecord, InputTokval, Node, Tree};
+use xtmd::eval::{Failure, Value};
+use xtmd::formats::actions::Action;
+use xtmd::formats::ir;
+use xtmd::formats::state::Data;
+use xtmd::formats::told::Told;
+use xtmd::formats::tree::{Change, Child, Contract, Ends, Input, InputCase, InputFn, InputRange, InputRecord, InputTokval, Node, Tree};
 
 use crate::page::{Drawn, Page, PageData, PageValues};
 

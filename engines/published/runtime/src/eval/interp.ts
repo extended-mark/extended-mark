@@ -1,5 +1,5 @@
 // The evaluator: it walks the IR's statements and expressions, with the limits of page 6. A port
-// of compiler/eval/src/interp.rs, kept to its order of evaluation, its failures and messages,
+// of compiler/xtmd/src/eval/interp.rs, kept to its order of evaluation, its failures and messages,
 // its step, item and depth counting, and its item identities.
 //
 // What lives outside a fn (a widget's cells and inputs, `$state`, the host's channels) is reached

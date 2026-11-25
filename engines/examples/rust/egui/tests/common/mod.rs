@@ -14,26 +14,26 @@ pub fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(4).unwrap().to_path_buf()
 }
 
-fn sources(dir: &Path) -> Vec<xtmd_check::Source> {
+fn sources(dir: &Path) -> Vec<xtmd::check::Source> {
     let mut files: Vec<PathBuf> = std::fs::read_dir(dir).unwrap().filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().is_some_and(|x| x == "xtmdpack")).collect();
     files.sort();
-    files.into_iter().map(|p| xtmd_check::Source { path: p.to_string_lossy().into_owned(), text: std::fs::read_to_string(&p).unwrap() }).collect()
+    files.into_iter().map(|p| xtmd::check::Source { path: p.to_string_lossy().into_owned(), text: std::fs::read_to_string(&p).unwrap() }).collect()
 }
 
 thread_local! {
     /// Core, compiled once for every test on a thread.
-    static CORE: xtmd_check::Checker = xtmd_check::compile_core(&sources(&repo().join("core")));
+    static CORE: xtmd::check::Checker = xtmd::check::compile_core(&sources(&repo().join("core")));
 }
 
 /// A document's IR, with the packs in some folders of the repository.
 pub fn ir(doc: &str, packs: &[&str]) -> xtmd_egui::runtime::ir::File {
-    let packs: Vec<Vec<xtmd_check::Source>> = packs.iter().map(|p| sources(&repo().join(p))).collect();
-    let c = CORE.with(|core| xtmd_check::compile_on(core, &packs, &[xtmd_check::Source { path: "test.xtmd".into(), text: doc.into() }], "doc"));
+    let packs: Vec<Vec<xtmd::check::Source>> = packs.iter().map(|p| sources(&repo().join(p))).collect();
+    let c = CORE.with(|core| xtmd::check::compile_on(core, &packs, &[xtmd::check::Source { path: "test.xtmd".into(), text: doc.into() }], "doc"));
     let Some(mut m) = c.module else {
         let errors: Vec<String> = c.errors().map(|e| format!("{:?}", e)).collect();
         panic!("the page doesn't compile: {}", errors.join("\n"));
     };
-    xtmd_lower::lower(&mut m);
+    xtmd::lower::lower(&mut m);
     xtmd_egui::runtime::ir::File { ir: m }
 }
 

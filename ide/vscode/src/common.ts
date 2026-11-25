@@ -1,4 +1,4 @@
-// The extension, on the desktop and in a browser: the language client (its server is ide/lsp, built
+// The extension, on the desktop and in a browser: the language client (its server is compiler/xtmd/src/lsp, built
 // into xtmd.wasm), the packs each document is built with, core's own source, the language a document
 // is read in, the preview, the status bar and the commands. It needs no xtmd binary.
 

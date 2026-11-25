@@ -66,7 +66,7 @@ cargo build -p xtmd-android --release --features bindgen
 ./target/release/uniffi-bindgen generate --library target/release/libxtmd_android.so \
   --language kotlin --out-dir ../engines/examples/misc/android/compose/xtmd-android-runtime/native/kotlin --no-format
 
-# Android: the NDK's clang for the cc crate (libdecnumber, under xtmd-eval's decimals) and as the linker,
+# Android: the NDK's clang for the cc crate (libdecnumber, under xtmd's decimals) and as the linker,
 # at xtmd-android's minSdk, 26. No cargo-ndk needed.
 NDK=$HOME/.local/android/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/bin
 CC_aarch64_linux_android=$NDK/aarch64-linux-android26-clang AR_aarch64_linux_android=$NDK/llvm-ar \

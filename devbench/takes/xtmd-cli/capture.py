@@ -3,7 +3,7 @@
     python3 devbench/takes/xtmd-cli/capture.py --work DIR [--xtmd PATH] [reel ...]
 
 Each scene is built afresh in DIR/scenes/<scene> from the repo's own fixtures (the consts of
-compiler/cli/tests/cli.rs, examples/graphs, schemas/examples/counter.xtmd). Each step's
+compiler/xtmd/tests/cli.rs, examples/graphs, schemas/examples/counter.xtmd). Each step's
 command then really runs there, as a terminal would run it, with a copy of the xtmd binary
 (DIR/bin/xtmd, copied from --xtmd, by default compiler/target/release/xtmd) first on PATH.
 What it printed, its exit code, how long it took, and the files the step names (before and
@@ -36,7 +36,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 sys.path.insert(0, HERE)
 import term  # noqa: E402
 
-CLI_RS = os.path.join(REPO, "compiler/cli/tests/cli.rs")
+CLI_RS = os.path.join(REPO, "compiler/xtmd/tests/cli.rs")
 
 
 # ------------------------------------------------------------------ fixtures

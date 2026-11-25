@@ -1,7 +1,7 @@
 // The native fns: what core declares `extern fn` with no body, because Extended Mark can't do it in terms of
 // anything else (page 5). List storage, Unicode text, exact numbers and their maths, the interface
 // fns of the built-in types, a range's ends, a duration's milliseconds, and `clamp`. A port of
-// compiler/eval/src/natives.rs.
+// compiler/xtmd/src/eval/natives.rs.
 // Each is a fn of its own, so what holds a page holds the ones it calls.
 
 import * as maths from "./maths.js";

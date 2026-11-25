@@ -1,5 +1,5 @@
 // A page as Markdown blocks (page 1, Markdown out), with the values it has now: `$state`, the page's values
-// and each widget's own variables as they are. A port of compiler/markdown's render.rs, on the live page.
+// and each widget's own variables as they are. A port of compiler/xtmd/src/markdown's render.rs, on the live page.
 // What writes blocks as text is write.ts.
 
 import type * as ir from "./generated/ir.js";

@@ -11,8 +11,7 @@ publish = false
 
 [dependencies]
 xtmd-runtime = { path = "../runtime", version = "0.4.0" }
-xtmd-eval = { path = "../../../../compiler/eval", version = "0.4.0" }
+xtmd = { path = "../../../../compiler/xtmd", version = "0.4.0", default-features = false }
 
 [dev-dependencies]
-xtmd-check = { path = "../../../../compiler/check" }
-xtmd-lower = { path = "../../../../compiler/lower" }
+xtmd = { path = "../../../../compiler/xtmd", default-features = false, features = ["compiler"] }

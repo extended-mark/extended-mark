@@ -2,7 +2,7 @@ INDEX: WHERE EVERYTHING LIVES
 Each file here lists one area, with a line on what each place does. Paths are from the repository's
 root. Why things are as they are is in .knowledge/, what the language means in docs/specs.
 
-  01-compiler.txt         compiler/: reader, checker, lowering, evaluator, command, wasm, npm
+  01-compiler.txt         compiler/: the one crate xtmd (its parts), wasm, npm
   02-core.txt             core/: the standard library, a pack
   03-schemas.txt          schemas/: the JSON between modules, and the types generated from it
   04-runtime.txt          engines/published/runtime: runs a page, in TypeScript
@@ -19,12 +19,12 @@ root. Why things are as they are is in .knowledge/, what the language means in d
   20-TASKS.txt            "I want to change X": the places to touch, in order
 
 THE TREE
-  compiler/               the one compiler, in Rust; its cargo workspace holds every crate
+  compiler/               the one compiler, in Rust (xtmd/); its cargo workspace holds every crate
   core/                   core, written in Extended Mark (.xtmdpack)
   schemas/                JSON Schemas: ir, rir, tree, check; earlier IRs in schemas/ir-history
   engines/published/      on npm: runtime, widgets, dom, web, bindings/*
   engines/examples/       never published: rust (runtime, egui, egui-live), misc/android
-  ide/                    lsp (a crate), vscode (an extension)
+  ide/                    vscode (an extension); README.md, the language server for any editor
   apps/                   playground, example-host
   examples/               small hosts and packs that use what is published
   checks/                 compiler cases, the rule table, CommonMark, shared pages
@@ -39,5 +39,5 @@ THE TREE
   install.sh, install.ps1 one-line installers of the xtmd binary
 
 THE SHORTEST WAY THROUGH THE CODE
-  text -> compiler/syntax (tree) -> compiler/check (IR, whole) -> compiler/lower (IR, only what runs)
+  text -> compiler/xtmd/src: syntax (tree) -> check (IR, whole) -> lower (IR, only what runs)
        -> a runtime (drawn tree, changes) -> what draws (elements) -> the reader's events back

@@ -22,5 +22,5 @@ xtmd migrate docs --dry-run   # each change, with the statement that makes it an
 xtmd migrate docs --yes       # written: docs/release.xtmd, and kit = 2 in xtmd.toml
 ```
 
-`compiler/cli/tests/pack_migration.rs` runs these in CI. The rules are in
+`compiler/xtmd/tests/cli_pack_migration.rs` runs these in CI. The rules are in
 [page 6](../../docs/specs/06-hosts-packs-implementers.md), "Versions and migrations".

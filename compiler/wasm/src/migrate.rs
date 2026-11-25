@@ -1,15 +1,15 @@
 //! `xtmd migrate`'s plan, for an editor: the files' texts in, what each becomes out, with nothing
 //! read or written here. The editor gives the files as it has them (an open one's unsaved text too),
 //! asks a person the migrations' questions and runs again with the answers, and applies the result as
-//! edits it can undo. The plan is xtmd-migrate's, as the xtmd command's is.
+//! edits it can undo. The plan is the crate xtmd's, as the xtmd command's is.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use serde_json::{json, Value};
-use xtmd_live::{Compiler, Source};
-use xtmd_migrate::step::{self, Answers};
-use xtmd_migrate::{is_doc, packs_of, pass, release_in, release_of, step_packs, uses_after, uses_in, with_release, with_uses, Tree, ALLOW_ERRORS, FIRST, RELEASE};
+use xtmd::live::{Compiler, Source};
+use xtmd::migrate::step::{self, Answers};
+use xtmd::migrate::{is_doc, packs_of, pass, release_in, release_of, step_packs, uses_after, uses_in, with_release, with_uses, Tree, ALLOW_ERRORS, FIRST, RELEASE};
 
 fn sources(v: &Value) -> Vec<Source> {
     v.as_array().into_iter().flatten().filter_map(|p| Some(Source { path: p.get("path")?.as_str()?.to_string(), text: p.get("text")?.as_str()?.to_string() })).collect()
@@ -66,7 +66,7 @@ fn plan(c: &Compiler, req: &Value) -> Result<Value, String> {
     }
     let record_moves = config.is_some() && written_release.as_deref() != Some(RELEASE);
     let from_release = written_release.clone().unwrap_or_else(|| FIRST.to_string());
-    let release_steps = xtmd_migrate::releases::between(&from_release, RELEASE, xtmd_migrate::releases::STEPS);
+    let release_steps = xtmd::migrate::releases::between(&from_release, RELEASE, xtmd::migrate::releases::STEPS);
     let release_label = format!("xtmd {} → {}", from_release, RELEASE);
     let (stepped, step_refused) = step_packs(c.checker(), &mut sources, &release_steps);
     let packs = packs_of(&sources);

@@ -1,18 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-    "cli",
-    "syntax",
-    "ir",
-    "check",
-    "lower",
-    "eval",
-    "markdown",
-    "migrate",
-    "live",
+    "xtmd",
     "wasm",
     "schemagen",
-    "../ide/lsp",
     "../engines/examples/rust/runtime",
     "../engines/examples/rust/planes",
     "../engines/examples/rust/egui-widgets",

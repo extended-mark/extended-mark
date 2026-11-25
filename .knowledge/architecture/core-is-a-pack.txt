@@ -4,5 +4,5 @@ Interfaces join a type to the syntax: literal (text literals), shown (holes), sa
 (comparisons), numeric and scaled (arithmetic).
 
 Exceptions, on purpose: prose has to become something, so the checker writes calls of core's blocks
-and words (compiler/check/src/view.rs, compiler/check/src/rich.rs); the runtimes know core/page,
+and words (compiler/xtmd/src/check/view.rs, compiler/xtmd/src/check/rich.rs); the runtimes know core/page,
 and the layout core/plane and core/spot.

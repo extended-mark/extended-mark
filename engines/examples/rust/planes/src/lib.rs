@@ -5,9 +5,9 @@
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use xtmd_eval::interp::R;
-use xtmd_eval::value::Record;
-use xtmd_eval::{Num, Value};
+use xtmd::eval::interp::R;
+use xtmd::eval::value::Record;
+use xtmd::eval::{Num, Value};
 use xtmd_runtime::layout::{lay, Box as OnPlane, Plane, Pt, Region, Size};
 use xtmd_runtime::{Drawn, Page, Write};
 

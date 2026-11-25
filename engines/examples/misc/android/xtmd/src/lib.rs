@@ -24,7 +24,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use xtmd_ir::ir::{self, Expr, Stmt};
+use xtmd::formats::ir::{self, Expr, Stmt};
 use xtmd_runtime::{Drawn, Num, Page, PageData, PageOptions, PageTheme, PageValues, PageWidth, Value};
 
 pub use convert::{Field, Val};
@@ -49,8 +49,8 @@ fn failed(message: impl Into<String>) -> XtmdError {
     XtmdError::Failed { why: message.into() }
 }
 
-impl From<xtmd_eval::num::NumError> for XtmdError {
-    fn from(e: xtmd_eval::num::NumError) -> Self {
+impl From<xtmd::eval::num::NumError> for XtmdError {
+    fn from(e: xtmd::eval::num::NumError) -> Self {
         failed(e.to_string())
     }
 }

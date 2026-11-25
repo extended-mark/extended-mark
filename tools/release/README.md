@@ -22,7 +22,7 @@ What it does, in order:
 3. **Tests:** the same checks every pull request runs (ci.yml): the Rust workspace, every npm
    package's and the playground's tests.
 4. **Publishing.** The GitHub release `v<VERSION>`, titled and described by its note; then the npm
-   packages (`publish-npm.mjs`), the VS Code extension and the crates (`publish-crates.sh`). Each
+   packages (`publish-npm.mjs`), the VS Code extension and the crate (`publish-crates.sh`). Each
    registry is tried even when one before it failed, and a version a registry has already is left
    alone, so `Re-run failed jobs` finishes what's left.
 
@@ -48,15 +48,13 @@ when it wouldn't. `preflight.mjs` checks what only the registries know:
   `xtmd` for `xtend`, `xml` and others) and says so only when the name is first published, so a new
   unscoped package is published by hand once. `NPM_TOKEN` signs in, may write every package and
   doesn't run out within two days; under trusted publishing no package is new.
-- crates.io: under trusted publishing no crate is new; a crate's version must be the release's. More
-  than 5 new crates is noted: crates.io takes 5 at once, then one every 10 minutes, and
-  `publish-crates.sh` waits for it (the Publish job allows two hours).
+- crates.io: under trusted publishing the crate isn't new; its version must be the release's.
 - Open VSX: the namespace exists, and `OVSX_PAT` may publish to it.
 - each registry: whether it publishes, stages, passes over a version it has, or is skipped for want
   of a credential, in the job's summary.
 
 Then each publish is dry-run: every npm package packed and checked (`publish-npm.mjs --stage
---dry-run`), every crate built as crates.io would (`publish-crates.sh --dry-run`), and the `.vsix`
+--dry-run`), the crate built as crates.io would (`publish-crates.sh --dry-run`), and the `.vsix`
 packed.
 
 ## What it publishes
@@ -79,15 +77,14 @@ engines) is published: CI builds and checks them, and no release puts them out.
     `@extended-mark/vue-live`, `@extended-mark/svelte`, `@extended-mark/svelte-live`,
     `@extended-mark/solid`, `@extended-mark/solid-live`, `@extended-mark/angular` and
     `@extended-mark/angular-live`.
-- **crates.io**, 10 crates: `xtmd` (the command), `xtmd-live`, `xtmd-lsp`, `xtmd-syntax`,
-  `xtmd-check`, `xtmd-ir`, `xtmd-lower`, `xtmd-eval`, `xtmd-markdown` and `xtmd-migrate`.
+- **crates.io**, one crate: `xtmd`, the compiler as a library and the command. Its parts are modules, and it
+  uses no other crate of ours. (Up to 0.3.2 there were ten; the other nine end there.)
 - **The VS Code Marketplace and Open VSX**: the extension (ide/vscode), the same `.vsix`.
 
 ## What it needs
 
 The npm packages are `extended-mark` (the `xtmd` command, its API and Vite plugin; npm refuses the
-name `xtmd` itself, as too like `xtend` and others) and `@extended-mark/*`; the crates are `xtmd`
-and `xtmd-*`. Each
+name `xtmd` itself, as too like `xtend` and others) and `@extended-mark/*`; the crate is `xtmd`. Each
 registry is published to by trusted publishing, with the run's own OIDC token, once it is set up;
 until then, and for a package's first release (a registry sets up trusted publishing only for a
 package it already has), with a token. On npm the token only stages: the first release's versions
@@ -122,11 +119,8 @@ permissions: read and write).
   without its binary is left out, and a version already staged or published is passed over, so a run
   can be repeated. `--stage` stages each one instead (`npm stage publish`) and ends with how many it
   staged and where to approve them.
-- `publish-crates.sh [--dry-run]`: copies core's Extended Mark files into the crates that embed them, then
-  `cargo publish --workspace`, leaving out each crate crates.io has at its version already and every
-  crate with `publish = false`. When crates.io's limit on new crates answers 429, it waits until the
-  time it gives (up to 15 minutes) and goes on with the crates left. It leaves out xtmd-schemagen
-  (a tool here), xtmd-wasm (xtmd.wasm ships another way) and the example engines' crates.
+- `publish-crates.sh [--dry-run]`: copies core and checks/rules.json into the crate, then `cargo publish -p xtmd`,
+  unless crates.io has its version already.
 - `bump.mjs <version> | --check`: sets the release's version everywhere it is written (`VERSION`, every
   crate and its path dependencies, `Cargo.lock`'s own crates, every package.json of ours and its
   `@extended-mark` pins, the lock files' own entries, the Android example's Gradle versions, the schemas'

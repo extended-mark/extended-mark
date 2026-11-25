@@ -78,7 +78,7 @@ page 6 does. Count the work in a test: one label's change on a page of 80 rows c
 
 A **static** engine takes compiled IR and carries no compiler. A **live** one is given text: it compiles with
 the one compiler, built in, and does with the IR exactly what its static twin does. In a browser the compiler is
-`@extended-mark/wasm`, and in a program the Rust crate `xtmd-live`. A live engine keeps the last page that
+`@extended-mark/wasm`, and in a program the Rust crate `xtmd` (its module `live`). A live engine keeps the last page that
 compiled while a draft has errors.
 
 ## A program

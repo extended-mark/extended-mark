@@ -36,7 +36,7 @@ import xtmd.android.rememberXtmdDocState
  * errors reach `onError` as [DocError.Compile] and `onDiagnostics`. When to change `source` (each
  * key, a pause, a save) is the host's.
  *
- * The compiler is in libxtmd_android_live.so (xtmd-live's, core compiled once for the host, the first
+ * The compiler is in libxtmd_android_live.so (xtmd's, core compiled once for the host, the first
  * time a text is compiled). The static engine, xtmd-android, doesn't carry it.
  */
 

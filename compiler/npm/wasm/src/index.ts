@@ -218,7 +218,7 @@ async function compile(source: WasmSource): Promise<WebAssembly.Module> {
 export type LspMessage = Record<string, unknown>;
 
 /**
- * The language server (ide/lsp), in the browser or a worker: what `xtmd lsp` answers, with core
+ * The language server (compiler/xtmd/src/lsp), in the browser or a worker: what `xtmd lsp` answers, with core
  * compiled once as it loads. It reads no disk, so the client gives each document's packs with the
  * `xtmd/packs` notification (`{ uri, packs: [{ path, text }] }`). Each message gives what the server
  * sends back, in order: a reply to a request, and notifications such as publishDiagnostics.

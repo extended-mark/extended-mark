@@ -1,7 +1,7 @@
 //! The Extended Mark compiler for the browser: what `xtmd build` does, on a core compiled once when the
 //! compiler is made. A live engine compiles a document's text as it is edited, and draws the
 //! IR as a static engine draws one it was given; the IR is the binary's (@extended-mark/wasm's tests hold
-//! it to that on every case). The compiler itself is xtmd-live's.
+//! it to that on every case). The compiler itself is the crate xtmd's.
 //!
 //! For an editor it does what `xtmd md` and `xtmd migrate` do too, on the texts the editor gives, so
 //! an editor needs no xtmd binary.
@@ -12,7 +12,7 @@
 mod migrate;
 
 pub use migrate::migrate_json;
-pub use xtmd_live::{BuildOptions, Built, Compiler, Formatted, Source};
+pub use xtmd::live::{BuildOptions, Built, Compiler, Formatted, Source};
 use serde_json::{json, Value};
 
 /// Builds as the page asks: `packs` a JSON list, `[{ "path", "text" }]`. Gives the reply's JSON,
@@ -44,7 +44,7 @@ pub fn markdown_json(c: &Compiler, path: &str, text: &str, packs: &str) -> Strin
         .filter_map(|p| Some(Source { path: p.get("path")?.as_str()?.to_string(), text: p.get("text")?.as_str()?.to_string() }))
         .collect();
     let b = c.build(path, text, &packs);
-    let markdown = b.ir.as_ref().map(|f| xtmd_markdown::page(&f.ir).map(|blocks| xtmd_markdown::write_page(f.ir.front_matter.as_deref(), &blocks)));
+    let markdown = b.ir.as_ref().map(|f| xtmd::markdown::page(&f.ir).map(|blocks| xtmd::markdown::write_page(f.ir.front_matter.as_deref(), &blocks)));
     let (markdown, why) = match markdown {
         Some(Ok(m)) => (Some(m), None),
         Some(Err(e)) => (None, Some(format!("{}: writing its Markdown failed: {}", path, e.0))),
@@ -57,7 +57,7 @@ pub fn markdown_json(c: &Compiler, path: &str, text: &str, packs: &str) -> Strin
 #[cfg(target_arch = "wasm32")]
 mod abi {
     use super::{build_json, format_json, markdown_json, migrate_json, BuildOptions, Compiler};
-    use xtmd_lsp::Server;
+    use xtmd::lsp::Server;
     use serde_json::Value;
     use std::alloc::{alloc, dealloc, Layout};
 

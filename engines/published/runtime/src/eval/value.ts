@@ -1,5 +1,5 @@
 // Values while a page runs, or while a constant is worked out. A port of
-// compiler/eval/src/value.rs.
+// compiler/xtmd/src/eval/value.rs.
 //
 // Values have no cycles and are never changed in place: a write makes a new value along its path
 // (page 2: assigning makes a value of its own, and the implementer copies only when one of them is

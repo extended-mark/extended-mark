@@ -5,7 +5,7 @@
 
 use std::rc::Rc;
 
-use xtmd_eval::value::Record;
+use xtmd::eval::value::Record;
 use xtmd_runtime::{Num, Value};
 
 /// The value inside an opt (and inside that one), or the value itself; `None` for none.

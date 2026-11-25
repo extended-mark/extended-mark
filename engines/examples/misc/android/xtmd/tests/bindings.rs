@@ -7,7 +7,7 @@ use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use xtmd_android::{Extent, Field, Measure, NativePage, Node, PageInit, Val, Zone};
-use xtmd_check::Source;
+use xtmd::check::Source;
 
 fn repo() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../../..")
@@ -24,13 +24,13 @@ fn build(source: &str) -> String {
             let mut files: Vec<PathBuf> = std::fs::read_dir(repo().join("core")).unwrap().map(|e| e.unwrap().path()).filter(|p| p.extension().map_or(false, |x| x == "xtmdpack")).collect();
             files.sort();
             let sources: Vec<Source> = files.into_iter().map(|p| Source { path: format!("core/{}", p.file_name().unwrap().to_str().unwrap()), text: std::fs::read_to_string(&p).unwrap() }).collect();
-            let base = xtmd_check::compile_core(&sources);
+            let base = xtmd::check::compile_core(&sources);
             for (source, reply) in rx {
-                let c = xtmd_check::compile_on(&base, &[], &[Source { path: "page.xtmd".into(), text: source }], "doc");
+                let c = xtmd::check::compile_on(&base, &[], &[Source { path: "page.xtmd".into(), text: source }], "doc");
                 let out = match c.module {
                     Some(mut m) => {
-                        xtmd_lower::lower(&mut m);
-                        Ok(serde_json::to_string(&xtmd_ir::ir::File { ir: m }).unwrap())
+                        xtmd::lower::lower(&mut m);
+                        Ok(serde_json::to_string(&xtmd::formats::ir::File { ir: m }).unwrap())
                     }
                     None => Err(c.errors().map(|d| d.diagnostic.render(&d.file, &c.texts[&d.file])).collect::<Vec<_>>().join("\n")),
                 };
@@ -279,7 +279,7 @@ fn mount_time() {
     let ir = std::fs::read_to_string(path).unwrap();
     for _ in 0..3 {
         let t = std::time::Instant::now();
-        let file: xtmd_ir::ir::File = serde_json::from_str(&ir).unwrap();
+        let file: xtmd::formats::ir::File = serde_json::from_str(&ir).unwrap();
         let parsed = t.elapsed();
         drop(file);
         let t = std::time::Instant::now();

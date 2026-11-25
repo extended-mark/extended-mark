@@ -5,8 +5,8 @@
 //! At zoom 1 one unit of the plane is one of the page's own lengths (an egui point, an Android dp), so a box
 //! is its size on the page, placed at its point: panning and zooming never change it.
 
-use xtmd_eval::interp::R;
-use xtmd_eval::Num;
+use xtmd::eval::interp::R;
+use xtmd::eval::Num;
 
 /// A size on the page, in its own lengths.
 #[derive(Clone, Copy, Debug, PartialEq)]

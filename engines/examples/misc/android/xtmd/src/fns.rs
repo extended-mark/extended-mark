@@ -4,7 +4,7 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
-use xtmd_eval::value::Record;
+use xtmd::eval::value::Record;
 use xtmd_runtime::{Binding, Num, Page, Value, ValueFn};
 
 use crate::{failed, XtmdError, Zone};

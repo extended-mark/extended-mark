@@ -1,11 +1,12 @@
 EDITORS  ide/
 
-ide/lsp       crate xtmd-lsp: the language server, with no input or output of its own
-  src/server.rs     the protocol's messages in and out
-  src/analysis.rs   hover, definition, references, outline, completion, from the resolved IR
-  src/text.rs       positions: the protocol's, xtmd's, bytes
-  src/config.rs     packs from xtmd.toml
-  src/rules.rs      each code's place in the spec (checks/rules.json)
+ide/README.md               the language server for any editor
+compiler/xtmd/src/lsp       the language server, with no input or output of its own
+  server.rs     the protocol's messages in and out
+  analysis.rs   hover, definition, references, outline, completion, from the resolved IR
+  text.rs       positions: the protocol's, xtmd's, bytes
+  config.rs     packs from xtmd.toml
+  rules.rs      each code's place in the spec (checks/rules.json)
   Run by `xtmd lsp` (stdio) and by @extended-mark/wasm (browser, VS Code).
 
 ide/vscode    the extension

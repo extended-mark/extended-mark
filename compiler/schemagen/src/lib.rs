@@ -34,7 +34,7 @@ pub fn generate(repo: &Path) -> Vec<(PathBuf, String)> {
         let s = &Schema::load(&repo.join(format!("schemas/{}.schema.json", module)), module);
         let mut g = Gen::new(s);
         g.run();
-        out.push((PathBuf::from(format!("compiler/ir/src/{}.rs", s.module)), g.rust()));
+        out.push((PathBuf::from(format!("compiler/xtmd/src/formats/{}.rs", s.module)), g.rust()));
         out.push((PathBuf::from(format!("engines/published/runtime/src/generated/{}.ts", s.module)), g.ts()));
     }
     out
@@ -251,7 +251,7 @@ impl<'a> Gen<'a> {
             Ty::Any => "serde_json::Value".into(),
             Ty::Empty => "Empty".into(),
             Ty::Named(n) => {
-                let path = self.foreign.get(n).map_or(n.clone(), |m| format!("crate::{}::{}", m, n));
+                let path = self.foreign.get(n).map_or(n.clone(), |m| format!("crate::formats::{}::{}", m, n));
                 if self.cyclic(owner, n) {
                     format!("Box<{}>", path)
                 } else {
@@ -265,7 +265,7 @@ impl<'a> Gen<'a> {
 
     fn rust_inner(&self, ty: &Ty) -> String {
         match ty {
-            Ty::Named(n) => self.foreign.get(n).map_or(n.clone(), |m| format!("crate::{}::{}", m, n)),
+            Ty::Named(n) => self.foreign.get(n).map_or(n.clone(), |m| format!("crate::formats::{}::{}", m, n)),
             other => self.rust_ty(other, ""),
         }
     }
@@ -280,7 +280,7 @@ impl<'a> Gen<'a> {
         if self.s.module == "ir" {
             o.push_str("\n/// An object with nothing in it: `{}`.\n#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]\n#[serde(deny_unknown_fields)]\npub struct Empty {}\n");
         } else if self.items.iter().any(|i| matches!(i, Item::Union { variants, .. } if variants.iter().any(|(_, ty, _)| matches!(ty, Ty::Empty)))) {
-            o.push_str("\nuse crate::ir::Empty;\n");
+            o.push_str("\nuse crate::formats::ir::Empty;\n");
         }
         if let Some(v) = self.s.version {
             o.push_str(&format!("\n/// The format's version.\npub const VERSION: i64 = {};\n", v));

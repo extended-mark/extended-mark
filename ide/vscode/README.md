@@ -2,7 +2,7 @@
 
 Extended Mark in VS Code, and in vscode.dev and github.dev: highlighting, errors as you type,
 hover, go to definition, references, the outline, completion and formatting, from xtmd's own
-language server (ide/lsp), built in as WebAssembly so there is nothing to install; and a live
+language server (compiler/xtmd/src/lsp), built in as WebAssembly so there is nothing to install; and a live
 preview, the `vscode` engine, that draws the page with VS Code's own components in the editor's
 theme.
 
@@ -10,7 +10,7 @@ theme.
   Markdown below it with widget calls, holes, control lines and `@//` comments. A document with no
   `@@@` line is read as prose all through.
 - **The language server** answers in a Node process (or a web worker in a browser), built from
-  ide/lsp into xtmd.wasm. The extension is self-contained: it needs no xtmd binary.
+  compiler/xtmd/src/lsp into xtmd.wasm. The extension is self-contained: it needs no xtmd binary.
 - **Packs**: a document is built with the packs its `xtmd.toml` names, read through VS Code (so in
   vscode.dev too) and given to the server.
 - **The preview** compiles the text as it is edited and draws it beside the editor. A draft that
@@ -27,7 +27,7 @@ theme.
     of its own beside the document; nothing is saved.
   - **Check a Folder** checks every `.xtmd` and `.xtmdpack` file under it as the language server
     checks an open one, into Problems.
-  - **Migrate** plans what `xtmd migrate` would do (xtmd-migrate, in xtmd.wasm), asks its questions
+  - **Migrate** plans what `xtmd migrate` would do (the same code, in xtmd.wasm), asks its questions
     one at a time, shows every change side by side with the file as it is, and on Write Them writes
     it as one edit: Undo in any file it wrote takes the whole migration back.
 - `*.ir.json` and `*.rir.json` are checked against the IR schemas.

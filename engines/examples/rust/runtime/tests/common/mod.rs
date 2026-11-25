@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Mutex, OnceLock};
 
-use xtmd_check::Source;
+use xtmd::check::Source;
 use xtmd_runtime::ir::{self, Expr};
 use xtmd_runtime::{Num, Page, PageOptions, Value};
 
@@ -29,7 +29,7 @@ fn compiler() -> &'static Mutex<Sender<Job>> {
     SERVER.get_or_init(|| {
         let (tx, rx) = channel::<Job>();
         std::thread::spawn(move || {
-            let base = xtmd_check::compile_core(&core_sources());
+            let base = xtmd::check::compile_core(&core_sources());
             for (source, packs, reply) in rx {
                 let mut pack_sources = Vec::new();
                 for dir in packs {
@@ -37,10 +37,10 @@ fn compiler() -> &'static Mutex<Sender<Job>> {
                     files.sort();
                     pack_sources.push(files.into_iter().map(|f| Source { path: f.to_string_lossy().into_owned(), text: std::fs::read_to_string(&f).unwrap() }).collect());
                 }
-                let c = xtmd_check::compile_on(&base, &pack_sources, &[Source { path: "page.xtmd".into(), text: source }], "doc");
+                let c = xtmd::check::compile_on(&base, &pack_sources, &[Source { path: "page.xtmd".into(), text: source }], "doc");
                 let out = match c.module {
                     Some(mut m) => {
-                        xtmd_lower::lower(&mut m);
+                        xtmd::lower::lower(&mut m);
                         Ok(m)
                     }
                     None => Err(c.errors().map(|d| d.diagnostic.render(&d.file, &c.texts[&d.file])).collect::<Vec<_>>().join("\n")),

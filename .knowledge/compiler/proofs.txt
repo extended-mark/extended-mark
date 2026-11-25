@@ -1,4 +1,4 @@
-CONTRACTS AND PROOFS  (compiler/check/src/proof.rs)
+CONTRACTS AND PROOFS  (compiler/xtmd/src/check/proof.rs)
 A contract (`number 0..100`) has to be proved where a value is given. What is known of a value is
 `Known`: its declared type, constants, clamp, `if (x in 0..100)`, a loop's range, a list's length.
 A constant is worked out and checked on its line. Anything else without a proof is a compile error.

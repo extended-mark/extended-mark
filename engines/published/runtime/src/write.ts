@@ -1,6 +1,6 @@
 // Markdown blocks as text: one spelling for each block and mark, and a character in a value that Markdown
 // would read is written with a backslash (page 1, Markdown out). It knows no page: whoever has blocks
-// (`schemas/blocks.schema.json`) may write them. compiler/markdown writes the same text.
+// (`schemas/blocks.schema.json`) may write them. compiler/xtmd/src/markdown writes the same text.
 
 import type { Block, BlockBulletsItems, Inline } from "./generated/blocks.js";
 

@@ -1,5 +1,5 @@
 // Extended Mark's evaluator: exact numbers, values, the native fns and the limits, as
-// compiler/eval does them, so a page runs the same on the web as natively.
+// compiler/xtmd/src/eval does them, so a page runs the same on the web as natively.
 
 export { Num, NumError, type NumErrorKind } from "./num.js";
 export {
