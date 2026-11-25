@@ -1,9 +1,9 @@
-// The test host for <xtmd-doc>: drawn by Angular itself through Renderer2, zoneless, `$state`
+// The test host for <xtmd-doc> and for the pages the engine built (#pages): drawn by Angular itself through Renderer2, zoneless, `$state`
 // controlled by the host, with the controls the shared doc steps use (testing/browser.mjs).
 import "@angular/compiler";
 import { Component, Input, ViewChild, computed, provideZonelessChangeDetection, signal } from "@angular/core";
 import { bootstrapApplication } from "@angular/platform-browser";
-import { XtmdDoc } from "@extended-mark/angular";
+import { imports, template } from "#pages";
 
 const heard = { states: [] as unknown[], errors: [] as unknown[], calls: [] as unknown[] };
 const irs = (window as any).__IR;
@@ -20,9 +20,9 @@ class Title {}
 @Component({
   selector: "test-app",
   standalone: true,
-  imports: [XtmdDoc],
+  imports,
   template: `@if (shown()) {
-    <xtmd-doc #view [ir]="ir()" [state]="state()" [components]="components" [page]="pageValues()" [externs]="externs()" (stateChange)="changed($event)" (error)="heard.errors.push($event)" (calls)="heard.calls.push($event)" />
+    ${template(`#view [state]="state()" [components]="components" [page]="pageValues()" [externs]="externs()" (stateChange)="changed($event)" (error)="heard.errors.push($event)" (calls)="heard.calls.push($event)"`)}
   }`,
 })
 class TestApp {
@@ -36,7 +36,7 @@ class TestApp {
   externs = computed(() => ({ app: { unit: { text: this.unit() } } }));
   ir = computed(() => irs[this.which()]);
   pageValues = computed(() => ({ theme: this.theme() }));
-  @ViewChild("view") view?: XtmdDoc;
+  @ViewChild("view") view?: any;
   changed(s: unknown) {
     heard.states.push(s);
     this.state.set(s);

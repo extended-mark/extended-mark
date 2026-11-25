@@ -6,11 +6,12 @@ import { fileURLToPath } from "node:url";
 import { createSSRApp, h } from "vue";
 import { renderToString } from "vue/server-renderer";
 import * as esbuild from "esbuild";
+import ts from "typescript";
 import { chromium } from "playwright-core";
 import * as cli from "extended-mark";
 import { XtmdDoc } from "@extended-mark/vue";
 import { build } from "@extended-mark/vue/engine";
-import { builtPages, bundle, compilePages, componentSteps, docSteps, launch, open } from "../../testing/browser.mjs";
+import { builtPages, bundle, compilePages, componentSteps, docSteps, launch, open, typeErrors } from "../../testing/browser.mjs";
 
 const irs = await compilePages(cli);
 const app = (entry, pages) => bundle(esbuild, at(entry), { alias: { "#pages": at(pages) }, define: { __VUE_OPTIONS_API__: "true", __VUE_PROD_DEVTOOLS__: "false", __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: "true" } });
@@ -102,4 +103,8 @@ test("what the engine writes holds no runtime and no IR, and has its types", () 
   assert.ok(files.includes("v1.d.ts") && files.includes(join("assets", "xtmd.d.ts")), files.join(" "));
   const js = files.filter((f) => f.endsWith(".js")).map((f) => readFileSync(join(at("./built"), f), "utf8")).join("\n");
   for (const word of ["fromModule", "this evaluator doesn't know", "declarations.find"]) assert.ok(!js.includes(word), word);
+});
+
+test("a host's use of a page the engine built is typed", () => {
+  assert.deepEqual(typeErrors(ts, at("./built"), `import { h } from "vue";\nimport Counter from "./v1.js";\nexport const ok = h(Counter, { state: { n: { num: "1" } }, page: { theme: "DARK" } });\n`), []);
 });

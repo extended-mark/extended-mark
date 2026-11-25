@@ -7,3 +7,6 @@ A part no read, write or event is in is HTML alone (static.ts), unless its widge
 The script takes the HTML over (Patcher.adoptAll): the elements are the ones that were written.
 A local is a place in a frame, known as the code is written; a frame is an array, so a lambda's is a slice.
 What holds it to the runtime: engines/published/web/test/engine.test.mjs.
+A framework's component is the same code and kit, held by BuiltDoc and drawn by the framework's renderer.
+All that differs is a Framework (engines/published/web/src/components.ts) and a few lines. Held (widgets) is
+what both a page run from its IR and a built one are held by: engines/published/web/test/held.test.mjs.

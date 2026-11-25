@@ -34,6 +34,16 @@ export async function builtPages(build, irs, dir, options = {}) {
   }
 }
 
+/** What TypeScript says of a host's use of an engine's components: `code`, in a file beside them. */
+export function typeErrors(ts, dir, code, options = {}) {
+  const file = join(dir, "host-use.ts");
+  writeFileSync(file, code);
+  const program = ts.createProgram([file], { noEmit: true, strict: true, skipLibCheck: false, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler, lib: ["lib.es2022.d.ts", "lib.dom.d.ts", "lib.dom.iterable.d.ts"], types: [], ...options });
+  const found = ts.getPreEmitDiagnostics(program).filter((d) => !d.file || d.file.fileName.startsWith(dir.replace(/\\/g, "/")));
+  rmSync(file);
+  return found.map((d) => `${d.file ? d.file.fileName.slice(dir.length) : ""}: ${ts.flattenDiagnosticMessageText(d.messageText, " ")}`);
+}
+
 /** Chromium from the system: XTMD_CHROMIUM, or /usr/bin/chromium. Never downloaded. */
 export function chromiumPath() {
   const p = process.env.XTMD_CHROMIUM || "/usr/bin/chromium";

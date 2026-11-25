@@ -19,7 +19,7 @@ const tree = {
   "compiler/Cargo.toml": '[workspace.package]\nversion = "0.3.1"\nedition = "2021"\n\n[workspace.dependencies]\nserde = { version = "1", features = ["derive"] }\n',
   "compiler/xtmd/Cargo.toml": '[package]\nname = "xtmd"\nversion.workspace = true\n\n[dependencies]\nxtmd-ir = { path = "../ir", version = "0.3.1" }\nanyhow = { version = "0.3.1" }\n',
   "compiler/Cargo.lock": '[[package]]\nname = "anyhow"\nversion = "0.3.1"\nsource = "registry+https://github.com/rust-lang/crates.io-index"\n\n[[package]]\nname = "xtmd-ir"\nversion = "0.3.1"\ndependencies = [\n "anyhow",\n]\n',
-  "compiler/npm/extended-mark/package.json": json({ name: "extended-mark", version: "0.3.1", optionalDependencies: { "@extended-mark/wasm": "file:../wasm", "@extended-mark/cli-linux-x64": "0.3.1" }, devDependencies: { typescript: "0.3.1" } }),
+  "compiler/npm/extended-mark/package.json": json({ name: "extended-mark", version: "0.3.1", optionalDependencies: { "@extended-mark/wasm": "file:../wasm", "@extended-mark/cli-linux-x64": "0.3.1" }, devDependencies: { typescript: "0.3.1", "@extended-mark/web": "file:../web" }, peerDependencies: { "@extended-mark/web": "0.3.1" } }),
   "compiler/npm/extended-mark/package-lock.json": json({ name: "extended-mark", version: "0.3.1", lockfileVersion: 3, packages: { "": { name: "extended-mark", version: "0.3.1" }, "../wasm": { version: "0.3.1" }, "../gone": { version: "0.3.0" }, "node_modules/typescript": { version: "0.3.1", resolved: "https://registry.npmjs.org/typescript/-/typescript-0.3.1.tgz" } } }),
   "compiler/npm/wasm/package.json": json({ name: "@extended-mark/wasm", version: "0.3.1" }),
   "engines/published/runtime/package.json": json({ name: "@extended-mark/runtime", version: "0.3.1" }),
@@ -56,6 +56,8 @@ test("bump raises every place it owns, and nothing else", () => {
   assert.equal(pkg.optionalDependencies["@extended-mark/cli-linux-x64"], "0.4.0");
   assert.equal(pkg.optionalDependencies["@extended-mark/wasm"], "file:../wasm");
   assert.equal(pkg.devDependencies.typescript, "0.3.1");
+  assert.equal(pkg.devDependencies["@extended-mark/web"], "file:../web", "by its folder, and a user's by its version");
+  assert.equal(pkg.peerDependencies["@extended-mark/web"], "0.4.0");
   const lock = JSON.parse(read("compiler/npm/extended-mark/package-lock.json"));
   assert.equal(lock.version, "0.4.0");
   assert.equal(lock.packages[""].version, "0.4.0");

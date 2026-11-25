@@ -1,6 +1,6 @@
-<!-- The test host for <XtmdDoc>: drawn by Svelte itself, $state controlled by the host, with the controls the shared doc steps use (testing/browser.mjs, docSteps). -->
+<!-- The test host for <XtmdDoc> and for the pages the engine built (#pages): drawn by Svelte itself, $state controlled by the host, with the controls the shared doc steps use (testing/browser.mjs, docSteps). -->
 <script>
-  import { XtmdDoc } from "@extended-mark/svelte";
+  import { page as pageOf } from "#pages";
   import Press from "./Press.svelte";
   import Title from "./Title.svelte";
 
@@ -31,9 +31,10 @@
 </script>
 
 {#if shown}
-  <XtmdDoc
+  {@const { of: Page, props } = pageOf(which)}
+  <Page
     bind:this={view}
-    ir={window.__IR[which]}
+    {...props}
     state={docState}
     components={window.__mine ? { "core/press": Press, "core/heading": Title } : undefined}
     page={{ theme }}

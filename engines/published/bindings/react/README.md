@@ -70,6 +70,32 @@ import wasm from "@extended-mark/wasm/xtmd.wasm?url";            // as the bundl
 <XtmdLiveDoc source={text} wasm={wasm} onError={(e) => e.kind === "compile" && show(e.diagnostics)} />
 ```
 
+## Pages built ahead
+
+With [@extended-mark/web](../../web) beside it, this package has an engine, `xtmd-react`: a document known when the app is
+built becomes a React component, with no IR, no runtime and no package of ours in it.
+
+```toml
+# xtmd.toml
+[engines]
+react = ["xtmd-react"]
+```
+
+```sh
+npm install -D @extended-mark/react @extended-mark/web
+xtmd build docs --out src/xtmd --engine react
+```
+
+```tsx
+import Shop from "./xtmd/shop.js";
+
+<Shop state={state} onStateChange={setState} onError={(e) => console.warn(e)} />
+```
+
+A component has `XtmdDoc`'s props and handle, without `ir`, `widgets`, `measure` and `markdown`. Its snapshots and `XtmdDoc`'s of
+the same IR go into each other. Options after the engine's name: `--widgets FILE`, `--only-widgets`, `--tokens FILE`,
+`--fns FILE`, `--components a/b,c/d` (the widgets you give React components for) and `--readable`.
+
 ## Tests
 
 `npm test`: `XtmdDoc` rendered on a server, then the shared steps in Chromium (`../testing/browser.mjs`,

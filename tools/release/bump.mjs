@@ -71,7 +71,7 @@ function places(repo) {
       pattern(f, /^(  "version": ")([^"]+)(")/gm);
       for (const s of SECTIONS)
         for (const [dep, spec] of Object.entries(pkg[s] ?? {}))
-          if (ours(dep) && !String(spec).startsWith("file:")) pattern(f, new RegExp(`("${dep.replace("/", "\\/")}": ")([^"]+)(")`, "g"));
+          if (ours(dep) && !String(spec).startsWith("file:")) pattern(f, new RegExp(`("${dep.replace("/", "\\/")}": ")((?!file:)[^"]+)(")`, "g"));
     }
     for (const f of files(join(repo, root), (n) => n === "package-lock.json")) {
       // the package and its neighbours here, by folder; a registry's packages are left as they are

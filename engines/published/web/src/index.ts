@@ -294,6 +294,8 @@ export async function bundle(pages: { name: string; code: string }[], options: G
     plugins: [ours(more.from), entries],
     metafile: true,
     legalComments: "none",
+    // as it is written: what reads a script looks for names in it (Angular's linker)
+    charset: "utf8",
     logLevel: "silent",
   });
   const cwd = process.cwd();

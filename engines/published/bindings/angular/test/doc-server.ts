@@ -3,17 +3,18 @@ import "@angular/compiler";
 import { Component, provideZonelessChangeDetection } from "@angular/core";
 import { bootstrapApplication } from "@angular/platform-browser";
 import { provideServerRendering, renderApplication } from "@angular/platform-server";
-import { XtmdDoc } from "@extended-mark/angular";
+import { imports, template } from "#pages";
 
 export async function render(ir: unknown): Promise<string> {
   @Component({
     selector: "test-app",
     standalone: true,
-    imports: [XtmdDoc],
-    template: `<xtmd-doc [ir]="ir" [defaultState]="start" [externs]="externs" />`,
+    imports,
+    template: template(`[defaultState]="start" [externs]="externs"`),
   })
   class ServerApp {
-    ir = ir as any;
+    ir = () => ir as any;
+    which = () => "v1";
     start = { n: { num: "2" } };
     externs = { app: { unit: { text: "items" } } };
   }

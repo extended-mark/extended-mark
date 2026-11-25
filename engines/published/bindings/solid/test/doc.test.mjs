@@ -4,12 +4,13 @@ import { join } from "node:path";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
+import ts from "typescript";
 import { chromium } from "playwright-core";
 import { createComponent, generateHydrationScript, renderToString } from "solid-js/web";
 import * as cli from "extended-mark";
 import { XtmdDoc } from "@extended-mark/solid";
 import { build } from "@extended-mark/solid/engine";
-import { builtPages, bundle, compilePages, componentSteps, docSteps, launch, open } from "../../testing/browser.mjs";
+import { builtPages, bundle, compilePages, componentSteps, docSteps, launch, open, typeErrors } from "../../testing/browser.mjs";
 
 const irs = await compilePages(cli);
 const app = (entry, pages) => bundle(esbuild, at(entry), { alias: { "#pages": at(pages) }, conditions: ["browser"] });
@@ -103,4 +104,9 @@ test("what the engine writes holds no runtime and no IR, and has its types", () 
   assert.ok(files.includes("v1.d.ts") && files.includes(join("assets", "xtmd.d.ts")), files.join(" "));
   const js = files.filter((f) => f.endsWith(".js")).map((f) => readFileSync(join(at("./built"), f), "utf8")).join("\n");
   for (const word of ["fromModule", "this evaluator doesn't know", "declarations.find"]) assert.ok(!js.includes(word), word);
+});
+
+test("a host's use of a page the engine built is typed", () => {
+  assert.deepEqual(typeErrors(ts, at("./built"), `import { createComponent } from "solid-js";\nimport Counter from "./v1.js";\nexport const ok = createComponent(Counter, { state: { n: { num: "1" } }, page: { theme: "DARK" }, ref: (h) => void h.snapshot(), onStateChange: (s) => void s.n });\n`), []);
+  assert.equal(typeErrors(ts, at("./built"), `import { createComponent } from "solid-js";\nimport Counter from "./v1.js";\nexport const bad = createComponent(Counter, { page: { theme: "BLUE" } });\n`).length, 1);
 });

@@ -1,10 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { withXtmd, loader } from "@extended-mark/next/config";
 import { pageHtml } from "@extended-mark/next/server";
 import * as cli from "extended-mark";
+import { build } from "@extended-mark/next/engine";
+import { builtPages } from "../../testing/browser.mjs";
 
 const counter = fileURLToPath(new URL("../../testing/counter.xtmd", import.meta.url));
 const require = createRequire(import.meta.url);
@@ -56,4 +60,12 @@ test("pageHtml writes the page's Markdown as HTML, with the host's $state", asyn
   assert.equal(pageHtml(ir, { state: { n: { num: "70" } } }), "<h1>Count: 0 points</h1>\n<p>Add one</p>");
   // a channel by the name the document gives it
   assert.equal(pageHtml(ir, { externs: { app: { unit: { text: "pts" } } } }), "<h1>Count: 0 pts</h1>\n<p>Add one</p>");
+});
+
+test("a page the engine built, in a server component of a Next.js app: `next build` writes its HTML", async () => {
+  const app = fileURLToPath(new URL("./app", import.meta.url));
+  await builtPages(build, { v1: await cli.build(counter) }, `${app}/built`);
+  execFileSync(process.execPath, [require.resolve("next/dist/bin/next"), "build"], { cwd: app, stdio: "pipe", env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" } });
+  const html = readFileSync(`${app}/.next/server/app/index.html`, "utf8");
+  assert.ok(html.replace(/<!-- -->/g, "").includes("Count: 2 items"), html.slice(0, 2000));
 });

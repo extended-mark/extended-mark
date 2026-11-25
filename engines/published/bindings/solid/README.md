@@ -45,6 +45,32 @@ import { XtmdLiveDoc } from "@extended-mark/solid-live";
 <XtmdLiveDoc source={text()} wasm={wasmUrl} onError={(e) => e.kind === "compile" && show(e.diagnostics)} />
 ```
 
+## Pages built ahead
+
+With [@extended-mark/web](../../web) beside it, this package has an engine, `xtmd-solid`: a document known when the app is
+built becomes a Solid component, with no IR, no runtime and no package of ours in it.
+
+```toml
+# xtmd.toml
+[engines]
+solid = ["xtmd-solid"]
+```
+
+```sh
+npm install -D @extended-mark/solid @extended-mark/web
+xtmd build docs --out src/xtmd --engine solid
+```
+
+```tsx
+import Shop from "./xtmd/shop.js";
+
+<Shop state={state()} onStateChange={setState} />
+```
+
+A component has `XtmdDoc`'s props and handle, without `ir`, `widgets`, `measure` and `markdown`. Its snapshots and `XtmdDoc`'s of
+the same IR go into each other. Options after the engine's name: `--widgets FILE`, `--only-widgets`, `--tokens FILE`,
+`--fns FILE`, `--components a/b,c/d` (the widgets you give Solid components for) and `--readable`.
+
 ## Tests
 
 `npm test`: `XtmdDoc` rendered on a server, then the shared steps in Chromium (`../testing/browser.mjs`,

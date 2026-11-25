@@ -6,11 +6,12 @@ import { fileURLToPath } from "node:url";
 import { createElement as h } from "react";
 import { renderToString } from "react-dom/server";
 import * as esbuild from "esbuild";
+import ts from "typescript";
 import { chromium } from "playwright-core";
 import * as cli from "extended-mark";
 import { XtmdDoc } from "@extended-mark/react";
 import { build } from "@extended-mark/react/engine";
-import { builtPages, bundle, compilePages, componentSteps, docSteps, launch, open } from "../../testing/browser.mjs";
+import { builtPages, bundle, compilePages, componentSteps, docSteps, launch, open, typeErrors } from "../../testing/browser.mjs";
 
 const irs = await compilePages(cli);
 const at = (f) => fileURLToPath(new URL(f, import.meta.url));
@@ -103,4 +104,9 @@ test("what a server writes has the same ids however many pages it wrote before",
   assert.match(one, /id="xtmd/);
   assert.equal(renderToString(h(Notes)), one);
   assert.equal(renderToString(h(XtmdDoc, { ir: irs.notes })), renderToString(h(XtmdDoc, { ir: irs.notes })));
+});
+
+test("a host's use of a page the engine built is typed", () => {
+  assert.deepEqual(typeErrors(ts, at("./built"), `import { createElement, createRef } from "react";\nimport Counter from "./v1.js";\nimport type { PageHandle } from "./assets/xtmd.js";\nconst ref = createRef<PageHandle>();\nexport const ok = createElement(Counter, { ref, state: { n: { num: "1" } }, page: { theme: "DARK" }, onStateChange: (s) => void s.n, className: "x" });\n`), []);
+  assert.equal(typeErrors(ts, at("./built"), `import { createElement } from "react";\nimport Counter from "./v1.js";\nexport const bad = createElement(Counter, { page: { theme: "BLUE" } });\n`).length, 1);
 });

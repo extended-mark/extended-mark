@@ -33,3 +33,31 @@ page outside the host's folder needs `turbopack.root` set to a folder that holds
 - `@extended-mark/next`: `XtmdDoc`, as in [@extended-mark/react](../react/README.md), with `"use client"`.
 - `@extended-mark/next/config`: `withXtmd(config, { packs, config })`, and `loader`, the loader's path.
 - `@extended-mark/next/server`: `pageHtml(ir, { state, page, externs })`, the page's Markdown as HTML, with no DOM.
+
+## Pages built ahead
+
+With [@extended-mark/web](../../web) beside it, this package has an engine, `xtmd-next`: a document known when the app is
+built becomes a React component, with no IR, no runtime and no package of ours in it.
+
+```toml
+# xtmd.toml
+[engines]
+next = ["xtmd-next"]
+```
+
+```sh
+npm install -D @extended-mark/next @extended-mark/web
+xtmd build docs --out src/xtmd --engine next
+```
+
+```tsx
+import Shop from "../xtmd/shop.js";      // in a server component too: it says it is the client's
+
+export default function Page() {
+  return <Shop defaultState={saved} />;
+}
+```
+
+A component has `XtmdDoc`'s props and handle, without `ir`, `widgets`, `measure` and `markdown`. Its snapshots and `XtmdDoc`'s of
+the same IR go into each other. Options after the engine's name: `--widgets FILE`, `--only-widgets`, `--tokens FILE`,
+`--fns FILE`, `--components a/b,c/d` (the widgets you give React components for) and `--readable`.

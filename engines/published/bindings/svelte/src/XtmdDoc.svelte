@@ -11,9 +11,11 @@
 
   let { class: className = undefined, id = undefined, ...props }: DocProps & { class?: string; id?: string } = $props();
 
+  // Svelte's own id, which is the same on a server as in the browser
+  const uid = $props.id();
   // made once, from the props it starts with; the $effect below follows them after
   // svelte-ignore state_referenced_locally
-  const doc = new Doc({ ...props });
+  const doc = new Doc({ ...props, uid: `xtmd${uid}-` });
   let version = $state(0);
   onDestroy(doc.subscribe(() => version++));
   // the document follows its props

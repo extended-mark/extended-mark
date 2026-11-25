@@ -11,4 +11,6 @@ WEB BINDINGS  engines/published/bindings    each a package on npm, @extended-mar
                  showcase/ (all of them on one page)
 
 Where the props are read: engines/published/bindings/<name>/src/doc.ts (svelte: src/XtmdDoc.svelte).
+What they mean: engines/published/widgets/src/held.ts. How elements are made: src/elements.ts beside doc.ts.
+Their engines: .index/14-web-engine.txt.
 Order they build in: tools/release/packages.mjs (by dependencies).
