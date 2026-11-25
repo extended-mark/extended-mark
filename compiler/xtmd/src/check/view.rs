@@ -367,7 +367,7 @@ impl Checker {
                     let (x, _) = self.expr(cx, value, Some(&it));
                     self.sentence_for = outer;
                     self.want(cx, value, &x, &input.ir, format!("`{}`'s `{}`", wname, n.name));
-                    // the engine runs it, as often as it draws, within the step limit (page 5)
+                    // the renderer runs it, as often as it draws, within the step limit (page 5)
                     if matches!(self.defs[d].kind, DefKind::Widget { external: true, .. }) && matches!(&input.ty, Ty::Fn(_, Some(_))) {
                         let xtmd_fn = match &value.kind {
                             E::Lambda(_) => true,
@@ -375,7 +375,7 @@ impl Checker {
                             _ => false,
                         };
                         if xtmd_fn {
-                            self.warning(file, codes::ENGINE_XTMD_FN, value.span, format!("`{}`'s `{}` is an Extended Mark fn here, which an engine runs within the step limit, for each pixel of a shader: an extern fn runs natively", wname, n.name));
+                            self.warning(file, codes::RENDERER_XTMD_FN, value.span, format!("`{}`'s `{}` is an Extended Mark fn here, which a runtime runs within the step limit, for each pixel of a shader: an extern fn runs natively", wname, n.name));
                         }
                     }
                     parts.props.insert(n.name.clone(), x);

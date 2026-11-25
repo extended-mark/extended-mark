@@ -1,6 +1,6 @@
 {
   "id": "packs.a-pack-supplies-its-externs",
-  "about": "a pack supplies its own externs on each engine it supports; an extern nobody supplies shows its Markdown instead, drawn with core's blocks; both write their Markdown",
+  "about": "a pack supplies its own externs on each platform it supports; an extern nobody supplies shows its Markdown instead, drawn with core's blocks; both write their Markdown",
   "source": "packs-a-pack-supplies-its-externs.xtmd",
   "packs": [
     "../../../../checks/packs/badge"

@@ -6,7 +6,7 @@ object XtmdWork {
     val running = java.util.concurrent.atomic.AtomicInteger(0)
     val idle: Boolean get() = running.get() == 0
 
-    /** Work of a page's off the main thread that isn't this library's (a live engine's
+    /** Work of a page's off the main thread that isn't this library's (a live document's
      * compile): counted while it runs, so a test waits for it. */
     suspend fun <T> during(block: suspend () -> T): T {
         running.incrementAndGet()

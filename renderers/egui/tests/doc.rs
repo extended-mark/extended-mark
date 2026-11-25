@@ -1,4 +1,4 @@
-//! XtmdDoc, egui's static engine, on the pages the web engines' tests use
+//! XtmdDoc, a document from its IR, on the pages the web renderers' tests use
 //! (renderers/testing): a starting `$state` checked, `$state` controlled by the host,
 //! externs, extern fns and exposed fns, snapshots, a new IR, and an IR that can't be had.
 

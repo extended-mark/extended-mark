@@ -1,6 +1,5 @@
 //! An observation, as the check protocol has it (plan tab 16; schemas' `Observation`): the same
-//! JSON the test engine's and the native engine's adapters send, so `xtmd engine check` compares
-//! the Android engine with them byte for byte.
+//! JSON the tests' and the native renderer's adapters send, so the tests can compare them byte for byte.
 
 use std::collections::HashSet;
 
@@ -30,7 +29,7 @@ fn to_json<T: serde::Serialize>(x: &T) -> Result<Json, XtmdError> {
 }
 
 /// Everything Extended Mark decides about the page after a step. With `drawn`, the tree holds only the
-/// widgets the engine drew: the observed tree is what is on the screen.
+/// widgets the renderer drew: the observed tree is what is on the screen.
 pub fn observe(page: &mut Page, drawn: Option<Vec<String>>) -> Result<String, XtmdError> {
     let drawn: Option<HashSet<String>> = drawn.map(|d| d.into_iter().collect());
     let mut tree = page.observe_tree();

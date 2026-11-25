@@ -4,8 +4,8 @@
 //! errors come back with the next frame ([`DocError::Compile`]) and from [`XtmdLiveDoc::diagnostics`].
 //! When to give it a new text (each key, a pause, a save) is the host's.
 //!
-//! The compiler is xtmd's, with core compiled once for the host ([`compiler`]). The static
-//! engine, xtmd-egui, doesn't carry it.
+//! The compiler is xtmd's, with core compiled once for the host ([`compiler`]). The
+//! renderer, xtmd-egui, doesn't carry it.
 
 use std::rc::Rc;
 

@@ -1,4 +1,4 @@
-//! The formats that pass between modules, as Rust types: the IR every engine runs, the tree a host
+//! The formats that pass between modules, as Rust types: the IR every runtime runs, the tree a host
 //! draws, a page's state, what is done to it, what it tells, its Markdown blocks, what an engine builds; and the compiler's
 //! cases.
 //!

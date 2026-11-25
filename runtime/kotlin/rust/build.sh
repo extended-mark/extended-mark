@@ -42,7 +42,7 @@ android() {
   ndk=${ANDROID_NDK_HOME:-$(ls -d "$ANDROID_HOME"/ndk/* | sort -V | tail -n 1)}
   bin="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin"
   api=26 # xtmd-android's minSdk
-  # Rust's engine, Android's ABI, and the NDK clang's prefix (32-bit ARM's differs from Rust's):
+  # Rust's target, Android's ABI, and the NDK clang's prefix (32-bit ARM's differs from Rust's):
   # budget phones often run a 32-bit-only Android, so armeabi-v7a ships too
   for pair in aarch64-linux-android:arm64-v8a:aarch64-linux-android armv7-linux-androideabi:armeabi-v7a:armv7a-linux-androideabi x86_64-linux-android:x86_64:x86_64-linux-android; do
     triple=${pair%%:*}

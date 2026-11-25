@@ -81,7 +81,7 @@ pub enum Outer {
     Slot(Rc<str>),
 }
 
-/// Everything outside a fn: a widget instance, the document, the host, the engine.
+/// Everything outside a fn: a widget instance, the document, the host, the renderer.
 ///
 /// A host is called back from inside the machine and may call the machine again (a runtime reads
 /// a `mut` input by working out its caller's place), so its methods take `&self`: one with
@@ -100,7 +100,7 @@ pub trait Host {
     fn invoke(&self, _m: &mut Machine, event: &str, _args: Vec<Value>, _owner: Option<u64>) -> R<()> {
         Err(Failure::new(FailKind::NotConstant, format!("`invoke {}` runs only when the page runs", event)))
     }
-    /// The value a token case stands for, from the engine's tokens.
+    /// The value a token case stands for, from the platform's tokens.
     fn token_value(&self, m: &mut Machine, case: &Case) -> R<Value> {
         m.default_token_value(case)
     }
@@ -1693,7 +1693,7 @@ impl<'p> Machine<'p> {
         Ok(true)
     }
 
-    /// Whether a value that comes from outside, from a host, an engine or a snapshot, is one of a type: its
+    /// Whether a value that comes from outside, from a host, a renderer or a snapshot, is one of a type: its
     /// shape, and every contract in it. A record's own rule that is false is a failure. The compiler has
     /// proved only the page's own values.
     pub fn takes(&mut self, v: &Value, ty: &ir::Type) -> R<bool> {

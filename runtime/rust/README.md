@@ -1,6 +1,6 @@
 # xtmd-runtime
 
-Extended Mark's native runtime: it runs the IR the `xtmd` compiler writes, for the egui engine and, through
+Extended Mark's native runtime: it runs the IR the `xtmd` compiler writes, for the egui renderer and, through
 UniFFI, for Android (plan tab 7). It is @extended-mark/runtime (runtime/typescript) in Rust.
 
 CI builds it and runs its tests, and it isn't published
@@ -16,15 +16,15 @@ CI builds it and runs its tests, and it isn't published
   handler that fails is undone, a host's write that breaks a rule is refused. Each is reported in
   `take_outcome()`.
 - **Markdown out**: `markdown()` writes the live page, the same text @extended-mark/runtime writes.
-- **Layout**: `layout::lay` places the boxes on a plane, and `settle` runs an engine's passes over the page until
+- **Layout**: `layout::lay` places the boxes on a plane, and `settle` runs a renderer's passes over the page until
   nothing changes. It knows no widget: `xtmd-planes` finds and measures the planes.
-- **No drawing** and no UI dependency. Its tree holds every prop already worked out, so an engine
+- **No drawing** and no UI dependency. Its tree holds every prop already worked out, so a renderer
   that draws every frame (egui) only reads it: nothing is evaluated per frame.
 - **Only what reads what changed is worked out again.** Each widget instance, extern call, loop, branch
   and local drawn keeps what it read (each `$state` field, channel value, cell and own value, by
   version), its arguments and the locals around it; a redraw reuses its subtree when none of
   them changed, and an undo or new supplies drop every memo. A reused node is the very same
-  `Drawn` (`Drawn::same`), so an engine skips it without comparing anything.
+  `Drawn` (`Drawn::same`), so a renderer skips it without comparing anything.
 
 ## Using it
 
@@ -97,14 +97,14 @@ println!("{}", page.markdown().unwrap());
 | `Page::from_json(json, opts)`, `Page::new(ir::File, opts)`, `Page::from_module` | Mount a page and draw it once. `PageOptions { page, state, externs, fns, supplies, memo }`. |
 | `tree() -> &[Drawn]`, `find(id)`, `at(place)`, `revision()`, `on_change(f)` / `off_change(id)` | The drawn extern widgets: shared nodes that never change, read through `Deref` as `DrawnNode`s. `revision()` moves at every redraw; `Drawn::same(a, b)` says a node is the one drawn before, reused with everything in it. |
 | `event(id, name, args)`, `write(id, input, value)` | The reader's changes, on a drawn widget by its id. |
-| `host_tree()`, `host_changes(&last)`, `call(id, input, args)`, `data()`, `host::apply(tree, changes)` | The host's side as JSON (docs/specs/06): the same tree and changes as every engine's, for a host in another process or language. |
+| `host_tree()`, `host_changes(&last)`, `call(id, input, args)`, `data()`, `host::apply(tree, changes)` | The host's side as JSON (docs/specs/06): the same tree and changes as every runtime's, for a host in another process or language. |
 | `lacking()` | What the page's `needs` lists that nobody gives. |
 | `set(changes)`, `expose(channel, fn, args)`, `set_extern(channel, values)`, `set_page(PageValues)` | The host's changes: `$state` checked for type, then contract, then rules. |
-| `set_supplies(f)`, `missing()` | Which extern widgets the engine draws; one it doesn't shows its Markdown (page 6). |
+| `set_supplies(f)`, `missing()` | Which extern widgets the renderer draws; one it doesn't shows its Markdown (page 6). |
 | `take_outcome()`, `take_calls()`, `take_warnings()`, `take_errors()` | What happened since the last take. |
 | `markdown()`, `markdown_blocks()` | Markdown out. |
-| `settle(pass)`, `layout::lay(plane)` | What an engine measures, written back: at most 8 passes, each one transaction; one that never settles is `failure.layout` of what it was for, and is held until the next outside change. `lay` places a plane's boxes, and `xtmd-planes` is the two together. |
-| `listens(drawn, event)`, `write_type(drawn, input)` | What an engine asks while it draws. |
+| `settle(pass)`, `layout::lay(plane)` | What a renderer measures, written back: at most 8 passes, each one transaction; one that never settles is `failure.layout` of what it was for, and is held until the next outside change. `lay` places a plane's boxes, and `xtmd-planes` is the two together. |
+| `listens(drawn, event)`, `write_type(drawn, input)` | What a renderer asks while it draws. |
 | `value(expr)`, `eval(expr)`, `token_value(v)`, `equal(a, b)`, `apply(fn, args)` | Values in and out: `Value::to_ir()` gives the IR's form. `apply` runs a fn the tree holds (a `shade`'s shader), with the step limit to itself. |
 | `observe_tree()`, `observe_state()`, `observe_shaded(samples)` | What a test observes: the tree, `$state`, and what each shade draws. |
 
@@ -116,7 +116,7 @@ reported in `take_outcome()`.
 the same observations, for comparing the two. `examples/drag_bench.rs` times a drag both ways in
 one run (`cargo run --release -p xtmd-runtime --example drag_bench -- <page.xtmd>`).
 
-`fns` are the value fns the engine supplies, by full name, each given the page's machine:
+`fns` are the value fns the renderer supplies, by full name, each given the page's machine:
 `core/moment.local` reads the reader's time zone, `core/can_draw_tex` says which TeX it draws.
 
 ## On egui and Android

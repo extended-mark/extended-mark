@@ -1,4 +1,4 @@
-// The host's contract (page 6, The host): the tree every engine gives fits its schema, its ids are one
+// The host's contract (page 6, The host): the tree every runtime gives fits its schema, its ids are one
 // each and follow their items, what changed makes the next tree from the last, and a change works out
 // only what reads it.
 
@@ -166,7 +166,7 @@ widget board() {
 @board;
 `;
 
-test("a page's tree is the one every engine gives", () => {
+test("a page's tree is the one every runtime gives", () => {
   // the same files xtmd-runtime's tests read (runtime/rust/tests/host.rs)
   const given = { supplies: () => true, externs: { "doc/clock": { today: { text: "Tuesday" } } } };
   for (const [page, tree] of [["schemas/examples/counter.xtmd", "schemas/examples/counter.tree.json"], ["apps/example-host/page.xtmd", "apps/example-host/test/page.tree.json"]]) {

@@ -1,4 +1,4 @@
-//! The compiler reads a page's sentences in Rust (eval/md.rs), and engines with core's own
+//! The compiler reads a page's sentences in Rust (eval/md.rs), and renderers with core's own
 //! `md_inline`. Both give the same segments, for every example of CommonMark and GitHub, for core's own
 //! words, and for texts made of everything inline Markdown reads.
 

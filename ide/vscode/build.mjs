@@ -1,5 +1,5 @@
 // Builds the extension into dist/: the desktop's and the browser's extension, the language
-// server's two hosts (a Node process, a web worker), the preview's page (the vscode engine), and
+// server's two hosts (a Node process, a web worker), the preview's page (the vscode renderer), and
 // beside them xtmd.wasm, the IR schemas and VS Code's codicons. The types are checked first.
 //
 //   node build.mjs [--watch]

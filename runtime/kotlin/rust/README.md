@@ -2,7 +2,7 @@
 
 `xtmd-runtime` (runtime/rust) behind a [UniFFI](https://mozilla.github.io/uniffi-rs/) interface, written
 with UniFFI's proc macros. `uniffi-bindgen` writes the Kotlin bindings from the built library, and
-[xtmd-android](../../../renderers/compose) (the Compose engine) draws pages through them. It is a member of the Rust workspace
+[xtmd-android](../../../renderers/compose) (the Compose renderer) draws pages through them. It is a member of the Rust workspace
 in `compiler/` (`"../runtime/kotlin/rust"` in its `Cargo.toml`), so it shares its `Cargo.lock` and `target/`.
 
 ## What Kotlin gets (`xtmd.android.ffi`)
@@ -12,7 +12,7 @@ in `compiler/` (`"../runtime/kotlin/rust"` in its `Cargo.toml`), so it shares it
 | `NativePage` | `class NativePage(irJson, PageInit, Zone)` | A running page: one handle, behind a lock. Every change is one call, one transaction |
 | `Node`, `Slot` | `data class Node(path, key, widget, props: Map<String, Val>, slots, listens, events, writes, same)` | A drawn extern widget, props worked out; `key` is who it is across redraws |
 | `Val`, `Field` | `sealed class Val` (`Num`, `Text`, `Bool`, `Duration`, `Items`, `Record`, `Case`, `Opt`, `Range`, `Fn`, `View`) | A value. Numbers are exact decimals as text. A token case carries the build's value for it in `token`, so a composable never calls back while it draws |
-| `Measure` | `interface Measure { spot(Node): Extent; planeWidth(Node): Double }` | The plane's layout asks the engine for sizes, in dp |
+| `Measure` | `interface Measure { spot(Node): Extent; planeWidth(Node): Double }` | The plane's layout asks the renderer for sizes, in dp |
 | `Zone` | `interface Zone { offsetMinutes(utcMinutes: Long): Int }` | Where the reader is, for `core/moment.local` |
 | `XtmdError::Failed { why }` | `XtmdException.Failed(why)` | The IR doesn't read, a value isn't one, or a call came back into the page |
 
@@ -27,10 +27,10 @@ in `compiler/` (`"../runtime/kotlin/rust"` in its `Cargo.toml`), so it shares it
 - **Changing:** `event`, `write`, `set`, `expose`, `setExtern`, `setPage(width, theme)`, `setSupplies(list)`,
   `layout(measure)`.
 - **The checks:** `valueJson`, `eventJson`, `writeJson`, `setJson`, `exposeJson`, `externJson` take the check
-  protocol's own JSON, and `observeJson(drawn)` writes an observation in it, the tree limited to what the engine
-  drew: the same bytes the test engine's and the native engine's adapters send.
+  protocol's own JSON, and `observeJson(drawn)` writes an observation in it, the tree limited to what the renderer
+  drew: the same bytes the tests' and the native renderer's adapters send.
 
-Engine fns (`src/fns.rs`): `core/can_draw_tex` is true (xtmd-android draws the TeX core accepts and shows TeX it
+Renderer fns (`src/fns.rs`): `core/can_draw_tex` is true (xtmd-android draws the TeX core accepts and shows TeX it
 doesn't know as itself, as @extended-mark/dom does), and `core/moment.local` asks the `Zone` for the offset at the instant
 (the checks pass UTC; a host, `DeviceZone`, the phone's zone with summer time).
 

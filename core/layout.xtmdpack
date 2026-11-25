@@ -85,7 +85,7 @@ extern widget plane(
     mut zoom: number 0.1..10 = 1,                   // at 1, one unit is one of the page's own lengths; the caller may keep it
     zoom_range: range<number> = 1..1,               // how far the reader may zoom; 1..1 means not at all
     fit: bool = false,                              // start zoomed so the whole of bounds fits; zoom_range counts from there
-    mut drawn: opt<region> = opt.NONE,              // written by the engine: the part of the plane being drawn
+    mut drawn: opt<region> = opt.NONE,              // written by the renderer: the part of the plane being drawn
     width: opt<size> = opt.NONE,                    // left out, the width it is given, like a column
     aspect: number 0.1..10 = 1.5,                   // the drawn area's width over its height
 ) {
@@ -120,7 +120,7 @@ extern widget spot(
     at: point,
     anchor: anchor = anchor.CENTER,
     nudge: point = point { x = 0, y = 0 },          // by the page's own lengths, y up
-    mut box: opt<region> = opt.NONE,                // written by the engine: from the bottom-left corner to the top-right one
+    mut box: opt<region> = opt.NONE,                // written by the renderer: from the bottom-left corner to the top-right one
 ) {
     slot child: view;
 

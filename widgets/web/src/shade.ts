@@ -1,4 +1,4 @@
-// A shade's pixels, worked out by the page's shader, for every engine that paints them on a canvas.
+// A shade's pixels, worked out by the page's shader, for everything that paints them on a canvas.
 
 import { Num } from "@extended-mark/runtime/num";
 import type { Input, Node as Drawn } from "@extended-mark/runtime";

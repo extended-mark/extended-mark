@@ -76,7 +76,7 @@ dependencies {
 }
 
 // The unit tests load the host's libxtmd_android.so through JNA, and the
-// live engine's libxtmd_android_live.so.
+// live document's libxtmd_android_live.so.
 tasks.withType<Test>().configureEach {
     val runtimeHost = project(":xtmd-android-runtime").layout.projectDirectory.dir("native/host/linux-x86-64").asFile
     val liveHost = project(":xtmd-android-live").layout.projectDirectory.dir("native/host/linux-x86-64").asFile

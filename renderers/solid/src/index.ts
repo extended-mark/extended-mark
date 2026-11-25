@@ -1,6 +1,6 @@
-// @extended-mark/solid: Extended Mark documents in Solid, the static engine. <XtmdDoc ir={…}> draws a
+// @extended-mark/solid: Extended Mark documents in Solid, drawn by it. <XtmdDoc ir={…}> draws a
 // page from an IR built ahead with Solid's own fine-grained rendering (doc.ts), on a server and in
-// the browser. The live engine is @extended-mark/solid-live.
+// the browser. The live document is @extended-mark/solid-live.
 
 export { XtmdDoc, XtmdNode, type SolidWidgetProps, type XtmdDocHandle, type XtmdDocProps } from "./doc.js";
 export type { DocError, Restored, Snapshot, ViewContext, ViewWidget } from "@extended-mark/widgets";

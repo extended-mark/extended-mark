@@ -1,6 +1,6 @@
 //! The bindings' interface, as Kotlin uses it: a page mounted from the IR the compiler writes, its
 //! tree read as `Val`s, changes made with `Val`s and in the check protocol's JSON, and what the
-//! engine supplies (moment.local's zone, a slider's ends, a shade's pixels, the plane's measure).
+//! renderer supplies (moment.local's zone, a slider's ends, a shade's pixels, the plane's measure).
 
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Sender};
@@ -144,7 +144,7 @@ fn a_write_outside_the_contract_is_refused_and_observed() {
     let o: serde_json::Value = serde_json::from_str(&p.observe_json(None).unwrap()).unwrap();
     assert_eq!(o["outcome"]["refused"][0]["code"], "contracts.outside");
     assert_eq!(o["state"]["count"], serde_json::json!({ "num": "2" }));
-    // only what was drawn, when the engine says what it drew
+    // only what was drawn, when the renderer says what it drew
     let o: serde_json::Value = serde_json::from_str(&p.observe_json(Some(vec![slider.id.clone()])).unwrap()).unwrap();
     assert_eq!(o["tree"].as_object().unwrap().keys().collect::<Vec<_>>(), vec![&slider.id]);
 }

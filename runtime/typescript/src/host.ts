@@ -30,7 +30,7 @@ export interface PageOptions extends Omit<CoreOptions, "fns" | "json" | "memo" |
   data?: Partial<Data>;
   /** Each channel's values, by its full name (`doc/scores`). */
   externs?: Record<string, Record<string, Input>>;
-  /** The value fns the host or the engine supplies, by full name (`acme/rate`). */
+  /** The value fns the host or the renderer supplies, by full name (`acme/rate`). */
   fns?: Record<string, (args: readonly Input[]) => Input | null>;
 }
 

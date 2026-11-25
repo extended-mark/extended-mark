@@ -20,10 +20,10 @@ live/compose/                xtmd-android-live: XtmdLiveDoc, the compiler in its
 
 ## Using it
 
-A document as a host holds one is `XtmdDoc` (`XtmdDoc.kt`), the Android static engine: the IR in
+A document as a host holds one is `XtmdDoc` (`XtmdDoc.kt`), Android's static document: the IR in
 hand (`ir`) or in the host's assets (`src`), `$state` the host's to control or to start from, every
 write checked by xtmd, and a snapshot of everything the page holds. It needs no compiler; the
-live engine, which compiles a document's text on the device, is xtmd-android-live.
+live one, which compiles a document's text on the device, is xtmd-android-live.
 
 ```kotlin
 var state by remember { mutableStateOf(mapOf("n" to V.num(0))) }
@@ -127,7 +127,7 @@ other parts have `testTag`s as @extended-mark/dom's `data-part`s (renderers/dom/
 
 What this box has, and the project expects: Java 21, the Android SDK at `~/.local/android` (`local.properties`;
 platform 36, build-tools 36.1.0 and NDK 30.0.16248370, all pinned in the build files so AGP fetches nothing),
-Rust with the Android engines. Gradle comes from the wrapper (8.14.4); AGP 8.13.2, Kotlin 2.2.21, Compose BOM
+Rust with the Android targets. Gradle comes from the wrapper (8.14.4); AGP 8.13.2, Kotlin 2.2.21, Compose BOM
 2025.10.01 and Robolectric 4.16.1, a combination known to work together.
 
 ```sh
@@ -159,7 +159,7 @@ every change. So a change's work is kept small, and a drag's is kept off the fra
   written. Keys and accessibility actions write at once, as before.
 - **The planes are laid out only when a plane or a spot (or anything in one) changed**, or a spot's
   measured size did; a layout that moved a box lays out again on the next change, as one that
-  doesn't settle needs (the checks hold this to the test engine's behaviour).
+  doesn't settle needs (the checks hold this to the tests' behaviour).
 - **One colour scheme for as long as the mode lasts**: a new one at each redraw was a new value of
   MaterialTheme's static composition local, and composed the whole page again.
 - **Pages load off the main thread**: `CompiledPage.loadAsset` (or `rememberAssetPage` in a
@@ -190,7 +190,7 @@ draws, so `RenderTest` draws the window's views on a canvas itself.
   on the Gradle test task.
 - **The plane's layout isn't idempotent for a spot with no box variable** (the graphs pack's link labels): each
   `layout()` writes its own `box` again and redraws. Laying out after every redraw never settled (Compose "did not
-  get idle"); laying out once per change from outside the layout (`changes`, as the test engine does once per step)
+  get idle"); laying out once per change from outside the layout (`changes`, as the tests do once per step)
   does. With Compose's own measure the first layout waits for the spots' first measure, so the first boxes written
   are the real ones.
 - **Hover under Robolectric:** a shape with both a `hoverable` and a `clickable`, on two interaction sources,

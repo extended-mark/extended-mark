@@ -1,8 +1,8 @@
 // @extended-mark/angular-live: <xtmd-live-doc [source]="text" />, an Extended Mark document compiled in the browser by
 // @extended-mark/wasm as it is edited, and drawn by @extended-mark/angular's <xtmd-doc>. A text that compiles replaces
 // the page, keeping `$state` where its fields still exist; one that doesn't leaves the last page
-// that did, and its errors come out of (error) ({ kind: "compile", diagnostics }). The static
-// engine, @extended-mark/angular, ships no WebAssembly; this one does.
+// that did, and its errors come out of (error) ({ kind: "compile", diagnostics }). The
+// renderer, @extended-mark/angular, ships no WebAssembly; this one does.
 
 import { ChangeDetectorRef, Component, EventEmitter, Input, Output, ViewChild, inject, type OnChanges, type OnDestroy, type Type } from "@angular/core";
 import { XtmdDoc } from "@extended-mark/angular";

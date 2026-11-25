@@ -103,7 +103,7 @@ pub mod codes {
     pub const VIEW_NAMED_LIKE_WIDGET: &str = "names.view-named-like-a-widget";
     pub const DEPRECATED: &str = "names.deprecated";
     pub const BARE_STATE: &str = "prose.bare-state";
-    pub const ENGINE_XTMD_FN: &str = "views.engine-given-an-xtmd-fn";
+    pub const RENDERER_XTMD_FN: &str = "views.renderer-given-an-xtmd-fn";
     pub const WARN: &str = "views.warn-false";
     pub const MARKDOWN_PIECE: &str = "widget.markdown-piece";
     pub const EXTERN_TOKENS: &str = "widget.extern-tokens";

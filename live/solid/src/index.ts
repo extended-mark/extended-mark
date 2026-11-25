@@ -1,7 +1,7 @@
 // @extended-mark/solid-live: <XtmdLiveDoc source={text()} />, an Extended Mark document compiled in the browser by
 // @extended-mark/wasm as it is edited, and drawn by @extended-mark/solid's <XtmdDoc>. A text that compiles replaces the
 // page, keeping `$state` where its fields still exist; one that doesn't leaves the last page that
-// did, and its errors reach `onError` ({ kind: "compile", diagnostics }). The static engine,
+// did, and its errors reach `onError` ({ kind: "compile", diagnostics }). The renderer,
 // @extended-mark/solid, ships no WebAssembly; this one does. Written without JSX.
 
 import { createComponent, createEffect, createSignal, mergeProps, onCleanup, splitProps, untrack, type JSX } from "solid-js";

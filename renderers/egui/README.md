@@ -1,9 +1,9 @@
 # xtmd-egui
 
-Extended Mark's desktop engine, run time: pages run on the native runtime ([xtmd-runtime](../../runtime/rust)) and
+Extended Mark's desktop renderer: pages run on the native runtime ([xtmd-runtime](../../runtime/rust)) and
 drawn with egui and its widget set ([xtmd-egui-widgets](../../widgets/egui)), from an IR they are
 given. It needs no compiler.
-The live engine, which compiles a document's text in the host, is
+Live documents, whose package compiles a document's text in the host, is
 [xtmd-egui-live](../../live/egui).
 
 CI builds it and runs its tests, and it isn't published
@@ -32,7 +32,7 @@ fn frame(doc: &mut XtmdDoc, state: &mut State, ui: &mut egui::Ui) {
 | `XtmdDoc` | |
 |---|---|
 | `new(ir, options)`, `from_json(text, options)`, `open(path, options)` | A document; `DocOptions` has the page's values, the `$state` (or `snapshot`) to start from (checked: what doesn't fit is refused), the externs by channel, value fns over egui's, the registry and a measure. An IR that can't be had is `DocError::Load`. |
-| `show(ui)`, `show_controlled(ui, &mut state)` | One frame. Its `DocResponse` has the page's response, `state` if it changed, the host's extern fns called, and `errors`: `Refused` and `Failed`, as the web engines' `onError`. |
+| `show(ui)`, `show_controlled(ui, &mut state)` | One frame. Its `DocResponse` has the page's response, `state` if it changed, the host's extern fns called, and `errors`: `Refused` and `Failed`, as the web renderers' `onError`. |
 | `set(state)`, `state()`, `expose(channel, name, args)`, `set_extern(channel, values)`, `set_page(values)`, `markdown()` | What a host does to a document; `set` is one checked write, refused whole. |
 | `snapshot()`, `restore(&snap)` | `$state` and every widget's own variables, as serde-able JSON; with the same IR all of it goes back, with another only `$state` (`RestoredHow`). |
 | `replace(ir, externs)` | A new IR for the same document, `$state` kept where its fields still exist and fit. |

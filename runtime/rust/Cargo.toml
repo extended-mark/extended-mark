@@ -1,7 +1,7 @@
 [package]
 name = "xtmd-runtime"
 workspace = "../../compiler"
-description = "Extended Mark's native runtime: runs the IR the xtmd compiler writes, with transactions, $state, bindings, item identity, failures, layout and Markdown out. No drawing: the egui and Android engines draw its tree."
+description = "Extended Mark's native runtime: runs the IR the xtmd compiler writes, with transactions, $state, bindings, item identity, failures, layout and Markdown out. No drawing: the egui and Android renderers draw its tree."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

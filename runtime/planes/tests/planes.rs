@@ -74,7 +74,7 @@ fn a_layout_that_never_settles_fails_its_plane_and_is_held_until_an_outside_chan
     let failures = p.take_outcome().failures;
     assert_eq!(failures.len(), 1);
     assert_eq!(failures[0].code.as_deref(), Some("failure.layout"));
-    // held: laying out again, as an engine does every frame, runs no pass
+    // held: laying out again, as a renderer does every frame, runs no pass
     planes.lay(&mut p, &mut measure).unwrap();
     planes.lay(&mut p, &mut measure).unwrap();
     assert_eq!(measured.get(), xtmd_runtime::MAX_PASSES as u32);

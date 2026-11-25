@@ -226,7 +226,7 @@ In a document:
 
 #### A diagram of tables
 
-Tables on a plane, joined by lines that end in arrowheads. Each table sits at its own point, placed with `spot`, which writes where the table's box landed. The diagram keeps its own copy of the tables, so each `spot` has a `box` to write to. Each link is a `path` on the plane's background, from one box's outline to the other's, and its label is placed at the middle with another `spot`. It is Extended Mark alone, with no extern of its own. The boxes need `core.live` and the lines `core.gfx`; on an engine without them, the diagram shows its Markdown.
+Tables on a plane, joined by lines that end in arrowheads. Each table sits at its own point, placed with `spot`, which writes where the table's box landed. The diagram keeps its own copy of the tables, so each `spot` has a `box` to write to. Each link is a `path` on the plane's background, from one box's outline to the other's, and its label is placed at the middle with another `spot`. It is Extended Mark alone, with no extern of its own. The boxes need `core.live` and the lines `core.gfx`; on a platform without them, the diagram shows its Markdown.
 
 ```java
 package kit;

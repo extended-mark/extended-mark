@@ -1,11 +1,11 @@
 # @extended-mark/svelte-live
 
-Extended Mark documents in Svelte 5, the live engine: `XtmdLiveDoc` compiles a document's text in the
+Extended Mark documents in Svelte 5, live: `XtmdLiveDoc` compiles a document's text in the
 browser with [@extended-mark/wasm](../../compiler/npm/wasm) as it is edited, and draws it with [@extended-mark/svelte](../../renderers/svelte)'s
 `XtmdDoc`. A text that compiles replaces the page, keeping `$state` where its fields still exist.
 One that doesn't leaves the last page that did, and its errors reach `onError` as
 `{ kind: "compile", message, diagnostics }`. When to change `source` (each key, a pause, a save) is
-the host's. The static engine ships no WebAssembly; this one does.
+the host's. The renderer, @extended-mark/svelte, ships no WebAssembly; this one does.
 
 ```svelte
 <XtmdLiveDoc source={text} wasm={wasmUrl} onError={(e) => e.kind === "compile" && show(e.diagnostics)} />

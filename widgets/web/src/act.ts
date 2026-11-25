@@ -1,5 +1,5 @@
-// The reader acting on a drawn widget through its own element, as a person would: what the engine
-// checks drive a framework engine with (as @extended-mark/dom's `Mounted.act` does), so an engine is held to
+// The reader acting on a drawn widget through its own element, as a person would: what the renderer
+// checks drive a framework renderer with (as @extended-mark/dom's `Mounted.act` does), so a renderer is held to
 // the runtime through its real DOM. A widget that can't do an action that way goes through the
 // page instead.
 

@@ -45,7 +45,7 @@ impl Out {
 
 impl Checker {
 
-    /// Every pack's externs, with the version its pack block says: an engine supplies a pack's
+    /// Every pack's externs, with the version its pack block says: a renderer supplies a pack's
     /// externs from the pack, and checks the list when it mounts the page.
     fn pack_needs(&self) -> Vec<ir::NeedsPacks> {
         let mut out = Vec::new();

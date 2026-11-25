@@ -1,5 +1,5 @@
 // Every `extern fn` core declares with no body is a native of this evaluator, or is on the
-// written list of engine-only fns (plan tab 14).
+// written list of renderer-only fns (plan tab 14).
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { natives } from "../dist/internal.js";
 import { xtmdBinary, workdir } from "./xtmd.mjs";
 
-test("every bodyless core extern fn is a native or engine-only", () => {
+test("every bodyless core extern fn is a native or renderer-only", () => {
   // a pack's IR keeps all of core it builds on; a page's keeps only what the page uses
   const page = join(workdir(), "t.xtmdpack");
   writeFileSync(page, "package t;\n");

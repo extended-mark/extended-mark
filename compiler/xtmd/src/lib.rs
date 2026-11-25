@@ -10,7 +10,7 @@
 //! | [`eval`] | Numbers, values, the native fns and the limits |
 //! | [`markdown`] | Blocks to text, and a page's starting blocks |
 //! | `syntax` | Text to a tree and back: the reader and `xtmd fmt` |
-//! | `lower` | What a page can run, as the IR an engine runs |
+//! | `lower` | What a page can run, as the IR a runtime runs |
 //! | `check` | Names, types, rules; gives the IR |
 //! | `live` | Text to IR in one call, core compiled once; a text followed as it is edited |
 //! | `migrate` | `xtmd migrate`, on texts |

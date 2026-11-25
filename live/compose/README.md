@@ -1,6 +1,6 @@
 # xtmd-android-live
 
-Extended Mark's Android engine, real time: `XtmdLiveDoc` compiles a document's text on the device as it is
+Extended Mark's live documents on Android: `XtmdLiveDoc` compiles a document's text on the device as it is
 edited, and draws it with [xtmd-android](../../renderers/compose/xtmd-android)'s `XtmdDoc`. The compiler is in its own
 native library, `libxtmd_android_live.so` ([./rust](./rust): xtmd's compiler behind
 UniFFI, `xtmd.android.live.ffi`). It hands Kotlin the IR as JSON, which `XtmdDoc` runs on

@@ -26,7 +26,7 @@ The IR is static JSON. It never changes while the page runs: keep it where you k
 
 A runtime runs the IR and gives you a **drawn tree**: plain JSON, its schema in
 [schemas/tree.schema.json](../../schemas/tree.schema.json). On the web it is `@extended-mark/runtime`; any
-engine's gives the same tree.
+runtime gives the same tree.
 
 ```js
 import { Page } from "@extended-mark/runtime";
@@ -120,6 +120,6 @@ Both themes belong in one stylesheet, since a change of theme changes nothing in
 ## Checking it
 
 - Hold it to the schema: every tree you are given fits `tree.schema.json`.
-- `schemas/examples/counter.tree.json` is the tree of `schemas/examples/counter.xtmd`, from any engine.
+- `schemas/examples/counter.tree.json` is the tree of `schemas/examples/counter.xtmd`, from any runtime.
 - Walk a page at random (its events, its writes) and compare what you drew with what drawing `page.tree()`
   from nothing gives. The example's test does.

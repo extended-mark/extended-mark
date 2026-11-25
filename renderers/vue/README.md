@@ -1,8 +1,8 @@
 # @extended-mark/vue
 
-Extended Mark documents in Vue 3, the static engine: `XtmdDoc` draws a page from an IR built ahead
+Extended Mark documents in Vue 3: the renderer. `XtmdDoc` draws a page from an IR built ahead
 (`xtmd build`, or xtmd's bundler plugin), with no compiler and no WebAssembly in the host. Core's
-widgets are drawn by Vue itself, with `h`: patched by key, server-rendered with `renderToString`. The live engine, which compiles a document's text in the
+widgets are drawn by Vue itself, with `h`: patched by key, server-rendered with `renderToString`. The live document, which compiles a document's text in the
 browser, is [@extended-mark/vue-live](../../live/vue).
 
 ```sh

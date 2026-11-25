@@ -14,13 +14,14 @@ Extended Mark is a statically typed language for drawing widgets in Markdown doc
 
 ### One compiler, and modules around it
 
-Extended Mark has one compiler, and everything a page means is in the IR it writes. Every other part is a module with a set input and a set output, and any of them can be replaced: what draws a page, what runs it, what renders it to a file, the bindings to a framework, the host that shows it.
+Extended Mark has one compiler, and everything a page means is in the IR it writes. Every other part is a module with a set input and a set output, and any of them can be replaced: what runs a page, what draws it, what builds it into files, the host that shows it.
 
 | Part | Takes | Gives |
 |---|---|---|
 | The compiler | A document's text and the packs it uses | The IR, or what is wrong and where |
-| An engine's runtime | The IR, and what the host gives (`$state`, extern values, the page's own) | The drawn tree, what changed in it, and the page's Markdown (page 6) |
-| What draws | The drawn tree | Whatever a reader sees, and the reader's events and writes, by a widget's id |
+| A runtime | The IR, and what the host gives (`$state`, extern values, the page's own) | The drawn tree, what changed in it, and the page's Markdown (page 6) |
+| A renderer, with a widget set | The drawn tree | What a reader sees, and the reader's events and writes, by a widget's id |
+| An engine | The IR, and a widget set | Its platform's own files, built ahead, which do what a runtime and a renderer would |
 | A host | A page, through those calls | Its own values, and what becomes of the calls the page makes |
 
 - **The IR decides.** A module never works out what the language means: a default, a rule, which widget a call is, what a slot holds and what Markdown says are in the IR. A module that had to know more would be a second compiler, and the two would drift.

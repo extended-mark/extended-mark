@@ -1,13 +1,13 @@
 //! A page running: the lowered IR mounted, redrawn after every change, with every change made
 //! through a transaction that is checked and undone when it fails (page 6, plan tab 11). A port
 //! of @extended-mark/runtime's `page.ts`, kept to its order of evaluation, its messages and its sites, so
-//! the native and web engines observe the same page.
+//! the native and web runtimes observe the same page.
 //!
-//! No drawing: a page is drawn by whoever reads its tree (the egui and Android engines). Each widget is identified by its path: the sites of the template
+//! No drawing: a page is drawn by whoever reads its tree (the egui and Android renderers). Each widget is identified by its path: the sites of the template
 //! instances it belongs to, each loop row as `[position]`, then its own site. Its key is who it is
 //! across redraws: a loop row's widgets follow its item, not its position.
 //!
-//! The tree holds every prop already worked out, so an engine that draws every frame (egui) only
+//! The tree holds every prop already worked out, so a renderer that draws every frame (egui) only
 //! reads it: nothing is evaluated per frame, only once per change.
 
 use std::cell::{Cell, RefCell, RefMut};
@@ -26,11 +26,11 @@ pub use xtmd::formats::told::Broken;
 /// The locals around a node: values, or references to places (a `mut for` row's item).
 pub type Bindings = Vec<(Rc<str>, Binding)>;
 
-/// A value fn the engine supplies, by full name (`core/moment.local`): given the page's machine
+/// A value fn the renderer supplies, by full name (`core/moment.local`): given the page's machine
 /// and the arguments, its value, or `None` when it returns nothing.
 pub type ValueFn = Rc<dyn Fn(&mut Machine<'_>, &[Value]) -> R<Option<Value>>>;
 
-/// Whether the engine draws an extern widget, by full name.
+/// Whether the renderer draws an extern widget, by full name.
 pub type Supplies = Rc<dyn Fn(&str) -> bool>;
 
 /// What the host tells the page about where it is read.
@@ -47,7 +47,7 @@ pub struct PageData {
     pub own: BTreeMap<String, BTreeMap<String, Expr>>,
 }
 
-/// How a page is mounted: what the host and the engine give it.
+/// How a page is mounted: what the host and the renderer give it.
 #[derive(Clone)]
 pub struct PageOptions {
     pub page: PageValues,
@@ -59,9 +59,9 @@ pub struct PageOptions {
     pub data: Option<PageData>,
     /// Each channel's values, in the IR's form: `("doc/scores", [("unit", …)])`.
     pub externs: Vec<(String, Vec<(String, Expr)>)>,
-    /// The value fns the engine supplies, by full name.
+    /// The value fns the renderer supplies, by full name.
     pub fns: HashMap<String, ValueFn>,
-    /// Whether the engine draws an extern widget. One it doesn't shows its Markdown instead
+    /// Whether the renderer draws an extern widget. One it doesn't shows its Markdown instead
     /// (page 6), and is reported in [`Page::missing`]. Left out, every one is drawn.
     pub supplies: Option<Supplies>,
     /// Reuse a widget's drawn subtree when nothing it read has changed (on by default). Off
@@ -107,9 +107,9 @@ pub struct WriteTo {
     pub env: Env,
 }
 
-/// A drawn extern widget, as the page asks an engine to draw it: a shared node that never
+/// A drawn extern widget, as the page asks a renderer to draw it: a shared node that never
 /// changes once drawn. A redraw that reuses a widget's subtree (nothing it read changed) hands out
-/// the very same nodes, so an engine can skip one with [`Drawn::same`] as the one it drew last.
+/// the very same nodes, so a renderer can skip one with [`Drawn::same`] as the one it drew last.
 /// Its fields are read through `Deref`, as [`DrawnNode`]'s.
 #[derive(Clone, Debug)]
 pub struct Drawn(Rc<DrawnNode>);
@@ -138,7 +138,7 @@ impl std::ops::Deref for Drawn {
     }
 }
 
-/// What a drawn widget holds. Its props are worked out: an engine only reads them.
+/// What a drawn widget holds. Its props are worked out: a renderer only reads them.
 #[derive(Clone, Debug)]
 pub struct DrawnNode {
     /// Where it is drawn, loop rows by their position: how its own variables are kept (`observe_own`).
@@ -584,7 +584,7 @@ pub(crate) struct World {
     externs: HashMap<String, Value>,
     calls: Vec<Call>,
     outcome: Outcome,
-    /// Extern widgets drawn as their Markdown because the engine doesn't supply them.
+    /// Extern widgets drawn as their Markdown because the renderer doesn't supply them.
     missed: BTreeSet<String>,
     supplies: Option<Supplies>,
     errors: Vec<Failure>,
@@ -597,7 +597,7 @@ pub(crate) struct World {
     worked: u64,
     next_id: u64,
     /// Each outside value's version, bumped when it is written, and the epoch, bumped when every
-    /// memo must go (an undo, what the engine supplies).
+    /// memo must go (an undo, what the renderer supplies).
     versions: HashMap<String, u64>,
     epoch: u64,
     memo: HashMap<String, Rc<Memo>>,
@@ -1001,7 +1001,7 @@ impl Rt {
         self.loop_rows(m, f, env)
     }
 
-    /// A `mut` input's write to the variable it was given: checked against the input's type, as an engine
+    /// A `mut` input's write to the variable it was given: checked against the input's type, as a renderer
     /// makes the value, and by the write against the variable's.
     fn write_into(&self, m: &mut Machine, widget: &str, input: &str, to: &WriteTo, value: Value) -> R<()> {
         let x = self.s.extern_widgets.get(widget).cloned();
@@ -1521,8 +1521,8 @@ impl Rt {
                 }
             }
         }
-        // a widget the engine doesn't draw shows its Markdown instead (page 6), drawn with the
-        // blocks the engine does: its markdown block, in an instance holding its inputs
+        // a widget the renderer doesn't draw shows its Markdown instead (page 6), drawn with the
+        // blocks the renderer does: its markdown block, in an instance holding its inputs
         if let Some(w) = &w {
             if !self.supplies(name) {
                 {
@@ -2014,7 +2014,7 @@ pub struct Page {
     /// How many changes came from outside the layout: the reader's, the host's, the page's
     /// values. A layout that didn't settle is held until the next one.
     changes: u64,
-    /// How many times the page was drawn: an engine that draws every frame redraws its own
+    /// How many times the page was drawn: a renderer that draws every frame redraws its own
     /// widgets when this moves.
     revision: u64,
     listeners: Vec<(usize, Box<dyn FnMut()>)>,
@@ -2038,7 +2038,7 @@ fn check_version(version: i64) -> R<()> {
     if version == IR_VERSION {
         return Ok(());
     }
-    Err(Failure::ir(format!("this page is IR {}, this engine reads IR {}: {}", version, IR_VERSION, if version > IR_VERSION { "use a later engine" } else { "run xtmd migrate" })))
+    Err(Failure::ir(format!("this page is IR {}, this runtime reads IR {}: {}", version, IR_VERSION, if version > IR_VERSION { "use a later runtime" } else { "run xtmd migrate" })))
 }
 
 impl Page {
@@ -2124,10 +2124,10 @@ impl Page {
                 _ => {}
             }
         }
-        // core's fns are the engine's: one it doesn't have is another core's
+        // core's fns are the runtime's or the renderer's: one nobody has is another core's
         let supplied = |n: &str| opts.fns.contains_key(n) || xtmd::eval::natives::exists(n) || xtmd::eval::natives::ENGINE_ONLY.contains(&n) || program.externs.get(n).map_or(false, |x| !x.default.is_empty());
         if let Some(n) = module.needs.core.iter().find(|n| !extern_widgets.contains_key(*n) && !supplied(n)) {
-            return Err(Failure::ir(format!("this page needs `{}`, which this engine doesn't have", n)));
+            return Err(Failure::ir(format!("this page needs `{}`, which this runtime doesn't have", n)));
         }
         let state_rules = rules_of(state_decl.iter().flat_map(|s: &ir::State| s.requires.iter()));
         let shared = Shared {
@@ -2268,7 +2268,7 @@ impl Page {
         &self.drawn
     }
 
-    /// How many times the page has been drawn. An engine that draws every frame keeps the
+    /// How many times the page has been drawn. A renderer that draws every frame keeps the
     /// revision it last drew and rebuilds what it holds when this moves.
     pub fn revision(&self) -> u64 {
         self.revision
@@ -2402,13 +2402,13 @@ impl Page {
         std::mem::take(&mut self.rt.w().errors)
     }
 
-    /// The extern widgets this page uses that the engine doesn't supply, each shown as its
+    /// The extern widgets this page uses that the renderer doesn't supply, each shown as its
     /// Markdown: reported when the page is mounted, and kept up to date as it changes.
     pub fn missing(&self) -> Vec<String> {
         self.rt.w.borrow().missed.iter().cloned().collect()
     }
 
-    /// What the page takes (its IR's `needs`) and nobody gives: the engine's fns and a pack's, and the
+    /// What the page takes (its IR's `needs`) and nobody gives: the renderer's fns and a pack's, and the
     /// host's values. The page runs without them until it reads one.
     pub fn lacking(&self) -> Vec<String> {
         let s = &self.rt.s;
@@ -2557,7 +2557,7 @@ impl Page {
 
     /// Runs passes until one changes nothing: each gives its writes and what they are for, and its writes are
     /// one change. A page still changing after [`MAX_PASSES`] of them is stopped, and is a failure of what it
-    /// was for; stopped once, it stays so until something else changes the page, as an engine that settles it
+    /// was for; stopped once, it stays so until something else changes the page, as a renderer that settles it
     /// on every frame would run it for ever.
     pub fn settle(&mut self, pass: &mut dyn FnMut(&Page) -> R<(Vec<Write>, Vec<String>)>) -> R<()> {
         if self.held_layout == Some(self.changes()) {
@@ -2689,7 +2689,7 @@ impl Page {
         self.redraw()
     }
 
-    /// Which extern widgets the engine draws: set by an engine before it first draws the page,
+    /// Which extern widgets the renderer draws: set by a renderer before it first draws the page,
     /// from its registry. The page is drawn again.
     pub fn set_supplies(&mut self, supplies: Option<Supplies>) -> R<()> {
         {
@@ -2709,7 +2709,7 @@ impl Page {
 
     // ---- the page's Markdown
 
-    /// The page as Markdown, with the values it has now: the same text on every engine.
+    /// The page as Markdown, with the values it has now: the same text on every platform.
     pub fn markdown(&self) -> R<String> {
         self.reset_steps();
         let blocks = self.with_machine(|rt, m| crate::markdown::page_blocks(rt, m))?;
@@ -2722,7 +2722,7 @@ impl Page {
         self.with_machine(|rt, m| crate::markdown::page_blocks(rt, m))
     }
 
-    // ---- what an engine asks while it draws
+    // ---- what a renderer asks while it draws
 
     /// A value in the IR's form, as the host and the checks give them.
     pub fn value(&self, x: &Expr) -> R<Value> {
@@ -2748,7 +2748,7 @@ impl Page {
         self.with_machine(|_, m| m.equal(a, b))
     }
 
-    /// Runs a fn the tree holds, outside any change, with the step limit to itself: how an engine
+    /// Runs a fn the tree holds, outside any change, with the step limit to itself: how a renderer
     /// paints a `shade`, one pixel at a time from its shader.
     pub fn apply(&self, f: &Value, args: Vec<Value>) -> R<Option<Value>> {
         self.reset_steps();
@@ -2805,7 +2805,7 @@ impl Page {
 
     /// Whether a drawn widget's event runs anything. A handler that only passes the event on, as
     /// `column` gives its `flex` `click = fn() { invoke click(); }`, counts only when the caller
-    /// of the widget it passes it to set that event in turn: so an engine makes only what does
+    /// of the widget it passes it to set that event in turn: so a renderer makes only what does
     /// something clickable.
     pub fn listens(&self, d: &Drawn, event: &str) -> bool {
         let w = self.rt.w.borrow();

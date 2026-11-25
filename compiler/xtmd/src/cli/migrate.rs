@@ -35,7 +35,7 @@ pub(crate) const USAGE: &str = "usage: xtmd migrate [<file|folder>…] [--pack a
   --from kit@1   the version the files are written for, where nothing says (xtmd.toml's [uses] does)
   xtmd.toml's xtmd = \"0.3.x\" says the release the tree is written for (0.3.0 when it says none),
   and [uses] each pack's version; a run that moves the tree writes both.
-  An IR file (xtmd migrate page.ir.json) is brought to the version this xtmd's engines run, one way,
+  An IR file (xtmd migrate page.ir.json) is brought to the version this xtmd's runtimes read, one way,
   in place; one that can't be keeps its file, and is told what is missing.
   --format json prints a JSON line for each file, note and question, then the summary, and asks
   nothing.

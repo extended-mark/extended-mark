@@ -203,7 +203,7 @@ export abstract class Ops {
   protected abstract readRoot(root: PlaceRoot): Value;
   protected abstract writeRoot(root: PlaceRoot, value: Value): void;
 
-  /** The value a token case stands for: the build's own, unless the engine has others. */
+  /** The value a token case stands for: the build's own, unless the platform has others. */
   protected tokenValue(c: CaseValue): Value {
     return this.defaultTokenValue(c);
   }
@@ -793,7 +793,7 @@ export abstract class Ops {
     return true;
   }
 
-  /** Whether a value that comes from outside, from a host, an engine or a snapshot, is one of a type: its
+  /** Whether a value that comes from outside, from a host, a renderer or a snapshot, is one of a type: its
    * shape, and every contract in it. A record's own rule that is false is a failure. The compiler has
    * proved only the page's own values. */
   takes(v: Value, ty: ir.Type, depth = 0): boolean {

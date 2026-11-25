@@ -1,7 +1,7 @@
 // A page running: the lowered IR mounted, redrawn after every change, with every change made
 // through a transaction that is checked and undone when it fails (page 6, plan tab 11).
 //
-// No DOM: a page is drawn by whoever reads its tree (@extended-mark/dom on the web, the test engine in
+// No DOM: a page is drawn by whoever reads its tree (@extended-mark/dom on the web, the tests in
 // checks). Each widget is identified by its path: the sites of the template instances it belongs
 // to, each loop row as [position], then its own site.
 
@@ -16,7 +16,7 @@ export interface PageValues {
   theme?: "LIGHT" | "DARK";
 }
 
-/** How a page is mounted: what the host and the engine give it. */
+/** How a page is mounted: what the host and the renderer give it. */
 export interface CoreOptions {
   page?: PageValues;
   /** `$state`'s values, in the IR's form, over its starting ones: checked as a host's write is, and what
@@ -27,9 +27,9 @@ export interface CoreOptions {
   data?: { state?: Record<string, ir.Expr>; own?: Record<string, Record<string, ir.Expr>> };
   /** Each channel's values, in the IR's form. */
   externs?: Record<string, Record<string, ir.Expr>>;
-  /** The value fns the engine supplies, by full name. */
+  /** The value fns the renderer supplies, by full name. */
   fns?: Record<string, (args: readonly ir.Expr[]) => ir.Expr | null>;
-  /** Whether the engine draws an extern widget, by full name. One it doesn't shows its Markdown
+  /** Whether the renderer draws an extern widget, by full name. One it doesn't shows its Markdown
    * instead (page 6), and is reported in `missing()`. Left out, every one is drawn. */
   supplies?: (widget: string) => boolean;
   /** How a value is given to the fns and the host: the IR's form. */
@@ -48,7 +48,7 @@ export interface Env {
   key?: string;
 }
 
-/** A drawn extern widget, as the page asks an engine to draw it. */
+/** A drawn extern widget, as the page asks a renderer to draw it. */
 export interface Drawn {
   path: string;
   /** Who it is across redraws: a loop row's widgets follow its item, not its position. */
@@ -206,7 +206,7 @@ export const MAX_PASSES = 8;
 /** What an IR of another version is told. */
 function otherVersion(version: unknown): string {
   const other = typeof version === "number" && version > IR_VERSION;
-  return `this page is IR ${version}, this engine reads IR ${IR_VERSION}: ${other ? "use a later engine" : "run xtmd migrate"}`;
+  return `this page is IR ${version}, this runtime reads IR ${IR_VERSION}: ${other ? "use a later runtime" : "run xtmd migrate"}`;
 }
 
 /** A page running: what `Page`, the host's side of it, is made on. Its tree has the runtime's own values
@@ -237,7 +237,7 @@ export class Core {
   private drawn: Drawn[] = [];
   private readonly listeners = new Set<() => void>();
   /** Each outside value's version, bumped when it is written, and the epoch, bumped when every
-   * memo must go (an undo, what the engine supplies). */
+   * memo must go (an undo, what the renderer supplies). */
   private versions = new Map<string, number>();
   /** Moves with every bump: what was found fresh at one is, until the next. */
   private stamp = 1;
@@ -275,16 +275,16 @@ export class Core {
   /** Every failure caught, with its message and stack, for a host's log. */
   readonly errors: unknown[] = [];
   /** Defects switched on, for the test target: each must be caught by a check. */
-  /** Whether the engine draws an extern widget. */
+  /** Whether the renderer draws an extern widget. */
   private supplies: (widget: string) => boolean;
-  /** Extern widgets drawn as their Markdown because the engine doesn't supply them. */
+  /** Extern widgets drawn as their Markdown because the renderer doesn't supply them. */
   private readonly missed = new Set<string>();
   /** A value as whoever the page is given to reads it. */
   readonly json: (v: V) => ir.Expr;
   /** How many inputs' own calls are being drawn around here: a sentence's, or a view's. */
   private inInputs = 0;
   private readonly channels = new Map<string, ir.ExternChannel>();
-  /** The value fns the engine supplies, by full name: `core/moment.local`. */
+  /** The value fns the renderer supplies, by full name: `core/moment.local`. */
   private readonly engineFns: Record<string, (args: readonly ir.Expr[]) => ir.Expr | null>;
 
   constructor(ir: ir.File | ir.Module, opts: CoreOptions = {}) {
@@ -311,9 +311,9 @@ export class Core {
       }
     }
     this.stateDecl = state;
-    // core's fns are the engine's: one it doesn't have is another core's
+    // core's fns are the runtime's or the renderer's: one nobody has is another core's
     const unknown = this.module.needs.core.find((n) => !this.externWidgets.has(n) && !this.supplied(n));
-    if (unknown !== undefined) throw Failure.ir(`this page needs \`${unknown}\`, which this engine doesn't have`);
+    if (unknown !== undefined) throw Failure.ir(`this page needs \`${unknown}\`, which this runtime doesn't have`);
     this.machine = new Machine(this.program, this.host());
     // the page's values, then $state's starting values, then what the host gives
     for (const d of this.module.declarations) {
@@ -465,7 +465,7 @@ export class Core {
     this.redraw();
   }
 
-  /** A `mut` input's write to the variable it was given: checked against the input's type, as an engine
+  /** A `mut` input's write to the variable it was given: checked against the input's type, as a renderer
    * makes the value, and by the write against the variable's. */
   private writeInto(node: Drawn, input: string, w: { place: ir.Place; env: Env }, value: V): void {
     const x = this.externWidgets.get(node.widget);
@@ -529,7 +529,7 @@ export class Core {
 
   /** Runs passes until one changes nothing: each pass's writes are one change. A page still changing after
    * MAX_PASSES of them is stopped, and is a failure of the widgets it was for; stopped once, it stays so until
-   * something else changes the page, as an engine that settles it on every resize would run it for ever. */
+   * something else changes the page, as a renderer that settles it on every resize would run it for ever. */
   settle(pass: () => { writes: { path: string; input: string; value: V }[]; of: string[] }): void {
     if (this.held === this.changes) return;
     this.held = undefined;
@@ -666,7 +666,7 @@ export class Core {
     this.redraw();
   }
 
-  /** Which extern widgets the engine draws: set by an engine before it first draws the page,
+  /** Which extern widgets the renderer draws: set by a renderer before it first draws the page,
    * as @extended-mark/dom does from its registry. The page is drawn again, if any of its widgets is. */
   setSupplies(supplies: (widget: string) => boolean): void {
     const before = this.supplies;
@@ -678,18 +678,18 @@ export class Core {
     this.redraw();
   }
 
-  /** The extern widgets this page uses that the engine doesn't supply, each shown as its
+  /** The extern widgets this page uses that the renderer doesn't supply, each shown as its
    * Markdown: reported when the page is mounted, and kept up to date as it changes. */
   missing(): string[] {
     return [...this.missed].sort();
   }
 
-  /** Whether something gives a fn: the engine, or its own body. */
+  /** Whether something gives a fn: the renderer, or its own body. */
   private supplied(name: string): boolean {
     return !!this.engineFns[name] || native(name) || ENGINE_ONLY.includes(name) || !!this.program.externs.get(name)?.default?.length;
   }
 
-  /** What the page takes (its IR's `needs`) and nobody gives: the engine's fns and a pack's, and the
+  /** What the page takes (its IR's `needs`) and nobody gives: the renderer's fns and a pack's, and the
    * host's values. The page runs without them until it reads one. */
   lacking(): string[] {
     const { core, packs, host } = this.module.needs;
@@ -810,7 +810,7 @@ export class Core {
     }
   }
 
-  /** A value a host or an engine gives, in the IR's form: one that can't be made, such as a record whose
+  /** A value a host or a renderer gives, in the IR's form: one that can't be made, such as a record whose
    * own rule is false, is refused, and undefined. */
   given(x: ir.Expr, site: string): V | undefined {
     try {
@@ -1397,8 +1397,8 @@ export class Core {
     for (const f of w?.inputs ?? []) {
       if (!props.has(f.name) && f.default) props.set(f.name, this.evalIn(env, f.default));
     }
-    // a widget the engine doesn't draw shows its Markdown instead (page 6), drawn with the
-    // blocks the engine does: its markdown block, in an instance holding its inputs
+    // a widget the renderer doesn't draw shows its Markdown instead (page 6), drawn with the
+    // blocks the renderer does: its markdown block, in an instance holding its inputs
     if (w && !this.supplies(x.name)) {
       this.missed.add(x.name);
       (this.frames[this.frames.length - 1].missed ??= []).push(x.name);
@@ -1693,7 +1693,7 @@ export class Core {
 
   /** Whether a drawn widget's event runs anything. A handler that only passes the event on, as
    * `column` gives its `flex` `click = fn() { invoke click(); }`, counts only when the caller of
-   * the widget it passes it to set that event in turn: so an engine makes only what does something
+   * the widget it passes it to set that event in turn: so a renderer makes only what does something
    * clickable. */
   listens(d: Drawn, event: string): boolean {
     let ev = d.events.get(event);

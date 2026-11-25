@@ -1,4 +1,4 @@
-//! What the Android engine supplies to core: the value fns of its target.yaml
+//! What the Android renderer supplies to core: the value fns
 //! (`core/can_draw_tex`, `core/moment.local`), and the pixels a `shade` paints.
 
 use std::rc::Rc;
@@ -20,7 +20,7 @@ fn with_fields(like: &Value, set: &[(&str, Value)]) -> Value {
     }
 }
 
-/// The value fns the Android engine supplies.
+/// The value fns the Android renderer supplies.
 ///
 /// - `core/can_draw_tex` is true: xtmd-android draws the TeX core accepts, and shows TeX its
 ///   reader doesn't know as itself, as @extended-mark/dom does.

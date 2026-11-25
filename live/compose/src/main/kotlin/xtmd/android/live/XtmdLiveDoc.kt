@@ -37,7 +37,7 @@ import xtmd.android.rememberXtmdDocState
  * key, a pause, a save) is the host's.
  *
  * The compiler is in libxtmd_android_live.so (xtmd's, core compiled once for the host, the first
- * time a text is compiled). The static engine, xtmd-android, doesn't carry it.
+ * time a text is compiled). The renderer, xtmd-android, doesn't carry it.
  */
 
 /** The host's compiler: made the first time it is asked for, off the main thread, once. */

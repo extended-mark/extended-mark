@@ -871,7 +871,7 @@ fn run(args: &[String]) -> ExitCode {
         if flags::is_flag(cmd) {
             eprintln!("xtmd: {} isn't a command; a flag goes with one: xtmd <command> {} …", cmd, cmd);
         } else if cmd == "target" {
-            eprintln!("xtmd target check left xtmd in 0.4.0: whoever writes an engine checks it");
+            eprintln!("xtmd target check left xtmd in 0.4.0: whoever writes a runtime, a renderer or an engine checks it");
         } else {
             eprintln!("xtmd has no command {}: the commands are {}", cmd, COMMANDS.join(", "));
         }

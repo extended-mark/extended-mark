@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json",
   "title": "Extended Mark IR 4",
-  "description": "The one IR the xtmd compiler writes and every engine runs: Extended Mark, checked and lowered. No Markdown is left in it, and it holds only what the page can run. This schema is the source of the Rust and TypeScript types.",
+  "description": "The one IR the xtmd compiler writes and every runtime runs: Extended Mark, checked and lowered. No Markdown is left in it, and it holds only what the page can run. This schema is the source of the Rust and TypeScript types.",
   "$ref": "#/$defs/file",
   "$defs": {
     "file": {
@@ -86,18 +86,18 @@
         "core.live",
         "core.gfx"
       ],
-      "description": "A level an engine has (page 6): core.draw draws the extern widgets, core.live holds variables and runs events, core.gfx draws the canvas widgets. An engine lists the ones it has, and a call, a widget or a page lists the ones it needs: none means its Markdown is enough."
+      "description": "A level a platform has (page 6): core.draw draws the extern widgets, core.live holds variables and runs events, core.gfx draws the canvas widgets. A renderer says which it has, and a call, a widget or a page lists the ones it needs: none means its Markdown is enough."
     },
     "needs": {
       "type": "object",
-      "description": "Every extern the page uses, by who supplies it. An engine checks the list when it mounts the page.",
+      "description": "Every extern the page uses, by who supplies it. A runtime checks the list when it starts the page.",
       "properties": {
         "core": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "core's externs, supplied by the engine: widgets and fns."
+          "description": "core's externs, supplied by the widget set, the runtime and the renderer: widgets and fns."
         },
         "packs": {
           "type": "array",
@@ -408,7 +408,7 @@
           "additionalProperties": {
             "$ref": "#/$defs/expr"
           },
-          "description": "Each named case's value, from the tokens blocks of the build. An engine may give its own."
+          "description": "Each named case's value, from the tokens blocks of the build. A renderer may give its own."
         }
       },
       "required": [
@@ -556,7 +556,7 @@
             "fn"
           ],
           "additionalProperties": false,
-          "description": "An extern fn: native to every engine (core's), a pack's, or the host's."
+          "description": "An extern fn: native to every runtime (core's), a pack's, or the host's."
         },
         {
           "type": "object",
@@ -677,7 +677,7 @@
         "pack",
         "host"
       ],
-      "description": "Who supplies an extern: the engine (core's), the pack that declares it, or the host (a document's channels)."
+      "description": "Who supplies an extern: the platform (core's), the pack that declares it, or the host (a document's channels)."
     },
     "extern_widget": {
       "type": "object",
@@ -1244,7 +1244,7 @@
             "token"
           ],
           "additionalProperties": false,
-          "description": "A token, by its name. An engine draws it with its own value."
+          "description": "A token, by its name. A renderer draws it with its own value."
         },
         {
           "type": "object",
@@ -1452,7 +1452,7 @@
                 },
                 "whole": {
                   "type": "boolean",
-                  "description": "Proved: what it works on, and the number it gives when it gives one, are whole and within 9007199254740991 of zero, so any engine's whole numbers hold them exactly."
+                  "description": "Proved: what it works on, and the number it gives when it gives one, are whole and within 9007199254740991 of zero, so any platform's whole numbers hold them exactly."
                 }
               },
               "required": [
@@ -2546,7 +2546,7 @@
           "properties": {
             "extern": {
               "type": "object",
-              "description": "An extern widget, drawn by the engine.",
+              "description": "An extern widget, drawn by the renderer.",
               "properties": {
                 "name": {
                   "type": "string"

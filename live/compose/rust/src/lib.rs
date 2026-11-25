@@ -1,4 +1,4 @@
-//! Extended Mark's live Android engine, native side: [`NativeCompiler`], xtmd's compiler with core
+//! Extended Mark's live documents on Android, native side: [`NativeCompiler`], xtmd's compiler with core
 //! compiled once, behind UniFFI (`xtmd.android.live.ffi`). Kotlin gives it a document's text and its
 //! packs' files, and gets back the IR `xtmd build` writes, as JSON, with the diagnostics. Nothing
 //! else crosses: xtmd-android's `XtmdDoc` runs the IR on xtmd-android's own library, so no object is

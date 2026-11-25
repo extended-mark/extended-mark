@@ -45,7 +45,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * Compose's two kinds of engine in one screen, as frames for a video: xtmd-android's XtmdDoc drawing
+ * Compose's two kinds of document in one screen, as frames for a video: xtmd-android's XtmdDoc drawing
  * the IR `xtmd build` wrote (static) and XtmdLiveDoc compiling its text on the device (live),
  * driven through a script, each step's frame rendered by Robolectric's native graphics and written
  * with how long it shows, in build/video or where `-Pxtmd.video.out=<folder>` says:
@@ -96,7 +96,7 @@ class EnginesVideo {
             MaterialTheme {
                 Box(Modifier.fillMaxSize().background(Color(0xFFF6F7F9))) {
                     Column(Modifier.fillMaxSize().padding(16.dp)) {
-                        Text("One page, Compose's two kinds of engine", fontSize = 20.sp, color = Color(0xFF1A1C1F))
+                        Text("One page, Compose's two kinds of document", fontSize = 20.sp, color = Color(0xFF1A1C1F))
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
                             Column(Modifier.weight(1f).padding(end = 8.dp)) {
                                 Text("Static: XtmdDoc (xtmd-android)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -168,7 +168,7 @@ class EnginesVideo {
             broken = false
         }
 
-        say("Compose's two kinds of engine, on one screen.", 3.0)
+        say("Compose's two kinds of document, on one screen.", 3.0)
         say("Static: XtmdDoc draws an IR built ahead (xtmd build). No compiler.", 3.2)
         caption = "A press: the page writes \$state, checked by xtmd."
         onAllNodesWithText("Add 1")[0].performClick()

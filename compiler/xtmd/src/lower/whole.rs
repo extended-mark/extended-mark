@@ -1,4 +1,4 @@
-//! Which numbers are proved whole, and small enough for any engine's own whole numbers: what an operator
+//! Which numbers are proved whole, and small enough for any platform's own whole numbers: what an operator
 //! works on and what it gives, from the contracts of what it reads. The contract of a variable, an
 //! input, a record's field, a local and a declared fn's parameter holds whenever it is read, so its
 //! range is a fact; an item's, a lambda's parameter's and a handler's isn't taken for one.

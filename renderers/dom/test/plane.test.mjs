@@ -57,7 +57,7 @@ const box = (r) => {
   return [f.from, f.to].flatMap((p) => [n(p.record.fields.x), n(p.record.fields.y)]);
 };
 
-test("spots' boxes come from the layout: with fixed sizes, exactly where the test engine puts them", async () => {
+test("spots' boxes come from the layout: with fixed sizes, exactly where the layout puts them", async () => {
   const page = await open(browser, MAP, { fixed: true });
   const s = await xtmd(page, "state");
   // "Home" is 4 characters: 32 by 20, centred on (0, 0); "Go" is 16 by 20, its bottom-left on (100, 50)

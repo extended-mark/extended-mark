@@ -135,7 +135,7 @@ export interface ExprOp {
   args: Expr[];
   name: OpName;
   type?: Type;
-  /** Proved: what it works on, and the number it gives when it gives one, are whole and within 9007199254740991 of zero, so any engine's whole numbers hold them exactly. */
+  /** Proved: what it works on, and the number it gives when it gives one, are whole and within 9007199254740991 of zero, so any platform's whole numbers hold them exactly. */
   whole?: boolean;
 }
 
@@ -314,7 +314,7 @@ export interface LetDecl {
   value: Expr;
 }
 
-/** A level an engine has (page 6): core.draw draws the extern widgets, core.live holds variables and runs events, core.gfx draws the canvas widgets. An engine lists the ones it has, and a call, a widget or a page lists the ones it needs: none means its Markdown is enough. */
+/** A level a platform has (page 6): core.draw draws the extern widgets, core.live holds variables and runs events, core.gfx draws the canvas widgets. A renderer says which it has, and a call, a widget or a page lists the ones it needs: none means its Markdown is enough. */
 export type Level = "core.draw" | "core.live" | "core.gfx";
 
 export interface Local {
@@ -347,16 +347,16 @@ export interface NeedsPacks {
   version: number;
 }
 
-/** Every extern the page uses, by who supplies it. An engine checks the list when it mounts the page. */
+/** Every extern the page uses, by who supplies it. A runtime checks the list when it starts the page. */
 export interface Needs {
-  /** core's externs, supplied by the engine: widgets and fns. */
+  /** core's externs, supplied by the widget set, the runtime and the renderer: widgets and fns. */
   core: string[];
   /** Every value and fn taken from the host, by its full name: a value of core's page (`core/page.width`), and the values and fns of the document's own channels (`doc/scores.unit`). */
   host: string[];
   packs: NeedsPacks[];
 }
 
-/** An extern widget, drawn by the engine. */
+/** An extern widget, drawn by the renderer. */
 export interface NodeExtern {
   events?: { [key: string]: string };
   /** The levels this call needs beyond core.draw (page 6), its slots' included. */
@@ -613,7 +613,7 @@ export type Stmt =
   | { call: Call }
   | { apply: StmtApply };
 
-/** Who supplies an extern: the engine (core's), the pack that declares it, or the host (a document's channels). */
+/** Who supplies an extern: the platform (core's), the pack that declares it, or the host (a document's channels). */
 export type Supplier = "core" | "pack" | "host";
 
 /** A widget written in Extended Mark, lowered: its view as nodes. The document's own view is the template `doc`. */
@@ -642,7 +642,7 @@ export interface Token {
   name: string;
   /** The type of the value each case stands for. */
   value: Type;
-  /** Each named case's value, from the tokens blocks of the build. An engine may give its own. */
+  /** Each named case's value, from the tokens blocks of the build. A renderer may give its own. */
   values: { [key: string]: Expr };
 }
 

@@ -1,6 +1,6 @@
 package android;
 
-//@about The Android engine's look: core's tokens as Material 3 draws them. xtmd-android draws with
+//@about Android's look: core's tokens as Material 3 draws them. xtmd-android draws with
 //@about MaterialTheme, so the colours with a role in a colour scheme come from the scheme the page is
 //@about drawn with (these are Material 3's baseline, which XtmdPage uses by default, and a host's own
 //@about theme replaces them); the rest keep core's values. Lengths are dp, and type is Material 3's

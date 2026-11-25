@@ -6,7 +6,7 @@ import type { Input } from "@extended-mark/runtime";
 export type DocError =
   | { kind: "refused"; rule?: string; code?: string; site?: string }
   | { kind: "failed"; rule?: string; code?: string; site?: string }
-  /** A live engine's compiler couldn't be loaded. */
+  /** A live document's compiler couldn't be loaded. */
   | { kind: "load"; message: string }
   | { kind: "compile"; message: string; diagnostics: unknown[] };
 

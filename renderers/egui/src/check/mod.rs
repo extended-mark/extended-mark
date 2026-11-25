@@ -51,7 +51,7 @@ impl<D: Drawable> Headless<D> {
             .with_pixels_per_point(1.0)
             .with_step_dt(STEP_DT)
             .with_max_steps(600)
-            // the checks are the judge of names, so a missing one is reported as on every engine
+            // the checks are the judge of names, so a missing one is reported as on every platform
             .with_accessibility_check(false)
             .allow_missing_glyphs()
             .with_theme(if dark { egui::Theme::Dark } else { egui::Theme::Light })

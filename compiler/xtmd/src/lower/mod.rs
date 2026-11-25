@@ -1,8 +1,8 @@
-//! Lowering: the IR an engine runs, from a checked module.
+//! Lowering: the IR a runtime runs, from a checked module.
 //!
 //! A page keeps only what it can run (`reach`), with what is the same on every page worked out
 //! (`fold`). A widget whose Markdown is its view has it once, and the types the checker worked out for
-//! expressions stay behind: an engine runs values. What each place reads, what each handler writes
+//! expressions stay behind: a runtime runs values. What each place reads, what each handler writes
 //! (`reads`) and which numbers are whole (`whole`) is told.
 
 mod fold;

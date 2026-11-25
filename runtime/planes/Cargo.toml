@@ -1,7 +1,7 @@
 [package]
 name = "xtmd-planes"
 workspace = "../../compiler"
-description = "The planes of a page laid out, for the engines that draw them: what is on each measured, placed by the native runtime's layout, and written back."
+description = "The planes of a page laid out, for the renderers that draw them: what is on each measured, placed by the native runtime's layout, and written back."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

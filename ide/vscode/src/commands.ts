@@ -53,7 +53,7 @@ async function isFolder(uri: vscode.Uri): Promise<boolean> {
 }
 
 /** The files under a folder that `keep` takes, as `xtmd check` and `xtmd migrate` find them: not in
- * a folder whose name starts with a dot, or node_modules, engine or dist. */
+ * a folder whose name starts with a dot, or node_modules, target or dist. */
 async function filesUnder(dir: vscode.Uri, keep: (name: string) => boolean, out: vscode.Uri[] = []): Promise<vscode.Uri[]> {
   let entries: [string, vscode.FileType][] = [];
   try {

@@ -1,4 +1,4 @@
-//! The value fns egui supplies (target.yaml's `fns`): `core/moment.local`, the same instant with
+//! The value fns egui supplies: `core/moment.local`, the same instant with
 //! the offset the reader's zone uses on its date, summer time included. `can_draw_tex` keeps
 //! core's default: egui draws no maths, and shows TeX as itself.
 
@@ -53,7 +53,7 @@ pub fn egui_fns() -> HashMap<String, ValueFn> {
     HashMap::from([("core/moment.local".to_string(), local)])
 }
 
-/// The value fns of the checks: the reader is in UTC, as on every engine, so observations agree.
+/// The value fns of the checks: the reader is in UTC, as on every platform, so observations agree.
 pub fn check_fns() -> HashMap<String, ValueFn> {
     let local: ValueFn = Rc::new(|m, args| {
         let m0 = args.first().cloned().unwrap_or_else(Value::none);

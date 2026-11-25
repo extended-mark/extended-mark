@@ -5,8 +5,8 @@ import xtmd.android.ffi.Measure
 import xtmd.android.ffi.Node
 import xtmd.android.ffi.Val
 
-// The checks' fixed sizes, in the page's own lengths, ported from the test engine's
-// (runtime/typescript/test/sizes.mjs), so every engine's boxes agree exactly:
+// The checks' fixed sizes, in the page's own lengths, ported from the tests'
+// (runtime/typescript/test/sizes.mjs), so every runtime's boxes agree exactly:
 //
 // - Text is 8 wide per character and 20 high: a label, a paragraph, a button's label.
 // - A flex lines its children up along its axis (a row's is X, a column's Y); a grid, a cell, a

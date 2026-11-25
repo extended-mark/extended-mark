@@ -1,6 +1,6 @@
 [package]
 name = "xtmd-wasm"
-description = "The Extended Mark compiler for the browser: what xtmd build does, on a core compiled once, for a live engine; the language server, and what xtmd md and xtmd migrate do, for an editor"
+description = "The Extended Mark compiler for the browser: what xtmd build does, on a core compiled once, for a live document; the language server, and what xtmd md and xtmd migrate do, for an editor"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

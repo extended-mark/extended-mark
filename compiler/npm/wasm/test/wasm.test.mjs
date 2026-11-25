@@ -1,5 +1,5 @@
 // xtmd.wasm held to the binary: every case built both ways gives the same IR and the
-// same diagnostics, and what a live engine leans on (a broken document, packs given as text,
+// same diagnostics, and what a live document leans on (a broken document, packs given as text,
 // a compiler that goes on after a bad one) works.
 
 import { test } from "node:test";
@@ -66,7 +66,7 @@ test("every case gives the binary's IR, or the binary's errors", async () => {
     const key = (d) => `${d.file}:${d.line}:${d.column} ${d.code}`;
     assert.deepEqual(got.diagnostics.filter((d) => d.file === c.source).map(key).sort(), said.filter((d) => d.file === c.source).map(key).sort(), c.id);
   }
-  // most cases are compile errors on purpose; the rest run on the engines
+  // most cases are compile errors on purpose; the rest run on the renderers
   assert.ok(built >= 50, `${built} of ${cases.length} built`);
 });
 

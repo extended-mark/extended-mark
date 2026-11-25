@@ -234,7 +234,7 @@ pub struct ExprOp {
     pub name: OpName,
     #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
     pub ty: Option<Type>,
-    /// Proved: what it works on, and the number it gives when it gives one, are whole and within 9007199254740991 of zero, so any engine's whole numbers hold them exactly.
+    /// Proved: what it works on, and the number it gives when it gives one, are whole and within 9007199254740991 of zero, so any platform's whole numbers hold them exactly.
     #[serde(default, skip_serializing_if = "is_false")]
     pub whole: bool,
 }
@@ -283,7 +283,7 @@ pub enum Expr {
     None(Empty),
     #[serde(rename = "range")]
     Range(Box<ExprRange>),
-    /// A token, by its name. An engine draws it with its own value.
+    /// A token, by its name. A renderer draws it with its own value.
     #[serde(rename = "token")]
     Token(String),
     /// A token made from a plain value, through its case that carries one: `stroke.PX(2.5)`.
@@ -379,7 +379,7 @@ pub struct ExternType {
 /// Something supplied from outside Extended Mark.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Extern {
-    /// An extern fn: native to every engine (core's), a pack's, or the host's.
+    /// An extern fn: native to every runtime (core's), a pack's, or the host's.
     #[serde(rename = "fn")]
     Fn(ExternFn),
     #[serde(rename = "widget")]
@@ -546,7 +546,7 @@ pub struct LetDecl {
     pub value: Expr,
 }
 
-/// A level an engine has (page 6): core.draw draws the extern widgets, core.live holds variables and runs events, core.gfx draws the canvas widgets. An engine lists the ones it has, and a call, a widget or a page lists the ones it needs: none means its Markdown is enough.
+/// A level a platform has (page 6): core.draw draws the extern widgets, core.live holds variables and runs events, core.gfx draws the canvas widgets. A renderer says which it has, and a call, a widget or a page lists the ones it needs: none means its Markdown is enough.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Level {
     #[serde(rename = "core.draw")]
@@ -596,18 +596,18 @@ pub struct NeedsPacks {
     pub version: i64,
 }
 
-/// Every extern the page uses, by who supplies it. An engine checks the list when it mounts the page.
+/// Every extern the page uses, by who supplies it. A runtime checks the list when it starts the page.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Needs {
-    /// core's externs, supplied by the engine: widgets and fns.
+    /// core's externs, supplied by the widget set, the runtime and the renderer: widgets and fns.
     pub core: Vec<String>,
     /// Every value and fn taken from the host, by its full name: a value of core's page (`core/page.width`), and the values and fns of the document's own channels (`doc/scores.unit`).
     pub host: Vec<String>,
     pub packs: Vec<NeedsPacks>,
 }
 
-/// An extern widget, drawn by the engine.
+/// An extern widget, drawn by the renderer.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NodeExtern {
@@ -1061,7 +1061,7 @@ pub enum Stmt {
     Apply(StmtApply),
 }
 
-/// Who supplies an extern: the engine (core's), the pack that declares it, or the host (a document's channels).
+/// Who supplies an extern: the platform (core's), the pack that declares it, or the host (a document's channels).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Supplier {
     #[serde(rename = "core")]
@@ -1111,7 +1111,7 @@ pub struct Token {
     pub name: String,
     /// The type of the value each case stands for.
     pub value: Type,
-    /// Each named case's value, from the tokens blocks of the build. An engine may give its own.
+    /// Each named case's value, from the tokens blocks of the build. A renderer may give its own.
     pub values: BTreeMap<String, Expr>,
 }
 

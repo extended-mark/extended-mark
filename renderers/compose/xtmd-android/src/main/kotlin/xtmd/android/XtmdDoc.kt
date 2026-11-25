@@ -40,7 +40,7 @@ sealed interface DocError {
     data class Failed(val broken: Broken) : DocError
     /** An IR that couldn't be had: read, parsed or started. */
     data class Load(val message: String) : DocError
-    /** A text that didn't compile: a live engine's (xtmd-android-live). */
+    /** A text that didn't compile: a live document's (xtmd-android-live). */
     data class Compile(val message: String, val diagnostics: List<String> = emptyList()) : DocError
 }
 

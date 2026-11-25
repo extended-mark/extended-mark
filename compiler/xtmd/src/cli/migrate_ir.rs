@@ -1,4 +1,4 @@
-//! `xtmd migrate page.ir.json`: an IR an earlier xtmd wrote, brought to the version this one's engines
+//! `xtmd migrate page.ir.json`: an IR an earlier xtmd wrote, brought to the version this one's runtimes
 //! run, in place. It is written only when its Markdown still can be, and what stops it is named.
 
 use std::io::{IsTerminal, Write};

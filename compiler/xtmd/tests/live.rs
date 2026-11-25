@@ -1,4 +1,4 @@
-//! A live engine's compiler: a text built into the IR xtmd build writes, a broken draft that leaves the last IR,
+//! A live document's compiler: a text built into the IR xtmd build writes, a broken draft that leaves the last IR,
 //! packs given as text, and what an editor asks for: the resolved IR and the canonical layout.
 
 use xtmd::live::{BuildOptions, Compiler, Followed, Live, Severity, Source};

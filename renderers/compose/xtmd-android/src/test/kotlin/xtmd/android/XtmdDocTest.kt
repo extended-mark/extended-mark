@@ -21,7 +21,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/** XtmdDoc, the Android static engine, on the pages the web engines' tests use
+/** XtmdDoc, a document from its IR, on the pages the web renderers' tests use
  * (renderers/testing): a starting `$state` checked, `$state` controlled by the host,
  * the handle, snapshots, a new IR, the host's value fns, and an IR that can't be had. */
 @OptIn(ExperimentalTestApi::class)

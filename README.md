@@ -58,7 +58,8 @@ another folder.
 ## Guides
 
 - [Writing a host](docs/guides/host.md): drawing a page with code of your own, from its tree.
-- [Writing an engine](docs/guides/engine.md): running the IR on another platform, or rendering it to a file.
+- [Writing a runtime](docs/guides/runtime.md): running the IR on another platform.
+- [Writing an engine](docs/guides/engine.md): building pages into files ahead of time.
 
 ## Releasing a new version of a pack
 

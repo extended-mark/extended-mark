@@ -187,7 +187,7 @@ try {
   await pause(1500);
   await shot("10-formatted", "Format Document: xtmd's own layout back");
 
-  // 9. the preview: the vscode engine, VS Code's components in the editor's theme
+  // 9. the preview: the vscode renderer, VS Code's components in the editor's theme
   await palette("Extended Mark: Open Preview to the Side");
   const webview = async () => {
     for (let k = 0; k < 60; k++) {
@@ -202,7 +202,7 @@ try {
   };
   const preview = await webview();
   await pause(1500);
-  await shot("11-preview", "The preview beside the editor: the page drawn by the vscode engine");
+  await shot("11-preview", "The preview beside the editor: the page drawn by the vscode renderer");
   await preview.locator("button", { hasText: "Add 1" }).first().click();
   await preview.locator("button", { hasText: "Add 1" }).first().click();
   await preview.locator("button", { hasText: "I have read the rules" }).first().click();

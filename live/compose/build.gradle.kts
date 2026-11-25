@@ -1,6 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-// xtmd-android-live: Extended Mark's live Android engine. XtmdLiveDoc compiles a document's text on the
+// xtmd-android-live: Extended Mark's live documents on Android. XtmdLiveDoc compiles a document's text on the
 // device with the compiler in libxtmd_android_live.so (xtmd's compiler behind UniFFI, built by
 // ./rust/build.sh into native/), then draws the IR with xtmd-android's XtmdDoc. A host that
 // only draws pages it was given uses xtmd-android alone, and ships no compiler.

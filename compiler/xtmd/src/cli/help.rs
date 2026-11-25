@@ -8,7 +8,7 @@ usage: xtmd <command> [arguments] [flags]
   xtmd fmt <file|folder>…        rewrite each file in the canonical layout, in place (the formatter)
   xtmd check <file|folder>…      report every error and warning, then a line for each file
   xtmd parse <file>              print a file's syntax tree, as JSON
-  xtmd build <file|folder>…      write each document's IR, for an engine (--rir: the resolved IR, for tools)
+  xtmd build <file|folder>…      write each document's IR, for a runtime (--rir: the resolved IR, for tools)
   xtmd md <file|folder>…         write each document's Markdown, as it reads when it first loads
   xtmd build … --engine e        …or the files an engine makes of them: HTML, Rust, whatever it is for
   xtmd surface <pack>            the release step: record what this version of the pack provides

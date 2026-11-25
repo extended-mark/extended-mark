@@ -850,7 +850,7 @@ fn a_pages_ir_holds_only_what_the_page_uses() {
     assert!(!kept.iter().any(|n| n == "core/entities" || n == "core/slider" || n == "core/canvas"), "{:?}", kept);
     let needs: Vec<&str> = page["needs"]["core"].as_array().unwrap().iter().filter_map(|n| n.as_str()).collect();
     assert!(needs.contains(&"core/press") && !needs.contains(&"core/slider"), "{:?}", needs);
-    // core's token types stay: an engine styles a page from them by name
+    // core's token types stay: a renderer styles a page from them by name
     assert!(kept.iter().any(|n| n == "core/color"), "{:?}", kept);
     // an implementer builds moment.local on moment.utc and moment_at, so they come with it
     assert!(!kept.iter().any(|n| n == "core/moment_at"), "{:?}", kept);

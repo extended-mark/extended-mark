@@ -247,7 +247,7 @@ widget counter() {
 @@@
 # Release notes
 
-The **web** engine draws *every* block, and ~~nothing~~ more. Read [the plan](https://example.com) and the \`code\`.
+The **web** renderer draws *every* block, and ~~nothing~~ more. Read [the plan](https://example.com) and the \`code\`.
 
 ## What shipped
 

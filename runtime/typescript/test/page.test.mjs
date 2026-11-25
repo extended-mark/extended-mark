@@ -209,7 +209,7 @@ test("a host's write of the wrong type is refused, whatever its contract", () =>
   assert.equal(p.observeState().tasks.list[0].record.fields.title.text, "b");
 });
 
-test("an extern widget the engine doesn't supply shows its Markdown, and is reported", () => {
+test("an extern widget the renderer doesn't supply shows its Markdown, and is reported", () => {
   const pack = join(repoRoot, "checks/packs/badge");
   const file = join(dir, "pack-page.xtmd");
   writeFileSync(file, 'import badge;\n@@@\n# Votes\n\n@badge(label = "Votes", count = 2);\n\n@seal(text = "Checked by nobody");\n');
@@ -449,13 +449,13 @@ test("a top-level let that holds a widget is placed by @name, each time another"
 
 test("an IR of another version is refused, and told what to do", () => {
   const ir = page("Hi.\n").module;
-  assert.throws(() => new Page({ ir: { ...ir, version: 3 } }), /this page is IR 3, this engine reads IR 4: run xtmd migrate/);
-  assert.throws(() => new Page({ ir: { ...ir, version: 5 } }), /this page is IR 5, this engine reads IR 4: use a later engine/);
+  assert.throws(() => new Page({ ir: { ...ir, version: 3 } }), /this page is IR 3, this runtime reads IR 4: run xtmd migrate/);
+  assert.throws(() => new Page({ ir: { ...ir, version: 5 } }), /this page is IR 5, this runtime reads IR 4: use a later runtime/);
 });
 
-test("a page's needs are checked when it loads: core's fns the engine has, and what the host gives", () => {
+test("a page's needs are checked when it loads: core's fns the renderer has, and what the host gives", () => {
   const ir = page("Hi.\n").module;
-  assert.throws(() => new Page({ ir: { ...ir, needs: { ...ir.needs, core: [...ir.needs.core, "core/text.backwards"] } } }), /this page needs `core\/text.backwards`, which this engine doesn't have/);
+  assert.throws(() => new Page({ ir: { ...ir, needs: { ...ir.needs, core: [...ir.needs.core, "core/text.backwards"] } } }), /this page needs `core\/text.backwards`, which this runtime doesn't have/);
   assert.deepEqual(page("Hi.\n").lacking(), []);
   assert.deepEqual(page(TAKES, { externs: { "doc/scores": { best: num(3) } } }).lacking(), []);
   // a value the host gives later is lacked until then

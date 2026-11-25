@@ -30,7 +30,7 @@ object DeviceZone : Zone {
     override fun offsetMinutes(utcMinutes: Long): Int = TimeZone.getDefault().getOffset(utcMinutes * 60_000) / 60_000
 }
 
-/** UTC, the checks' zone, so every engine's observation agrees. */
+/** UTC, the checks' zone, so every runtime's observation agrees. */
 object UtcZone : Zone {
     override fun offsetMinutes(utcMinutes: Long): Int = 0
 }

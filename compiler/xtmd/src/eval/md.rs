@@ -1,5 +1,5 @@
 //! core's `md_inline`, in Rust: what the compiler reads a page's sentences with. It is
-//! core/markdown.xtmdpack line for line, which engines run for the Markdown a page makes as it runs, and
+//! core/markdown.xtmdpack line for line, which runtimes run for the Markdown a page makes as it runs, and
 //! compiler/xtmd/tests/check_md_inline.rs holds the two to the same segments.
 
 use std::collections::HashMap;

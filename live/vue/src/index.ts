@@ -1,7 +1,7 @@
 // @extended-mark/vue-live: <XtmdLiveDoc :source="text" />, an Extended Mark document compiled in the browser by
 // @extended-mark/wasm as it is edited, and drawn by @extended-mark/vue's <XtmdDoc>. A text that compiles replaces the
 // page, keeping `$state` where its fields still exist; one that doesn't leaves the last page that
-// did, and its errors reach `@error` ({ kind: "compile", diagnostics }). The static engine,
+// did, and its errors reach `@error` ({ kind: "compile", diagnostics }). The renderer,
 // @extended-mark/vue, ships no WebAssembly; this one does.
 
 import { defineComponent, h, markRaw, onBeforeUnmount, ref, shallowRef, watch, type PropType } from "vue";

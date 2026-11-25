@@ -12,7 +12,7 @@ import * as V from "./value.js";
 import type { CaseValue, Entry, FnValue, RecordValue, Value } from "./value.js";
 import * as natives from "./natives.js";
 
-/** Everything outside a fn: a widget instance, the document, the host, the engine. */
+/** Everything outside a fn: a widget instance, the document, the host, the renderer. */
 export interface Host {
   read(m: Machine, what: Outer, owner?: number): Value;
   /** A part of an outer value, at a place in it: `m.valueAt(place)`, for a host that minds what is read. */
@@ -24,7 +24,7 @@ export interface Host {
   callExtern?(m: Machine, name: string, args: readonly Value[]): Value | undefined | null;
   /** `invoke event(args)`. Left out, it fails as NotConstant, as it does for the compiler. */
   invoke?(m: Machine, event: string, args: Value[], owner: number | undefined): void;
-  /** The value a token case stands for, from the engine's tokens. Left out, the build's own:
+  /** The value a token case stands for, from the platform's tokens. Left out, the build's own:
    * `m.defaultTokenValue(c)`. */
   tokenValue?(m: Machine, c: CaseValue): Value;
 }

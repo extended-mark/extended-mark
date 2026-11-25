@@ -1,4 +1,4 @@
-// The test engine's fixed sizes, in the page's own lengths, so a check can say exactly where a
+// The tests' fixed sizes, in the page's own lengths, so a check can say exactly where a
 // plane's spots land:
 //
 // - Text is 8 wide per character and 20 high: a label, a paragraph, a button's label.
@@ -91,7 +91,7 @@ export function measure(page) {
   };
 }
 
-/** The value fns the test engine supplies. Its reader is in UTC. */
+/** The value fns the tests supply. Its reader is in UTC. */
 export function engineFns(getPage) {
   return {
     "core/can_draw_tex": () => ({ bool: true }),

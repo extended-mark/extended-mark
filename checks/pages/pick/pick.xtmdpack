@@ -1,7 +1,7 @@
 package pick;
 
 //@about The check pack of checks/pages: a widget that writes a value of any type, with an event that
-//@about carries one, and a fn its engine supplies.
+//@about carries one, and a fn its renderer supplies.
 pack pick@1 {
     uses core@1;
     provides dial, pick;
@@ -14,7 +14,7 @@ extern widget pick<T>(mut value: T, options: list<T>) {
     markdown { }
 }
 
-//@about How far a dial is turned, as the engine knows it.
+//@about How far a dial is turned, as the renderer knows it.
 extern fn dial(at: int): int 0..9 {
     return 0;
 }

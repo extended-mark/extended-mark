@@ -401,7 +401,7 @@ let orders_box: label = @label(value = "Orders");
 ```
 
 - **A held widget is a description until it is placed.** Placed twice, it is two widgets. What `jump` does with a view that is placed twice, or isn't on the page at all (a branch that wasn't taken, or a `find` that found nothing), is up to whoever supplies `jump`. The compiler checks neither: it knows nothing about what a widget does with a view it is given.
-- **Any pack can do the same.** A pack may declare an extern widget that takes a view, and the pack supplies it for each engine it supports. One that nobody supplies shows its Markdown (page 6).
+- **Any pack can do the same.** A pack may declare an extern widget that takes a view, and the pack supplies it for each platform it supports. One that nobody supplies shows its Markdown (page 6).
 - **For data**, keep the widgets in a list, place them in a loop, and find them with list fns. The `opt` that `find` gives goes straight into an input such as `to: opt<view>`.
 
 ### Markdown

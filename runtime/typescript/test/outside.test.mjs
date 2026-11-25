@@ -80,7 +80,7 @@ test("what a page starts from is checked as what comes later is", () => {
   assert.deepEqual([p.given()["doc/host.n"], p.given()["doc/host.s"], p.state().n, p.state().t], [{ num: "3" }, { text: "b" }, { num: "3" }, { text: "b" }]);
 });
 
-test("a fn the engine supplies gives a value of its type", () => {
+test("a fn the renderer supplies gives a value of its type", () => {
   const given = (v) => new Page(ir, { fns: { "pick/dial": () => v } });
   assert.deepEqual(given({ num: "4" }).takeOutcome().failures, []);
   for (const v of [{ num: "99" }, { text: "x" }]) assert.deepEqual(given(v).takeOutcome().failures.map((b) => b.code), ["failure.rule"], JSON.stringify(v));

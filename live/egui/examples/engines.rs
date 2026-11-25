@@ -1,4 +1,4 @@
-//! egui's two kinds of engine in one window: xtmd-egui's XtmdDoc drawing an IR built ahead (run
+//! egui's two kinds of document in one window: xtmd-egui's XtmdDoc drawing an IR built ahead (run
 //! time, no compiler), and XtmdLiveDoc compiling its text in the host (real time). With `--demo` it
 //! drives itself (presses, a snapshot and restore, an edit, a broken draft) with a caption under it,
 //! for a recording.
@@ -135,7 +135,7 @@ impl eframe::App for Demo {
         ui.painter().rect_filled(ui.ctx().content_rect(), 0.0, ui.visuals().panel_fill);
         let mono = egui::FontId::monospace(13.0);
         egui::Frame::new().inner_margin(16.0).show(ui, |ui| {
-            ui.heading("One page, egui's two kinds of engine");
+            ui.heading("One page, egui's two kinds of document");
             ui.add_space(8.0);
             ui.columns(2, |cols| {
                 let ui = &mut cols[0];
@@ -216,7 +216,7 @@ fn main() -> eframe::Result {
         script: args.iter().any(|a| a == "--demo"),
     };
     let options = eframe::NativeOptions { viewport: egui::ViewportBuilder::default().with_inner_size([1280.0, 800.0]).with_position([0.0, 0.0]).with_decorations(false).with_title("Extended Mark targets"), ..Default::default() };
-    eframe::run_native("Extended Mark engines", options, Box::new(|cc| {
+    eframe::run_native("Extended Mark documents", options, Box::new(|cc| {
         cc.egui_ctx.set_theme(egui::Theme::Light);
         Ok(Box::new(demo))
     }))

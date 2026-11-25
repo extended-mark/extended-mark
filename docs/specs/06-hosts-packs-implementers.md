@@ -120,24 +120,24 @@ A use moves exactly, never by searching the text. Each file is compiled against 
 
 Migrations and surfaces never reach a page: the IR has neither, and building a document never reads them.
 
-The compiler writes a build in two forms. The **IR** is what an engine runs: checked and lowered, with no Markdown left in it. The **resolved IR** is for tools: what the checker understood, with every name resolved to what it names and every value typed, nothing lowered, and each part's place in its source and its comments kept. `xtmd migrate` works from it, and so can an editor, a linter or a program that writes Extended Mark. Both are JSON with a versioned schema (`schemas/`): `xtmd build` writes the IR and `xtmd build --rir` the resolved IR, and no engine reads the resolved IR. `--pretty` writes either over several lines.
+The compiler writes a build in two forms. The **IR** is what a page runs from: checked and lowered, with no Markdown left in it. The **resolved IR** is for tools: what the checker understood, with every name resolved to what it names and every value typed, nothing lowered, and each part's place in its source and its comments kept. `xtmd migrate` works from it, and so can an editor, a linter or a program that writes Extended Mark. Both are JSON with a versioned schema (`schemas/`): `xtmd build` writes the IR and `xtmd build --rir` the resolved IR, and nothing that runs, draws or builds a page reads the resolved IR. `--pretty` writes either over several lines.
 
 ### The IR
 
 A page's IR is whole, never changes as the page runs, and holds only what the page can run:
 
 - **Reached.** The declarations, widgets and fns that its view, its `$state` and the fns the host may call reach, its own among them, with what an extern fn of core is said to build on (page 5). A fn is there when something calls it, `show`, `same` and `before` too: a value shown or compared brings its type's. Where a value's type is a type parameter, the fn of each type the page holds counts.
-- **Cases.** An enum has the cases the page can make, and a `match` the arms those cases reach. A type a host or an engine can send in (a `$state` field's, a widget's own variable's, a channel value's, an exposed fn's input's, an event's input's, a `mut` input's the engine writes, or what an extern fn gives) has all of them.
+- **Cases.** An enum has the cases the page can make, and a `match` the arms those cases reach. A type a host or a renderer can send in (a `$state` field's, a widget's own variable's, a channel value's, an exposed fn's input's, an event's input's, a `mut` input's the renderer writes, or what an extern fn gives) has all of them.
 - **Rules.** A record has its `require` and `warn` blocks when the page makes one as it runs, or a host can send one. A record made when the page was compiled was checked then.
 - **Tokens.** The cases the page names, and the ones the widgets it calls and core's `page` say they are drawn with (`tokens`).
 - **What is read and written.** Each place in a view says what it reads of what may change (`reads`): each input and argument, a loop's list, a condition, a `match`'s value, a view placed, a `let` and a rule, each by the name of the variable, input, slot or extern value, or `any` for what only the running page can tell. A place that says nothing reads nothing that changes, and is the same for as long as the page is open. A fn, a handler and an exposed fn say what they may read and write (`writes`), the fns they call included.
-- **What is proved of a number.** An operator says `whole` when the compiler has proved that what it works on, and the number it gives, are whole and within 9007199254740991 of zero, so any engine's whole numbers hold them exactly.
-- **`needs`** is every extern the page takes, by who gives it: core's widgets and fns from the engine, a pack's externs, by its version, from whoever supplies the pack, and from the host every value and fn it takes, a value of core's `page` among them (`core/page.width`).
+- **What is proved of a number.** An operator says `whole` when the compiler has proved that what it works on, and the number it gives, are whole and within 9007199254740991 of zero, so any platform's whole numbers hold them exactly.
+- **`needs`** is every extern the page takes, by who gives it: core's widgets and fns from the platform (the runtime and the widget set), a pack's externs, by its version, from whoever supplies the pack, and from the host every value and fn it takes, a value of core's `page` among them (`core/page.width`).
 - **Short.** What is empty is left out, and so is a widget's Markdown that is its view. A call lists the levels it needs beyond `core.draw`.
 
-Its `version` is a whole number of its own, apart from xtmd's: 4 here. It moves only when an engine that reads one version would read the next wrongly. An engine is written for one version and says which; it refuses a page of another, with both numbers and what to do: "this page is IR 3, this engine reads IR 4: run xtmd migrate". It checks `needs` when a page loads: a fn of core it doesn't have refuses the page, an extern widget nobody supplies shows its Markdown, and the host can ask for the fns and values nobody gives yet.
+Its `version` is a whole number of its own, apart from xtmd's: 4 here. It moves only when what reads one version would read the next wrongly. A runtime and an engine are each written for one version and say which; each refuses a page of another, with both numbers and what to do: "this page is IR 3, this runtime reads IR 4: run xtmd migrate". A runtime checks `needs` when a page loads, and an engine when it builds one: a fn of core it doesn't have refuses the page, an extern widget nobody supplies shows its Markdown, and the host can ask for the fns and values nobody gives yet.
 
-| IR | Written by | Read by engines of |
+| IR | Written by | Read by the modules of |
 |---|---|---|
 | 3 | xtmd 0.3.0 to 0.3.2 | Extended Mark 0.3.0 to 0.3.2 |
 | 4 | xtmd 0.4 | Extended Mark 0.4 |
@@ -212,7 +212,7 @@ widget tally(mut points: int) {
 - **A pack's widget** can't see `$state`. It takes what it shares as a `mut` input, as `tally` takes `points`, and the document passes it a field. So everything shared is in one place, where the document's own rules can link it. `tally`'s input is an `int` with no range, so whole-number arithmetic proves `points + 1`; each write back is checked against the field's own `int 0...` (page 2, sharing).
 - **The host reads and writes `$state`.** It can get the whole of it and set any field. A write from the host is checked like any change: one that breaks a contract or a `require` is refused, and the host is told; one that fits redraws the page once. The host never watches `$state`. It hears what happened only when Extended Mark calls one of a channel's fns, as an event.
 - **extern values** flow from the host to Extended Mark. Each has a type and a default, and is constant to Extended Mark code. When the host changes one, everything that reads it is worked out again. The runtime checks each value against its type as it arrives. One that doesn't fit is dropped, the default is used, and the host is told.
-- **extern fns** are the same two kinds as every fn. Without a return type, one is an action sent to the host, and can only be called from event handlers, never while drawing: that is how the page tells the host what happened, as `saved` does. With a return type, it changes nothing: it is a value only its supplier can work out, such as `moment.local`, and may be called while drawing. The supplier has to give the same answer for the same arguments. A shader for `shade` (page 5) is one of these, and the engine runs it for every pixel.
+- **extern fns** are the same two kinds as every fn. Without a return type, one is an action sent to the host, and can only be called from event handlers, never while drawing: that is how the page tells the host what happened, as `saved` does. With a return type, it changes nothing: it is a value only its supplier can work out, such as `moment.local`, and may be called while drawing. The supplier has to give the same answer for the same arguments. A shader for `shade` (page 5) is one of these, and the renderer runs it for every pixel.
 - **Waiting.** Extended Mark has no waiting and no callbacks. Something that isn't there yet is an `opt` extern value, and the view says what to show for both cases, as `best` does above.
 - **expose** is written only at the top of a document, never in a pack or a widget: a pack has no `$state` for it to change, and the host has no way to say which widget on the page it means. `expose scores` declares no name of its own. It answers the `extern` channel of that name, or starts one if the document has none. Its fns are called only by the host, never by Extended Mark code. They return nothing, take constant parameters, and may assign `$state`.
 - **Keeping things.** Variables last while the page is open. To keep `$state` between visits, the host saves it and hands it back when it next mounts the page. What it hands back goes through the same checks as a write from the host: a field that doesn't fit keeps its starting value, and the host is told. Anything else is kept through a channel: Extended Mark calls an `extern` fn, and the host hands the value back as an `extern` value next time.
@@ -221,8 +221,8 @@ widget tally(mut points: int) {
 
 | Declared in | Supplied by |
 |---|---|
-| `core` | The engine, with its own default widgets, which a host may replace through its widget registry |
-| A pack | The pack, for each engine it supports. Any pack may declare extern widgets and fns of its own |
+| `core` | The widget set, for its widgets, each of which a host may replace; the runtime, for its fns; the renderer, for what only its platform knows (`page`, `moment.local`) |
+| A pack | The pack, for each platform it supports. Any pack may declare extern widgets and fns of its own |
 | A document's `extern` block | The host, when it mounts the page |
 
 - **Its declaration is all of it.** What an extern widget takes in, what comes back, what it needs and what it looks like as Markdown are in its declaration, for core's externs and any pack's alike, and nothing may depend on anything else about it.
@@ -235,19 +235,21 @@ widget tally(mut points: int) {
 
 ### Implementing Extended Mark
 
-This spec doesn't depend on how Extended Mark is built, or in what language. Extended Mark is the spec, and the `core` pack written in Extended Mark itself. Three roles meet here:
+This spec doesn't depend on how Extended Mark is built, or in what language. Extended Mark is the spec, and the `core` pack written in Extended Mark itself. These roles meet here:
 
-- **A host** shows a page: it holds the IR, reads and writes `$state`, gives extern values, and hears extern fns. A host uses an engine, and doesn't care who provides it.
-- **An engine** is Extended Mark on one platform, such as the web or Android. It takes the IR, runs it, and supplies every `extern` in `core`: the extern widgets, `page`, `moment.local`, and the native fns on numbers, text and lists.
-- **An implementer** provides an engine, and checks it: that it does what this spec says is its implementer's responsibility.
+- **A host** shows a page: it holds the IR, reads and writes `$state`, gives extern values, and hears extern fns. A host uses a runtime with a renderer, or the files an engine built, and doesn't care who provides them.
+- **A runtime** runs a page: it takes the IR, holds `$state` and the widgets' own variables, and gives the drawn tree. It supplies core's native fns, on numbers, text and lists.
+- **A renderer** draws the tree on one platform, such as the web or Android, with a **widget set**, which supplies core's extern widgets. It gives the reader's events and writes back to the runtime, and supplies what only the platform knows: `page` and `moment.local`.
+- **An engine** turns a page into its platform's own files ahead of time, from the IR and a widget set. What it builds does exactly what a runtime and a renderer do with the page, and holds only what the page uses: no IR, no runtime and no compiler. It is for platforms whose reader would otherwise fetch a runtime with the page, as the web's does; a native program has its runtime built in and needs no engine.
+- **An implementer** provides a runtime, a renderer, a widget set or an engine, and checks it: that it does what this spec says is its implementer's responsibility.
 
-Host and implementer are roles, so one team can be both. No engine is special, and the ones that come with Extended Mark are a convenience. A host makes an engine of its own only to change how pages behave, or to run on another platform: new widgets never need one, as an engine draws any extern widget it is supplied. "An engine" is always Extended Mark on a platform; a type or a widget that `implements` an interface is another thing (page 4).
+Host and implementer are roles, so one team can be both. None of these is special, and the ones that come with Extended Mark are a convenience. A host makes one of its own only to change how pages behave, or for another platform: new widgets never need that, as a renderer draws any extern widget it is supplied. A type or a widget that `implements` an interface is another thing (page 4).
 
-Extended Mark ends at the IR. The compiler is one, and everything a page means is in the IR it writes. How an engine comes by a page's IR is the host's, and how it draws it is the engine's.
+Extended Mark ends at the IR. The compiler is one, and everything a page means is in the IR it writes. How a page's IR reaches what runs it is the host's, and how the page is drawn is the renderer's.
 
-An engine is of one of two kinds, and a host picks one. A **static** engine takes compiled IR, as `.json`, and never a document's text, and carries no compiler. A **live** engine is given the document's text and compiles it where it runs, with the one compiler built into it (WebAssembly in a browser, a native library in a program), for an editor or a live preview; it then does with the IR exactly what a static engine does. While a draft has errors, it keeps the last page that compiled and says why. A page goes on when it is given an IR with the same content as its own: an IR is told apart by its content, whichever file or object holds it.
+A page that runs is shown in one of two ways, and a host picks one. A **static** document is given compiled IR, as `.json`, and never text, and carries no compiler. A **live** document is given its text and compiles it where it runs, with the one compiler built into it (WebAssembly in a browser, a native library in a program), for an editor or a live preview; it then does with the IR exactly what a static document does. While a draft has errors, it keeps the last page that compiled and says why. A page goes on when it is given an IR with the same content as its own: an IR is told apart by its content, whichever file or object holds it.
 
-An engine may be a program, which builds documents into its platform's own files, HTML or Rust or whatever it is for. `xtmd build docs --out dist --engine web` runs it: every document's IR goes to its standard input at once, so it can share between them what is the same, and the files it makes come back on its standard output (`build.schema.json`), each a path and a text or bytes. xtmd writes them into `dist`, all of them or, when one has no place there, none. The engine's errors are its standard error and its exit code. Its name is one of `[engines]` in `xtmd.toml`, each a command as a list (`web = ["node", "engine.mjs"]`), run in that file's folder; or it is a path. Everything after the name is the engine's own, and reaches it untouched. There is no engine by default.
+An engine is a program. `xtmd build docs --out dist --engine web` runs it: every document's IR goes to its standard input at once, so it can share between them what is the same, and the files it makes come back on its standard output (`build.schema.json`), each a path and a text or bytes. xtmd writes them into `dist`, all of them or, when one has no place there, none. The engine's errors are its standard error and its exit code. Its name is one of `[engines]` in `xtmd.toml`, each a command as a list (`web = ["node", "engine.mjs"]`), run in that file's folder; or it is a path. Everything after the name is the engine's own, and reaches it untouched. There is no engine by default.
 
 ```java
 package acme;
@@ -274,7 +276,7 @@ extern widget jump(to: opt<view>, label: text) {
 
 `core.draw`, `core.live` and `core.gfx` are levels, fixed by this spec. They are not interfaces and are not declared in any file. An extern widget says the levels it needs beside `core.draw` with `uses`.
 
-| Level | What the engine can do | What needs it |
+| Level | What the platform can do | What needs it |
 |---|---|---|
 | Markdown only | Compile, and write every widget's Markdown | Nothing more. Every widget has a markdown block, perhaps an empty one, or is a Markdown block, so this always works |
 | `core.draw` | Draw the 33 extern widgets of `core.draw`, Markdown's own blocks and what its sentences are made of, `plane` and `spot` among them, glyphs, tokens and page values. The other base widgets are written in Extended Mark on top of them | Every widget |
@@ -282,15 +284,15 @@ extern widget jump(to: opt<view>, label: text) {
 | `core.gfx` | Draw its 7 widgets: a `canvas`, and the `layer`s of `circle`s, `path`s, `place`d widgets, `handle`s and `shade`s that go on a canvas or on a plane's background | Those widgets, so a plane with a background too, and any pack's extern widget that `uses core.gfx` |
 | `core.motion` | A reserved name for timed controls | Nothing in this spec. See page 8 |
 
-The compiler works out the level each call needs from the table. A call in a document that needs a level the engine doesn't have shows its Markdown instead.
+The compiler works out the level each call needs from the table. A call in a document that needs a level the platform doesn't have shows its Markdown instead.
 
-An engine has written obligations: evaluation exactly as page 2 defines it, exact base-10 numbers, events run in order with one redraw, the limits below, failures contained as below, untrusted content kept sandboxed, extern values and the host's writes to `$state` checked, a widget in a sentence (`Press \{@press(…)} to start`) drawn among its words and taking its events like any other, and accessible controls.
+A runtime with its renderer has written obligations, and so have the files an engine builds: evaluation exactly as page 2 defines it, exact base-10 numbers, events run in order with one redraw, the limits below, failures contained as below, untrusted content kept sandboxed, extern values and the host's writes to `$state` checked, a widget in a sentence (`Press \{@press(…)} to start`) drawn among its words and taking its events like any other, and accessible controls.
 
-A write to `$state`, a reader's through a widget or the host's, is checked against every contract and `require` block it touches (page 2), and is done whole or refused with the rule's message. The compiler has proved only the page's own values, so one that comes from outside is checked against its type first, its shape and every contract and `require` inside it: the host's writes to `$state`, its extern values and the arguments it gives an exposed fn, what a widget writes and its events' arguments, what an engine's fn gives, and a page's data put back. One that isn't of its type is refused and reported, and changes nothing; a fn's answer is a failure where the fn is called. A `$state` the host gives a page as it starts is checked the same way: a field that doesn't fit is refused and reported, never set unchecked. The rest of input is the engine's: whether a widget writes on every keystroke or only when the reader submits, how a refusal is shown, and what to do with state a host saved from an earlier version of the document. How it manages memory is its own choice: Extended Mark code can't make a reference cycle, so freeing a widget's values when it leaves the page, or plain reference counting, is enough.
+A write to `$state`, a reader's through a widget or the host's, is checked against every contract and `require` block it touches (page 2), and is done whole or refused with the rule's message. The compiler has proved only the page's own values, so one that comes from outside is checked against its type first, its shape and every contract and `require` inside it: the host's writes to `$state`, its extern values and the arguments it gives an exposed fn, what a widget writes and its events' arguments, what an extern fn gives, and a page's data put back. One that isn't of its type is refused and reported, and changes nothing; a fn's answer is a failure where the fn is called. A `$state` the host gives a page as it starts is checked the same way: a field that doesn't fit is refused and reported, never set unchecked. The rest of input is the renderer's: whether a widget writes on every keystroke or only when the reader submits, how a refusal is shown, and what to do with state a host saved from an earlier version of the document. How it manages memory is its own choice: Extended Mark code can't make a reference cycle, so freeing a widget's values when it leaves the page, or plain reference counting, is enough.
 
 ### The host's side
 
-A host and an engine share these kinds of JSON, each with a schema (`schemas/`), and nothing else. Each is a format with a version of its own, a whole number that moves only when what reads one version would read the next wrongly:
+A host and what shows its pages share these kinds of JSON, each with a schema (`schemas/`), and nothing else. Each is a format with a version of its own, a whole number that moves only when what reads one version would read the next wrongly:
 
 - **The IR** (`ir.schema.json`): what the page is. It never changes while the page runs, and a change of `$state` never makes another.
 - **The page's data** (`state.schema.json`): `state`, `$state`'s fields, and `own`, each widget's own variables, by the place it is drawn at. It is what a host keeps to put a page back as it was. All of it goes back into the IR it was taken from; into another, only `$state` does, checked as the host's write.
@@ -331,7 +333,7 @@ A sentence is nodes too: `words`, the marks around them, and any other widget am
 | `takeCalls()`, `takeOutcome()`, `takeWarnings()` | The host's fns the page called, what was refused or failed, and the `warn`s found false, since they were last taken. `told()` is all of it, as `told.schema.json` writes it |
 | `act(action)` | Any of the changes above, as `actions.schema.json` writes it, and the same as the call of its name |
 
-Every value in either direction is JSON in the IR's form. An engine gives these in its own language's way, with these names.
+Every value in either direction is JSON in the IR's form. A runtime gives these in its own language's way, with these names.
 
 **What changed.** After each change a host is told what changed in the tree (`tree.schema.json`, `change`): for a node, the inputs whose values are others now, the inputs whose widgets are others or in another order, each a node kept, by its id, or a node drawn anew, and its events and writes when they changed. What isn't there is as it was. The page's own list of nodes is the input `nodes` of the id `""`. A widget that fails, or is drawn again after failing, is another node to the one it is in. A tree with its changes made in it is the next tree, so a host may keep its own, or read it again.
 

@@ -197,7 +197,7 @@ export async function docSteps(page, { markdown = true } = {}) {
   await until(page, () => document.querySelector("#app [data-xtmd-site]") === null, null, "the unmount");
 }
 
-/** The test pages' text, a broken draft of the first among them, for the live engines. */
+/** The test pages' text, a broken draft of the first among them, for the live documents. */
 export function pageSources() {
   const v1 = readFileSync(pages.v1, "utf8");
   return { v1, v2: readFileSync(pages.v2, "utf8"), broken: v1.replace("# Count: \\{$state.n}", "# Count: \\{$state.nope}") };
@@ -207,7 +207,7 @@ export function pageSources() {
 export const WASM_URL = "http://xtmd.test/xtmd.wasm";
 const wasmFile = join(here, "../../compiler/npm/wasm/xtmd.wasm");
 
-/** A tab for a live engine's test host: the sources as `window.__SRC`, xtmd.wasm served at
+/** A tab for a live document's test host: the sources as `window.__SRC`, xtmd.wasm served at
  * `window.__WASM_URL`, and the bundle run in it. */
 export async function openLive(browser, { js }) {
   const page = await browser.newPage();
@@ -226,7 +226,7 @@ export async function openLive(browser, { js }) {
 }
 
 /**
- * The steps every live engine's <XtmdLiveDoc> passes, through the test host's `window.__test`:
+ * The steps every live document's <XtmdLiveDoc> passes, through the test host's `window.__test`:
  * - `heard`: { states, errors, calls }, from onStateChange, onError and onCalls;
  * - `handle()`: the component's handle;
  * - `setSource(text)`: gives it a new `source`, starting from `window.__SRC.v1`, with

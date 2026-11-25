@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/rir.schema.json",
   "title": "Extended Mark resolved IR 1",
-  "description": "The resolved IR (rir): what the xtmd compiler's checker understood of a build, written out. Every name is resolved to what it names, every value has its type, and nothing is lowered: prose is still Markdown, a call still has its arguments by name, and there are no bindings, sites or handlers. Every node keeps its span in its file's source and the comments that sit with it, so a tool can edit the source exactly or print it back. Engines never read it: they run the IR (ir.schema.json). Types are the IR's. `xtmd build --rir` writes it.",
+  "description": "The resolved IR (rir): what the xtmd compiler's checker understood of a build, written out. Every name is resolved to what it names, every value has its type, and nothing is lowered: prose is still Markdown, a call still has its arguments by name, and there are no bindings, sites or handlers. Every node keeps its span in its file's source and the comments that sit with it, so a tool can edit the source exactly or print it back. Renderers never read it: they run the IR (ir.schema.json). Types are the IR's. `xtmd build --rir` writes it.",
   "$ref": "#/$defs/root",
   "$defs": {
     "span": {
@@ -816,7 +816,7 @@
           "properties": {
             "extern_widget": {
               "type": "object",
-              "description": "A widget its engine or its pack supplies.",
+              "description": "A widget its renderer or its pack supplies.",
               "properties": {
                 "id": {
                   "$ref": "#/$defs/id"

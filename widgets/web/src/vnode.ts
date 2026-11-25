@@ -1,4 +1,4 @@
-// A page as plain elements: what every framework engine renders, each with its own renderer, so
+// A page as plain elements: what every framework renderer renders, each with its own renderer, so
 // core's widgets are written once and drawn by React, Vue, Svelte, Solid and Angular alike. An
 // element is its tag, its attributes, its DOM properties, its style, its listeners and its
 // children; what can't be said that way (a canvas drawn on, a plane measured) is a hook the

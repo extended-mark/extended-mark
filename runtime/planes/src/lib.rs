@@ -1,6 +1,6 @@
 //! The planes of a page laid out: what is on each measured, placed by the runtime's layout, and written
 //! back, pass by pass until nothing changes. A port of @extended-mark/dom's `planes.ts`, shared by the
-//! engines here that draw planes.
+//! renderers here that draw planes.
 
 use std::collections::HashSet;
 use std::rc::Rc;

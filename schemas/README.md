@@ -1,12 +1,12 @@
 # schemas
 
-The contracts between the compiler and every engine, as JSON Schema (draft 2020-12). They are the source: the Rust and TypeScript types are generated from them.
+The contracts between the modules, as JSON Schema (draft 2020-12). They are the source: the Rust and TypeScript types are generated from them.
 
 | File | What it describes |
 |---|---|
-| `ir.schema.json` | IR 4: the one checked, lowered IR the `xtmd` compiler writes and every engine runs. Declarations, templates (widgets written in Extended Mark, lowered to nodes) and handlers, only what the page can run. No Markdown is left in it (docs/specs/06, The IR). |
-| `rir.schema.json` | The resolved IR, `rir 1`: what the compiler's checker understood of a build, for tools, never run by an engine. Every name resolved to what it names, every value typed, nothing lowered: prose is still Markdown and a call still has its arguments by name. Every node keeps its span in its source and the comments that sit with it, so `xtmd migrate`, an editor or a linter can edit the source exactly or print it back. Its types are the IR's. `xtmd build --rir` writes it. |
-| `tree.schema.json` | The drawn tree every engine gives, and what changed in it (docs/specs/06, The host's side). |
+| `ir.schema.json` | IR 4: the one checked, lowered IR the `xtmd` compiler writes and every runtime runs. Declarations, templates (widgets written in Extended Mark, lowered to nodes) and handlers, only what the page can run. No Markdown is left in it (docs/specs/06, The IR). |
+| `rir.schema.json` | The resolved IR, `rir 1`: what the compiler's checker understood of a build, for tools, which no page runs from. Every name resolved to what it names, every value typed, nothing lowered: prose is still Markdown and a call still has its arguments by name. Every node keeps its span in its source and the comments that sit with it, so `xtmd migrate`, an editor or a linter can edit the source exactly or print it back. Its types are the IR's. `xtmd build --rir` writes it. |
+| `tree.schema.json` | The drawn tree every runtime gives, and what changed in it (docs/specs/06, The host's side). |
 | `state.schema.json` | A page's data: `$state` and widgets' own variables, as a host keeps them and gives them back. |
 | `actions.schema.json` | What a reader, a widget or a host does to a page, each one change. |
 | `told.schema.json` | What a page tells its host: the fns it called, what was refused or failed, its warnings. |

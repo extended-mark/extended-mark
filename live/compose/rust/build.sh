@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds libxtmd_android_live.so (the compiler, for the live engine) and its Kotlin bindings
+# Builds libxtmd_android_live.so (the compiler, for live documents) and its Kotlin bindings
 # into ../native/, as ../../../runtime/kotlin/rust/build.sh builds xtmd-android's:
 #
 #   build.sh host       the host's library (linux-x86-64), for Robolectric on the JVM, and the bindings

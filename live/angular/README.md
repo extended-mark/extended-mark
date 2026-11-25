@@ -1,11 +1,11 @@
 # @extended-mark/angular-live
 
-Extended Mark documents in Angular, the live engine: `XtmdLiveDoc` compiles a document's text in the
+Extended Mark documents in Angular, live: `XtmdLiveDoc` compiles a document's text in the
 browser with [@extended-mark/wasm](../../compiler/npm/wasm) as it is edited, and draws it with [@extended-mark/angular](../../renderers/angular)'s
 `XtmdDoc`. A text that compiles replaces the page, keeping `$state` where its fields still exist.
 One that doesn't leaves the last page that did, and its errors reach `onError` as
 `{ kind: "compile", message, diagnostics }`. When to change `source` (each key, a pause, a save) is
-the host's. The static engine ships no WebAssembly; this one does.
+the host's. The renderer, @extended-mark/angular, ships no WebAssembly; this one does.
 
 ```html
 <xtmd-live-doc [source]="text" [wasm]="wasmUrl" (error)="show($event)" />

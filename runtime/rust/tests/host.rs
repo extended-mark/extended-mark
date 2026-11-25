@@ -1,4 +1,4 @@
-//! The host's side (page 6): the tree every engine gives, its changes, ids, fns and data, and that a change
+//! The host's side (page 6): the tree every runtime gives, its changes, ids, fns and data, and that a change
 //! works out only what reads it. The same as @extended-mark/runtime's host.test.mjs.
 
 mod common;

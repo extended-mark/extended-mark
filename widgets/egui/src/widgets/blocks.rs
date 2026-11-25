@@ -169,7 +169,7 @@ pub fn code(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
 }
 
 /// Maths, shown as its TeX: egui has no maths renderer. It is still named
-/// by its TeX, as on every engine.
+/// by its TeX, as on every platform.
 pub fn math(ui: &mut Ui, p: &Props<'_>, ctx: &mut Ctx<'_>) {
     let font = ctx.font("MONO");
     let ink = ctx.core_color("INK");

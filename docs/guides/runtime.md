@@ -1,20 +1,20 @@
-# Writing an engine
+# Writing a runtime
 
-An engine is Extended Mark on one platform. It takes the IR, runs it, and gives a host the page. This guide is
+A runtime runs a page: it takes the IR and gives a host the drawn tree, which a renderer draws. This guide is
 the order to build one in. The contract is [page 6](../specs/06-hosts-packs-implementers.md), and evaluation is
 [page 2](../specs/02-values-and-types.md). Two are here to read: [TypeScript](../../runtime/typescript)
 and [Rust](../../runtime/rust).
 
-Two things you may want instead of an engine:
+Two things you may want instead:
 
 - **To draw differently**, write a [host](host.md): new widgets, another toolkit or framework and another look
-  need no engine, only the tree.
-- **To render to a file**, write a small program on an engine that exists: see "A program" below.
+  need no runtime of yours, only the tree.
+- **To build pages into files**, ahead of time, write an [engine](engine.md).
 
 ## What you never write
 
 A parser, a checker, or anything of the language's. There is one compiler, and the IR it writes has every
-default filled in, every name resolved, every call chosen and no Markdown left. If your engine has to work out
+default filled in, every name resolved, every call chosen and no Markdown left. If your runtime has to work out
 what something means, the IR should have said it: tell us.
 
 ## 1. Read the IR
@@ -24,13 +24,13 @@ what something means, the IR should have said it: tell us.
 
 | Part | What it is |
 |---|---|
-| `version` | The IR's version, a whole number. Yours reads one, and refuses another by name: "this page is IR 3, this engine reads IR 4: run xtmd migrate" |
+| `version` | The IR's version, a whole number. Yours reads one, and refuses another by name: "this page is IR 3, this runtime reads IR 4: run xtmd migrate" |
 | `needs` | What the page takes from others. Refuse a page that needs a core fn you don't have; tell the host about the rest (`lacking`) |
 | `declarations` | Records, enums, tokens, fns, externs, `$state`, constants and what it exposes |
 | `templates` | Extended Mark's own widgets, as nodes; `doc` is the page |
 | `handlers` | What events run |
 | `reads`, `writes` | What each place of a view reads that may change, and what each handler and fn may write. A place with none never changes |
-| `whole` | An operator proved to work on whole numbers any engine's own hold |
+| `whole` | An operator proved to work on whole numbers any platform's own hold |
 
 Read it once. It is static: a page's values are yours, beside it.
 
@@ -74,56 +74,16 @@ page 6 does. Count the work in a test: one label's change on a page of 80 rows c
 | Data | `state`, and `own` by place, out and back in |
 | Levels | `levels` say what the page needs (`core.draw`, `core.live`, `core.gfx`). A call needing one you don't have shows its Markdown |
 
-## A static engine, and a live one
+## A static document, and a live one
 
-A **static** engine takes compiled IR and carries no compiler. A **live** one is given text: it compiles with
+A **static** document is given compiled IR and carries no compiler. A **live** one is given text: it compiles with
 the one compiler, built in, and does with the IR exactly what its static twin does. In a browser the compiler is
-`@extended-mark/wasm`, and in a program the Rust crate `xtmd` (its module `live`). A live engine keeps the last page that
+`@extended-mark/wasm`, and in a program the Rust crate `xtmd` (its module `live`). A live document keeps the last page that
 compiled while a draft has errors.
-
-## A program
-
-An engine can be a program that builds documents into files. `xtmd build --engine` runs it:
-
-```toml
-# xtmd.toml
-[engines]
-web = ["node", "engine.mjs"]
-```
-
-```sh
-xtmd build docs --out dist --engine web --theme plain
-```
-
-Every document's IR is on its standard input, all at once, and the files it makes go to its standard output
-([build.schema.json](../../schemas/build.schema.json)). Its errors go to standard error, and a failure is its exit
-code. Everything after its name is its own arguments. It writes nothing itself: xtmd does, once it has ended well.
-In any language. Ours for the web, [@extended-mark/web](../../engines/web), compiles: each expression and
-rule becomes code, and what never changes is HTML alone. A small one runs an engine that exists:
-
-```js
-// engine.mjs: each page as HTML
-import { Page } from "@extended-mark/runtime";
-import { draw } from "./draw.mjs";
-
-let text = "";
-for await (const part of process.stdin) text += part;
-const { documents } = JSON.parse(text);
-const files = documents.map((d) => ({ path: `${d.name}.html`, text: draw(new Page(d.ir).tree()) }));
-process.stdout.write(JSON.stringify({ version: 1, files }));
-```
-
-## One of your own, from ours
-
-Ours have a few named places to plug into, and each is a format: a widget set, token values, the page around a page
-and the host's fns, for the web engine; a widget set for a renderer. Nothing is inherited from, and what is inside is
-no promise. A widget is replaced by its full name (`core/press`), and a whole set is copied as a starting point: the
-web's, egui's and Compose's copies run our own tests in CI. For more than that, copy the module. The formats
-([schemas](../../schemas/README.md)) are all the copy has to keep.
 
 ## Checking it
 
-How well an engine keeps to the spec is its implementer's to check; xtmd doesn't test engines. What helps:
+How well a runtime keeps to the spec is its implementer's to check; xtmd doesn't test them. What helps:
 
 - the schemas, on everything you read and give;
 - the two trees above, and the runtimes' tests as a list of what to try;

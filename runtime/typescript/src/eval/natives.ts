@@ -14,7 +14,7 @@ import { chars, digits, showDuration, sliceChars, textLength, trim } from "./tex
 /** A native fn: its value, or `undefined` when it returns nothing (the list fns that change their list). */
 export type Native = (m: Ops, a: readonly Binding[]) => Value | undefined;
 
-/** core's bodyless `extern fn`s that only an engine can supply, from what it runs on (page 5,
+/** core's bodyless `extern fn`s that only a renderer can supply, from what it runs on (page 5,
  * plan tab 14): every other bodyless one is a native. */
 export const ENGINE_ONLY: readonly string[] = ["core/moment.local"];
 

@@ -1,4 +1,4 @@
-//! [`XtmdDoc`]: a document as an egui host holds one, egui's static engine. It is made from its IR,
+//! [`XtmdDoc`]: a document as an egui host holds one. It is made from its IR,
 //! in hand or read from a path. `$state` is the host's to control ([`XtmdDoc::show_controlled`]) or
 //! to start from. Every write is checked by xtmd, and what is refused comes back to the host. A
 //! [`Snapshot`] takes out everything the page holds and puts it back. There is no compiler here:
@@ -35,7 +35,7 @@ pub enum DocError {
     Failed(Broken),
     /// An IR that couldn't be had: read, parsed or started.
     Load(String),
-    /// A text that didn't compile: a live engine's (xtmd-egui-live).
+    /// A text that didn't compile: a live document's (xtmd-egui-live).
     Compile(String),
 }
 

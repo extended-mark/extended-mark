@@ -1,4 +1,4 @@
-// Extended Mark's Android engines: `xtmd-android-runtime` (the native runtime and its Kotlin bindings),
+// Extended Mark on Android: `xtmd-android-runtime` (the native runtime and its Kotlin bindings),
 // `xtmd-android-widgets` (the Compose widget set), `xtmd-android` (the renderer: XtmdPage and XtmdDoc),
 // `xtmd-android-live` (the live one: XtmdLiveDoc, with the compiler in its own native library), and
 // `sample`, a host showing a page. The unit tests run Compose under Robolectric on the JVM.

@@ -1,4 +1,4 @@
-//! Levels (page 6): what an engine has to do to run each call, each widget and the page.
+//! Levels (page 6): what a platform has to do to run each call, each widget and the page.
 //!
 //! Every call needs `core.draw`. A call needs `core.live` when it has variables of its own,
 //! gives a variable to a `mut` input, or sets an event to a handler that can change something,

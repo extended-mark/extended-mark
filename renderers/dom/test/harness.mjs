@@ -8,7 +8,7 @@ import { Num } from "@extended-mark/runtime";
 
 let mounted;
 
-/** A measure with the test engine's fixed sizes: text 8 wide per character and 20 high. */
+/** A measure with the tests' fixed sizes: text 8 wide per character and 20 high. */
 function fixedMeasure(page) {
   const text = (d) => {
     for (const k of ["value", "label"]) {

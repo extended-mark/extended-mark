@@ -1,5 +1,5 @@
 //! The page as a host is given it (page 6, The host's side): the drawn tree as `tree.schema.json` says,
-//! what changed in it, and the page's data, the same as every engine's. An engine in this process reads
+//! what changed in it, and the page's data, the same as every runtime's. A renderer in this process reads
 //! [`Drawn`], the same nodes with the runtime's own values; what crosses to another reads these.
 
 use std::collections::{BTreeMap, HashMap};

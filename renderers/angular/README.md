@@ -1,8 +1,8 @@
 # @extended-mark/angular
 
-Extended Mark documents in Angular, the static engine: `XtmdDoc` draws a page from an IR built ahead
+Extended Mark documents in Angular: the renderer. `XtmdDoc` draws a page from an IR built ahead
 (`xtmd build`, or xtmd's bundler plugin), with no compiler and no WebAssembly in the host. Core's
-widgets are drawn by Angular itself, through `Renderer2`, so it renders with `@angular/platform-server` and runs zoneless. The live engine, which compiles a document's text in the
+widgets are drawn by Angular itself, through `Renderer2`, so it renders with `@angular/platform-server` and runs zoneless. The live document, which compiles a document's text in the
 browser, is [@extended-mark/angular-live](../../live/angular).
 
 ```sh

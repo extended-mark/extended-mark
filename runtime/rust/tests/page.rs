@@ -39,7 +39,7 @@ fn a_page_mounts_its_tree_its_state_and_its_markdown() {
     assert_eq!(tree["s1"].props["value"], num("3"));
     assert_eq!(p.observe_state(), BTreeMap::from([("n".to_string(), num("3"))]));
     assert_eq!(p.markdown().unwrap(), "# Count\n\nN: 3\n");
-    // the tree holds every prop worked out: an engine only reads it
+    // the tree holds every prop worked out: a renderer only reads it
     let slider = p.at("s1").unwrap();
     assert!(matches!(slider.prop("value"), Some(Value::Num(x)) if *x == n("3")));
     assert_eq!(p.revision(), 1);
@@ -397,18 +397,18 @@ fn an_undone_change_leaves_no_reused_node_behind() {
 fn an_ir_of_another_version_is_refused_and_told_what_to_do() {
     let m = build_with("Hi.\n", &[]);
     let refused = |version: i64| Page::from_module(xtmd_runtime::ir::Module { version, ..m.clone() }, PageOptions::default()).err().unwrap().message;
-    assert_eq!(refused(3), "this page is IR 3, this engine reads IR 4: run xtmd migrate");
-    assert_eq!(refused(5), "this page is IR 5, this engine reads IR 4: use a later engine");
+    assert_eq!(refused(3), "this page is IR 3, this runtime reads IR 4: run xtmd migrate");
+    assert_eq!(refused(5), "this page is IR 5, this runtime reads IR 4: use a later runtime");
     // an earlier version's JSON, which doesn't read as this one's
     let old = std::fs::read_to_string(repo().join("schemas/ir-history/3/pages/list.ir.json")).unwrap();
-    assert_eq!(Page::from_json(&old, PageOptions::default()).err().unwrap().message, "this page is IR 3, this engine reads IR 4: run xtmd migrate");
+    assert_eq!(Page::from_json(&old, PageOptions::default()).err().unwrap().message, "this page is IR 3, this runtime reads IR 4: run xtmd migrate");
 }
 
 #[test]
 fn a_pages_needs_are_checked_when_it_loads() {
     let mut m = build_with("Hi.\n", &[]);
     m.needs.core.push("core/text.backwards".into());
-    assert_eq!(Page::from_module(m, PageOptions::default()).err().unwrap().message, "this page needs `core/text.backwards`, which this engine doesn't have");
+    assert_eq!(Page::from_module(m, PageOptions::default()).err().unwrap().message, "this page needs `core/text.backwards`, which this runtime doesn't have");
     assert!(page("Hi.\n").lacking().is_empty());
     let p = page("extern scores {\n    best: int;\n    worst: int = 0;\n}\n@@@\n@if (scores.worst > 0) {\n    \\{scores.best}\n}\n");
     assert_eq!(p.lacking(), vec!["doc/scores.best".to_string()]);

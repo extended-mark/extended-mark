@@ -16,7 +16,7 @@ async function until(f) {
   assert.ok(f());
 }
 
-test("a text compiles into the IR a static engine draws, and a broken draft leaves the last page", async () => {
+test("a text compiles into the IR a renderer draws, and a broken draft leaves the last page", async () => {
   const errors = [];
   let changes = 0;
   const live = new Live(() => changes++);

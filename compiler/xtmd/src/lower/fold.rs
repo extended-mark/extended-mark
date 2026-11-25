@@ -10,7 +10,7 @@ use crate::formats::ir::{self, Decl, Expr, Get};
 
 use crate::lower::walk;
 
-/// Constants alone. A token's value is the engine's, and an extern fn whoever supplies it, though it has a
+/// Constants alone. A token's value is the renderer's, and an extern fn whoever supplies it, though it has a
 /// default: neither is one.
 struct Closed;
 

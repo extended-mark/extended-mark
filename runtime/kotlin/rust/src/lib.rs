@@ -9,7 +9,7 @@
 //! - **Values cross as [`Val`]:** exact decimals as text, records with their fields in order, and
 //!   token cases with the build's value for them, so a composable never calls back while it draws.
 //! - **The checks** load, step and observe through the `*_json` methods, in the check protocol's
-//!   own JSON, so an observation is the same bytes the other engines' adapters send.
+//!   own JSON, so an observation is the same bytes the other renderers' adapters send.
 
 uniffi::setup_scaffolding!();
 
@@ -63,7 +63,7 @@ impl From<xtmd_runtime::Failure> for XtmdError {
 
 type Res<T> = Result<T, XtmdError>;
 
-/// A drawn extern widget, as the page asks an engine to draw it: its props worked out.
+/// A drawn extern widget, as the page asks a renderer to draw it: its props worked out.
 #[derive(Clone, Debug, uniffi::Record)]
 pub struct Node {
     /// Who it is: its own on the page, and the same for as long as it is there.
@@ -100,7 +100,7 @@ pub struct Extent {
     pub height: f64,
 }
 
-/// What the engine tells the plane's layout: each spot's child's size, and the width a plane
+/// What the renderer tells the plane's layout: each spot's child's size, and the width a plane
 /// is given when it says none, in dp. Called while the page lays out, so it must not call the
 /// page back: the node it is given holds everything it needs.
 #[uniffi::export(callback_interface)]
@@ -157,7 +157,7 @@ impl DataInit {
     }
 }
 
-/// How a page starts: what the host tells it, and what the engine draws.
+/// How a page starts: what the host tells it, and what the renderer draws.
 #[derive(Clone, Debug, Default, uniffi::Record)]
 pub struct PageInit {
     /// `NARROW`, `MEDIUM` or `WIDE`.
@@ -170,7 +170,7 @@ pub struct PageInit {
     pub data: Option<DataInit>,
     /// Each channel's values: `{"doc/scores": {"unit": {"text": "pts"}}}`.
     pub externs_json: Option<String>,
-    /// The extern widgets the engine draws, by full name or as a whole pack as `pack/` and a star; one it doesn't shows its
+    /// The extern widgets the renderer draws, by full name or as a whole pack as `pack/` and a star; one it doesn't shows its
     /// Markdown. Left out, every one is drawn.
     pub supplies: Option<Vec<String>>,
 }
@@ -514,12 +514,12 @@ impl NativePage {
         self.with(|i| Ok(i.page.find(&id).map(|d| node(&i.page, d))))
     }
 
-    /// The page as Markdown, with the values it has now: the same text on every engine.
+    /// The page as Markdown, with the values it has now: the same text on every platform.
     pub fn markdown(&self) -> Res<String> {
         self.with(|i| Ok(i.page.markdown()?))
     }
 
-    /// The extern widgets this page uses that the engine doesn't supply: each shows its Markdown.
+    /// The extern widgets this page uses that the renderer doesn't supply: each shows its Markdown.
     pub fn missing(&self) -> Res<Vec<String>> {
         self.with(|i| Ok(i.page.missing()))
     }
@@ -692,12 +692,12 @@ impl NativePage {
         self.change(|i| Ok(i.page.set_page(page_values(width.as_deref(), theme.as_deref()))?))
     }
 
-    /// Which extern widgets the engine draws, from its registry: by full name or a whole pack as `pack/` and a star.
+    /// Which extern widgets the renderer draws, from its registry: by full name or a whole pack as `pack/` and a star.
     pub fn set_supplies(&self, supplies: Option<Vec<String>>) -> Res<()> {
         self.change(|i| Ok(i.page.set_supplies(supplies_fn(supplies))?))
     }
 
-    /// Lays the page's planes out until nothing changes, from the engine's measure.
+    /// Lays the page's planes out until nothing changes, from the renderer's measure.
     pub fn layout(&self, measure: Box<dyn Measure>) -> Res<()> {
         self.change(|i| Ok(i.planes.lay(&mut i.page, &mut MeasureFrom(measure.as_ref()))?))
     }
@@ -755,7 +755,7 @@ impl NativePage {
     }
 
     /// Everything a check observes after a step, as the check protocol's JSON: the tree (only
-    /// the widgets in `drawn`, when it is given: what the engine actually drew), `$state`, the
+    /// the widgets in `drawn`, when it is given: what the renderer actually drew), `$state`, the
     /// extern calls and the outcome since the last observation, the Markdown, the spots' boxes
     /// and the shades.
     pub fn observe_json(&self, drawn: Option<Vec<String>>) -> Res<String> {

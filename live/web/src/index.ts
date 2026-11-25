@@ -1,5 +1,5 @@
-// What every live engine shares: a document's text compiled in the browser by @extended-mark/wasm,
-// into the IR a static engine's <XtmdDoc> draws. A text that compiles replaces the page (its
+// What every live document shares: a document's text compiled in the browser by @extended-mark/wasm,
+// into the IR a renderer's <XtmdDoc> draws. A text that compiles replaces the page (its
 // `$state` carried over where its fields still exist); one that doesn't leaves the last page that
 // did, and its errors go to the host, so a preview keeps up with an editor and only a broken draft
 // waits. When to compile (each key, a pause, a save) is the host's: it changes `source`.
@@ -16,7 +16,7 @@ export interface Builds {
   build(path: string, text: string, packs?: PackFile[]): Built | Promise<Built>;
 }
 
-/** What a live engine is given besides a static engine's props. */
+/** What a live document is given besides a renderer's props. */
 export interface LiveProps {
   /** The document's text. */
   source: string;
@@ -61,7 +61,7 @@ export class Live {
    * compile, or a compiler that couldn't be loaded. */
   constructor(private readonly changed: () => void, private onError?: (e: DocError) => void) {}
 
-  /** The engine's props, each time they change. */
+  /** The renderer's props, each time they change. */
   update(props: LiveProps, onError?: (e: DocError) => void): void {
     this.props = props;
     this.onError = onError;

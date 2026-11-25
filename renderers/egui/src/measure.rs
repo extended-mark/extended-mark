@@ -1,7 +1,7 @@
 //! How spots are measured for the plane's layout.
 //!
-//! - [`Fixed`]: the checks' fixed sizes, the test engine's (runtime/typescript/test/sizes.mjs), so every
-//!   engine's boxes agree exactly. Text is 8 wide per character and 20 high; a flex lines its
+//! - [`Fixed`]: the checks' fixed sizes, the tests' (runtime/typescript/test/sizes.mjs), so every
+//!   renderer's boxes agree exactly. Text is 8 wide per character and 20 high; a flex lines its
 //!   children up along its axis, and a grid, a cell, a sizing and a spot stack theirs, each with
 //!   its `gap` and `pad`; anything else is 80 by 20; a plane given no width is 640 wide.
 //! - [`FromDrawn`]: what egui drew. Each spot's box is its child's rect from the last frame, in

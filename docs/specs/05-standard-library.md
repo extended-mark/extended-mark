@@ -402,7 +402,7 @@ fn hole.words(self): text {
     }
 }
 
-//@about Maths, written in TeX. Core checks how it is written; the engine may also refuse what it can't draw.
+//@about Maths, written in TeX. Core checks how it is written; a renderer may also refuse what it can't draw.
 //@about Its holes stay values: each counts as one token in the checks, and show escapes it for TeX.
 record latex implements literal<template>, shown {
     tex: template;
@@ -435,7 +435,7 @@ record latex implements literal<template>, shown {
         return tex_values(tex);
     }
 
-    require "the engine can draw this TeX" {
+    require "the renderer can draw this TeX" {
         return can_draw_tex(tex);
     }
 }
@@ -444,7 +444,7 @@ fn latex.from(value: template): opt<latex> {
     return try latex { tex = value };
 }
 
-//@about The TeX, with each hole's characters escaped so that TeX reads them as themselves. An engine draws this.
+//@about The TeX, with each hole's characters escaped so that TeX reads them as themselves. A renderer draws this.
 fn latex.show(self): text {
     mut out: text = "";
     for (k, piece in self.tex.pieces) {
@@ -456,7 +456,7 @@ fn latex.show(self): text {
     return out;
 }
 
-//@about Whether the engine can draw this TeX, for example whether it knows every command in it. An engine may supply its own; without one, all TeX that core accepts is drawn.
+//@about Whether the renderer can draw this TeX, for example whether it knows every command in it. A renderer may supply its own; without one, all TeX that core accepts is drawn.
 extern fn can_draw_tex(tex: template): bool {
     return true;
 }
@@ -698,7 +698,7 @@ fn ordered.max(self, other: self): self {
 - **`rich_text` is calls.** It is built in, and a view: a list of calls, a sentence's or blocks', made by a literal or by `rich_text.from`. A literal is read when the page is compiled, so the page holds its calls. It is placed like any view, given to an input or a slot of type `rich_text`, returned, kept in a record or a `let`. It has no fields, can't be compared, measured or put in a `text`, and can't be kept in `$state` or a widget's own variable, which hold data: keep the text, and make the calls where they are placed.
 - **A sentence or blocks.** One paragraph is a sentence, and anything else is blocks. Placed on its own, a sentence is a paragraph. Where only a sentence fits, in a paragraph, a heading, a table's cell, `bold` and its like, or among the words around a hole, blocks are an error when they are written there, and otherwise a failure of that widget.
 - **Markdown is parsed by core**, in Extended Mark, as any pack could: CommonMark, with GitHub's tables, task lists, strikethrough, footnotes and bare links. No implementer parses it. The parser is long and follows those two specs, so this page gives its entry point as a signature, below. `rich_text.from(template.of(entry))` reads what a reader typed as Markdown, and `rich_text.plain(entry)` keeps it as words.
-- **TeX** is checked by `latex`'s seven `require` blocks, written in Extended Mark, each counting a hole as one token. An eighth asks `can_draw_tex`, an extern fn whose body is the default and which an engine may replace with its own, such as one that refuses a command it can't draw. `show` gives the whole TeX with each hole's characters escaped, which is what an engine draws.
+- **TeX** is checked by `latex`'s seven `require` blocks, written in Extended Mark, each counting a hole as one token. An eighth asks `can_draw_tex`, an extern fn whose body is the default and which a renderer may replace with its own, such as one that refuses a command it can't draw. `show` gives the whole TeX with each hole's characters escaped, which is what a renderer draws.
 
 ```java
 // Markdown as calls: CommonMark, with GitHub's tables, task lists, strikethrough, footnotes and bare links, maths,
@@ -1178,7 +1178,7 @@ extern page {
 }
 ```
 
-`page` is an `extern` block like the ones on page 6. The defaults are what an engine that supplies nothing gets.
+`page` is an `extern` block like the ones on page 6. The defaults are what a page gets when nothing supplies them.
 
 #### migrations
 
@@ -1304,7 +1304,7 @@ extern widget plane(
     mut zoom: number 0.1..10 = 1,                   // at 1, one unit is one of the page's own lengths; the caller may keep it
     zoom_range: range<number> = 1..1,               // how far the reader may zoom; 1..1 means not at all
     fit: bool = false,                              // start zoomed so the whole of bounds fits; zoom_range counts from there
-    mut drawn: opt<region> = opt.NONE,              // written by the engine: the part of the plane being drawn
+    mut drawn: opt<region> = opt.NONE,              // written by the renderer: the part of the plane being drawn
     width: opt<size> = opt.NONE,                    // left out, the width it is given, like a column
     aspect: number 0.1..10 = 1.5,                   // the drawn area's width over its height
 ) {
@@ -1339,7 +1339,7 @@ extern widget spot(
     at: point,
     anchor: anchor = anchor.CENTER,
     nudge: point = point { x = 0, y = 0 },          // by the page's own lengths, y up
-    mut box: opt<region> = opt.NONE,                // written by the engine: from the bottom-left corner to the top-right one
+    mut box: opt<region> = opt.NONE,                // written by the renderer: from the bottom-left corner to the top-right one
 ) {
     slot child: view;
 
@@ -1526,7 +1526,7 @@ extern widget line_break() {
 | `#note_mark` | `mark: text` |
 | `#line_break` | nothing |
 
-- **A sentence arrives as calls.** A paragraph, a heading and a table's cell take a `rich_text`, whose calls the engine draws among the words: `words`, the marks around them, and any other widget. Core parses Markdown, in Extended Mark, so an engine never does. A hole's value is words, so it can never turn into formatting.
+- **A sentence arrives as calls.** A paragraph, a heading and a table's cell take a `rich_text`, whose calls the renderer draws among the words: `words`, the marks around them, and any other widget. Core parses Markdown, in Extended Mark, so a runtime or a renderer never does. A hole's value is words, so it can never turn into formatting.
 - **From code**, a text literal where a `rich_text` is wanted is Markdown, holes included: `@paragraph(value = "Read **this**, \{name}.");`. A value from a variable goes through `rich_text.plain(entry)`, which keeps it as words, or through `rich_text.from(template.of(entry))`, which reads it as Markdown and gives an `opt`. A link to an address code works out is a call: `@link(to = address) { @title; }`.
 - **In a sentence** go words, marks and any widget: `Press \{@press(label = "Add one", …)} to start`. `bold`, `italic`, `strike` and `link` hold a `rich_text`, so in a block they take a sentence's calls: `@bold { @title; }`.
 
@@ -1631,7 +1631,7 @@ extern widget overlay(label: text, mode: overlay_mode = overlay_mode.POPOVER, mu
 
 **Shared values at the edge.** A `mut` input of an `extern` widget, such as `slider`'s `value`, accepts a variable with any contract of the declared type. The implementer may read that contract, which is where a slider gets its step, and its ends when no `range` is given, and the runtime refuses any value the widget writes that is outside it. Given a `range`, the slider's ends come from it and a drag outside it is refused, so its ends can follow another value: `range = 0..($state.high)`. A variable with no range and no `range` gives a slider from 0 to 1. This is the one case where a wider contract is accepted, and it is allowed because the host boundary is checked at run time anyway.
 
-**Inputs a caller may keep.** `overlay`'s `open`, and `plane`'s `center` and `zoom`, are `mut` inputs with a default: given a variable, the caller keeps the value; left out, the widget keeps it itself. In a loop, rows follow their items, so a widget's own value stays with its item (page 3). `plane`'s `drawn` and `spot`'s `box` are written by the engine, so a caller gives them a variable to read.
+**Inputs a caller may keep.** `overlay`'s `open`, and `plane`'s `center` and `zoom`, are `mut` inputs with a default: given a variable, the caller keeps the value; left out, the widget keeps it itself. In a loop, rows follow their items, so a widget's own value stays with its item (page 3). `plane`'s `drawn` and `spot`'s `box` are written by the renderer, so a caller gives them a variable to read.
 
 #### widgets: core.gfx
 
@@ -1760,7 +1760,7 @@ fn rect(x0: number, y0: number, x1: number, y1: number): list<point>[4] {
 
 - **Shapes write no Markdown of their own.** `layer`, `circle`, `path`, `place`, `handle` and `shade` have an empty `markdown { }`, and the canvas, or the plane, around them writes what the picture shows.
 - **Positions, radii and nudges are plain numbers**, on a canvas and on a plane: they say where things are drawn, not how the page looks, so they take no tokens. A stroke's `width` takes a `stroke`: a named one by convention, or a plain number.
-- **A shader** is an extern fn with a return type (page 6). Declared in a document's `extern` block, the host supplies it; declared in a pack, the pack does, for each engine it supports. The engine runs it for every pixel of `area`, natively.
+- **A shader** is an extern fn with a return type (page 6). Declared in a document's `extern` block, the host supplies it; declared in a pack, the pack does, for each platform it supports. The renderer runs it for every pixel of `area`, natively.
 - **`args`** is given once and handed to the shader as uniforms: numbers, points, colours (a colour token goes in as the theme's current value) and bools.
 - **`pixel`'s colours are its own**, like an `image`'s. The page's colours still take tokens only.
 - **An Extended Mark fn fits the type too.** The runtime calls it for each pixel within the step limit, so only small areas fit, and the compiler warns, as it does for any fn with a return type given to an extern widget.
