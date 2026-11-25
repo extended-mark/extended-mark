@@ -783,6 +783,48 @@ impl Host for PageHost {
     }
 }
 
+/// What a value is, as a text: two are the same exactly when they are the same value.
+fn key_of(v: &Value) -> String {
+    serde_json::to_string(&v.to_ir()).unwrap_or_default()
+}
+
+/// A value from outside in the place of another: an item of a list there that the new one has too is the same
+/// item, so its row stays. It is known by its value, so one that is in either list more than once is no one item,
+/// unless the whole list is as it was.
+fn kept_items(v: Value, old: Option<&Value>) -> Value {
+    let entries = |of: &[(Rc<str>, Value)], was: &[(Rc<str>, Value)]| {
+        of.iter().map(|(n, x)| (n.clone(), kept_items(x.clone(), was.iter().find(|(m, _)| m == n).map(|(_, y)| y)))).collect::<Vec<_>>()
+    };
+    match (&v, old) {
+        (Value::List(l), Some(Value::List(o))) => {
+            let keys: Vec<String> = l.items.iter().map(|i| key_of(&i.value)).collect();
+            let before: Vec<String> = o.items.iter().map(|i| key_of(&i.value)).collect();
+            if keys == before {
+                return Value::List(o.clone());
+            }
+            let mut now: HashMap<&str, u32> = HashMap::new();
+            for k in &keys {
+                *now.entry(k).or_default() += 1;
+            }
+            let mut then: HashMap<&str, (u32, &Item)> = HashMap::new();
+            for (k, i) in before.iter().zip(&o.items) {
+                then.entry(k).or_insert((0, i)).0 += 1;
+            }
+            let items = keys.iter().zip(&l.items).map(|(k, i)| match then.get(k.as_str()) {
+                Some((1, same)) if now[k.as_str()] == 1 => (*same).clone(),
+                _ => i.clone(),
+            });
+            Value::List(Rc::new(List { items: items.collect() }))
+        }
+        (Value::Record(r), Some(Value::Record(o))) if r.ty == o.ty => Value::Record(Rc::new(Record { ty: r.ty.clone(), fields: entries(&r.fields, &o.fields) })),
+        (Value::Case(c), Some(Value::Case(o))) if c.ty == o.ty && c.name == o.name => {
+            Value::Case(Rc::new(Case { ty: c.ty.clone(), name: c.name.clone(), values: entries(&c.values, &o.values) }))
+        }
+        (Value::Opt(Some(x)), Some(Value::Opt(Some(o)))) => Value::Opt(Some(Rc::new(kept_items((**x).clone(), Some(o))))),
+        _ => v,
+    }
+}
+
 /// A value with its lists' items numbered anew, in the order they are in.
 fn numbered(v: &Value, next: &mut u64) -> Value {
     let entries = |of: &[(Rc<str>, Value)], next: &mut u64| of.iter().map(|(n, x)| (n.clone(), numbered(x, next))).collect::<Vec<_>>();
@@ -1574,6 +1616,7 @@ impl Rt {
         let mut w = self.w();
         w.outcome.refused.extend(broken);
         if let Some(v) = v {
+            let v = kept_items(v, w.externs.get(&site));
             w.externs.insert(site, v);
         }
         Ok(())
@@ -2141,7 +2184,7 @@ impl Page {
         page.apply_page(opts.page);
         page.start_from(&opts.state)?;
         let took = match &opts.data {
-            Some(d) => page.take_state(&d.state)?,
+            Some(d) => page.take_state(&d.state, true)?,
             None => false,
         };
         page.number_start();
@@ -2183,12 +2226,12 @@ impl Page {
             }
         }
         let told = self.rt.w.borrow().outcome.refused.len();
-        if values.is_empty() || self.write_state(values.clone())? {
+        if values.is_empty() || self.write_state(values.clone(), false)? {
             return Ok(());
         }
         self.rt.w().outcome.refused.truncate(told);
         for (k, v) in values {
-            self.write_state(vec![(k, v)])?;
+            self.write_state(vec![(k, v)], false)?;
         }
         Ok(())
     }
@@ -2303,7 +2346,7 @@ impl Page {
     pub fn restore(&mut self, data: &PageData) -> R<Option<Vec<String>>> {
         self.changes += 1;
         self.reset_steps();
-        if !self.take_state(&data.state)? {
+        if !self.take_state(&data.state, true)? {
             return Ok(None);
         }
         Ok(Some(self.draw_with(&data.own)?))
@@ -2316,13 +2359,13 @@ impl Page {
     }
 
     /// `$state` written from the IR's form, whole or not at all.
-    fn take_state(&mut self, given: &[(String, Expr)]) -> R<bool> {
+    fn take_state(&mut self, given: &[(String, Expr)], back: bool) -> R<bool> {
         let mut values = Vec::new();
         for (k, x) in given {
             let Some(v) = self.given(x, &format!("$state.{}", k)) else { return Ok(false) };
             values.push((k.clone(), v));
         }
-        self.write_state(values)
+        self.write_state(values, back)
     }
 
     /// The page drawn with widgets' own variables at their places: what had none, as `place.name`.
@@ -2549,7 +2592,7 @@ impl Page {
     pub fn set(&mut self, changes: Vec<(String, Value)>) -> R<()> {
         self.changes += 1;
         self.reset_steps();
-        if self.write_state(changes)? {
+        if self.write_state(changes, false)? {
             self.redraw()?;
         }
         Ok(())
@@ -2559,14 +2602,15 @@ impl Page {
     pub fn set_given(&mut self, changes: &[(String, Expr)]) -> R<()> {
         self.changes += 1;
         self.reset_steps();
-        if self.take_state(changes)? {
+        if self.take_state(changes, false)? {
             self.redraw()?;
         }
         Ok(())
     }
 
-    /// `$state` fields written, checked: refused whole, or done. Nothing is drawn.
-    fn write_state(&mut self, changes: Vec<(String, Value)>) -> R<bool> {
+    /// `$state` fields written, checked: refused whole, or done. Nothing is drawn. Data put back is made anew, as
+    /// widgets' own variables go back by place; a host's write keeps the items it left alone.
+    fn write_state(&mut self, changes: Vec<(String, Value)>, back: bool) -> R<bool> {
         let snap = self.snapshot();
         for (k, v) in changes {
             let f = self.rt.s.state_decl.as_ref().and_then(|s| s.fields.iter().find(|f| f.name == k)).cloned();
@@ -2581,6 +2625,7 @@ impl Page {
                 return Ok(false);
             }
             let mut w = self.rt.w();
+            let v = if back { v } else { kept_items(v, w.state.iter().find(|(n, _)| *n == k).map(|(_, x)| x)) };
             w.state_set(&k, v);
             w.bump(format!("s:{}", k));
         }

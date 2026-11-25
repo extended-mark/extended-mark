@@ -368,6 +368,56 @@ export function numbered(v: Value, ids: { next: number }): Value {
   }
 }
 
+/** What a value is, as a text: two are the same exactly when they are the same value. */
+function keyOf(v: Value): string {
+  const entries = (of: readonly (readonly [string, Value])[]): string =>
+    [...of]
+      .sort(([a], [b]) => compareText(a, b))
+      .map(([n, x]) => `${n}:${keyOf(x)}`)
+      .join(",");
+  switch (v.kind) {
+    case "list":
+      return `[${v.items.map((i) => keyOf(i.value)).join(",")}]`;
+    case "record":
+      return `${v.ty}{${entries(v.fields)}}`;
+    case "case":
+      return `${v.ty}.${v.name}(${entries(v.values)})`;
+    case "opt":
+      return v.value === null ? "none" : `some(${keyOf(v.value)})`;
+    default:
+      return JSON.stringify(toIr(v));
+  }
+}
+
+/** A value from outside in the place of another: an item of a list there that the new one has too is the same item,
+ * so its row stays. It is known by its value, so one that is in either list more than once is no one item, unless the
+ * whole list is as it was. */
+export function keptItems(v: Value, old: Value | undefined): Value {
+  const entries = (of: readonly (readonly [string, Value])[], was: readonly (readonly [string, Value])[]) => {
+    const at = new Map(was);
+    return of.map(([n, x]) => [n, keptItems(x, at.get(n))] as const);
+  };
+  switch (v.kind) {
+    case "list": {
+      if (old?.kind !== "list") return v;
+      const [keys, before] = [v.items.map((i) => keyOf(i.value)), old.items.map((i) => keyOf(i.value))];
+      if (keys.length === before.length && keys.every((k, at) => k === before[at])) return old;
+      const times = (of: readonly string[]) => of.reduce((m, k) => m.set(k, (m.get(k) ?? 0) + 1), new Map<string, number>());
+      const [now, then] = [times(keys), times(before)];
+      const item = new Map(old.items.map((i, at) => [before[at], i]));
+      return { kind: "list", items: v.items.map((i, at) => (now.get(keys[at]) === 1 && then.get(keys[at]) === 1 ? item.get(keys[at])! : i)) };
+    }
+    case "record":
+      return old?.kind === "record" && old.ty === v.ty ? { ...v, fields: entries(v.fields, old.fields) } : v;
+    case "case":
+      return old?.kind === "case" && old.ty === v.ty && old.name === v.name ? { ...v, values: entries(v.values, old.values) } : v;
+    case "opt":
+      return v.value !== null && old?.kind === "opt" && old.value !== null ? { kind: "opt", value: keptItems(v.value, old.value) } : v;
+    default:
+      return v;
+  }
+}
+
 /** What a page starts with, numbered once it is settled: by what it holds, and not by how it came to hold it, so the
  * same values give the same ids on a server as in a browser. Gives the last number. */
 export function numberedStart(...of: Map<string, Value>[]): number {

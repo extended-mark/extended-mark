@@ -4,7 +4,7 @@
 
 import { Failure, MAX_DEPTH, Ops, type Binding, type Declared, type Place, type PlaceRoot } from "@extended-mark/runtime/ops";
 import { Num } from "@extended-mark/runtime/num";
-import { none, numberedStart, sortedEntries, toIr, type Value } from "@extended-mark/runtime/values";
+import { keptItems, none, numberedStart, sortedEntries, toIr, type Value } from "@extended-mark/runtime/values";
 import type { Native } from "@extended-mark/runtime/natives";
 import type { Input, ir } from "@extended-mark/runtime";
 
@@ -933,7 +933,7 @@ export class Kit extends Ops {
   restoreData(data: { state?: Record<string, Input>; own?: Record<string, Record<string, Input>> }): string[] | undefined {
     this.changes++;
     this.resetSteps();
-    return this.takeState(data.state ?? {}) ? this.drawWith(data.own ?? {}) : undefined;
+    return this.takeState(data.state ?? {}, true) ? this.drawWith(data.own ?? {}) : undefined;
   }
 
   // ---- what the host is told
@@ -990,7 +990,7 @@ export class Kit extends Ops {
     const broken = v && this.refusal(v, f[0], `${channel}.${name}`);
     if (broken) this.refusals.push(broken);
     const x = v && !broken ? v : f[1]?.(this, []);
-    if (x) this.externs.set(`${channel}.${name}`, x);
+    if (x) this.externs.set(`${channel}.${name}`, keptItems(x, this.externs.get(`${channel}.${name}`)));
   }
 
   /** `$state` as the host gives it: all together, or else each field that fits and keeps the rules. */
@@ -1006,17 +1006,17 @@ export class Kit extends Ops {
     for (const [k, v] of Object.entries(values)) this.writeState({ [k]: v });
   }
 
-  private takeState(given: Record<string, Input>): boolean {
+  private takeState(given: Record<string, Input>, back = false): boolean {
     const values: Record<string, Value> = {};
     for (const [k, x] of Object.entries(given)) {
       const v = this.given(x, `$state.${k}`);
       if (!v) return false;
       values[k] = v;
     }
-    return this.writeState(values);
+    return this.writeState(values, back);
   }
 
-  private writeState(changes: Record<string, Value>): boolean {
+  private writeState(changes: Record<string, Value>, back = false): boolean {
     const snap = this.snapshot();
     for (const [k, v] of Object.entries(changes)) {
       const f = this.prog.st?.find((f) => f[0] === k);
@@ -1026,7 +1026,7 @@ export class Kit extends Ops {
         this.refusals.push(broken);
         return false;
       }
-      this.state.set(k, v);
+      this.state.set(k, back ? v : keptItems(v, this.state.get(k)));
       this.bump(`s:${k}`);
     }
     const broken = this.stateRefusal();

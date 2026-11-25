@@ -244,7 +244,64 @@ fn an_item_a_handler_adds_is_another_than_every_item_there() {
 }
 
 #[test]
-fn a_list_the_host_replaces_has_its_rows_made_again() {
+fn a_list_the_host_replaces_keeps_the_rows_of_the_items_it_left_alone() {
+    let votes = |p: &Page| said(p).into_iter().filter(|x| x.contains(':')).collect::<Vec<_>>();
+    let at = |p: &Page, label: &str| labels(p).into_iter().find(|l| l.1 == label).unwrap().0;
+    let mut p = page(TASKS);
+    press(&mut p, "a: 0");
+    press(&mut p, "b: 0");
+    let was = (at(&p, "a: 1"), at(&p, "b: 1"));
+    // one added in front, and another order
+    give(&mut p, &["new", "b", "a"]);
+    assert_eq!(votes(&p), vec!["new: 0", "b: 1", "a: 1"]);
+    assert_eq!((at(&p, "a: 1"), at(&p, "b: 1")), was);
+    // the whole of it again changes nothing
+    give(&mut p, &["new", "b", "a"]);
+    assert_eq!(votes(&p), vec!["new: 0", "b: 1", "a: 1"]);
+    // one changed and one gone
+    p.act(&serde_json::from_value(json!({"set": {"fields": {"xs": tasks(&["new", "a!"])}}})).unwrap()).unwrap();
+    assert_eq!(votes(&p), vec!["new: 0", "a!: 0"]);
+    // a value that is there twice, before or after, is no one item
+    give(&mut p, &["x", "y"]);
+    press(&mut p, "x: 0");
+    press(&mut p, "y: 0");
+    give(&mut p, &["x", "x", "y"]);
+    assert_eq!(votes(&p), vec!["x: 0", "x: 0", "y: 1"]);
+    press(&mut p, "x: 0");
+    give(&mut p, &["x", "y"]);
+    assert_eq!(votes(&p), vec!["x: 0", "y: 1"]);
+    // unless the list is as it was
+    give(&mut p, &["x", "x"]);
+    press(&mut p, "x: 0");
+    give(&mut p, &["x", "x"]);
+    assert_eq!(votes(&p), vec!["x: 1", "x: 0"]);
+    // and an item a handler adds then is another than all of them
+    press(&mut p, "Add");
+    press(&mut p, "Mark new");
+    assert_eq!(serde_json::to_value(&p.observe_state()["xs"]).unwrap(), tasks(&["x", "x", "new!"]));
+}
+
+#[test]
+fn a_list_in_a_record_and_a_channels_keep_their_rows_the_same_way() {
+    let row = "widget row(x: text) {\n    mut votes: int = 0;\n    view {\n        @press(label = \"\\{x}: \\{votes}\", click = fn() { votes = votes + 1; });\n    }\n    markdown { }\n}\n";
+    let mut p = page(&format!("record board {{\n    name: text;\n    xs: list<text> = [\"a\", \"b\"];\n}}\n\n$state {{\n    b: board = board {{ name = \"one\" }};\n}}\n\n{}@@@\n@for (x in $state.b.xs) {{\n    @row(x = x);\n}}\n", row));
+    press(&mut p, "a: 0");
+    let b = v(&p, serde_json::from_value(json!({"record": {"type": "doc/board", "fields": {"name": {"text": "two"}, "xs": {"list": [{"text": "c"}, {"text": "a"}]}}}})).unwrap());
+    p.set(vec![("b".into(), b)]).unwrap();
+    assert_eq!(said(&p), vec!["c: 0", "a: 1"]);
+    let mut p = page(&format!("extern host {{\n    xs: list<text> = [\"a\", \"b\"];\n}}\n\n{}@@@\n@for (x in host.xs) {{\n    @row(x = x);\n}}\n", row));
+    let mut give = |p: &mut Page, of: &[&str]| {
+        let xs = serde_json::from_value(json!({"list": of.iter().map(|x| json!({"text": x})).collect::<Vec<_>>()})).unwrap();
+        p.set_extern_given("doc/host", &[("xs".into(), xs)]).unwrap();
+    };
+    give(&mut p, &["p", "q"]);
+    press(&mut p, "q: 0");
+    give(&mut p, &["q", "r"]);
+    assert_eq!(said(&p), vec!["q: 1", "r: 0"]);
+}
+
+#[test]
+fn a_list_the_host_replaces_by_other_items_has_its_rows_made_again() {
     let mut p = page(TASKS);
     press(&mut p, "a: 0");
     press(&mut p, "b: 0");

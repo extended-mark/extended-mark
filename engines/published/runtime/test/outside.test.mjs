@@ -136,7 +136,59 @@ test("an item a handler adds is another than every item there, whoever gave thos
   }
 });
 
-test("a list the host replaces has its rows made again: a row's memory never moves to another item (page 3)", () => {
+test("a list the host replaces keeps the rows of the items it left alone (page 3)", () => {
+  const said = (p) => labels(p).filter((x) => x.includes(":"));
+  const at = (p, label) => everyNode(p.tree().nodes).find((x) => x.inputs.label.text === label).id;
+  const p = page(TASKS);
+  press(p, "a: 0");
+  press(p, "b: 0");
+  const [a, b] = [at(p, "a: 1"), at(p, "b: 1")];
+  // one added in front, and another order
+  p.set({ xs: list("new", "b", "a") });
+  assert.deepEqual(said(p), ["new: 0", "b: 1", "a: 1"]);
+  assert.deepEqual([at(p, "a: 1"), at(p, "b: 1")], [a, b]);
+  // the whole of it again changes nothing
+  p.set({ xs: p.state().xs });
+  assert.deepEqual(said(p), ["new: 0", "b: 1", "a: 1"]);
+  // one changed and one gone
+  p.act({ set: { fields: { xs: list("new", "a!") } } });
+  assert.deepEqual(said(p), ["new: 0", "a!: 0"]);
+  // a value that is there twice, before or after, is no one item
+  p.set({ xs: list("x", "y") });
+  press(p, "x: 0");
+  press(p, "y: 0");
+  p.set({ xs: list("x", "x", "y") });
+  assert.deepEqual(said(p), ["x: 0", "x: 0", "y: 1"]);
+  press(p, "x: 0");
+  p.set({ xs: list("x", "y") });
+  assert.deepEqual(said(p), ["x: 0", "y: 1"]);
+  // unless the list is as it was
+  p.set({ xs: list("x", "x") });
+  press(p, "x: 0");
+  p.set({ xs: list("x", "x") });
+  assert.deepEqual(said(p), ["x: 1", "x: 0"]);
+  // and an item a handler adds then is another than all of them
+  press(p, "Add");
+  press(p, "Mark new");
+  assert.deepEqual(titles(p), ["x", "x", "new!"]);
+});
+
+test("a list in a record, and a channel's, keep their rows the same way", () => {
+  const row = 'widget row(x: text) {\n    mut votes: int = 0;\n    view {\n        @press(label = "\\{x}: \\{votes}", click = fn() { votes = votes + 1; });\n    }\n    markdown { }\n}\n';
+  const texts = (...of) => ({ list: of.map((text) => ({ text })) });
+  const rows = (p) => labels(p);
+  const inner = page(`record board {\n    name: text;\n    xs: list<text> = ["a", "b"];\n}\n\n$state {\n    b: board = board { name = "one" };\n}\n\n${row}@@@\n@for (x in $state.b.xs) {\n    @row(x = x);\n}\n`);
+  press(inner, "a: 0");
+  inner.set({ b: { record: { type: "doc/board", fields: { name: { text: "two" }, xs: texts("c", "a") } } } });
+  assert.deepEqual(rows(inner), ["c: 0", "a: 1"]);
+  const given = page(`extern host {\n    xs: list<text> = ["a", "b"];\n}\n\n${row}@@@\n@for (x in host.xs) {\n    @row(x = x);\n}\n`);
+  given.setExtern("doc/host", { xs: texts("p", "q") });
+  press(given, "q: 0");
+  given.setExtern("doc/host", { xs: texts("q", "r") });
+  assert.deepEqual(rows(given), ["q: 1", "r: 0"]);
+});
+
+test("a list the host replaces by other items has its rows made again: a row's memory never moves to another item (page 3)", () => {
   const p = page(TASKS);
   press(p, "a: 0");
   press(p, "b: 0");

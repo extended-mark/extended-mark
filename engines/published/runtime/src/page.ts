@@ -8,7 +8,7 @@
 import type * as ir from "./generated/ir.js";
 import { Constants, Failure, Machine, Num, Program, type Binding, type Host, type Outer, type Place, type Step } from "./eval/index.js";
 import { ENGINE_ONLY, exists as native } from "./eval/natives.js";
-import { Value, caseOf, none, numberedStart, toIr, type Value as V } from "./eval/value.js";
+import { Value, caseOf, keptItems, none, numberedStart, toIr, type Value as V } from "./eval/value.js";
 
 /** What the host tells the page about where it is read. */
 export interface PageValues {
@@ -596,8 +596,9 @@ export class Core {
     if (this.takeState(changes)) this.redraw();
   }
 
-  /** `$state` fields written, checked: refused whole, or done. Nothing is drawn. */
-  private writeState(changes: Record<string, V>): boolean {
+  /** `$state` fields written, checked: refused whole, or done. Nothing is drawn. Data put back is made anew, as
+   * widgets' own variables go back by place; a host's write keeps the items it left alone. */
+  private writeState(changes: Record<string, V>, back = false): boolean {
     const snap = this.snapshot();
     const fields = new Map((this.stateDecl?.fields ?? []).map((f) => [f.name, f]));
     for (const [k, v] of Object.entries(changes)) {
@@ -608,7 +609,7 @@ export class Core {
         this.outcome.refused.push(broken);
         return false;
       }
-      this.state.set(k, v);
+      this.state.set(k, back ? v : keptItems(v, this.state.get(k)));
       this.bump(`s:${k}`);
     }
     const broken = this.stateRefusal();
@@ -655,7 +656,7 @@ export class Core {
     const broken = v && this.refusal(v, f.type, `${channel}.${name}`);
     if (broken) this.outcome.refused.push(broken);
     const x = v && !broken ? v : f.default && this.constant(f.default);
-    if (x) this.externs.set(`${channel}.${name}`, x);
+    if (x) this.externs.set(`${channel}.${name}`, keptItems(x, this.externs.get(`${channel}.${name}`)));
   }
 
   /** The page's own values: its width and theme. */
@@ -740,18 +741,18 @@ export class Core {
   restoreData(data: { state?: Record<string, ir.Expr>; own?: Record<string, Record<string, ir.Expr>> }): string[] | undefined {
     this.changes++;
     this.machine.resetSteps();
-    return this.takeState(data.state ?? {}) ? this.drawWith(data.own ?? {}) : undefined;
+    return this.takeState(data.state ?? {}, true) ? this.drawWith(data.own ?? {}) : undefined;
   }
 
   /** `$state` written from the IR's form, whole or not at all. */
-  private takeState(given: Record<string, ir.Expr>): boolean {
+  private takeState(given: Record<string, ir.Expr>, back = false): boolean {
     const values: Record<string, V> = {};
     for (const [k, x] of Object.entries(given)) {
       const v = this.given(x, `$state.${k}`);
       if (!v) return false;
       values[k] = v;
     }
-    return this.writeState(values);
+    return this.writeState(values, back);
   }
 
   /** The page drawn with widgets' own variables at their places: what had none, as `place.name`. */
