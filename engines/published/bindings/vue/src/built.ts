@@ -1,7 +1,7 @@
 // A page the engine built, as a Vue component: what xtmd-vue writes its components with.
 
 import { defineComponent } from "vue";
-import type { Held, HeldProps } from "@extended-mark/view";
+import type { Held, HeldProps } from "@extended-mark/widgets";
 import { heldNow, heldProps, useHeld } from "./elements.js";
 
 /** A page's component: `make` is what holds it. */

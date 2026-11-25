@@ -1,9 +1,9 @@
 <!--
-  One of @extended-mark/view's elements, rendered by Svelte itself: its attributes, listeners and live
+  One of the widgets' plain elements, rendered by Svelte itself: its attributes, listeners and live
   properties spread on it, its children by key, its hook as an action.
 -->
 <script lang="ts">
-  import type { Child } from "@extended-mark/view";
+  import type { Child } from "@extended-mark/widgets";
   import XtmdNode from "./XtmdNode.svelte";
   import { attrsOf, hook, keyOf } from "./node.js";
 

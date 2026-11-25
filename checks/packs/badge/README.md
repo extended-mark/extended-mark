@@ -8,7 +8,7 @@ none, so every engine shows its Markdown instead and reports it as missing (page
 - `supplies.json`: what the pack supplies on each engine. Headless engines (test, native) draw
   nothing, so for them the list is the implementation.
 - `web.mjs`: the widget for @extended-mark/dom, which the web engine's check harness registers.
-- `view.mjs`: the widget as an element, for the engines drawn from @extended-mark/view (React, Vue, Svelte,
+- `view.mjs`: the widget as an element, for the engines drawn from the widget set (React, Vue, Svelte,
   Solid and Angular, and their live engines), whose check harnesses register it.
 
 Cases using it: checks/cases/packs/.

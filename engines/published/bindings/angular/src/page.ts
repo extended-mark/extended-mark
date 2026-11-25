@@ -5,7 +5,8 @@
 
 import { ApplicationRef, Directive, ElementRef, EnvironmentInjector, EventEmitter, Input, NgZone, Output, PLATFORM_ID, Renderer2, RendererStyleFlags2, createComponent, inject, reflectComponentType, type OnChanges, type OnDestroy, type OnInit, type Type } from "@angular/core";
 import { isPlatformBrowser } from "@angular/common";
-import { Patcher, composing, slotsOf, type Call, type Component as Drawn, type DocError, type Held, type HeldProps, type Host, type Restored, type Snapshot, type Input as Given } from "@extended-mark/view";
+import type { Call, Input as Given } from "@extended-mark/runtime";
+import { Patcher, composing, slotsOf, type Component as Drawn, type DocError, type Held, type HeldProps, type Host, type Restored, type Snapshot } from "@extended-mark/widgets";
 
 const SVG = "svg";
 

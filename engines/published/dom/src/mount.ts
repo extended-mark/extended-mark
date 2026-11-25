@@ -2,10 +2,10 @@
 // lives as long as its widget does, and focus, the caret and what is being typed survive a redraw. The
 // plane's layout runs after every change, with sizes read from the DOM.
 
-import { Num } from "@extended-mark/runtime/num";
 import { Page, type Node as Drawn, type PageOptions, type ir } from "@extended-mark/runtime";
-import { Patcher, Tokens, act, children, domHost, focusOf, h, layoutPlanes, styleText, webFns, widgets as ours, type Child, type Component, type Drawing, type Host, type Measure } from "@extended-mark/widgets";
-import type { MountOptions, Mounted, OwnWidget } from "./api.js";
+import { Patcher, Tokens, act, children, focusOf, layoutPlanes, measured, styleText, webFns, widgets as ours, type Child, type Drawing, type Measure } from "@extended-mark/widgets";
+import type { MountOptions, Mounted } from "./api.js";
+import { dom } from "./own.js";
 
 let mounts = 0;
 
@@ -36,32 +36,6 @@ function injectStyle(root: HTMLElement, tokens: Tokens): void {
   has.add(sheet.name);
   add("data-xtmd-tokens", sheet.css, false);
 }
-
-/** A host's own element for a widget, its slots' widgets followed into where it puts them. */
-function own(el: Node, c: Component): { update(c: Component): void; destroy(): void } {
-  let now = c;
-  const slots = new Map<Element, { input: string; patcher: Patcher<Node> }>();
-  const follow = () => {
-    for (const { input, patcher } of slots.values()) patcher.render(holder(now.children(input)));
-  };
-  const holder = (kids: Child[]) => ({ ...h("xtmd-slot", undefined, {}, kids), style: { display: "contents" } });
-  const made = (c.of as OwnWidget)(el as HTMLElement, c.props, (container, input) => {
-    if (!slots.has(container)) slots.set(container, { input, patcher: new Patcher<Node>(dom, container) });
-    follow();
-  });
-  return {
-    update(next) {
-      now = next;
-      made.update(next.props);
-      follow();
-    },
-    destroy() {
-      for (const s of slots.values()) s.patcher.destroy();
-      made.destroy?.();
-    },
-  };
-}
-const dom: Host<Node> = { ...domHost, component: own };
 
 export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): Mounted {
   const registry = { ...ours, ...(opts.widgets ?? {}) };
@@ -126,17 +100,7 @@ export function mount(page: Page, root: HTMLElement, opts: MountOptions = {}): M
   }
 
   /** The default measure: each spot's box on the page, which the plane's transform never changes. */
-  const measure: Measure = opts.measure ?? {
-    spot(s) {
-      const el = element(s.id);
-      return { width: Num.int(Math.max(0, el?.offsetWidth ?? 0)), height: Num.int(Math.max(0, el?.offsetHeight ?? 0)) };
-    },
-    planeWidth(p) {
-      const el = element(p.id);
-      const view = el?.querySelector<HTMLElement>("[data-part='plane.view']");
-      return Num.int(Math.max(0, Math.round((view ?? el)?.clientWidth ?? 0)));
-    },
-  };
+  const measure: Measure = opts.measure ?? measured(element);
 
   function settle(): void {
     if (!live || settling) return;

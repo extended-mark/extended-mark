@@ -1,16 +1,14 @@
-// @extended-mark/embed-live: the plain web's live engine. `new XtmdLiveDoc(element, { source })`
-// compiles a document's text in the browser with @extended-mark/wasm as it is edited, and draws it with
-// @extended-mark/embed's XtmdDoc (@extended-mark/dom's widgets). A text that compiles replaces the page, keeping
-// `$state` where its fields still exist; one that doesn't leaves the last page that did, and its
-// errors reach `onError` ({ kind: "compile", diagnostics }). When to change `source` (each key, a
-// pause, a save) is the host's. The static engine, @extended-mark/embed, ships no WebAssembly; this one does.
+// The plain web's live document: `new XtmdLiveDoc(element, { source })` compiles a document's text in the browser with
+// @extended-mark/wasm as it is edited, and draws it with @extended-mark/dom's XtmdDoc. A text that compiles replaces the
+// page, keeping `$state` where its fields still exist; one that doesn't leaves the last page that did, and its errors
+// reach `onError` ({ kind: "compile", diagnostics }). When to change `source` (each key, a pause, a save) is the host's.
 
-import { XtmdDoc, type DocProps, type Given, type Restored, type Snapshot } from "@extended-mark/embed";
-import { Live, type LiveProps } from "@extended-mark/live";
-import type { Mounted, Page } from "@extended-mark/dom";
-import type { Input } from "@extended-mark/view";
+import { XtmdDoc, type XtmdDocProps } from "@extended-mark/dom";
+import type { Input, Page } from "@extended-mark/runtime";
+import type { Restored, Snapshot } from "@extended-mark/widgets";
+import { Live, type LiveProps } from "./index.js";
 
-export interface LiveDocProps extends Omit<DocProps, "ir">, LiveProps {}
+export interface LiveDocProps extends Omit<XtmdDocProps, "ir">, LiveProps {}
 
 /** A document from its text, drawn by @extended-mark/dom into an element, following the props it is given. */
 export class XtmdLiveDoc {
@@ -50,13 +48,9 @@ export class XtmdLiveDoc {
     return this.doc.running;
   }
 
-  get mounted(): Mounted | undefined {
-    return this.doc.mounted;
-  }
-
   // ---- XtmdDoc's handle
 
-  set(changes: Record<string, Given>): void {
+  set(changes: Record<string, Input>): void {
     this.doc.set(changes);
   }
 
@@ -68,12 +62,8 @@ export class XtmdLiveDoc {
     return this.doc.markdown();
   }
 
-  expose(channel: string, name: string, ...args: Given[]): void {
+  expose(channel: string, name: string, ...args: Input[]): void {
     this.doc.expose(channel, name, ...args);
-  }
-
-  extern(channel: string, values: Record<string, Given>): void {
-    this.doc.extern(channel, values);
   }
 
   snapshot(): Snapshot {
@@ -84,11 +74,12 @@ export class XtmdLiveDoc {
     return this.doc.restore(snap);
   }
 
-  private docProps(p: LiveDocProps): DocProps {
+  private docProps(p: LiveDocProps): XtmdDocProps {
     const { source: _s, path: _p, packs: _k, wasm: _w, compiler: _c, ...rest } = p;
     return { ...rest, ir: this.live?.ir };
   }
 }
 
-export { Compiler, compiler, type Builds, type LiveProps, type PackFile, type WasmSource } from "@extended-mark/live";
-export type { DocError, DocProps, Restored, Snapshot } from "@extended-mark/embed";
+export { Compiler, compiler, type Builds, type LiveProps, type PackFile, type WasmSource } from "./index.js";
+export type { XtmdDocProps } from "@extended-mark/dom";
+export type { DocError, Restored, Snapshot } from "@extended-mark/widgets";

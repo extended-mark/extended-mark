@@ -1,7 +1,7 @@
 // The Engines page's React row: the same page drawn by a framework's two engines. Run time is
 // @extended-mark/react's <XtmdDoc>, from the IR built ahead, `$state` controlled by React's own state. Real
 // time is @extended-mark/react-live's <XtmdLiveDoc>, from the text in a box, compiled by xtmd.wasm. Both draw
-// core's widgets with React itself (@extended-mark/view's elements, through createElement).
+// core's widgets with React itself (the widgets' plain elements, through createElement).
 
 import { createElement as h, useEffect, useRef, useState, type ReactElement } from "react";
 import { createRoot } from "react-dom/client";

@@ -6,7 +6,7 @@ from a document to one drawn by code of your own. Page 6 of the spec
 [apps/example-host](../../apps/example-host) is a whole host, server and browser, written from it alone.
 
 You may not need one. The packages for [React, Vue, Svelte, Solid and Angular](../../engines/published/bindings)
-and for [the plain web](../../engines/published/bindings/embed) are hosts, and each takes **your own
+and for [the plain web](../../engines/published/dom) are hosts, and each takes **your own
 components** as widgets (`components`, or `widgets` on the plain web). Write a host to draw everything
 yourself, or to draw somewhere these don't: a terminal, a native toolkit, a canvas, a test.
 

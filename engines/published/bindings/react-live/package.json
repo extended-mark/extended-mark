@@ -29,7 +29,8 @@
   "dependencies": {
     "@extended-mark/live": "file:../live",
     "@extended-mark/react": "file:../react",
-    "@extended-mark/view": "file:../view"
+    "@extended-mark/runtime": "file:../../runtime",
+    "@extended-mark/widgets": "file:../../widgets"
   },
   "peerDependencies": {
     "react": "^19.0.0"

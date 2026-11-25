@@ -33,7 +33,8 @@
     "test": "npm run build && npm run check && node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@extended-mark/view": "file:../view"
+    "@extended-mark/runtime": "file:../../runtime",
+    "@extended-mark/widgets": "file:../../widgets"
   },
   "peerDependencies": {
     "@extended-mark/web": "0.4.0",

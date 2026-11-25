@@ -4,7 +4,8 @@
 
 import { createComponent, createEffect, createMemo, createSignal, createUniqueId, mapArray, mergeProps, onCleanup, onMount, untrack, type Accessor, type Component, type JSX } from "solid-js";
 import { Dynamic, isServer } from "solid-js/web";
-import type { Child, Held, HeldProps, Input, VNode, WidgetProps } from "@extended-mark/view";
+import type { Input } from "@extended-mark/runtime";
+import type { Child, Held, HeldProps, VNode, WidgetProps } from "@extended-mark/widgets";
 
 /** What a Solid component that draws a widget is given. */
 export interface SolidWidgetProps extends WidgetProps {
@@ -113,7 +114,7 @@ function Node(props: { v: Accessor<VNode> }): JSX.Element {
   );
 }
 
-/** One of @extended-mark/view's elements, followed by Solid: give it an accessor to the latest render. */
+/** One of the widgets' plain elements, followed by Solid: give it an accessor to the latest render. */
 export function XtmdNode(props: { v: Accessor<VNode> }): JSX.Element {
   return createComponent(Node, props);
 }

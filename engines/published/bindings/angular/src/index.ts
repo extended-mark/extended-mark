@@ -3,5 +3,6 @@
 // browser. The live engine is @extended-mark/angular-live.
 
 export { XtmdDoc } from "./doc.js";
-export type { DocError, DocProps, Restored, Snapshot, ViewContext, ViewWidget, WidgetProps } from "@extended-mark/view";
-export type { Call, Given, Ir, Outcome, Page, PageValues, Input, ir } from "@extended-mark/view";
+export type { DocError, Restored, Snapshot, ViewContext, ViewWidget, WidgetProps } from "@extended-mark/widgets";
+export type { DocProps } from "@extended-mark/widgets/doc";
+export type { Call, Given, Ir, Outcome, Page, PageValues, Input, ir } from "@extended-mark/runtime";

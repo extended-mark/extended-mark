@@ -28,36 +28,24 @@ COPY engines/examples/misc/android/xtmd ./engines/examples/misc/android/xtmd
 COPY engines/examples/misc/android/xtmd-live ./engines/examples/misc/android/xtmd-live
 RUN compiler/wasm/build.sh /src/xtmd.wasm && test -s /src/xtmd.wasm
 
-# ---- 2. the UI: @extended-mark/runtime, @extended-mark/dom, @extended-mark/wasm and the Targets page's targets (@extended-mark/embed,
-#         @extended-mark/live, @extended-mark/embed-live, @extended-mark/view, @extended-mark/react, @extended-mark/react-live) built, then bundled
-#         with the playground's own code
-
+# ---- 2. the UI: what it is bundled from built (the runtime, the widgets, the renderers, the engine, the compiler's
+#         package and the live documents), then bundled
 FROM node:22-bookworm-slim AS ui
 ENV npm_config_fund=false npm_config_audit=false npm_config_update_notifier=false
 WORKDIR /src
-COPY engines/published/runtime ./engines/published/runtime
-COPY engines/published/dom ./engines/published/dom
+COPY engines/published ./engines/published
 COPY compiler/npm/wasm ./compiler/npm/wasm
 COPY --from=compiler /src/xtmd.wasm ./compiler/npm/wasm/xtmd.wasm
-COPY engines/published/bindings/embed ./engines/published/bindings/embed
-COPY engines/published/bindings/live ./engines/published/bindings/live
-COPY engines/published/bindings/embed-live ./engines/published/bindings/embed-live
-COPY engines/published/bindings/view ./engines/published/bindings/view
-COPY engines/published/bindings/react ./engines/published/bindings/react
-COPY engines/published/bindings/react-live ./engines/published/bindings/react-live
 COPY apps/playground ./apps/playground
 # each package installed, then built, in the order they need each other: npm copies a file:
 # package (or links it) as it is then, so what it needs is built first. The packages' tests
-# compare them with the binary (xtmd) and @extended-mark/view, which aren't built here
+# need the xtmd binary (extended-mark), which isn't built here
 RUN set -e; \
-    cd /src/compiler/npm/wasm && npm pkg delete devDependencies.xtmd; \
-    cd /src/engines/published/bindings/embed && npm pkg delete devDependencies.xtmd && rm -f package-lock.json; \
-    cd /src/engines/published/bindings/live && npm pkg delete devDependencies.@extended-mark/view; \
-    for d in view react react-live; do (cd /src/engines/published/bindings/$d && npm pkg delete devDependencies.xtmd && rm -f package-lock.json); done; \
-    for d in engines/published/runtime engines/published/dom compiler/npm/wasm engines/published/bindings/embed engines/published/bindings/view engines/published/bindings/live engines/published/bindings/embed-live engines/published/bindings/react engines/published/bindings/react-live; do \
+    for d in compiler/npm/wasm engines/published/runtime engines/published/widgets engines/published/dom engines/published/web engines/published/bindings/live engines/published/bindings/react engines/published/bindings/react-live; do \
       cd "/src/$d"; \
-      rm -rf node_modules dist; \
-      if [ -f package-lock.json ]; then npm ci; else npm install; fi; \
+      npm pkg delete devDependencies.extended-mark; \
+      rm -rf node_modules dist package-lock.json; \
+      npm install; \
       npm run build; \
     done; \
     # a page compiled with xtmd.wasm: a broken one stops the build here

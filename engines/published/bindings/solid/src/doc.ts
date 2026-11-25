@@ -1,7 +1,9 @@
 // <XtmdDoc>: an Extended Mark page run from its IR and drawn by Solid itself (elements.ts).
 
 import { untrack, type Component, type JSX } from "solid-js";
-import { Doc, type DocProps, type Restored, type Snapshot, type Input } from "@extended-mark/view";
+import type { Input } from "@extended-mark/runtime";
+import type { Restored, Snapshot } from "@extended-mark/widgets";
+import { Doc, type DocProps } from "@extended-mark/widgets/doc";
 import { heldNow, useHeld, type SolidWidgetProps } from "./elements.js";
 
 export { XtmdNode, type SolidWidgetProps } from "./elements.js";

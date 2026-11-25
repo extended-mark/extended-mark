@@ -28,8 +28,9 @@
   },
   "dependencies": {
     "@extended-mark/live": "file:../live",
+    "@extended-mark/runtime": "file:../../runtime",
     "@extended-mark/solid": "file:../solid",
-    "@extended-mark/view": "file:../view"
+    "@extended-mark/widgets": "file:../../widgets"
   },
   "peerDependencies": {
     "solid-js": "^1.8.0"

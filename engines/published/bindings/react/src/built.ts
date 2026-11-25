@@ -2,7 +2,8 @@
 // A page the engine built, as a React component: what xtmd-react writes its components with.
 
 import { useState, type ComponentType, type ReactElement, type Ref } from "react";
-import type { Held, HeldProps, Input, Restored, Snapshot } from "@extended-mark/view";
+import type { Input } from "@extended-mark/runtime";
+import type { Held, HeldProps, Restored, Snapshot } from "@extended-mark/widgets";
 import { useHeld, useUid, type Around, type ReactWidgetProps } from "./elements.js";
 
 /** What the host holds to reach a built page: its `ref`. */

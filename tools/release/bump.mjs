@@ -8,7 +8,7 @@
 // package.json of ours (its version, and the `@extended-mark/…` and `extended-mark` pins that aren't a
 // `file:` path); each package-lock.json's own entries (the package, and its neighbours in this
 // repository; never a registry's); the Android example's Gradle versions; the schemas' examples'
-// `"xtmd"`; the runtime snapshots' release (`RELEASE`) in @extended-mark/view and the Android
+// `"xtmd"`; the runtime snapshots' release (`RELEASE`) in @extended-mark/widgets and the Android
 // example (egui takes its crate's version); and the version the docs show (the release README, the VS
 // Code extension's README, the Android example's README). A 0.3.0 that means the language's first
 // release (`xtmd migrate`) is none of these.

@@ -4,7 +4,7 @@
 // properties and the hooks of widgets that draw on their element (a canvas, a plane) are attached to the real elements.
 
 import { createElement, useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useSyncExternalStore, type ComponentType, type CSSProperties, type ReactElement, type ReactNode, type Ref } from "react";
-import { composing, type Child, type Held, type HeldProps, type VNode, type WidgetProps } from "@extended-mark/view";
+import { composing, type Child, type Held, type HeldProps, type VNode, type WidgetProps } from "@extended-mark/widgets";
 
 /** What a React component that draws a widget is given. */
 export interface ReactWidgetProps extends WidgetProps {
@@ -124,7 +124,7 @@ function Live({ v }: { v: VNode }): ReactElement {
   return createElement(v.tag, reactProps(v, ref), ...kids(v));
 }
 
-/** One of @extended-mark/view's elements as React's. */
+/** One of the widgets' plain elements as React's. */
 export function toReact(c: Child): ReactNode {
   if (typeof c === "string") return c;
   if (c.component) {

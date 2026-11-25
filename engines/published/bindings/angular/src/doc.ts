@@ -1,7 +1,7 @@
 // <xtmd-doc>: an Extended Mark page run from its IR and drawn by Angular itself (page.ts).
 
 import { Component, Input } from "@angular/core";
-import { Doc, type DocProps } from "@extended-mark/view";
+import { Doc, type DocProps } from "@extended-mark/widgets/doc";
 import { XtmdPage } from "./page.js";
 
 @Component({

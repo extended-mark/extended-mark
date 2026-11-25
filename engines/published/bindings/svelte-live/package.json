@@ -29,9 +29,10 @@
     "test": "npm run build && npm run check && node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@extended-mark/svelte": "file:../svelte",
     "@extended-mark/live": "file:../live",
-    "@extended-mark/view": "file:../view"
+    "@extended-mark/runtime": "file:../../runtime",
+    "@extended-mark/svelte": "file:../svelte",
+    "@extended-mark/widgets": "file:../../widgets"
   },
   "peerDependencies": {
     "svelte": "^5.0.0"

@@ -116,7 +116,7 @@ pub struct DocResponse {
     pub errors: Vec<DocError>,
 }
 
-/// A short, stable hash of a text: FNV-1a, in base 36 (as @extended-mark/view's).
+/// A short, stable hash of a text: FNV-1a, in base 36 (as @extended-mark/widgets').
 fn hash(text: &str) -> String {
     let (mut h1, mut h2): (u32, u32) = (0x811c9dc5, 0x01000193);
     for c in text.encode_utf16() {

@@ -98,86 +98,22 @@ async function until(page, fn, arg, what) {
 }
 
 /**
- * The steps @extended-mark/embed's Embed passes (the page in an element that XtmdDoc on the plain web is
- * built on), through the test host's `window.__test`:
- * - `heard`: { calls: Call[][], states: $state[], outcomes: Outcome[], mounts: number }, filled
- *   from onCalls, onState, onOutcome and onMount;
- * - `handle()`: the binding's handle (its ref, or usePage's);
- * - `setTheme(theme)`: gives the component a new `page` prop;
- * - `setUnit(text)`: gives it a new `externs` prop, `{ host: { unit: { text } } }`, which starts
- *   as "items";
- * - `setIr("v1" | "v2")`: gives it a new `ir` prop;
- * - `unmount()`: takes the component away.
- */
-export async function steps(page) {
-  await until(page, () => document.querySelector("#app")?.textContent?.includes("Count: 0 items") && window.__test.heard.mounts >= 1, null, "the page to mount");
-  // React's StrictMode mounts twice in development: count from wherever it starts
-  const mounts = await page.evaluate(() => window.__test.heard.mounts);
-  assert.equal(await page.evaluate(() => document.querySelectorAll("[data-xtmd-root]").length), 1, "one page drawn");
-  assert.ok(await page.evaluate(() => document.querySelector("#app [data-xtmd-site]") !== null), "the page is drawn by @extended-mark/dom");
-
-  // a reader's click, through the press's own DOM: onState and onCalls hear it
-  await page.click('#app [data-xtmd-widget="core/press"]');
-  await until(page, () => document.querySelector("#app").textContent.includes("Count: 1 items"), null, "the click");
-  await until(page, () => window.__test.heard.calls.length === 1, null, "onCalls");
-  const heard = await page.evaluate(() => window.__test.heard);
-  assert.deepEqual(heard.calls, [[{ call: { name: "doc/app.saved", args: [{ num: "1" }] } }]]);
-  assert.deepEqual(heard.states.at(-1), { n: { num: "1" } });
-
-  // the host's write: refused when it doesn't fit, and onOutcome hears it; done when it does
-  await page.evaluate(() => window.__test.handle().set({ n: { num: "20" } }));
-  await until(page, () => window.__test.heard.outcomes.length === 1, null, "onOutcome");
-  assert.deepEqual((await page.evaluate(() => window.__test.heard.outcomes))[0].refused, [{ code: "contracts.outside", site: "$state.n" }]);
-  await page.evaluate(() => window.__test.handle().set({ n: { num: "4" } }));
-  await until(page, () => document.querySelector("#app").textContent.includes("Count: 4 items"), null, "the host's write");
-  assert.deepEqual(await page.evaluate(() => window.__test.handle().state()), { n: { num: "4" } });
-
-  // an exposed fn, then the page's Markdown
-  await page.evaluate(() => window.__test.handle().expose("app", "reset"));
-  await until(page, () => document.querySelector("#app").textContent.includes("Count: 0 items"), null, "expose");
-  await page.evaluate(() => window.__test.handle().set({ n: { num: "3" } }));
-  assert.equal(await page.evaluate(() => window.__test.handle().markdown()), "# Count: 3 items\n\nAdd one\n");
-
-  // extern values: a new `externs` prop, then the handle's
-  await page.evaluate(() => window.__test.setUnit("pts"));
-  await until(page, () => document.querySelector("#app").textContent.includes("Count: 3 pts"), null, "the externs prop");
-  await page.evaluate(() => window.__test.handle().extern("app", { unit: { text: "beans" } }));
-  await until(page, () => document.querySelector("#app").textContent.includes("Count: 3 beans"), null, "handle.extern");
-
-  // a new `page` prop: page.setPage
-  await page.evaluate(() => window.__test.setTheme("DARK"));
-  await until(page, () => window.__test.handle().page.given()["core/page.theme"]?.case.name === "DARK", null, "the theme");
-
-  // a new `ir` prop: remounted, $state kept where its fields still exist
-  await page.evaluate(() => window.__test.setIr("v2"));
-  await until(page, (m) => document.querySelector("#app").textContent.includes("Total: 3 beans, by 2") && window.__test.heard.mounts === m + 1, mounts, "the new IR");
-  assert.deepEqual(await page.evaluate(() => window.__test.handle().state()), { n: { num: "3" }, stride: { num: "2" } });
-  assert.equal(await page.evaluate(() => window.__test.handle().page.given()["core/page.theme"]?.case.name), "DARK", "the page's values survive a remount");
-
-  // gone: unmounted, and nothing left in the element
-  await page.evaluate(() => window.__test.unmount());
-  await until(page, () => document.querySelector("#app [data-xtmd-site]") === null, null, "the unmount");
-}
-
-/**
  * The steps every binding's <XtmdDoc> passes, through the test host's `window.__test`:
  * - `heard`: { states: $state[], errors: DocError[], calls: Call[][] }, from onStateChange,
  *   onError and onCalls;
  * - `handle()`: the component's handle (snapshot, restore, set, state, markdown, expose);
  * - `setState(state)`: gives it a new controlled `state` prop (the host also follows onStateChange);
  * - `setTheme(theme)`, `setUnit(text)` (`externs.app.unit`, starting as "items"), `setIr("v1" |
- *   "v2" | "notes")` and `unmount()`, as in `steps`.
+ *   "v2" | "notes")` and `unmount()`, which gives the component a new `page`, `externs`, `ir`, or takes it away.
  *
- * `stylesheet` is where the page's stylesheet is: in the page (@extended-mark/view's) or in the document (@extended-mark/dom's).
  * A page an engine built has no Markdown (`markdown` false), and another page is another component.
  */
-export async function docSteps(page, { stylesheet = "page", markdown = true } = {}) {
+export async function docSteps(page, { markdown = true } = {}) {
   const app = () => page.evaluate(() => document.querySelector("#app")?.textContent ?? "");
   await until(page, () => document.querySelector("#app")?.textContent?.includes("Count: 0 items"), null, "the page to render");
   assert.equal(await page.evaluate(() => document.querySelectorAll("[data-xtmd-root]").length), 1, "one page drawn");
   assert.ok(await page.evaluate(() => document.querySelector('#app [data-xtmd-widget="core/press"] [data-part="press.label"]') !== null), "core's press, drawn with its parts");
-  // in the page itself (@extended-mark/view's), or once in the document (@extended-mark/dom's)
-  assert.ok(await page.evaluate((where) => document.querySelector(where === "page" ? "#app style[data-xtmd-dom]" : "style[data-xtmd-dom]") !== null, stylesheet), "the stylesheet");
+  assert.ok(await page.evaluate(() => document.querySelector("#app style[data-xtmd-dom]") !== null), "the stylesheet, in the page");
 
   // a reader's click: onStateChange and onCalls hear it
   await page.click('#app [data-xtmd-widget="core/press"]');
@@ -209,8 +145,7 @@ export async function docSteps(page, { stylesheet = "page", markdown = true } = 
   await page.evaluate(() => window.__test.setUnit("pts"));
   await until(page, () => document.querySelector("#app").textContent.includes("Count: 3 pts"), null, "the externs prop");
   await page.evaluate(() => window.__test.setTheme("DARK"));
-  // the root is a child of #host (@extended-mark/view's), or #host itself (@extended-mark/dom's)
-  await until(page, () => (document.querySelector("#app [data-xtmd-root]") ?? document.querySelector("#app[data-xtmd-root]"))?.getAttribute("data-xtmd-theme") === "dark", null, "the theme");
+  await until(page, () => document.querySelector("#app [data-xtmd-root]")?.getAttribute("data-xtmd-theme") === "dark", null, "the theme");
   await page.evaluate(() => window.__test.setIr("v2"));
   await until(page, () => document.querySelector("#app").textContent.includes("Total: 3 pts, by 2"), null, "the new IR");
   assert.deepEqual(await page.evaluate(() => window.__test.handle().state()), { n: { num: "3" }, stride: { num: "2" } });
@@ -240,8 +175,8 @@ export async function docSteps(page, { stylesheet = "page", markdown = true } = 
   await page.click('#app [data-part="overlay.anchor"]');
   await until(page, () => document.querySelector('#app [data-part="overlay.body"]')?.matches(":popover-open"), null, "the overlay to open");
   const snap = await page.evaluate(() => window.__test.handle().snapshot());
-  // the release a snapshot is taken in is @extended-mark/embed's version
-  assert.equal(snap.xtmd, JSON.parse(readFileSync(new URL("../embed/package.json", import.meta.url), "utf8")).version);
+  // the release a snapshot is taken in is the packages' version
+  assert.equal(snap.xtmd, JSON.parse(readFileSync(new URL("../../widgets/package.json", import.meta.url), "utf8")).version);
   assert.deepEqual(Object.values(snap.own).flatMap((o) => Object.entries(o)).sort(), [["k", { num: "3" }], ["note", { text: "call at 5" }], ["open", { bool: true }]].sort());
   await page.fill(field, "never mind");
   await page.click('#app [data-xtmd-widget="core/press"]');

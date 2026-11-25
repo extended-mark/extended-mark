@@ -1,9 +1,9 @@
-// What <XtmdNode> needs to render one of @extended-mark/view's elements as Svelte's own: its attributes,
+// What <XtmdNode> needs to render one of the widgets' plain elements as Svelte's own: its attributes,
 // live properties and listeners in Svelte 5's spelling, its children's keys, and its hook as an
 // action on the real element.
 
 import type { Snippet } from "svelte";
-import type { Child, VNode, WidgetProps } from "@extended-mark/view";
+import type { Child, VNode, WidgetProps } from "@extended-mark/widgets";
 
 /** What a Svelte component that draws a widget is given. */
 export interface SvelteWidgetProps extends WidgetProps {

@@ -9,6 +9,8 @@ engines/published/widgets    npm @extended-mark/widgets: the web's one widget se
   src/each.ts           each widget by itself, for what holds only the ones it draws
   src/html.ts           VNodes as HTML and as schemas/web.schema.json
   src/style.css         the stylesheet; src/style.ts holds it as text
+  src/held.ts           Held: a page as a framework holds it, however it is run; snapshot.ts
+  src/doc.ts            Doc: one run from its IR (an entry of its own, /doc)
   src/tokens.ts         tokens as CSS custom properties, both themes
   src/values.ts         reading a node's inputs
   src/planes.ts         a page's planes measured and laid out (layoutPlanes)
@@ -17,13 +19,10 @@ engines/published/widgets    npm @extended-mark/widgets: the web's one widget se
   test/                 without a page or a browser
 
 engines/published/dom    npm @extended-mark/dom: the plain web's renderer
-  src/mount.ts          a page drawn into an element; a host's own elements (own); focus kept
+  src/doc.ts            XtmdDoc: a document in an element
+  src/mount.ts          a page drawn into an element; own.ts: a host's own elements
   src/api.ts            MountOptions, Mounted, OwnWidget
   test/                 real Chromium: widgets, interact, plane; planes.test.mjs without one;
                         copied.test.mjs: a copied widget set passes widgets.test.mjs
-
-engines/published/bindings/view    npm @extended-mark/view: a page as a framework engine holds it
-  src/doc.ts            Doc: the page, its root element, what the host is told
-  src/page.ts           a page made from a host's props; src/html.ts (Markdown as HTML)
 
 ide/vscode/src/webview/widgets.ts is the same set in VS Code's look.

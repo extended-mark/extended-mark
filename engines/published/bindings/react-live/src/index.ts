@@ -36,4 +36,4 @@ export function XtmdLiveDoc({ source, path, packs, wasm, compiler, ...props }: X
 
 export { Compiler, compiler, type Builds, type LiveProps, type PackFile, type WasmSource } from "@extended-mark/live";
 export type { XtmdDocHandle, XtmdDocProps } from "@extended-mark/react";
-export type { DocError, Restored, Snapshot } from "@extended-mark/view";
+export type { DocError, Restored, Snapshot } from "@extended-mark/widgets";

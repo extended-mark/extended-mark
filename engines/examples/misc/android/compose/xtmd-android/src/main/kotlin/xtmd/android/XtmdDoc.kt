@@ -71,7 +71,7 @@ data class Restored(val restored: How, val dropped: List<String>, val why: Strin
  * to it by `bump.mjs --check`. */
 const val RELEASE = "0.4.0"
 
-/** A short, stable hash of a text: FNV-1a, as @extended-mark/view's. */
+/** A short, stable hash of a text: FNV-1a, as @extended-mark/widgets'. */
 internal fun hash(text: String): String {
     var h1 = 0x811c9dc5.toInt()
     var h2 = 0x01000193

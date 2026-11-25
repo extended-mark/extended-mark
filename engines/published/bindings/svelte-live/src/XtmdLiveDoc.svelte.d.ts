@@ -1,6 +1,8 @@
 import type { Component } from "svelte";
 import type { LiveProps } from "@extended-mark/live";
-import type { Doc, DocProps, Restored, Snapshot, Input, ir } from "@extended-mark/view";
+import type { Input, ir } from "@extended-mark/runtime";
+import type { Restored, Snapshot } from "@extended-mark/widgets";
+import type { Doc, DocProps } from "@extended-mark/widgets/doc";
 
 declare const XtmdLiveDoc: Component<
   Omit<DocProps, "ir"> & LiveProps & { class?: string; id?: string },

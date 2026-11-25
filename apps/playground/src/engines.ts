@@ -1,10 +1,11 @@
 // The playground's Engines page: one page drawn by the plain web's two kinds of engine. Run time is
-// @extended-mark/embed's XtmdDoc, from an IR built ahead (build.mjs writes it with xtmd.wasm). Real time is
-// @extended-mark/embed-live's XtmdLiveDoc, from the text in the box, compiled by xtmd.wasm as it changes.
+// @extended-mark/dom's XtmdDoc, from an IR built ahead (build.mjs writes it with xtmd.wasm). Real time is
+// @extended-mark/live's XtmdLiveDoc, from the text in the box, compiled by xtmd.wasm as it changes.
 
-import { XtmdDoc, type DocProps, type Ir, type Snapshot } from "@extended-mark/embed";
-import { XtmdLiveDoc, type LiveDocProps } from "@extended-mark/embed-live";
-import type { Input } from "@extended-mark/runtime";
+import { XtmdDoc, type XtmdDocProps } from "@extended-mark/dom";
+import { XtmdLiveDoc, type LiveDocProps } from "@extended-mark/live/dom";
+import type { Input, Ir } from "@extended-mark/runtime";
+import type { Snapshot } from "@extended-mark/widgets";
 import { mountReact } from "./engines-react.js";
 
 function el<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -29,9 +30,9 @@ function report(kind: string, message: string): void {
 // ---- run time
 
 const runState = el("run-state");
-const runProps: DocProps = {
+const runProps: XtmdDocProps = {
   onStateChange: (s) => (runState.textContent = stateLine(s)),
-  onMount: () => (runState.textContent = stateLine(run.state())),
+  onPage: (page) => (runState.textContent = stateLine(page.state())),
 };
 const run: XtmdDoc = new XtmdDoc(el("run-page"), runProps);
 /** The host brings the IR: until it has come, the document shows that it waits. */
@@ -75,10 +76,10 @@ let props: LiveDocProps = {
       report("compiler-load", e.message);
     }
   },
-  onMount: () => {
+  onPage: (page) => {
     status.dataset.state = "ok";
     status.textContent = "Compiled in the browser";
-    liveState.textContent = stateLine(live.state());
+    liveState.textContent = stateLine(page.state());
   },
 };
 let live: XtmdLiveDoc;

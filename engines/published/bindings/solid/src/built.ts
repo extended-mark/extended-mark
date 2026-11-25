@@ -1,7 +1,8 @@
 // A page the engine built, as a Solid component: what xtmd-solid writes its components with.
 
 import { untrack, type Component, type JSX } from "solid-js";
-import type { Held, HeldProps, Input, Restored, Snapshot } from "@extended-mark/view";
+import type { Input } from "@extended-mark/runtime";
+import type { Held, HeldProps, Restored, Snapshot } from "@extended-mark/widgets";
 import { heldNow, useHeld, type SolidWidgetProps } from "./elements.js";
 
 /** What `ref` on a built page is given. */

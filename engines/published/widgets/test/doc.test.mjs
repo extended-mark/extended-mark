@@ -1,4 +1,4 @@
-// @extended-mark/view without a framework or a browser: the page as HTML, and the document's controlled `$state`, refusals and snapshots.
+// A document held without a framework or a browser: the page as HTML, and the document's controlled `$state`, refusals and snapshots.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -7,9 +7,10 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Doc, toHtml, toJson } from "../dist/index.js";
-import { fits } from "../../../runtime/test/fits.mjs";
-import { compilePages } from "../../testing/browser.mjs";
+import { toHtml, toJson } from "../dist/index.js";
+import { Doc } from "../dist/doc.js";
+import { fits } from "../../runtime/test/fits.mjs";
+import { compilePages } from "../../bindings/testing/browser.mjs";
 
 const irs = await compilePages(cli);
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -138,7 +139,7 @@ test("an IR is told apart by its content: the same page given again goes on", as
 });
 
 test("what each widget draws fits the widget set's format", () => {
-  const repo = join(dirname(fileURLToPath(import.meta.url)), "../../../../..");
+  const repo = join(dirname(fileURLToPath(import.meta.url)), "../../../..");
   const xtmd = ["release", "debug"].map((k) => join(repo, "compiler/target", k, "xtmd")).find(existsSync);
   const dir = join(repo, "engines/published/runtime/test/cases");
   const seen = new Set();

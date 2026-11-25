@@ -2,8 +2,9 @@
 // search engines and readers without JavaScript get the page's content, with the values it starts
 // with, and @extended-mark/dom replaces it when the page mounts. No DOM: it runs in Node, on a server.
 
-import { type Block, type Inline, type PageOptions } from "@extended-mark/runtime";
-import { makePage, type Ir } from "./page.js";
+import type { Block, Inline } from "./write.js";
+import type { PageOptions } from "./host.js";
+import { makePage, type Ir } from "./given.js";
 
 /** The page's blocks as HTML: everything escaped, links and images only to safe addresses. */
 export function blocksHtml(blocks: Block[]): string {
@@ -90,4 +91,4 @@ function block(b: Block): string {
   return "<hr>";
 }
 
-export type { Block, Inline } from "@extended-mark/runtime";
+export type { Block, Inline } from "./write.js";

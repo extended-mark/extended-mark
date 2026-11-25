@@ -3,5 +3,6 @@
 // host gives its own.
 
 export { mount, run } from "./mount.js";
+export { XtmdDoc, type XtmdDocProps } from "./doc.js";
 export type { Action, Follows, Measure, MountOptions, Mounted, OwnWidget, Page, PageOptions } from "./api.js";
 export type { ViewContext, ViewWidget } from "@extended-mark/widgets";

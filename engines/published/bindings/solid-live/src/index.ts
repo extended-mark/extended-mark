@@ -7,7 +7,7 @@
 import { createComponent, createEffect, createSignal, mergeProps, onCleanup, splitProps, untrack, type JSX } from "solid-js";
 import { XtmdDoc, type XtmdDocProps } from "@extended-mark/solid";
 import { Live, type LiveProps } from "@extended-mark/live";
-import type { Ir } from "@extended-mark/view";
+import type { Ir } from "@extended-mark/runtime";
 
 export interface XtmdLiveDocProps extends Omit<XtmdDocProps, "ir">, LiveProps {}
 
@@ -42,4 +42,4 @@ export function XtmdLiveDoc(props: XtmdLiveDocProps): JSX.Element {
 
 export { Compiler, compiler, type Builds, type LiveProps, type PackFile, type WasmSource } from "@extended-mark/live";
 export type { XtmdDocHandle, XtmdDocProps } from "@extended-mark/solid";
-export type { DocError, Restored, Snapshot } from "@extended-mark/view";
+export type { DocError, Restored, Snapshot } from "@extended-mark/widgets";

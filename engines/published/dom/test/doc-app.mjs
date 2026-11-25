@@ -1,6 +1,6 @@
 // The test host for the plain web's XtmdDoc: drawn by @extended-mark/dom, `$state` controlled by the host, with
 // the controls the shared doc steps use (testing/browser.mjs, docSteps).
-import { XtmdDoc } from "@extended-mark/embed";
+import { XtmdDoc } from "@extended-mark/dom";
 
 const heard = { states: [], errors: [], calls: [] };
 let props = {

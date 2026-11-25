@@ -7,7 +7,9 @@
 import { ChangeDetectorRef, Component, EventEmitter, Input, Output, ViewChild, inject, type OnChanges, type OnDestroy, type Type } from "@angular/core";
 import { XtmdDoc } from "@extended-mark/angular";
 import { Live, type Builds, type PackFile, type WasmSource } from "@extended-mark/live";
-import type { Call, DocError, DocProps, Restored, Snapshot, Input as Given, ir } from "@extended-mark/view";
+import type { Call, Input as Given, ir } from "@extended-mark/runtime";
+import type { DocError, Restored, Snapshot } from "@extended-mark/widgets";
+import type { DocProps } from "@extended-mark/widgets/doc";
 
 @Component({
   selector: "xtmd-live-doc",

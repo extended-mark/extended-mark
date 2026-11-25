@@ -1,15 +1,22 @@
+// What a host gives a page: $state that fits and what is refused, and the page's Markdown as HTML.
+
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fileURLToPath } from "node:url";
-import * as esbuild from "esbuild";
-import { chromium } from "playwright-core";
-import * as cli from "extended-mark";
-import { blocksHtml, pageHtml } from "@extended-mark/view/html";
-import { coreOf } from "../../../runtime/dist/host.js";
-import { makePage } from "@extended-mark/view";
-import { bundle, compilePages, launch, open, steps } from "../../testing/browser.mjs";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { blocksHtml, pageHtml } from "../dist/html.js";
+import { coreOf } from "../dist/host.js";
+import { makePage } from "../dist/index.js";
+import { repo, workdir, xtmdBinary } from "./xtmd.mjs";
 
-const irs = await compilePages(cli);
+const pages = join(repo, "engines/published/bindings/testing");
+const built = (name) => {
+  const out = join(workdir(), `given-${name}.json`);
+  execFileSync(xtmdBinary(), ["build", join(pages, name), "--out", out], { stdio: ["ignore", "pipe", "pipe"] });
+  return JSON.parse(readFileSync(out, "utf8"));
+};
+const irs = { v1: built("counter.xtmd"), v2: built("counter-v2.xtmd") };
 
 test("makePage keeps the host's $state that fits, and says what it refused", () => {
   const ok = makePage(irs.v2, {}, { n: { num: "4" }, stride: { num: "3" } });
@@ -51,16 +58,4 @@ test("pageHtml writes the page's Markdown as HTML, escaped", () => {
       '<table><thead><tr><th style="text-align:right">A</th></tr></thead><tbody><tr><td style="text-align:right"><span class="xtmd-math">x^2</span></td></tr></tbody></table>\n' +
       "<hr>",
   );
-});
-
-test("in Chromium: mounts, follows its props, tells the host, unmounts", async () => {
-  const js = await bundle(esbuild, fileURLToPath(new URL("./app.mjs", import.meta.url)));
-  const browser = await launch(chromium);
-  try {
-    const { page, errors } = await open(browser, { js, irs });
-    await steps(page);
-    assert.deepEqual(errors, []);
-  } finally {
-    await browser.close();
-  }
 });

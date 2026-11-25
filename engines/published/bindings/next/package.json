@@ -45,7 +45,7 @@
   },
   "dependencies": {
     "@extended-mark/react": "file:../react",
-    "@extended-mark/view": "file:../view",
+    "@extended-mark/runtime": "file:../../runtime",
     "extended-mark": "file:../../../../compiler/npm/extended-mark"
   },
   "peerDependencies": {

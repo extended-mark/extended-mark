@@ -6,7 +6,7 @@ root. Why things are as they are is in .knowledge/, what the language means in d
   02-core.txt             core/: the standard library, a pack
   03-schemas.txt          schemas/: the JSON between modules, and the types generated from it
   04-runtime.txt          engines/published/runtime: runs a page, in TypeScript
-  05-web-drawing.txt      engines/published/dom and bindings/view: draw a page on the web
+  05-web-drawing.txt      engines/published/widgets and dom: draw a page on the web
   06-web-bindings.txt     engines/published/bindings: React, Vue, Svelte, Solid, Angular, Next, plain
   07-rust-engines.txt     engines/examples/rust: the native runtime, egui
   08-android.txt          engines/examples/misc/android: the native runtime in Kotlin, Compose

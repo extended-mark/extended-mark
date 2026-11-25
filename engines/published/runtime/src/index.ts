@@ -6,6 +6,7 @@ export type { Change, Child, Contract, Ends, Input, Node, Tree } from "./generat
 export type { Data } from "./generated/state.js";
 export type { Action } from "./generated/actions.js";
 export type { Told } from "./generated/told.js";
+export { channelName, channelsOf, irText, makePage, moduleOf, sameIr, stateFields, type Given, type Ir } from "./given.js";
 export type { Blocks } from "./generated/blocks.js";
 export type { Built, Job } from "./generated/build.js";
 export type * as web from "./generated/web.js";

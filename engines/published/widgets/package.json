@@ -21,6 +21,10 @@
     "./each": {
       "types": "./dist/each.d.ts",
       "default": "./dist/each.js"
+    },
+    "./doc": {
+      "types": "./dist/doc.d.ts",
+      "default": "./dist/doc.js"
     }
   },
   "files": [
@@ -34,6 +38,7 @@
     "@extended-mark/runtime": "file:../runtime"
   },
   "devDependencies": {
+    "extended-mark": "file:../../../compiler/npm/extended-mark",
     "typescript": "5.9.3"
   },
   "sideEffects": [

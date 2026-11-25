@@ -2,7 +2,9 @@
 // callback props: `@state-change="…"` is `onStateChange`.
 
 import { defineComponent, type PropType } from "vue";
-import { Doc, type DocProps, type Restored, type Snapshot, type Input } from "@extended-mark/view";
+import type { Input } from "@extended-mark/runtime";
+import type { Restored, Snapshot } from "@extended-mark/widgets";
+import { Doc, type DocProps } from "@extended-mark/widgets/doc";
 import { heldNow, heldProps, useHeld } from "./elements.js";
 
 export { toVue } from "./elements.js";

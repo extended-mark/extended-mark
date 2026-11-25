@@ -6,7 +6,9 @@
 -->
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { Doc, type DocProps, type Restored, type Snapshot, type Input, type ir } from "@extended-mark/view";
+  import type { Input, ir } from "@extended-mark/runtime";
+  import type { Restored, Snapshot } from "@extended-mark/widgets";
+  import { Doc, type DocProps } from "@extended-mark/widgets/doc";
   import XtmdNode from "./XtmdNode.svelte";
 
   let { class: className = undefined, id = undefined, ...props }: DocProps & { class?: string; id?: string } = $props();

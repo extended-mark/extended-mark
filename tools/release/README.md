@@ -66,13 +66,13 @@ engines) is published: CI builds and checks them, and no release puts them out.
   for `linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64` and `win32-x64` (what `install.sh`
   and `install.ps1` fetch); `SHA256SUMS`, the SHA-256 of each file; `xtmd-<VERSION>.wasm`; and the
   VS Code extension, `xtmd-<VERSION>.vsix`.
-- **npm**, 26 packages:
+- **npm**, 23 packages:
   - from compiler/npm: `extended-mark` (the `xtmd` command, its API and Vite plugin),
     `@extended-mark/wasm`, and the binary for each platform,
     `@extended-mark/cli-linux-x64`, `@extended-mark/cli-linux-arm64`, `@extended-mark/cli-darwin-x64`,
     `@extended-mark/cli-darwin-arm64` and `@extended-mark/cli-win32-x64`;
   - from engines/published: `@extended-mark/runtime`, `@extended-mark/widgets`, `@extended-mark/dom`, `@extended-mark/web`, and the bindings,
-    `@extended-mark/embed`, `@extended-mark/embed-live`, `@extended-mark/view`, `@extended-mark/live`,
+    `@extended-mark/live`,
     `@extended-mark/react`, `@extended-mark/react-live`, `@extended-mark/next`, `@extended-mark/vue`,
     `@extended-mark/vue-live`, `@extended-mark/svelte`, `@extended-mark/svelte-live`,
     `@extended-mark/solid`, `@extended-mark/solid-live`, `@extended-mark/angular` and

@@ -6,7 +6,7 @@ import "./style.css";
 import { Num, type Broken, type Input, type Outcome, type Page, type ir } from "@extended-mark/runtime";
 import { mount } from "@extended-mark/dom";
 import { webFns } from "@extended-mark/widgets";
-import { makePage } from "@extended-mark/view";
+import { makePage } from "@extended-mark/runtime";
 import { Editor, type Diagnostic } from "./editor.js";
 import { escapeHtml, proseLines } from "./highlight.js";
 import { clockExterns, themeNow, widthOf } from "./host.js";

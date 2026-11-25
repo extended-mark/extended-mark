@@ -1,6 +1,6 @@
 // The test host for the plain web's XtmdLiveDoc: its text compiled in the tab, with the controls the
 // shared live steps use (testing/browser.mjs, liveSteps).
-import { XtmdLiveDoc } from "@extended-mark/embed-live";
+import { XtmdLiveDoc } from "@extended-mark/live/dom";
 
 const heard = { states: [], errors: [], calls: [] };
 let props = {

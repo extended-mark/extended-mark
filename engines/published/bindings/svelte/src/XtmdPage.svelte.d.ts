@@ -1,5 +1,6 @@
 import type { Component } from "svelte";
-import type { Held, HeldProps, Restored, Snapshot, Input } from "@extended-mark/view";
+import type { Input } from "@extended-mark/runtime";
+import type { Held, HeldProps, Restored, Snapshot } from "@extended-mark/widgets";
 
 declare const XtmdPage: Component<
   HeldProps & { make: (props: HeldProps) => Held; class?: string; id?: string },

@@ -22,7 +22,7 @@ npm install @extended-mark/svelte
 
 ## Props
 
-The same in every framework (@extended-mark/view's `DocProps`):
+The same in every framework (`DocProps`, in @extended-mark/widgets/doc):
 
 | Prop | What it does |
 |---|---|

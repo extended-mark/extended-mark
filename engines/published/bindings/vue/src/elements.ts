@@ -3,7 +3,7 @@
 // hooks of widgets that draw on their element (a canvas, a plane) run as a directive.
 
 import { h, markRaw, onBeforeUnmount, shallowRef, useId, watch, withDirectives, type Directive, type DirectiveArguments, type Component as VueComponent, type PropType, type VNode as VueNode } from "vue";
-import { composing, slotsOf, type Child, type Held, type HeldProps, type VNode } from "@extended-mark/view";
+import { composing, slotsOf, type Child, type Held, type HeldProps, type VNode } from "@extended-mark/widgets";
 
 /** A widget's hook, run as a directive on its element: the latest render's hook each time. */
 const hooked: Directive<Element, VNode["hook"]> = {
@@ -22,7 +22,7 @@ const valued: Directive<HTMLInputElement, unknown> = {
   getSSRProps: (b) => ({ value: b.value }),
 };
 
-/** One of @extended-mark/view's elements as Vue's. */
+/** One of the widgets' plain elements as Vue's. */
 export function toVue(c: Child): VueNode | string {
   if (typeof c === "string") return c;
   const props: Record<string, unknown> = { ...c.attrs };

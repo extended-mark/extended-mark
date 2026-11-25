@@ -3,7 +3,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Doc, toHtml } from "@extended-mark/view";
+import { toHtml } from "@extended-mark/widgets";
+import { Doc } from "@extended-mark/widgets/doc";
 import { Live, compiler } from "../dist/index.js";
 
 const counter = (title) => `$state {\n    n: int 0..10 = 0;\n}\n@@@\n# ${title}: \\{$state.n}\n\n@press(label = "Add one", click = fn() {\n    $state.n = ($state.n + 1).clamp(0, 10);\n});\n`;

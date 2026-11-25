@@ -1,9 +1,6 @@
 WEB BINDINGS  engines/published/bindings    each a package on npm, @extended-mark/<folder>
 
-  embed/         plain web, static: src/doc.ts XtmdDoc, src/index.ts Embed
-  embed-live/    plain web, live
-  live/          what every live engine shares: `compiler`, `Live`
-  view/          what every one of these stands on (05-web-drawing.txt)
+  live/          what every live document shares: `compiler`, `Live`; src/dom.ts the plain web's
   react/  vue/  svelte/  solid/  angular/       <XtmdDoc>, static
   react-live/  vue-live/  svelte-live/  solid-live/  angular-live/    <XtmdLiveDoc>
   next/          React's, for Next.js: src/config.ts (the loader), src/server.ts

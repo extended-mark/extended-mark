@@ -1,7 +1,9 @@
-// Making a page from the host's props, with no DOM: shared by the bindings and by html.ts, which
-// a server runs.
+// What a host gives a page, as it names it: an IR however it is held, channels by the document's names, and a page made
+// from both.
 
-import { Page, type Outcome, type PageOptions, type Input, type ir } from "@extended-mark/runtime";
+import { Page, type Outcome, type PageOptions } from "./host.js";
+import type { Input } from "./generated/tree.js";
+import type * as ir from "./generated/ir.js";
 
 /** A page's IR: the file `xtmd build` writes, as `import page from "./x.xtmd"` gives it. */
 export type Ir = ir.File | ir.Module;

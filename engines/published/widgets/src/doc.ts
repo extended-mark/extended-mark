@@ -1,8 +1,15 @@
-// A document running, as a framework's renderer holds it: made from its IR, and held as any page is.
+// A document run from its IR, as a renderer holds it: a runtime's page and this widget set, put together. It is an entry
+// of its own, as nothing else here needs a runtime.
 
-import type { Page, PageOptions, ir } from "@extended-mark/runtime";
-import { Held, Tokens, dataOf, hash, layoutPlanes, measured, styleText, webFns, widgets as core, type HeldProps, type Measure, type Snapshot, type ViewWidget } from "@extended-mark/widgets";
-import { channelName, irText, makePage, sameIr, type Ir } from "./page.js";
+import { channelName, irText, makePage, sameIr, type Ir, type Page, type PageOptions } from "@extended-mark/runtime";
+import { webFns } from "./fns.js";
+import { Held, type HeldProps } from "./held.js";
+import { layoutPlanes, measured, type Measure } from "./planes.js";
+import { dataOf, hash, type Snapshot } from "./snapshot.js";
+import { css as styleText } from "./style.js";
+import { Tokens } from "./tokens.js";
+import type { ViewWidget } from "./draw.js";
+import { widgets as core } from "./widgets/index.js";
 
 /** What a host gives the document: the same in every framework. */
 export interface DocProps extends HeldProps {
@@ -12,6 +19,8 @@ export interface DocProps extends HeldProps {
   widgets?: Record<string, ViewWidget>;
   /** How the plane's spots are measured: left out, from their elements. The checks give fixed sizes. */
   measure?: (page: Page) => Measure;
+  /** A page was made: from the IR the document was given, and from each other one after it. */
+  onPage?: (page: Page) => void;
 }
 
 /** A document a framework's renderer renders. */
@@ -81,5 +90,6 @@ export class Doc extends Held<DocProps> {
     const supplied = { ...this.widgets(), ...p.components };
     const { page, outcome } = makePage(irFile, { page: p.page, externs: p.externs, fns: this.fns, supplies: (w) => Object.hasOwn(supplied, w), data: dataOf(snap, this.irHash) }, given);
     this.hold(page, new Tokens(page), outcome);
+    p.onPage?.(page);
   }
 }

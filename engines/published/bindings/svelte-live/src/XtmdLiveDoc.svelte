@@ -10,7 +10,9 @@
   import { onDestroy } from "svelte";
   import { XtmdDoc } from "@extended-mark/svelte";
   import { Live, type LiveProps } from "@extended-mark/live";
-  import type { Doc, DocProps, Restored, Snapshot, Input, ir as Ir } from "@extended-mark/view";
+  import type { Input, ir as Ir } from "@extended-mark/runtime";
+  import type { Restored, Snapshot } from "@extended-mark/widgets";
+  import type { Doc, DocProps } from "@extended-mark/widgets/doc";
 
   let { source, path = undefined, packs = undefined, wasm = undefined, compiler = undefined, ...props }: Omit<DocProps, "ir"> & LiveProps & { class?: string; id?: string } = $props();
 

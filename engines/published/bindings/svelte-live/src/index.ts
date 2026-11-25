@@ -3,4 +3,5 @@
 
 export { default as XtmdLiveDoc } from "./XtmdLiveDoc.svelte";
 export { Compiler, compiler, type Builds, type LiveProps, type PackFile, type WasmSource } from "@extended-mark/live";
-export type { DocError, DocProps, Restored, Snapshot } from "@extended-mark/view";
+export type { DocError, Restored, Snapshot } from "@extended-mark/widgets";
+export type { DocProps } from "@extended-mark/widgets/doc";

@@ -25,7 +25,7 @@ const doc = ref(null);   // doc.value.snapshot(), .restore(…), .set(…)
 
 ## Props
 
-The same in every framework (@extended-mark/view's `DocProps`):
+The same in every framework (`DocProps`, in @extended-mark/widgets/doc):
 
 | Prop | What it does |
 |---|---|

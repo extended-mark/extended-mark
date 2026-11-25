@@ -16,15 +16,12 @@
   },
   "dependencies": {
     "@extended-mark/dom": "file:../../engines/published/dom",
-    "@extended-mark/widgets": "file:../../engines/published/widgets",
-    "@extended-mark/embed": "file:../../engines/published/bindings/embed",
-    "@extended-mark/embed-live": "file:../../engines/published/bindings/embed-live",
     "@extended-mark/live": "file:../../engines/published/bindings/live",
     "@extended-mark/react": "file:../../engines/published/bindings/react",
     "@extended-mark/react-live": "file:../../engines/published/bindings/react-live",
     "@extended-mark/runtime": "file:../../engines/published/runtime",
-    "@extended-mark/view": "file:../../engines/published/bindings/view",
     "@extended-mark/wasm": "file:../../compiler/npm/wasm",
+    "@extended-mark/widgets": "file:../../engines/published/widgets",
     "monaco-editor": "0.57.0",
     "react": "19.3.1",
     "react-dom": "19.3.1"

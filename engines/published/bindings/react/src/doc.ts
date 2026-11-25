@@ -2,7 +2,9 @@
 // <XtmdDoc>: an Extended Mark page run from its IR and drawn by React itself (elements.ts).
 
 import { useState, type ComponentType, type ReactElement, type Ref } from "react";
-import { Doc, type DocProps, type Restored, type Snapshot, type Input } from "@extended-mark/view";
+import type { Input } from "@extended-mark/runtime";
+import type { Restored, Snapshot } from "@extended-mark/widgets";
+import { Doc, type DocProps } from "@extended-mark/widgets/doc";
 import { useHeld, useUid, type Around, type ReactWidgetProps } from "./elements.js";
 
 export { toReact, type ReactWidgetProps } from "./elements.js";

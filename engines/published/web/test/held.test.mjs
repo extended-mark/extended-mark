@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
-import { Doc } from "@extended-mark/view";
+import { Doc } from "@extended-mark/widgets/doc";
 import { everyNode } from "@extended-mark/runtime";
 import { toJson } from "@extended-mark/widgets";
 import { buildComponents } from "../dist/components.js";

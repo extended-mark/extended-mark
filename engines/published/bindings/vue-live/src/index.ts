@@ -7,7 +7,8 @@
 import { defineComponent, h, markRaw, onBeforeUnmount, ref, shallowRef, watch, type PropType } from "vue";
 import { XtmdDoc, docProps as all, type XtmdDocRef } from "@extended-mark/vue";
 import { Live, type Builds, type PackFile, type WasmSource } from "@extended-mark/live";
-import type { Doc, DocError } from "@extended-mark/view";
+import type { DocError } from "@extended-mark/widgets";
+import type { Doc } from "@extended-mark/widgets/doc";
 
 const { ir: _ir, ...docProps } = all;
 
@@ -59,4 +60,4 @@ export const XtmdLiveDoc = defineComponent({
 
 export { Compiler, compiler, type Builds, type LiveProps, type PackFile, type WasmSource } from "@extended-mark/live";
 export type { XtmdDocRef } from "@extended-mark/vue";
-export type { DocError, Restored, Snapshot } from "@extended-mark/view";
+export type { DocError, Restored, Snapshot } from "@extended-mark/widgets";

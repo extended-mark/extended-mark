@@ -1,6 +1,6 @@
-// The plain web's XtmdDoc taking over a page a server rendered: the element holds @extended-mark/view's HTML
-// of the same page, and XtmdDoc draws the page in its place.
-import { XtmdDoc } from "@extended-mark/embed";
+// The plain web's XtmdDoc taking over a page a server rendered: the element holds the HTML of the same page,
+// and XtmdDoc goes on from it.
+import { XtmdDoc } from "@extended-mark/dom";
 
 const root = document.getElementById("app");
 window.__server = root.innerHTML;

@@ -29,7 +29,8 @@
   "dependencies": {
     "@extended-mark/angular": "file:../angular",
     "@extended-mark/live": "file:../live",
-    "@extended-mark/view": "file:../view"
+    "@extended-mark/runtime": "file:../../runtime",
+    "@extended-mark/widgets": "file:../../widgets"
   },
   "peerDependencies": {
     "@angular/common": ">=20.0.0",

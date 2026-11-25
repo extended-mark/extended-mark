@@ -4,7 +4,8 @@
 -->
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import type { Held, HeldProps, Input, Restored, Snapshot } from "@extended-mark/view";
+  import type { Input } from "@extended-mark/runtime";
+  import type { Held, HeldProps, Restored, Snapshot } from "@extended-mark/widgets";
   import XtmdNode from "./XtmdNode.svelte";
 
   let { make, class: className = undefined, id = undefined, ...props }: HeldProps & { make: (props: HeldProps) => Held; class?: string; id?: string } = $props();

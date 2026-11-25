@@ -40,6 +40,10 @@
     "./values": {
       "types": "./dist/eval/value.d.ts",
       "default": "./dist/eval/value.js"
+    },
+    "./html": {
+      "types": "./dist/html.d.ts",
+      "default": "./dist/html.js"
     }
   },
   "files": [
