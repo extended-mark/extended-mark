@@ -1,52 +1,11 @@
-// The commands that once ran the xtmd binary, in real VS Code with none installed: Show as
-// Markdown, Check a Folder and Migrate, driven as a person would and photographed into test/out.
-// The workspace is made in a temporary folder: test/workspace's site, a page with errors beside it,
-// and a tree written for kit@1. Run it on a screen, or with Xvfb:
-//
-//   Xvfb :97 -screen 0 1600x1000x24 -nolisten tcp &  DISPLAY=:97 node test/commands.mjs
+// The commands that once ran the xtmd binary, with none installed: Show as Markdown, Check a Folder and Migrate, on a
+// page with errors and a tree written for kit@1.
 
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { downloadAndUnzipVSCode } from "@vscode/test-electron";
-import { _electron as electron } from "playwright-core";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const extension = join(here, "..");
-const out = join(here, "out");
-const user = join(tmpdir(), `xtmd-vscode-${process.pid}`);
-mkdirSync(out, { recursive: true });
-mkdirSync(join(user, "data", "User"), { recursive: true });
-writeFileSync(
-  join(user, "data", "User", "settings.json"),
-  JSON.stringify({
-    "workbench.colorTheme": "Default Dark Modern",
-    "workbench.startupEditor": "none",
-    "workbench.tips.enabled": false,
-    "workbench.enableExperiments": false,
-    "security.workspace.trust.enabled": false,
-    "telemetry.telemetryLevel": "off",
-    "update.mode": "none",
-    "extensions.ignoreRecommendations": true,
-    "editor.minimap.enabled": false,
-    "editor.fontSize": 15,
-    "window.titleBarStyle": "custom",
-    "window.menuStyle": "custom",
-    "window.dialogStyle": "custom",
-    "chat.commandCenter.enabled": false,
-    "workbench.secondarySideBar.defaultVisibility": "hidden",
-    "git.openRepositoryInParentFolders": "never",
-    "git.enabled": false,
-    "github.copilot.enable": { "*": false },
-  }),
-);
-
-// the workspace: site/ (test/workspace, and a page with two slips), old/ (written for kit@1, as the
-// CLI's tests have it)
-const workspace = mkdtempSync(join(tmpdir(), "xtmd-commands-"));
-cpSync(join(here, "workspace"), join(workspace, "site"), { recursive: true });
-writeFileSync(join(workspace, "site", "docs", "broken.xtmd"), 'import kit;\n@@@\n# Broken\n\n@taly(name = "Yes", count = 1);\n\n@press(lable = "Go");\n');
+// a page with two slips, and old/, written for kit@1 as the CLI's tests have it
+const BROKEN = 'import kit;\n@@@\n# Broken\n\n@taly(name = "Yes", count = 1);\n\n@press(lable = "Go");\n';
 const old = {
   "xtmd.toml": 'packs = ["kit"]\n\n[uses]\nkit = 1\n',
   "kit/kit.xtmdpack": "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides plot, badge, stat, state, stats;\n}\n\nrecord stat {\n    title: text;\n    value: text;\n    unit: text;\n}\n\nenum state { DONE, OVERDUE }\n\nextern widget plot(values: list<number>, tone: color = color.ACCENT) {\n    markdown { }\n}\nextern widget badge(label: text, size: size = size.M) {\n    markdown { }\n}\nextern widget stats(items: list<stat>) {\n    markdown { }\n}\n",
@@ -54,72 +13,31 @@ const old = {
   "kit/migrations/kit@2.xtmdpack": 'package kit;\n\nmigration kit@1 to kit@2 {\n    widget chart {\n        rename(to = plot);\n        rename(input = color, to = tone);\n    }\n\n    widget badge {\n        drop(input = shadow, why = "badges have no shadow");\n        set(input = size, value = size.S, when = !given(size), why = "kit@1\'s badges were small");\n    }\n\n    widget sparkline {\n        drop(why = "use plot");\n    }\n\n    record stat {\n        rename(field = label, to = title);\n        add(field = unit, value = "", why = "a stat names its unit");\n    }\n\n    enum state {\n        split(from = state.LATE, to = [state.OVERDUE, state.DONE], why = "late is now overdue, or done");\n    }\n}\n',
   "docs/report.xtmd": 'import kit;\n\n$state {\n    s: state = state.LATE;\n}\n@@@\n# Report\n\n@chart(values = [1, 2], color = color.OK);\n\n@badge(label = "Beta", shadow = true);\n\n@sparkline(values = [3]);\n\n@stats(items = [stat { label = "Deploys", value = "42" }]);\n',
 };
-for (const [f, t] of Object.entries(old)) {
-  mkdirSync(dirname(join(workspace, "old", f)), { recursive: true });
-  writeFileSync(join(workspace, "old", f), t);
-}
-
-const code = await downloadAndUnzipVSCode("stable");
-const app = await electron.launch({
-  executablePath: code,
-  args: [
-    `--extensionDevelopmentPath=${extension}`,
-    `--user-data-dir=${join(user, "data")}`,
-    `--extensions-dir=${join(user, "extensions")}`,
-    "--disable-workspace-trust",
-    "--skip-welcome",
-    "--skip-release-notes",
-    "--disable-gpu",
-    "--no-sandbox",
-    workspace,
-    join(workspace, "site", "docs", "poll.xtmd"),
-  ],
-  // no xtmd anywhere VS Code could find one
-  env: { ...process.env, PATH: "/usr/bin:/bin" },
-  timeout: 120000,
-});
-const win = await app.firstWindow();
-await app.evaluate(({ BrowserWindow }) => {
-  const w = BrowserWindow.getAllWindows()[0];
-  w.setSize(1600, 1000);
-  w.center();
-});
-const steps = [];
-const pause = (ms) => win.waitForTimeout(ms);
-async function shot(name, what) {
-  await pause(400);
-  await win.screenshot({ path: join(out, `${name}.png`) });
-  steps.push({ name, what });
-  console.log(`${name}: ${what}`);
-}
-async function palette(command) {
-  await win.keyboard.press("Control+Shift+P");
-  await win.locator(".quick-input-widget input").waitFor();
-  await win.keyboard.type(command, { delay: 15 });
-  await pause(500);
-  await win.keyboard.press("Enter");
-}
-/** A folder or file in the explorer, by its name. */
-const row = (name) => win.getByRole("treeitem", { name, exact: true }).first();
-async function fromExplorer(name, item) {
-  await row(name).click({ button: "right" });
-  const it = win.locator(".monaco-menu .action-item", { hasText: item }).first();
-  await it.waitFor();
-  await pause(400);
-  await it.hover();
-  await pause(200);
-  await it.click();
-  await pause(400);
-  if (await win.locator(".monaco-menu").count()) await win.keyboard.press("Enter");
-}
 const fail = (why) => {
   throw new Error(why);
 };
 
-try {
-  await win.locator(".monaco-workbench").waitFor({ timeout: 60000 });
-  await win.locator(".statusbar-item", { hasText: "Extended Mark" }).first().waitFor({ timeout: 60000 });
-  await pause(9000);
+export default async function ({ win, workspace, pause, shot, palette, file }) {
+  writeFileSync(join(workspace, "docs", "broken.xtmd"), BROKEN);
+  for (const [f, t] of Object.entries(old)) {
+    mkdirSync(dirname(join(workspace, "old", f)), { recursive: true });
+    writeFileSync(join(workspace, "old", f), t);
+  }
+  /** A folder or file in the explorer, by its name. */
+  const row = (name) => win.getByRole("treeitem", { name, exact: true }).first();
+  async function fromExplorer(name, item) {
+    await row(name).click({ button: "right" });
+    const it = win.locator(".monaco-menu .action-item", { hasText: item }).first();
+    await it.waitFor();
+    await pause(400);
+    await it.hover();
+    await pause(200);
+    await it.click();
+    await pause(400);
+    if (await win.locator(".monaco-menu").count()) await win.keyboard.press("Enter");
+  }
+
+  await file("poll.xtmd", "@tally");
 
   // 1. Show as Markdown: a page of its own, beside the document, nothing saved
   await palette("Extended Mark: Show as Markdown");
@@ -136,10 +54,10 @@ try {
   // 2. Check a Folder, from the explorer: every file under it, into Problems
   await palette("View: Show Explorer");
   await pause(800);
-  await fromExplorer("site", "Check a Folder");
+  await fromExplorer("docs", "Check a Folder");
   await win.locator(".notifications-toasts", { hasText: "Checked 3 files" }).first().waitFor({ timeout: 60000 });
   await win.locator(".markers-panel .monaco-list-row", { hasText: "did you mean" }).first().waitFor({ timeout: 15000 });
-  await shot("sc-2-check-folder", "Check a Folder on site/: 3 files checked by the built-in language server, broken.xtmd's two slips in Problems with did you mean");
+  await shot("sc-2-check-folder", "Check a Folder on docs/: 3 files checked by the built-in language server, broken.xtmd's two slips in Problems with did you mean");
   await win.keyboard.press("Control+Shift+M");
   await pause(500);
 
@@ -170,13 +88,4 @@ try {
   await win.locator(".view-line", { hasText: "state.LATE" }).first().waitFor({ timeout: 15000 });
   await pause(1500);
   await shot("sc-6-undone", "Ctrl+Z in report.xtmd: the whole migration undone, in every file it wrote (unsaved until saved)");
-} catch (e) {
-  await win.screenshot({ path: join(out, "sc-failed.png") });
-  console.error(`failed after ${steps.length} steps: ${e.message}`);
-  await app.close();
-  process.exit(1);
 }
-writeFileSync(join(out, "commands.json"), JSON.stringify(steps, null, 2));
-await app.close();
-rmSync(user, { recursive: true, force: true });
-rmSync(workspace, { recursive: true, force: true });

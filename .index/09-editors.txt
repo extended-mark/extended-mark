@@ -16,4 +16,4 @@ ide/vscode    the extension
   src/server/       the server in a Node process or a worker
   src/language.ts, packs.ts, log.ts
   syntaxes/         grammars
-  test/             grammar and language tests; vscode.mjs, preview.mjs, look.mjs drive real VS Code
+  test/             grammar and language tests; drive.mjs: real VS Code, one for all of test/parts

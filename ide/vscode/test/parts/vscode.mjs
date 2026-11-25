@@ -1,102 +1,10 @@
-// The extension in real VS Code, driven as a person would and photographed: VS Code (downloaded by
-// @vscode/test-electron into .vscode-test) opens test/workspace with this extension loaded, and
-// Playwright types, hovers, completes, goes to a definition, opens the outline and the preview and
-// presses a button in it. Each step is a screenshot in test/out. Run it on a screen, or under
-// xvfb-run on a box without one:
-//
-//   xvfb-run -a -s "-screen 0 1600x1000x24" node test/vscode.mjs
+// The editor: hover, completion, errors, definitions, the outline, formatting, and the preview with a button pressed.
 
-import { mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { downloadAndUnzipVSCode } from "@vscode/test-electron";
-import { _electron as electron } from "playwright-core";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const extension = join(here, "..");
-const workspace = join(here, "workspace");
-const out = join(here, "out");
-const user = join(tmpdir(), `xtmd-vscode-${process.pid}`);
-rmSync(out, { recursive: true, force: true });
-mkdirSync(out, { recursive: true });
-mkdirSync(join(user, "data", "User"), { recursive: true });
-writeFileSync(
-  join(user, "data", "User", "settings.json"),
-  JSON.stringify({
-    "workbench.colorTheme": process.env.THEME ?? "Default Dark Modern",
-    "workbench.startupEditor": "none",
-    "workbench.tips.enabled": false,
-    "workbench.enableExperiments": false,
-    "security.workspace.trust.enabled": false,
-    "telemetry.telemetryLevel": "off",
-    "update.mode": "none",
-    "extensions.ignoreRecommendations": true,
-    "editor.minimap.enabled": false,
-    "editor.fontSize": 15,
-    "editor.hover.delay": 200,
-    "window.titleBarStyle": "custom",
-    "chat.commandCenter.enabled": false,
-    "workbench.secondarySideBar.defaultVisibility": "hidden",
-    "git.openRepositoryInParentFolders": "never",
-    "git.enabled": false,
-    "github.copilot.enable": { "*": false },
-  }),
-);
-
-const code = await downloadAndUnzipVSCode("stable");
-const poll = readFileSync(join(workspace, "docs", "poll.xtmd"), "utf8");
-const app = await electron.launch({
-  executablePath: code,
-  args: [
-    `--extensionDevelopmentPath=${extension}`,
-    `--user-data-dir=${join(user, "data")}`,
-    `--extensions-dir=${join(user, "extensions")}`,
-    "--disable-workspace-trust",
-    "--skip-welcome",
-    "--skip-release-notes",
-    "--disable-gpu",
-    "--no-sandbox",
-    workspace,
-    join(workspace, "docs", "poll.xtmd"),
-  ],
-  timeout: 120000,
-});
-const win = await app.firstWindow();
-await app.evaluate(({ BrowserWindow }) => {
-  const w = BrowserWindow.getAllWindows()[0];
-  w.setSize(1600, 1000);
-  w.center();
-});
-const steps = [];
-const pause = (ms) => win.waitForTimeout(ms);
-async function shot(name, what) {
-  await pause(400);
-  await win.screenshot({ path: join(out, `${name}.png`) });
-  steps.push({ name, what });
-  console.log(`${name}: ${what}`);
-}
-async function palette(command) {
-  await win.keyboard.press("Control+Shift+P");
-  await win.locator(".quick-input-widget input").waitFor();
-  await win.keyboard.type(command, { delay: 15 });
-  await pause(500);
-  await win.keyboard.press("Enter");
-}
-/** The editor line holding `text`, as an element. */
-const line = (text) => win.locator(".view-line", { hasText: text }).first();
-/** The token on a line that is exactly `word`. */
-const word = (l, w) => line(l).locator("span[class*='mtk']", { hasText: new RegExp(`^${w}$`) }).first();
-
-try {
-  await win.locator(".monaco-workbench").waitFor({ timeout: 60000 });
-  await pause(3000);
-
+export default async function ({ win, pause, shot, palette, line, word, file, theme }) {
   // 1. the document: highlighting, and the server's errors (none)
-  await line("@tally").waitFor({ timeout: 30000 });
-  // the server compiles core once as it starts, then the document
+  await file("poll.xtmd", "@tally");
   await win.locator(".statusbar-item", { hasText: "Extended Mark" }).first().waitFor({ timeout: 30000 });
-  await pause(9000);
+  await pause(1500);
   await shot("01-document", "poll.xtmd open: code above @@@, Markdown and widget calls below, highlighted; the status bar says no errors");
 
   // 2. hover: a pack's widget, how it is declared and its doc
@@ -203,11 +111,14 @@ try {
   const preview = await webview();
   await pause(1500);
   await shot("11-preview", "The preview beside the editor: the page drawn by the vscode renderer");
-  await preview.locator("button", { hasText: "Add 1" }).first().click();
-  await preview.locator("button", { hasText: "Add 1" }).first().click();
-  await preview.locator("button", { hasText: "I have read the rules" }).first().click();
-  await pause(1000);
-  await shot("12-preview-pressed", "Pressing Add 1 twice and the checkbox: the count and the share follow, the checkbox ticks");
+  const vote = preview.locator("button", { hasText: "Vote yes" });
+  if (await vote.isEnabled()) throw new Error("a vote is open before the rules are read");
+  await preview.locator("button", { hasText: "I have read the rules" }).click();
+  await vote.click();
+  await vote.click();
+  await preview.locator("text=5 votes").waitFor({ timeout: 10000 });
+  await preview.locator("text=83%").first().waitFor({ timeout: 10000 });
+  await shot("12-preview-pressed", "The checkbox ticked and Yes voted for twice: the count, its bar and the share follow");
 
   // 10. a draft that doesn't compile: the preview keeps the last page that did, and says why
   await line("Should the team").click();
@@ -219,19 +130,8 @@ try {
   await pause(1500);
 
   // 11. the light theme: the preview follows the editor
-  const settingsFile = join(user, "data", "User", "settings.json");
-  const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
-  writeFileSync(settingsFile, JSON.stringify({ ...settings, "workbench.colorTheme": "Default Light Modern" }));
+  theme("Default Light Modern");
   await pause(4000);
   await shot("14-light", "The editor in Light Modern: the preview's components follow its theme");
-} catch (e) {
-  await win.screenshot({ path: join(out, "failed.png") });
-  console.error(`failed after ${steps.length} steps: ${e.message}`);
-  await app.close();
-  process.exit(1);
+  theme();
 }
-writeFileSync(join(out, "steps.json"), JSON.stringify(steps, null, 2));
-// leave the files as they were, unsaved changes dropped
-writeFileSync(join(workspace, "docs", "poll.xtmd"), poll);
-await app.close();
-rmSync(user, { recursive: true, force: true });

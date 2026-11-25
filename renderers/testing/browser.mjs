@@ -114,6 +114,8 @@ export async function docSteps(page, { markdown = true } = {}) {
   assert.equal(await page.evaluate(() => document.querySelectorAll("[data-xtmd-root]").length), 1, "one page drawn");
   assert.ok(await page.evaluate(() => document.querySelector('#app [data-xtmd-widget="core/press"] [data-part="press.label"]') !== null), "core's press, drawn with its parts");
   assert.ok(await page.evaluate(() => document.querySelector("#app style[data-xtmd-dom]") !== null), "the stylesheet, in the page");
+  // a flow's blocks are spaced from one another: the first has nothing above it, the stylesheet being no block
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#app [data-xtmd-root] > [data-part]")).marginTop), "0px", "no space above the first block");
 
   // a reader's click: onStateChange and onCalls hear it
   await page.click('#app [data-xtmd-widget="core/press"]');

@@ -1,105 +1,19 @@
-// The ways in to the preview, and the file icons, in real VS Code: the preview button in a document's
-// title, Ctrl+Shift+V, Extended Mark Preview among the editors a document can be reopened with, and
-// the explorer's menu. Each step is a screenshot in test/out/preview. As test/vscode.mjs:
-//
-//   xvfb-run -a -s "-screen 0 1600x1000x24" node test/preview.mjs     (THEME="Default Light Modern" for light)
+// The ways in to the preview, and the file icons: the preview button in a document's title, Ctrl+Shift+V, Extended
+// Mark Preview among the editors a document can be reopened with, and the explorer's menu.
 //
 // The file icons show in an icon theme that shows a language's own icon where it has none of its
 // own, as Seti and Material Icon Theme do (VS Code's Minimal and Modern icons don't), so the run picks
 // ICON_THEME (default Seti) as a person would. For Material Icon Theme, install it into a folder:
 // EXTENSIONS=<that folder> ICON_THEME="Material Icon Theme".
 
-import { mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { downloadAndUnzipVSCode } from "@vscode/test-electron";
-import { _electron as electron } from "playwright-core";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const extension = join(here, "..");
-const workspace = join(here, "workspace");
-const out = join(here, "out", "preview");
-const user = join(tmpdir(), `xtmd-vscode-${process.pid}`);
-rmSync(out, { recursive: true, force: true });
-mkdirSync(out, { recursive: true });
-mkdirSync(join(user, "data", "User"), { recursive: true });
-writeFileSync(
-  join(user, "data", "User", "settings.json"),
-  JSON.stringify({
-    "workbench.colorTheme": process.env.THEME ?? "Default Dark Modern",
-    "workbench.startupEditor": "none",
-    "workbench.tips.enabled": false,
-    "workbench.enableExperiments": false,
-    "security.workspace.trust.enabled": false,
-    "telemetry.telemetryLevel": "off",
-    "update.mode": "none",
-    "extensions.ignoreRecommendations": true,
-    "editor.minimap.enabled": false,
-    "editor.fontSize": 15,
-    "editor.hover.delay": 200,
-    "window.titleBarStyle": "custom",
-    "chat.commandCenter.enabled": false,
-    "workbench.secondarySideBar.defaultVisibility": "hidden",
-    "git.openRepositoryInParentFolders": "never",
-    "git.enabled": false,
-    "github.copilot.enable": { "*": false },
-  }),
-);
-
-const code = await downloadAndUnzipVSCode("stable");
-const app = await electron.launch({
-  executablePath: code,
-  args: [
-    `--extensionDevelopmentPath=${extension}`,
-    `--user-data-dir=${join(user, "data")}`,
-    `--extensions-dir=${process.env.EXTENSIONS ?? join(user, "extensions")}`,
-    "--disable-workspace-trust",
-    "--skip-welcome",
-    "--skip-release-notes",
-    "--disable-gpu",
-    "--no-sandbox",
-    workspace,
-    join(workspace, "docs", "poll.xtmd"),
-  ],
-  timeout: 120000,
-});
-const win = await app.firstWindow();
-await app.evaluate(({ BrowserWindow }) => {
-  const w = BrowserWindow.getAllWindows()[0];
-  w.setSize(1600, 1000);
-  w.center();
-});
-const steps = [];
-const pause = (ms) => win.waitForTimeout(ms);
-async function shot(name, what) {
-  await pause(400);
-  await win.screenshot({ path: join(out, `${name}.png`) });
-  steps.push({ name, what });
-  console.log(`${name}: ${what}`);
-}
-async function palette(command) {
-  await win.keyboard.press("Control+Shift+P");
-  await win.locator(".quick-input-widget input").waitFor();
-  await win.keyboard.type(command, { delay: 15 });
-  await pause(500);
-  await win.keyboard.press("Enter");
-}
-/** The editor line holding `text`, as an element. */
-const line = (text) => win.locator(".view-line", { hasText: text }).first();
-/** The token on a line that is exactly `word`. */
-const word = (l, w) => line(l).locator("span[class*='mtk']", { hasText: new RegExp(`^${w}$`) }).first();
-
 const fail = (why) => {
   throw new Error(why);
 };
-/** The editor group's tab that reads `text`. */
-const tab = (text) => win.locator(".tab", { hasText: text });
 
-try {
-  await win.locator(".monaco-workbench").waitFor({ timeout: 60000 });
-  await win.locator(".view-line", { hasText: "@tally" }).first().waitFor({ timeout: 30000 });
-  await pause(6000);
+export default async function ({ win, pause, shot, palette, line, file }) {
+  /** The editor group's tab that reads `text`. */
+  const tab = (text) => win.locator(".tab", { hasText: text });
+  await file("poll.xtmd", "@tally");
 
   // 1. the file icons: a page for a document, a box for a pack, in an icon theme that shows them
   await win.keyboard.press("Control+Shift+P");
@@ -170,6 +84,9 @@ try {
   await pause(6000);
   if (!(await win.frameLocator("iframe.webview").first().frameLocator("iframe").locator("[data-xtmd-root]").count())) fail("the preview editor drew nothing");
   await shot("p6-preview-editor", "Extended Mark Preview as the document's editor: the page, drawn in VS Code's own components");
+  // as it was: VS Code opens a document again in the editor it was last open in
+  await palette("View: Reopen Editor with Text Editor");
+  await line("@tally").waitFor({ timeout: 15000 });
   await win.keyboard.press("Control+W");
   await pause(800);
 
@@ -180,13 +97,4 @@ try {
   await item.hover();
   await shot("p7-explorer-menu", "The explorer's menu on poll.xtmd: Open Preview to the Side");
   await win.keyboard.press("Escape");
-
-  writeFileSync(join(out, "steps.json"), JSON.stringify(steps, null, 2));
-  console.log(`${steps.length} steps, all passed`);
-} catch (e) {
-  await win.screenshot({ path: join(out, "failed.png") }).catch(() => {});
-  console.error(e);
-  process.exitCode = 1;
-} finally {
-  await app.close();
 }

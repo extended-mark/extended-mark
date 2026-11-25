@@ -141,11 +141,6 @@ input:focus-visible {
   font-size: 14px;
 }
 
-.card .xtmd-root.xtmd-root > :first-child,
-.card .xtmd-root.xtmd-root > style + * {
-  margin-top: 0;
-}
-
 code {
   font: 0.88em var(--mono);
   overflow-wrap: anywhere;

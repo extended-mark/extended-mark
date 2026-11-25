@@ -72,11 +72,11 @@
   --xtmd-flow: 0.75em;
 }
 
-:is(.xtmd-root, .xtmd-quote, .xtmd-item-body, .xtmd-footnote-body, .xtmd-overlay-body) > * + * {
+:is(.xtmd-root, .xtmd-quote, .xtmd-item-body, .xtmd-footnote-body, .xtmd-overlay-body) > :where(:not(style)) + * {
   margin-block-start: var(--xtmd-flow);
 }
 
-:is(.xtmd-root, .xtmd-quote, .xtmd-item-body, .xtmd-footnote-body) > * + :is(h1, h2, h3) {
+:is(.xtmd-root, .xtmd-quote, .xtmd-item-body, .xtmd-footnote-body) > :where(:not(style)) + :is(h1, h2, h3) {
   margin-block-start: 1.25em;
 }
 

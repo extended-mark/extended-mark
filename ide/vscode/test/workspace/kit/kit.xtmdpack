@@ -6,14 +6,26 @@ pack kit@1 {
 }
 
 //@about A count with a name, and a press that adds one.
-widget tally(name: text, mut count: int 0... , by: int 1..10 = 1) {
+widget tally(name: text, mut count: int 0..., of: int 0... = 0, tone: color = color.ACCENT, closed: bool = false) {
+    let share: int 0..100 = of == 0 ? 0 : (count * 100 / of).round().clamp(0, 100);
+
     view {
-        @flex(gap = space.M, align = align.CENTER) {
-            @label(value = name, weight = weight.BOLD);
-            @label(value = "\{count}", font = font.MONO);
-            @press(label = "Add \{by}", kind = press_kind.BUTTON, click = fn() {
-                count = (count + by).clamp(0, 1000);
-            });
+        @column(gap = space.M, pad = space.L, stroke = color.LINE, radius = radius.CARD) {
+            @row(gap = space.M, align = align.CENTER, justify = justify.BETWEEN, wrap = false) {
+                @column(gap = space.XS) {
+                    @label(value = name, weight = weight.BOLD);
+                    @label(value = count == 1 ? "1 vote" : "\{count} votes", size = text_size.SMALL, tone = color.MUTED);
+                }
+                @row(gap = space.L, align = align.CENTER, wrap = false) {
+                    if (of > 0) {
+                        @label(value = "\{share}%", size = text_size.LARGE, weight = weight.BOLD);
+                    }
+                    @press(label = "Vote \{name.lower()}", disabled = closed, click = fn() {
+                        count = (count + 1).clamp(0, 1000);
+                    });
+                }
+            }
+            @meter(value = share, label = "\{name}, of all votes", tone = tone);
         }
     }
     markdown {
