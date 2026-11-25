@@ -33,8 +33,11 @@ another folder.
 
 - `docs/specs`: the language, below. Every rule in it is held to a case in `checks/`.
 - `compiler/`: `xtmd`, the compiler, in Rust, and its npm packages (`extended-mark`, with the `xtmd` command, and `@extended-mark/wasm`).
-- `engines/published`: the engines on npm, for the web, React, Vue, Svelte, Solid and Angular. Each comes in two kinds: run time, which draws an IR built ahead, and real time, which compiles in place.
-- `engines/examples`: engines that show how one is made (egui, Android's Compose, a native runtime). They are never published.
+- `runtime/`: runs a page from its IR, in TypeScript and in Rust.
+- `widgets/`: a widget set for each platform: the web, egui, Compose.
+- `renderers/`: draw a running page with a widget set: the plain web, React, Next, Vue, Svelte, Solid, Angular, egui, Compose.
+- `engines/`: turn a page into files ahead of time. The web's is here; a framework's is in its renderer's package.
+- `live/`: the compiler, a runtime and a renderer in one, for a document that is compiled where it is read.
 - `ide/`: `xtmd lsp`, the language server, and the VS Code extension.
 - `apps/playground`: the playground. `apps/example-host`: a host written from the spec alone. `brand/`: the logo and icons.
 

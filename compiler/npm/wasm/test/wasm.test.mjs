@@ -12,7 +12,7 @@ import { Compiler } from "../dist/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const casesDir = join(here, "../../../../checks/cases");
-const pagesDir = join(here, "../../../../engines/published/runtime/test/cases");
+const pagesDir = join(here, "../../../../runtime/typescript/test/cases");
 
 function walk(dir, keep, out = []) {
   for (const name of readdirSync(dir).sort()) {

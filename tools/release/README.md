@@ -59,8 +59,7 @@ packed.
 
 ## What it publishes
 
-Exactly these. Nothing in `engines/examples` (Android, egui, the native runtime, the web and test
-engines) is published: CI builds and checks them, and no release puts them out.
+Exactly these. Nothing private (Android, egui, the native runtime, the playground) is published: CI builds and checks them, and no release puts them out.
 
 - **The GitHub release** `v<VERSION>`: each platform's binary, `xtmd-<VERSION>-<platform>.tar.gz`
   for `linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64` and `win32-x64` (what `install.sh`
@@ -71,7 +70,7 @@ engines) is published: CI builds and checks them, and no release puts them out.
     `@extended-mark/wasm`, and the binary for each platform,
     `@extended-mark/cli-linux-x64`, `@extended-mark/cli-linux-arm64`, `@extended-mark/cli-darwin-x64`,
     `@extended-mark/cli-darwin-arm64` and `@extended-mark/cli-win32-x64`;
-  - from engines/published: `@extended-mark/runtime`, `@extended-mark/widgets`, `@extended-mark/dom`, `@extended-mark/web`, and the bindings,
+  - from runtime, widgets, renderers, engines and live: `@extended-mark/runtime`, `@extended-mark/widgets`, `@extended-mark/dom`, `@extended-mark/web`,
     `@extended-mark/live`,
     `@extended-mark/react`, `@extended-mark/react-live`, `@extended-mark/next`, `@extended-mark/vue`,
     `@extended-mark/vue-live`, `@extended-mark/svelte`, `@extended-mark/svelte-live`,

@@ -5,5 +5,5 @@ one is fresh until the next.
 A frame is a tree: kids, deps, parts. It holds only what it read itself.
 parts: a read of xs[2].name depends on that place alone, so another row's change is nothing to it.
 `dirty` (failed, or asked the host): never kept. `epoch` moves on an undo: everything is drawn anew.
-The memo must never show: engines/published/runtime/test/memo.test.mjs and
-engines/examples/rust/runtime/tests/memo.rs run pages with and without it.
+The memo must never show: runtime/typescript/test/memo.test.mjs and
+runtime/rust/tests/memo.rs run pages with and without it.

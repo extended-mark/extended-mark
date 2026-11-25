@@ -30,9 +30,11 @@ ENV XTMD_ZIG="/opt/zig/bin/python -m ziglang"
 COPY --from=source /src/core /src/core
 COPY --from=source /src/compiler /src/compiler
 # the other members of compiler/'s workspace, so cargo can load it
-COPY --from=source /src/engines/examples/rust /src/engines/examples/rust
-COPY --from=source /src/engines/examples/misc/android/xtmd /src/engines/examples/misc/android/xtmd
-COPY --from=source /src/engines/examples/misc/android/xtmd-live /src/engines/examples/misc/android/xtmd-live
+COPY --from=source /src/runtime /src/runtime
+COPY --from=source /src/widgets/egui /src/widgets/egui
+COPY --from=source /src/renderers/egui /src/renderers/egui
+COPY --from=source /src/live/egui /src/live/egui
+COPY --from=source /src/live/compose/rust /src/live/compose/rust
 RUN /src/compiler/wasm/build.sh /src/xtmd.wasm && test -s /src/xtmd.wasm
 
 # ---- 2. the UI: what it is bundled from built (the runtime, the widgets, the renderers, the engine, the compiler's
@@ -40,7 +42,11 @@ RUN /src/compiler/wasm/build.sh /src/xtmd.wasm && test -s /src/xtmd.wasm
 FROM node:22-bookworm-slim AS ui
 ENV npm_config_fund=false npm_config_audit=false npm_config_update_notifier=false
 WORKDIR /src
-COPY --from=source /src/engines/published ./engines/published
+COPY --from=source /src/runtime ./runtime
+COPY --from=source /src/widgets ./widgets
+COPY --from=source /src/renderers ./renderers
+COPY --from=source /src/engines ./engines
+COPY --from=source /src/live ./live
 COPY --from=source /src/compiler/npm/wasm ./compiler/npm/wasm
 COPY --from=compiler /src/xtmd.wasm ./compiler/npm/wasm/xtmd.wasm
 COPY . ./apps/playground
@@ -48,7 +54,7 @@ COPY . ./apps/playground
 # package (or links it) as it is then, so what it needs is built first. The packages' tests
 # need the xtmd binary (extended-mark), which isn't built here
 RUN set -e; \
-    for d in compiler/npm/wasm engines/published/runtime engines/published/widgets engines/published/dom engines/published/web engines/published/bindings/live engines/published/bindings/react engines/published/bindings/react-live; do \
+    for d in compiler/npm/wasm runtime/typescript widgets/web renderers/dom engines/web live/web renderers/react live/react; do \
       cd "/src/$d"; \
       npm pkg delete devDependencies.extended-mark; \
       rm -rf node_modules dist package-lock.json; \

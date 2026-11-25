@@ -1,25 +1,25 @@
-RUST ENGINES  engines/examples/rust    examples: built and tested, never published
+RUST  the native runtime, egui    built and tested, never published
 
-engines/examples/rust/runtime    xtmd-runtime: the native runtime
-  src/page.rs           Page and Rt: the page running (port of engines/published/runtime/src/page.ts)
+runtime/rust    xtmd-runtime: the native runtime
+  src/page.rs           Page and Rt: the page running (port of runtime/typescript/src/page.ts)
   src/host.rs           the host's side: tree, changes, data
   src/layout.rs         where boxes on a plane go: sizes in, places out
   src/markdown.rs       blocks from the live page; text is written by xtmd::markdown
   tests/                page, host, memo, outside; common/mod.rs compiles in process
   Evaluator and numbers are compiler/xtmd/src/eval.
 
-engines/examples/rust/planes     xtmd-planes: a page's planes measured and laid out, for egui and Android
+runtime/planes     xtmd-planes: a page's planes measured and laid out, for egui and Android
   src/lib.rs; tests/planes.rs; examples/drag_bench.rs
 
-engines/examples/rust/egui-widgets  xtmd-egui-widgets: egui's widget set, which knows no page
+widgets/egui  xtmd-egui-widgets: egui's widget set, which knows no page
   src/lib.rs            Widget, Registry, Props, Ctx; Drawing (kept across frames), Host (the page)
   src/widgets/          blocks, controls, gfx, layout, plane, notice; kit.rs is shared
   src/rich.rs, look.rs, values.rs, a11y.rs, fns.rs
   tests/alone.rs        without a page
 
-engines/examples/rust/egui       xtmd-egui: egui's renderer
+renderers/egui       xtmd-egui: egui's renderer
   src/lib.rs            XtmdPage; src/doc.rs XtmdDoc (a host's); src/measure.rs
   src/check/mod.rs      a page driven headless (egui_kittest)
   tests/                doc, widgets
 
-engines/examples/rust/egui-live  xtmd-egui-live: XtmdLiveDoc; examples/engines.rs shows both kinds
+live/egui  xtmd-egui-live: XtmdLiveDoc; examples/engines.rs shows both kinds

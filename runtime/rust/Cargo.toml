@@ -1,0 +1,21 @@
+[package]
+name = "xtmd-runtime"
+workspace = "../../compiler"
+description = "Extended Mark's native runtime: runs the IR the xtmd compiler writes, with transactions, $state, bindings, item identity, failures, layout and Markdown out. No drawing: the egui and Android engines draw its tree."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# built and checked by CI, never published
+publish = false
+
+[lib]
+name = "xtmd_runtime"
+
+[dependencies]
+xtmd = { path = "../../compiler/xtmd", version = "0.4.0", default-features = false }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+xtmd = { path = "../../compiler/xtmd", default-features = false, features = ["compiler"] }

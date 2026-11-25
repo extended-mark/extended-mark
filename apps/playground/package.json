@@ -15,13 +15,13 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@extended-mark/dom": "file:../../engines/published/dom",
-    "@extended-mark/live": "file:../../engines/published/bindings/live",
-    "@extended-mark/react": "file:../../engines/published/bindings/react",
-    "@extended-mark/react-live": "file:../../engines/published/bindings/react-live",
-    "@extended-mark/runtime": "file:../../engines/published/runtime",
+    "@extended-mark/dom": "file:../../renderers/dom",
+    "@extended-mark/live": "file:../../live/web",
+    "@extended-mark/react": "file:../../renderers/react",
+    "@extended-mark/react-live": "file:../../live/react",
+    "@extended-mark/runtime": "file:../../runtime/typescript",
     "@extended-mark/wasm": "file:../../compiler/npm/wasm",
-    "@extended-mark/widgets": "file:../../engines/published/widgets",
+    "@extended-mark/widgets": "file:../../widgets/web",
     "monaco-editor": "0.57.0",
     "react": "19.3.1",
     "react-dom": "19.3.1"

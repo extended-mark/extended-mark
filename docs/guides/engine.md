@@ -2,8 +2,8 @@
 
 An engine is Extended Mark on one platform. It takes the IR, runs it, and gives a host the page. This guide is
 the order to build one in. The contract is [page 6](../specs/06-hosts-packs-implementers.md), and evaluation is
-[page 2](../specs/02-values-and-types.md). Two are here to read: [TypeScript](../../engines/published/runtime)
-and [Rust](../../engines/examples/rust/runtime).
+[page 2](../specs/02-values-and-types.md). Two are here to read: [TypeScript](../../runtime/typescript)
+and [Rust](../../runtime/rust).
 
 Two things you may want instead of an engine:
 
@@ -40,8 +40,8 @@ Values, exact decimal numbers, statements, fns, and the natives on numbers, text
 `try`, a `match` and a loop each do what page 2 says and nothing else. Count steps, items and depth
 (page 6, Limits). Every native is in `needs.core` when a page uses it, so you can start with a few.
 
-The runtimes' own tests hold hundreds of small pages, each with what it observes: `engines/published/runtime/test/cases`
-and, the same ones in Rust, `engines/examples/rust/runtime/tests`.
+The runtimes' own tests hold hundreds of small pages, each with what it observes: `runtime/typescript/test/cases`
+and, the same ones in Rust, `runtime/rust/tests`.
 
 ## 3. Draw the tree
 
@@ -98,7 +98,7 @@ xtmd build docs --out dist --engine web --theme plain
 Every document's IR is on its standard input, all at once, and the files it makes go to its standard output
 ([build.schema.json](../../schemas/build.schema.json)). Its errors go to standard error, and a failure is its exit
 code. Everything after its name is its own arguments. It writes nothing itself: xtmd does, once it has ended well.
-In any language. Ours for the web, [@extended-mark/web](../../engines/published/web), compiles: each expression and
+In any language. Ours for the web, [@extended-mark/web](../../engines/web), compiles: each expression and
 rule becomes code, and what never changes is HTML alone. A small one runs an engine that exists:
 
 ```js

@@ -35,6 +35,12 @@ test("a path that is gone is named with its line", () => {
   assert.deepEqual(found({ ".knowledge/how/it-works.txt": "gone.rs\n" }), [".knowledge/how/it-works.txt:1: there is no gone.rs"]);
 });
 
+test("a folder named over and over is looked in once", () => {
+  // each line finds the folder again: what it stands for mustn't double with every line
+  const lines = "code/a\n" + "  src/*.rs\n".repeat(40);
+  assert.deepEqual(found({ ".index/01-code.txt": lines }), []);
+});
+
 test("a path is from a folder only in the index, and only after that folder", () => {
   assert.deepEqual(found({ ".index/01-code.txt": "  src/lib.rs\ncode/a\n" }), [".index/01-code.txt:1: there is no src/lib.rs"]);
   assert.deepEqual(found({ ".knowledge/how/it-works.txt": "code/a\nsrc/lib.rs\n" }), [".knowledge/how/it-works.txt:2: there is no src/lib.rs"]);

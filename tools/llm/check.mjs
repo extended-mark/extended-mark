@@ -74,22 +74,22 @@ export function problems(files, read) {
     if (f !== "CLAUDE.md" && !f.endsWith(".txt")) out.push(`${f}: only .txt files go here`);
     const lines = read(f).replace(/\n$/, "").split("\n");
     if (f.startsWith(".knowledge/") && lines.length > LINES) out.push(`${f}: ${lines.length} lines, over ${LINES}: a note is one subject`);
-    const bases = [dirname(f)];
+    const bases = new Set([dirname(f)]);
     lines.forEach((line, k) => {
       if (f !== "CLAUDE.md" && line.length > WIDTH) out.push(`${f}:${k + 1}: over ${WIDTH} characters`);
       for (const path of pathsIn(line)) {
         if (BUILT.test(path) || OTHER.test(path)) continue;
         let found = from("", path);
-        if (!found.length && inIndex) found = bases.flatMap((b) => from(b, path));
+        if (!found.length && inIndex) found = [...bases].flatMap((b) => from(b, path));
         // a file's name, for one somewhere under a folder named before it
         if (!found.length && inIndex && FILE.test(path)) {
           const end = new RegExp(`/${escaped(path)}$`);
-          found = files.filter((x) => end.test(x) && bases.some((b) => x.startsWith(`${b}/`)));
+          found = files.filter((x) => end.test(x) && [...bases].some((b) => x.startsWith(`${b}/`)));
         }
         if (found.length) {
           if (inIndex) for (const x of found) named.add(x);
           // a folder, or the folder a file is in, is where the paths after it may be from
-          for (const x of found) bases.push(isFile.has(x) ? dirname(x) : x);
+          for (const x of found) bases.add(isFile.has(x) ? dirname(x) : x);
           continue;
         }
         if (!inIndex && !path.includes("/") && names.has(path)) continue;

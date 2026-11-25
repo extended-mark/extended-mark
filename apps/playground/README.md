@@ -17,13 +17,8 @@ It needs Node 20 or later and `xtmd.wasm`.
 # the compiler as WebAssembly, once: Rust's wasm32-wasip1 target and zig (compiler/wasm/build.sh)
 compiler/wasm/build.sh
 
-# the packages it uses, once
-(cd engines/published/runtime && npm ci && npm run build)
-(cd engines/published/dom && npm ci && npm run build)
-(cd compiler/npm/wasm && npm install && npm run build)
-(cd engines/published/bindings/embed && npm install && npm run build)       # the Engines page's two engines
-(cd engines/published/bindings/live && npm install && npm run build)
-(cd engines/published/bindings/embed-live && npm install && npm run build)
+# the packages it uses and the playground, installed and built, each after what it needs
+node tools/release/build-ts.mjs
 
 # the playground
 cd apps/playground
@@ -35,9 +30,9 @@ npm start            # http://localhost:8080
 
 `?example=slider` in the URL opens an example directly.
 
-**`/engines`** (linked from the top bar) draws one page with the plain web's two kinds of engine side
-by side: run time, @extended-mark/embed's `XtmdDoc`, from an IR `build.mjs` builds ahead with xtmd.wasm
-(`dist/engines-counter.ir.json`); and real time, @extended-mark/embed-live's `XtmdLiveDoc`, from the text in a
+**`/engines`** (linked from the top bar) draws one page with the plain web's two kinds of document side
+by side: run time, @extended-mark/dom's `XtmdDoc`, from an IR `build.mjs` builds ahead with xtmd.wasm
+(`dist/engines-counter.ir.json`); and real time, @extended-mark/live's `XtmdLiveDoc`, from the text in a
 box, compiled in the browser as it changes. It shows `$state` under each, and a snapshot taken and
 restored. The video's take is `devbench/takes/engines.py`.
 

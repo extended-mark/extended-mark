@@ -1,16 +1,16 @@
-ANDROID  engines/examples/misc/android    examples: built and tested, never published
+ANDROID  built and tested, never published. renderers/compose is the Gradle project of them all
 
-  xtmd/          Rust crate xtmd-android: xtmd-runtime behind UniFFI
+  runtime/kotlin/       Gradle's xtmd-android-runtime: the bindings and native libraries
+    rust/        Rust crate xtmd-android: xtmd-runtime behind UniFFI
                    src/lib.rs, convert.rs (values), diff.rs (only what changed crosses), fns.rs
-                   build.sh (host | android): the library and its Kotlin bindings
-  xtmd-live/     Rust crate xtmd-android-live: the compiler behind UniFFI; build.sh
-  compose/       the Gradle project; README.md
-    xtmd-android-runtime/  the bindings and native libraries xtmd/build.sh writes
-    xtmd-android-widgets/  the widget set, which knows no page: Widgets.kt (Widget, Host, DrawNodes),
-                        widgets/ (Blocks, Controls, Gfx, Layout, Plane), Values.kt, Rich.kt, Math.kt,
-                        Theme.kt, FrameWriter.kt (a drag's writes)
+                   build.sh (host | android): the library and its Kotlin bindings, into ../native
+  widgets/compose/      xtmd-android-widgets: the widget set, which knows no page: Widgets.kt (Widget,
+                        Host, DrawNodes), widgets/ (Blocks, Controls, Gfx, Layout, Plane), Values.kt,
+                        Rich.kt, Math.kt, Theme.kt, FrameWriter.kt (a drag's writes)
+  live/compose/         xtmd-android-live: XtmdLiveDoc.kt
+    rust/        Rust crate xtmd-android-live: the compiler behind UniFFI; build.sh
+  renderers/compose/    settings.gradle.kts (where each module is); README.md
     xtmd-android/       the renderer: XtmdDoc.kt, XtmdPage.kt, Page.kt
-    xtmd-android-live/  XtmdLiveDoc.kt
     sample/             a host with two pages
     tokens.xtmdpack     core's tokens as Material 3 draws them
 

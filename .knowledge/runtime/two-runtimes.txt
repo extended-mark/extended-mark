@@ -1,5 +1,5 @@
 TWO RUNTIMES
-engines/published/runtime/src/page.ts and engines/examples/rust/runtime/src/page.rs do the same, in
+runtime/typescript/src/page.ts and runtime/rust/src/page.rs do the same, in
 the same order, with the same failures and messages. Names match, so find the other by grep.
 A change is made in both, and a test is added in both, with the same page where one can be shared
 (checks/pages). Rust borrows need a different shape here and there; behaviour never differs.

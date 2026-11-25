@@ -15,7 +15,7 @@ const chromiumPath = process.env.XTMD_CHROMIUM ?? "/usr/bin/chromium";
 const domBuilt = existsSync(join(app, "node_modules/@extended-mark/dom/dist/index.js"));
 
 const skip = !domBuilt
-  ? "@extended-mark/dom is not built: run npm run build in engines/published/dom"
+  ? "@extended-mark/dom is not built: run npm run build in renderers/dom"
   : !existsSync(chromiumPath)
     ? `no Chromium at ${chromiumPath}: set XTMD_CHROMIUM`
     : !existsSync(join(app, "node_modules/@extended-mark/wasm/xtmd.wasm"))

@@ -14,11 +14,11 @@
 #   - the GitHub release v<VERSION>, its notes the note's: each platform's binary
 #     (xtmd-<VERSION>-<os>-<cpu>.tar.gz, what install.sh and install.ps1 fetch), SHA256SUMS,
 #     xtmd.wasm (xtmd-<VERSION>.wasm) and the VS Code extension (xtmd-<VERSION>.vsix);
-#   - npm: the 24 packages of compiler/npm and engines/published (extended-mark, @extended-mark/*);
+#   - npm: the 23 packages of compiler/npm, runtime, widgets, renderers, engines and live (extended-mark, @extended-mark/*);
 #   - crates.io: the crate xtmd;
 #   - the VS Code Marketplace and Open VSX, each by its trusted publishing (VSCE_TRUSTED_PUBLISHING,
 #     OVSX_TRUSTED_PUBLISHING = true; Open VSX with an OVSX_PAT token instead until it is set up): the extension.
-# engines/examples (Android, egui, the native runtime, the web and test engines) is built and
+# What is private (Android, egui, the native runtime) is built and
 # checked by the test job, and never published. npm and crates.io are published to by
 # trusted publishing once the repository variable says it is set up (NPM_TRUSTED_PUBLISHING,
 # CRATES_TRUSTED_PUBLISHING = true), and otherwise with a token: NPM_TOKEN, with which each npm

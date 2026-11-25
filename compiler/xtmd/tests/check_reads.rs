@@ -346,7 +346,7 @@ fn telling_again_says_the_same() {
         }
     }
     walk(&repo().join("checks/cases"), &mut files);
-    walk(&repo().join("engines/published/runtime/test/cases"), &mut files);
+    walk(&repo().join("runtime/typescript/test/cases"), &mut files);
     let base = base();
     let mut n = 0;
     for f in files {

@@ -18,19 +18,19 @@ change the IR
 
 add a fn to core
   in Extended Mark: core/*.xtmdpack, core/pack.xtmdpack, docs/specs/05-standard-library.md, checks/core
-  extern: also compiler/xtmd/src/eval/natives.rs and engines/published/runtime/src/eval/natives.ts
+  extern: also compiler/xtmd/src/eval/natives.rs and runtime/typescript/src/eval/natives.ts
 
 add or change an extern widget of core
-  core/*.xtmdpack -> docs/specs/05-standard-library.md -> engines/published/widgets/src/widgets
-  -> engines/examples/rust/egui-widgets/src/widgets -> Android
-  -> ide/vscode/src/webview/widgets.ts -> engines/published/runtime/test/cases
+  core/*.xtmdpack -> docs/specs/05-standard-library.md -> widgets/web/src/widgets
+  -> widgets/egui/src/widgets -> Android
+  -> ide/vscode/src/webview/widgets.ts -> runtime/typescript/test/cases
 
 change what a page does as it runs
-  engines/published/runtime/src/page.ts AND engines/examples/rust/runtime/src/page.rs, a test in each
+  runtime/typescript/src/page.ts AND runtime/rust/src/page.rs, a test in each
 
 change the evaluator
-  compiler/xtmd/src/eval/interp.rs AND engines/published/runtime/src/eval/{ops,interp}.ts;
-  engines/published/runtime/test/differential.test.mjs compares them
+  compiler/xtmd/src/eval/interp.rs AND runtime/typescript/src/eval/{ops,interp}.ts;
+  runtime/typescript/test/differential.test.mjs compares them
 
 change inline Markdown
   core/markdown.xtmdpack AND compiler/xtmd/src/eval/md.rs;
@@ -38,12 +38,12 @@ change inline Markdown
 
 change how Markdown is written
   compiler/xtmd/src/markdown/mod.rs (text) and render.rs (starting blocks);
-  engines/published/runtime/src/write.ts (text) and markdown.ts (blocks);
-  engines/examples/rust/runtime/src/markdown.rs
+  runtime/typescript/src/write.ts (text) and markdown.ts (blocks);
+  runtime/rust/src/markdown.rs
 
 change the host's calls (tree, write, data, ...)
   docs/specs/06-hosts-packs-implementers.md -> schemas/tree.schema.json
-  -> engines/published/runtime/src/host.ts AND engines/examples/rust/runtime/src/host.rs
+  -> runtime/typescript/src/host.ts AND runtime/rust/src/host.rs
   -> docs/guides/host.md, apps/example-host
 
 add a command or flag to xtmd

@@ -5,13 +5,13 @@ from a document to one drawn by code of your own. Page 6 of the spec
 ([The host's side](../specs/06-hosts-packs-implementers.md)) is the contract, and
 [apps/example-host](../../apps/example-host) is a whole host, server and browser, written from it alone.
 
-You may not need one. The packages for [React, Vue, Svelte, Solid and Angular](../../engines/published/bindings)
-and for [the plain web](../../engines/published/dom) are hosts, and each takes **your own
+You may not need one. The packages for [React, Vue, Svelte, Solid and Angular](../../renderers)
+and for [the plain web](../../renderers/dom) are hosts, and each takes **your own
 components** as widgets (`components`, or `widgets` on the plain web). Write a host to draw everything
 yourself, or to draw somewhere these don't: a terminal, a native toolkit, a canvas, a test.
 
 Nor do you need one for pages known when a site is built: `xtmd build docs --out dist --engine web` writes them as
-HTML, CSS and scripts ([@extended-mark/web](../../engines/published/web)), with no runtime in them.
+HTML, CSS and scripts ([@extended-mark/web](../../engines/web)), with no runtime in them.
 
 ## 1. Build the page
 

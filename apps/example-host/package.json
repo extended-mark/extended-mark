@@ -10,7 +10,7 @@
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@extended-mark/runtime": "file:../../engines/published/runtime"
+    "@extended-mark/runtime": "file:../../runtime/typescript"
   },
   "devDependencies": {
     "extended-mark": "file:../../compiler/npm/extended-mark",

@@ -1,6 +1,6 @@
 WEB DRAWING
 
-engines/published/widgets    npm @extended-mark/widgets: the web's one widget set
+widgets/web    npm @extended-mark/widgets: the web's one widget set
   src/widgets/          core's widgets: blocks, controls, gfx, layout, plane, rich; index.ts by full name
   src/draw.ts           nodes as elements (children, drawn); ViewWidget, ViewContext, Drawing
   src/vnode.ts          VNode: tag, attrs, props, style, on, children, hook, component
@@ -18,7 +18,7 @@ engines/published/widgets    npm @extended-mark/widgets: the web's one widget se
   src/tex.ts, shade.ts, rich.ts, icons.ts, fns.ts, act.ts
   test/                 without a page or a browser
 
-engines/published/dom    npm @extended-mark/dom: the plain web's renderer
+renderers/dom    npm @extended-mark/dom: the plain web's renderer
   src/doc.ts            XtmdDoc: a document in an element
   src/mount.ts          a page drawn into an element; own.ts: a host's own elements
   src/api.ts            MountOptions, Mounted, OwnWidget

@@ -1,13 +1,16 @@
-WEB BINDINGS  engines/published/bindings    each a package on npm, @extended-mark/<folder>
+WEB BINDINGS  renderers/, live/    each a package on npm, @extended-mark/<folder>
 
-  live/          what every live document shares: `compiler`, `Live`; src/dom.ts the plain web's
-  react/  vue/  svelte/  solid/  angular/       <XtmdDoc>, static
-  react-live/  vue-live/  svelte-live/  solid-live/  angular-live/    <XtmdLiveDoc>
-  next/          React's, for Next.js: src/config.ts (the loader), src/server.ts
-  testing/       shared by their tests, not a package: browser.mjs (docSteps, liveSteps),
-                 showcase/ (all of them on one page)
+  renderers/react, renderers/vue, renderers/svelte, renderers/solid, renderers/angular
+                       <XtmdDoc>, a page from its IR; src/engine.ts its engine, for pages built ahead
+  renderers/next       React's, for Next.js: src/config.ts (the loader), src/server.ts
+  renderers/testing    shared by their tests, not a package: browser.mjs (docSteps, liveSteps),
+                       showcase/ (all of them on one page)
+  live/web             @extended-mark/live, what every live document shares: `compiler`, `Live`;
+                       src/dom.ts the plain web's
+  live/react, live/vue, live/svelte, live/solid, live/angular
+                       @extended-mark/<name>-live: <XtmdLiveDoc>
 
-Where the props are read: engines/published/bindings/<name>/src/doc.ts (svelte: src/XtmdDoc.svelte).
-What they mean: engines/published/widgets/src/held.ts. How elements are made: src/elements.ts beside doc.ts.
+Where the props are read: renderers/<name>/src/doc.ts (svelte: src/XtmdDoc.svelte).
+What they mean: widgets/web/src/held.ts. How elements are made: src/elements.ts beside doc.ts.
 Their engines: .index/14-web-engine.txt.
 Order they build in: tools/release/packages.mjs (by dependencies).

@@ -4,13 +4,13 @@ members = [
     "xtmd",
     "wasm",
     "schemagen",
-    "../engines/examples/rust/runtime",
-    "../engines/examples/rust/planes",
-    "../engines/examples/rust/egui-widgets",
-    "../engines/examples/rust/egui",
-    "../engines/examples/rust/egui-live",
-    "../engines/examples/misc/android/xtmd",
-    "../engines/examples/misc/android/xtmd-live",
+    "../runtime/rust",
+    "../runtime/planes",
+    "../widgets/egui",
+    "../renderers/egui",
+    "../live/egui",
+    "../runtime/kotlin/rust",
+    "../live/compose/rust",
 ]
 
 [workspace.package]

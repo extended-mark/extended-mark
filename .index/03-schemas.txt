@@ -18,6 +18,6 @@ Top of the IR: version, xtmd, module, levels, front_matter, needs, declarations,
 
 Generated, never edited (cargo run -p xtmd-schemagen, from compiler/; its list is MODULES):
   Rust         compiler/xtmd/src/formats (all but lib.rs)
-  TypeScript   engines/published/runtime/src/generated/
+  TypeScript   runtime/typescript/src/generated/
 Held by: compiler/xtmd/tests/formats_schemas.rs, compiler/xtmd/tests/check_schema.rs,
-  engines/published/runtime/test/host.test.mjs.
+  runtime/typescript/test/host.test.mjs.

@@ -5,25 +5,28 @@ root. Why things are as they are is in .knowledge/, what the language means in d
   01-compiler.txt         compiler/: the one crate xtmd (its parts), wasm, npm
   02-core.txt             core/: the standard library, a pack
   03-schemas.txt          schemas/: the JSON between modules, and the types generated from it
-  04-runtime.txt          engines/published/runtime: runs a page, in TypeScript
-  05-web-drawing.txt      engines/published/widgets and dom: draw a page on the web
-  06-web-bindings.txt     engines/published/bindings: React, Vue, Svelte, Solid, Angular, Next, plain
-  07-rust-engines.txt     engines/examples/rust: the native runtime, egui
-  08-android.txt          engines/examples/misc/android: the native runtime in Kotlin, Compose
+  04-runtime.txt          runtime/typescript: runs a page, in TypeScript
+  05-web-drawing.txt      widgets/web and dom: draw a page on the web
+  06-web-bindings.txt     renderers, live: React, Vue, Svelte, Solid, Angular, Next, plain
+  07-rust-engines.txt     the crates: the native runtime, egui
+  08-android.txt          the native runtime in Kotlin, Compose
   09-editors.txt          ide/: language server, VS Code extension
   10-apps-examples.txt    apps/, examples/, brand/, devbench/
   11-checks-tests.txt     checks/ and every test suite
   12-docs-notes.txt       docs/specs, docs/guides, notes/
   13-release-ci.txt       tools/, .github/, install scripts, VERSION
-  14-web-engine.txt       engines/published/web: pages built ahead
+  14-web-engine.txt       engines/web: pages built ahead
   20-TASKS.txt            "I want to change X": the places to touch, in order
 
 THE TREE
   compiler/               the one compiler, in Rust (xtmd/); its cargo workspace holds every crate
   core/                   core, written in Extended Mark (.xtmdpack)
   schemas/                JSON Schemas: ir, rir, tree, check; earlier IRs in schemas/ir-history
-  engines/published/      on npm: runtime, widgets, dom, web, bindings/*
-  engines/examples/       never published: rust (runtime, egui, egui-live), misc/android
+  runtime/                runs a page: typescript (npm), rust, planes, kotlin
+  widgets/                widget sets: web (npm), egui, compose
+  renderers/              draw a running page: dom and the frameworks (npm), egui, compose; testing
+  engines/                turn a page into files: web (npm); a framework's is in its renderer
+  live/                   compile where the page is read: web and the frameworks (npm), egui, compose
   ide/                    vscode (an extension); README.md, the language server for any editor
   apps/                   playground, example-host
   examples/               small hosts and packs that use what is published

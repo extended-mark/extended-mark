@@ -1,4 +1,4 @@
-A REDRAW  (engines/published/runtime/src/page.ts: redraw; the Rust port follows it line for line)
+A REDRAW  (runtime/typescript/src/page.ts: redraw; the Rust port follows it line for line)
 After every change the whole page is drawn again from `doc`, and nearly all of it is reused:
 1. each part (a widget, an extern, a loop, a branch, a place, a local) is drawn inside a Frame that
    notes what it read: outside values by key, and parts of values by place

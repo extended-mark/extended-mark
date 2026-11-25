@@ -82,7 +82,7 @@ fn write_every_case() {
     let mut cases = Vec::new();
     walk(&repo().join("checks/cases"), &mut cases);
     // the runtime's own pages too, which all compile
-    walk(&repo().join("engines/published/runtime/test/cases"), &mut cases);
+    walk(&repo().join("runtime/typescript/test/cases"), &mut cases);
     let (mut written, mut failures) = (0, Vec::new());
     for case_path in cases {
         let case = json(&case_path);

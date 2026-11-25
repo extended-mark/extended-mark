@@ -5,8 +5,8 @@ page with its static <XtmdDoc> (an IR built ahead, no compiler) and its live <Xt
 Recorded against the showcase built from the bindings themselves (they aren't part of the
 preview's image):
 
-    node engines/published/bindings/testing/showcase/build.mjs
-    PORT=8790 node engines/published/bindings/testing/showcase/serve.mjs
+    node renderers/testing/showcase/build.mjs
+    PORT=8790 node renderers/testing/showcase/serve.mjs
     devbench video record framework-targets --base http://127.0.0.1:8790
 
 Selectors are the showcase's own ids (testing/showcase/shell.js); widgets are found by their

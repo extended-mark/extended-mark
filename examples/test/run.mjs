@@ -8,7 +8,6 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repo = resolve(fileURLToPath(new URL("../..", import.meta.url)));
-const published = join(repo, "engines/published");
 
 function run(cmd, args, cwd, env = {}) {
   console.log(`\n$ (${cwd.slice(repo.length + 1) || "."}) ${cmd} ${args.join(" ")}`);
@@ -30,7 +29,7 @@ const binary = join(repo, "compiler/target/release/xtmd");
 if (!existsSync(binary)) run("cargo", ["build", "--release", "-p", "xtmd"], join(repo, "compiler"), { PATH: `${process.env.HOME}/.cargo/bin:${process.env.PATH}` });
 
 // the packages, each after what it links to
-const packages = [join(published, "runtime"), join(repo, "compiler/npm/extended-mark"), ...["widgets", "dom", "bindings/react", "bindings/next"].map((p) => join(published, p))];
+const packages = ["runtime/typescript", "compiler/npm/extended-mark", "widgets/web", "renderers/dom", "renderers/react", "renderers/next"].map((p) => join(repo, p));
 for (const dir of packages) {
   if (!existsSync(join(dir, "node_modules"))) run("npm", ["install", "--no-audit", "--no-fund"], dir);
   const dist = join(dir, "dist");

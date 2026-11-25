@@ -19,8 +19,8 @@ Who runs what
     migrate_ir_history.rs, cli_migrate_040.rs, cli_pack_migration.rs
     formats_schemas.rs  schemas, examples, generated types
     live.rs, lsp_server.rs                     order.rs            which part uses which
-  engines/published/*/test, engines/published/bindings/*/test    node --test, some in Chromium
-  engines/examples/rust/*/tests      cargo
-  engines/examples/misc/android      Gradle, testDebugUnitTest
+  runtime, widgets, renderers, engines, live    */test: node --test, some in Chromium
+                                                */tests: cargo
+  renderers/compose                             Gradle, testDebugUnitTest, every module
   ide/vscode/test     apps/*/test     tools/release/test, tools/llm/test
 How to run them: .knowledge/testing/.

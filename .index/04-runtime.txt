@@ -1,4 +1,4 @@
-RUNTIME (TypeScript)  engines/published/runtime    npm @extended-mark/runtime
+RUNTIME (TypeScript)  runtime/typescript    npm @extended-mark/runtime
 
   src/index.ts          what a host imports: Page, apply, Num, layout, writeMarkdown
   src/host.ts           Page: the host's side, values as JSON in the IR's form; the tree and changes
@@ -22,7 +22,7 @@ RUNTIME (TypeScript)  engines/published/runtime    npm @extended-mark/runtime
   src/internal.ts       insides, for its tests
   src/generated/        types from schemas/
 
-Tests  engines/published/runtime/test/
+Tests  runtime/typescript/test/
   cases.test.mjs and run-case.mjs (test/cases/*), page, host, memo, outside, machine, num, core, externs,
   differential.test.mjs (the Rust evaluator against this one)
 

@@ -33,6 +33,6 @@ cargo run -p xtmd-schemagen -- --check # only says whether they are current
 | Generated | From |
 |---|---|
 | `compiler/xtmd/src/formats/ir.rs`, `tree.rs`, `state.rs`, `actions.rs`, `told.rs`, `blocks.rs`, `build.rs`, `web.rs`, `check.rs` | the crate `xtmd`, its module `formats` |
-| `engines/published/runtime/src/generated/`, the same names | `@extended-mark/runtime` |
+| `runtime/typescript/src/generated/`, the same names | `@extended-mark/runtime` |
 
 `cargo test -p xtmd --test formats_schemas` fails when a generated file is not current, when an example or a check case doesn't fit its schema, or when the Rust types don't read and write it back unchanged.

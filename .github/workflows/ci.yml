@@ -187,19 +187,19 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ hashFiles('engines/examples/misc/android/compose/**/*.gradle.kts', 'engines/examples/misc/android/compose/gradle/**') }}
+          key: gradle-${{ hashFiles('**/*.gradle.kts', 'renderers/compose/gradle/**') }}
           restore-keys: gradle-
       - name: The compiler, which the tests build their pages with
         working-directory: compiler
         run: cargo build --release -p xtmd
       - name: The libraries for the JVM, and the Kotlin bindings
         run: |
-          engines/examples/misc/android/xtmd/build.sh host
-          engines/examples/misc/android/xtmd-live/build.sh host
+          runtime/kotlin/rust/build.sh host
+          live/compose/rust/build.sh host
       - name: Built
         # Gradle fetches its plugins from Google, Maven Central and the Gradle Plugin Portal; when one stops
         # answering it is tried again a minute later, up to three times. Kotlin that doesn't compile isn't.
-        working-directory: engines/examples/misc/android/compose
+        working-directory: renderers/compose
         run: |
           set -o pipefail
           for try in 1 2 3; do
@@ -212,13 +212,13 @@ jobs:
             sleep 60
           done
       - name: Tested
-        working-directory: engines/examples/misc/android/compose
+        working-directory: renderers/compose
         run: |
           ./gradlew --no-daemon testDebugUnitTest --continue && exit 0
           # which tests failed, and why, in the check's annotations
           python3 - <<'EOF'
           import glob, xml.etree.ElementTree as tree
-          for f in sorted(glob.glob("*/build/test-results/testDebugUnitTest/*.xml")):
+          for f in sorted(glob.glob("../../*/**/testDebugUnitTest/*.xml", recursive=True)):
               for t in tree.parse(f).getroot().iter("testcase"):
                   for bad in list(t.findall("failure")) + list(t.findall("error")):
                       why = (bad.get("message") or "no reason given").replace("\n", " ")[:400]
@@ -226,10 +226,10 @@ jobs:
           EOF
           exit 1
       - name: Not one was skipped
-        working-directory: engines/examples/misc/android/compose
+        working-directory: renderers/compose
         run: |
-          ran=$(cat */build/test-results/testDebugUnitTest/*.xml | grep -c "<testcase")
-          skipped=$(cat */build/test-results/testDebugUnitTest/*.xml | grep -c "<skipped" || true)
+          ran=$(find ../.. -path "*/build/test-results/testDebugUnitTest/*.xml" -exec cat {} + | grep -c "<testcase")
+          skipped=$(find ../.. -path "*/build/test-results/testDebugUnitTest/*.xml" -exec cat {} + | grep -c "<skipped" || true)
           echo "$ran tests, $skipped skipped"
           test "$ran" -gt 0 && test "$skipped" -eq 0
 

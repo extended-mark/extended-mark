@@ -23,9 +23,11 @@ WORKDIR /src
 COPY core ./core
 COPY compiler ./compiler
 # the other members of compiler/'s workspace, so cargo can load it
-COPY engines/examples/rust ./engines/examples/rust
-COPY engines/examples/misc/android/xtmd ./engines/examples/misc/android/xtmd
-COPY engines/examples/misc/android/xtmd-live ./engines/examples/misc/android/xtmd-live
+COPY runtime ./runtime
+COPY widgets/egui ./widgets/egui
+COPY renderers/egui ./renderers/egui
+COPY live/egui ./live/egui
+COPY live/compose/rust ./live/compose/rust
 RUN compiler/wasm/build.sh /src/xtmd.wasm && test -s /src/xtmd.wasm
 
 # ---- 2. the UI: what it is bundled from built (the runtime, the widgets, the renderers, the engine, the compiler's
@@ -33,7 +35,11 @@ RUN compiler/wasm/build.sh /src/xtmd.wasm && test -s /src/xtmd.wasm
 FROM node:22-bookworm-slim AS ui
 ENV npm_config_fund=false npm_config_audit=false npm_config_update_notifier=false
 WORKDIR /src
-COPY engines/published ./engines/published
+COPY runtime ./runtime
+COPY widgets ./widgets
+COPY renderers ./renderers
+COPY engines ./engines
+COPY live ./live
 COPY compiler/npm/wasm ./compiler/npm/wasm
 COPY --from=compiler /src/xtmd.wasm ./compiler/npm/wasm/xtmd.wasm
 COPY apps/playground ./apps/playground
@@ -41,7 +47,7 @@ COPY apps/playground ./apps/playground
 # package (or links it) as it is then, so what it needs is built first. The packages' tests
 # need the xtmd binary (extended-mark), which isn't built here
 RUN set -e; \
-    for d in compiler/npm/wasm engines/published/runtime engines/published/widgets engines/published/dom engines/published/web engines/published/bindings/live engines/published/bindings/react engines/published/bindings/react-live; do \
+    for d in compiler/npm/wasm runtime/typescript widgets/web renderers/dom engines/web live/web renderers/react live/react; do \
       cd "/src/$d"; \
       npm pkg delete devDependencies.extended-mark; \
       rm -rf node_modules dist package-lock.json; \

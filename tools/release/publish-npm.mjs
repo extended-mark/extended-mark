@@ -1,4 +1,4 @@
-// Publishes Extended Mark's npm packages (compiler/npm and engines/published), each after the ones it depends on: @extended-mark/runtime
+// Publishes Extended Mark's npm packages (packages.mjs), each after the ones it depends on: @extended-mark/runtime
 // first, the framework bindings last. A package's `file:` dependencies on its neighbours become
 // the release's version for the publish, and its package.json is put back after.
 //

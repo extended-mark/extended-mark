@@ -8,7 +8,7 @@
 # Publishing needs CARGO_REGISTRY_TOKEN in the environment; --dry-run needs nothing. A version crates.io has already is
 # left alone, so a release can be run again after a failure. The workspace's other members have `publish = false`:
 # xtmd-schemagen (a tool here), xtmd-wasm (xtmd.wasm, in @extended-mark/wasm and on the GitHub release) and the example
-# engines in engines/examples.
+# parts are never published.
 set -eu
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 crate="$repo/compiler/xtmd"

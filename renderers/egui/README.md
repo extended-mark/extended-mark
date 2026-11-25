@@ -1,0 +1,140 @@
+# xtmd-egui
+
+Extended Mark's desktop engine, run time: pages run on the native runtime ([xtmd-runtime](../../runtime/rust)) and
+drawn with egui and its widget set ([xtmd-egui-widgets](../../widgets/egui)), from an IR they are
+given. It needs no compiler.
+The live engine, which compiles a document's text in the host, is
+[xtmd-egui-live](../../live/egui).
+
+CI builds it and runs its tests, and it isn't published
+(`publish = false`); a host depends on it by path or by git.
+
+A document as a host holds one is an `XtmdDoc` (`src/doc.rs`): from the IR in hand
+(`XtmdDoc::new`, `from_json`) or where it is (`XtmdDoc::open(path)`), with `$state` the host's to
+control or to start from, every write checked by xtmd, and a snapshot of everything the page holds.
+
+```rust,no_run
+use xtmd_egui::doc::{DocOptions, XtmdDoc, State};
+
+fn host(json: &str) -> XtmdDoc {
+    XtmdDoc::from_json(json, DocOptions::default()).unwrap()
+}
+
+fn frame(doc: &mut XtmdDoc, state: &mut State, ui: &mut egui::Ui) {
+    // `state` is the host's: a change it made is written (checked), a change the page made comes back
+    let r = doc.show_controlled(ui, state);
+    for e in r.errors {
+        eprintln!("{}", e); // a write xtmd refused, a widget that failed
+    }
+}
+```
+
+| `XtmdDoc` | |
+|---|---|
+| `new(ir, options)`, `from_json(text, options)`, `open(path, options)` | A document; `DocOptions` has the page's values, the `$state` (or `snapshot`) to start from (checked: what doesn't fit is refused), the externs by channel, value fns over egui's, the registry and a measure. An IR that can't be had is `DocError::Load`. |
+| `show(ui)`, `show_controlled(ui, &mut state)` | One frame. Its `DocResponse` has the page's response, `state` if it changed, the host's extern fns called, and `errors`: `Refused` and `Failed`, as the web engines' `onError`. |
+| `set(state)`, `state()`, `expose(channel, name, args)`, `set_extern(channel, values)`, `set_page(values)`, `markdown()` | What a host does to a document; `set` is one checked write, refused whole. |
+| `snapshot()`, `restore(&snap)` | `$state` and every widget's own variables, as serde-able JSON; with the same IR all of it goes back, with another only `$state` (`RestoredHow`). |
+| `replace(ir, externs)` | A new IR for the same document, `$state` kept where its fields still exist and fit. |
+
+The page under it, `XtmdPage`:
+
+```rust,no_run
+use xtmd_egui::{runtime::Page, XtmdPage};
+
+fn host(json: &str) -> XtmdPage {
+    // once: the IR `xtmd build page.xtmd --out page.ir.json` wrote, with egui's value fns
+    XtmdPage::new(Page::from_json(json, XtmdPage::options()).unwrap())
+}
+
+fn frame(page: &mut XtmdPage, ui: &mut egui::Ui) {
+    page.show(ui); // every frame, as egui draws
+}
+```
+
+## The API
+
+| | |
+|---|---|
+| `XtmdPage::new(page)` | Draws a `Page` with our widgets, and tells it what is supplied (`set_supplies`): an extern nobody draws shows its Markdown, and is in `page().missing()`. |
+| `XtmdPage::options()` | `PageOptions` with egui's value fns: `core/moment.local` in the reader's own zone. |
+| `.widget(name, make)`, `.with_registry(r)` | A host's widget replaces ours by full name (`core/press`), or adds a pack's (`acme/chart`). |
+| `.with_measure(m)` | The plane's layout from a measure of the host's (the checks' `measure::Fixed`), not from what egui drew. |
+| `.follow_theme(bool)` | The page's `core/page.theme` follows egui's dark mode (the default), or is the host's to set. |
+| `.id(id)` | The page's egui id: two pages in one window each need one. |
+| `show(ui)` | Draws the page, then lays its planes out from what was drawn. Call it every frame. |
+| `page()`, `page_mut()` | The runtime's `Page`: `set`, `expose`, `set_extern`, `take_calls`, `markdown` … |
+| `act(path, Act)` | A reader's action, done by the widget with its own controls on its next frame (a slider moved, a field typed into); one it can't do goes through the page. |
+| `record(true)`, `take_log()` | Every event and write the reader's actions made, the layout's included. |
+| `take_errors()` | What went wrong: failed handlers, refused drawing, a layout that wouldn't settle. |
+| `run_window(title, page)` | With the `app` feature: the page in a window of its own, with eframe. |
+
+A widget implements one method, drawn every frame:
+
+```rust,ignore
+pub trait Widget {
+    fn show(&mut self, ui: &mut egui::Ui, props: &Props, ctx: &mut Ctx);
+}
+```
+
+- **`Props`** are the props the runtime worked out once per change; a frame only reads them
+  (`text`, `flag`, `num`, `exact`, `case`, `point`, `list`, `slot`).
+- **`Ctx`** is how a widget acts: `event(name, args)`; `write(input, value)`, checked, which says
+  whether it took; `listens(event)`, so only what does something is clickable; `write_type(input)`,
+  where a slider's ends come from; `slot(ui, name)` and `child(ui, d)` draw its slots' widgets, and
+  `keep(name)` keeps a hidden slot on the page; `color`, `length` and `look()` give the tokens for
+  the page's theme; `root(ui, builder, add)` is our widgets' root, named for the AccessKit tree.
+- **One instance per drawn widget**, made from the registry's maker when its key is first drawn and
+  dropped when it leaves the page, so a widget may keep state in `self` (what is being typed).
+
+## Our widgets
+
+Each is egui's own kind of control where egui has one, with its role, name and state in egui's
+AccessKit tree: a screen reader reads it, and egui's keyboard drives it (Tab, Enter and Space press
+what is focused, arrows move a slider, a handle or a plane's view). Each widget's root node has the
+author id `<short name>@<path>` (`press@s0/s0`), and each of its parts `<short name>.<part>`, as
+@extended-mark/dom's `data-xtmd-site` and `data-part` (see [its parts table](../dom/README.md#parts)).
+
+| Widget | egui | Role | Parts |
+|---|---|---|---|
+| paragraph, heading | a text layout from the rich text; links open on click | paragraph; heading with its level | |
+| bullets, item | a list, markers drawn beside each item | list (`ul`/`ol` as its class); listitem | `item.check` (checkbox, disabled), `item.body` |
+| quote, code, table, footnote, divider | a bar beside the quote; mono text that scrolls; columns; a mark and a body; a rule | blockquote; generic; table; note; separator | `code.text`; `table.grid`, `.header`, `.cell`; `footnote.mark`, `.body` |
+| **math** | **its TeX, in mono**: egui has no maths renderer | math, named by its TeX | |
+| label, image, icon | text; `egui::Image` when the host installed loaders, else a box with its alt text; a symbol from egui's fonts | generic; img; img with a label | |
+| press | a button, toggle, tab, option, switch, checkbox or radio | by kind, with its toggled or selected state | `press.label`, `press.content` |
+| field | `egui::TextEdit`, one line or several | textbox, named by its label | `field.label`, `field.input` |
+| slider | a rail and a thumb, written in exact decimals | slider with its value, ends and step | `slider.label`, `.input`, `.value` |
+| overlay | an `egui::Area` below its anchor, or centred over a backdrop (DIALOG) | button anchor; dialog or tooltip body | `overlay.anchor`, `overlay.body` |
+| flex, grid, cell, sizing | egui layouts; a grid's columns placed by hand, with spans | button when its click does something | |
+| canvas, layer, circle, path, place, handle, shade | painted shapes in the canvas's units, y up; shade on the CPU | group; button or img by their events | `canvas.surface`, `layer.shapes`, `path.line`, `.head`, `place.box`, `handle.dot`, `.hit`, `shade.pixels` |
+| plane, spot | egui's `Scene`, which pans and zooms its content | group; its view takes the keys | `plane.view` |
+
+- **The plane** draws its spots unscaled in the `Scene`, so each spot's rect there is its size in
+  the plane's units, steady while the reader pans and zooms; the layout writes a box only when it
+  changes. A layout that keeps changing the page with nothing else changing it (a spot whose key
+  moves at every redraw) is held after 8 frames, since egui lays out every frame.
+- **`shade`** samples its shader on the CPU: at most 65,536 samples, fewer for a slow shader
+  (a coarse 16×16 pass first, the rest in slices of 12 ms, within 1.5 s in all).
+- **A widget in a sentence** (`rich_text`'s VIEW part) is drawn from the slot the runtime puts it in
+  (`~0`, `~1` …): the sentence is laid out as egui's wrapped line, each run of text starting where
+  the last thing on the line ended, so the widget sits in its words and takes its events as any
+  widget of the page does. Such a line starts at the left: a paragraph's `align` doesn't move it.
+
+## Its tests
+
+`cargo test -p xtmd-egui`, in `compiler`: each page runs headless in egui_kittest's harness, acted on
+through its AccessKit tree.
+
+## The example
+
+```sh
+cargo run -p xtmd-egui --example page --features app                          # examples/demo.xtmd
+cargo run -p xtmd-egui --example page --features app -- page.ir.json          # what xtmd build wrote
+cargo run -p xtmd-egui --example page --features app -- doc.xtmd packs/maps # compiled there
+```
+
+## Features
+
+`fonts` (default): egui's own fonts, which egui 0.37 doesn't bundle by default. `check`
+(default): the headless harness and the adapters. `app`: `run_window`, with eframe.

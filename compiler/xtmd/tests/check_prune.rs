@@ -192,7 +192,7 @@ fn every_name_in_every_cases_ir_is_in_it() {
     let base = base();
     let mut files = Vec::new();
     read_all(&repo().join("checks/cases"), ".json", &mut files);
-    read_all(&repo().join("engines/published/runtime/test/cases"), ".json", &mut files);
+    read_all(&repo().join("runtime/typescript/test/cases"), ".json", &mut files);
     let mut checked = 0;
     let mut wrong = Vec::new();
     for f in files {

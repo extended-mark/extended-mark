@@ -269,11 +269,11 @@
     "package": "node build.mjs && vsce package --no-dependencies --skip-license"
   },
   "devDependencies": {
-    "@extended-mark/dom": "file:../../engines/published/dom",
-    "@extended-mark/widgets": "file:../../engines/published/widgets",
-    "@extended-mark/live": "file:../../engines/published/bindings/live",
-    "@extended-mark/live": "file:../../engines/published/bindings/live",
-    "@extended-mark/runtime": "file:../../engines/published/runtime",
+    "@extended-mark/dom": "file:../../renderers/dom",
+    "@extended-mark/widgets": "file:../../widgets/web",
+    "@extended-mark/live": "file:../../live/web",
+    "@extended-mark/live": "file:../../live/web",
+    "@extended-mark/runtime": "file:../../runtime/typescript",
     "@extended-mark/wasm": "file:../../compiler/npm/wasm",
     "@types/node": "20.19.43",
     "@types/vscode": "1.91.0",
