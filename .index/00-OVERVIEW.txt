@@ -8,7 +8,7 @@ root. Why things are as they are is in .knowledge/, what the language means in d
   04-runtime.txt          runtime/typescript: runs a page, in TypeScript
   05-web-drawing.txt      widgets/web and dom: draw a page on the web
   06-web-bindings.txt     renderers, live: React, Vue, Svelte, Solid, Angular, Next, plain
-  07-rust-engines.txt     the crates: the native runtime, egui
+  07-rust.txt             the crates: the native runtime, egui
   08-android.txt          the native runtime in Kotlin, Compose
   09-editors.txt          ide/: language server, VS Code extension
   10-apps-examples.txt    apps/, examples/, brand/, devbench/
@@ -31,7 +31,7 @@ THE TREE
   apps/                   playground, example-host
   examples/               small hosts and packs that use what is published
   checks/                 compiler cases, the rule table, CommonMark, shared pages
-  docs/                   specs (the language), guides (host, engine)
+  docs/                   specs (the language), guides (host, runtime, engine)
   notes/                  release notes, a file a version
   tools/                  release, llm (checks these notes), cli-usability
   brand/                  logo and icons

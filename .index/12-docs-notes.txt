@@ -11,7 +11,8 @@ docs/specs/                                the language; every rule has a case
   08-open-questions.md            decided, and left for later
   09-grammar.md                   grammar of files, documents, prose
 docs/guides/host.md               drawing a page from its tree
-docs/guides/engine.md             running the IR on a platform
+docs/guides/runtime.md            running the IR on a platform
+docs/guides/engine.md             building pages into files ahead of time
 
 notes/<version>.md                what a release changed; notes/README.md has the form
 README.md                         install, what is where

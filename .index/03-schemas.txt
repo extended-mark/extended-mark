@@ -1,6 +1,6 @@
 SCHEMAS  schemas/    the JSON between modules (formats); the source of the types
 
-  schemas/ir.schema.json       IR 4: a page as engines run it
+  schemas/ir.schema.json       IR 4: a page as runtimes run it
   schemas/tree.schema.json     the drawn tree (tree, node), what changed (change)
   schemas/state.schema.json    a page's data
   schemas/actions.schema.json  what is done to a page

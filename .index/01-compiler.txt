@@ -27,7 +27,7 @@ compiler/xtmd/src/syntax/     text to a lossless syntax tree, and back
   diag.rs             diagnostics, and the codes the reader reports
   span.rs             byte spans, lines and columns
 
-compiler/xtmd/src/lower/      the IR an engine runs
+compiler/xtmd/src/lower/      the IR a page runs from
   reach.rs            keeps only what the page can run
   fold.rs             constants worked out
   reads.rs            what each place reads, what each handler and fn writes

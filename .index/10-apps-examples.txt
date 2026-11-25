@@ -4,7 +4,7 @@ apps/playground      edit a page, see it drawn; compiles in the browser
   server.mjs           files and examples, reports from the browser
   src/app.ts           the page; compiler.worker.ts (xtmd.wasm), editor.ts (Monaco), language.ts,
                        failures.ts, values.ts ($state shown), highlight.ts, themes.ts, host.ts
-  src/engines.ts, engines-react.ts    the Engines page
+  pages/, src/shell.mjs, pages.css, built.ts, embedded.ts (React), live.ts    /built, /embedded, /live
   examples/            its pages; build.mjs; test/ (server, real Chromium)
 
 apps/example-host    a host written from the spec alone: draw.mjs, server.mjs, client.mjs

@@ -26,4 +26,4 @@ Tests  runtime/typescript/test/
   cases.test.mjs and run-case.mjs (test/cases/*), page, host, memo, outside, machine, num, core, externs,
   differential.test.mjs (the Rust evaluator against this one)
 
-The same in Rust: 07-rust-engines.txt.
+The same in Rust: 07-rust.txt.

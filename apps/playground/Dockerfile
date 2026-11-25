@@ -47,7 +47,7 @@ COPY apps/playground ./apps/playground
 # package (or links it) as it is then, so what it needs is built first. The packages' tests
 # need the xtmd binary (extended-mark), which isn't built here
 RUN set -e; \
-    for d in compiler/npm/wasm runtime/typescript widgets/web renderers/dom engines/web live/web renderers/react live/react; do \
+    for d in compiler/npm/wasm runtime/typescript widgets/web renderers/dom engines/web live/web renderers/react; do \
       cd "/src/$d"; \
       npm pkg delete devDependencies.extended-mark; \
       rm -rf node_modules dist package-lock.json; \
@@ -58,7 +58,7 @@ RUN set -e; \
     cd /src/compiler/npm/wasm && node -e "import('./dist/index.js').then(async ({ Compiler }) => { const b = (await Compiler.load()).build('page.xtmd', '# Hello\\n'); if (b.errors || !b.ir) throw new Error(JSON.stringify(b.diagnostics)); })"; \
     cd /src/apps/playground && rm -rf node_modules dist && npm ci && npm run build \
  && test -s dist/app.js && test -s dist/app.css && test -s dist/editor.worker.js && test -s dist/compiler.worker.js && test -s dist/xtmd.wasm \
- && test -s dist/engines.js && test -s dist/engines-counter.ir.json && ls dist/codicon-*.ttf
+ && test -s dist/built.html && test -s dist/embedded.html && test -s dist/live.html && test -s dist/basket.ir.json && ls dist/codicon-*.ttf
 
 # ---- 3. what runs
 
@@ -68,7 +68,7 @@ ENV NODE_ENV=production \
 WORKDIR /app
 # the packs a page may import (server.mjs: PACKS), where they are in the repo
 COPY examples/graphs ./examples/graphs
-COPY --from=ui /src/apps/playground/server.mjs /src/apps/playground/index.html /src/apps/playground/engines.html /src/apps/playground/package.json ./apps/playground/
+COPY --from=ui /src/apps/playground/server.mjs /src/apps/playground/index.html /src/apps/playground/package.json ./apps/playground/
 COPY --from=ui /src/apps/playground/examples ./apps/playground/examples
 COPY --from=ui /src/apps/playground/dist ./apps/playground/dist
 USER node

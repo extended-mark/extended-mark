@@ -242,6 +242,12 @@ select:hover {
   font-size: 13px;
 }
 
+.topbar-links {
+  display: flex;
+  flex: none;
+  gap: 10px;
+}
+
 .topbar-link {
   flex: none;
   color: var(--accent);

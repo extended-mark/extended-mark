@@ -8,7 +8,7 @@ checks/spec-markdown/         what the spec's documents write as Markdown, by ha
 checks/commonmark/            CommonMark's and GitHub's examples; xtmd-readings.json (ours)
 checks/core/                  core's own tests, in Extended Mark
 checks/pages/                 pages both runtimes are held to: outside (values from outside), parts
-checks/packs/badge/           a pack whose externs each engine supplies
+checks/packs/badge/           a pack whose externs each platform supplies
 
 Who runs what
   compiler/xtmd/tests, each file named by the part it tests (<part>_<name>.rs):

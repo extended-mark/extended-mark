@@ -12,7 +12,7 @@ compiler/xtmd/src/lsp       the language server, with no input or output of its 
 ide/vscode    the extension
   src/common.ts, node.ts, web.ts    both kinds of host
   src/commands.ts   show IR, show Markdown, check a folder, migrate
-  src/preview.ts    the preview; src/webview/ is the vscode engine (main.ts, widgets.ts, codicons.ts)
+  src/preview.ts    the preview; src/webview/ is the vscode renderer (main.ts, widgets.ts, codicons.ts)
   src/server/       the server in a Node process or a worker
   src/language.ts, packs.ts, log.ts
   syntaxes/         grammars

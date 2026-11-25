@@ -427,59 +427,120 @@ describe("the playground in Chromium", { skip }, () => {
     }
   });
 
-  test("the Engines page: one page from an IR built ahead, and the same compiled as it is typed, on the plain web and in React", async () => {
-    const t = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  /** A tab of its own on one of the three pages; what goes wrong in it fails the test. */
+  async function opened(path, fn, options = {}) {
+    const t = await browser.newPage({ viewport: { width: 1280, height: 900 }, ...options });
     const errors = [];
     t.on("pageerror", (e) => errors.push(String(e)));
     try {
-      await t.goto(`${server.url}/engines`);
-      const run = t.getByTestId("run-page");
-      const live = t.getByTestId("live-page");
-      // run time: the page from its IR, a press, and a snapshot that brings it back
-      await run.getByRole("button", { name: "Add 1" }).click();
-      await run.getByRole("button", { name: "Add 1" }).click();
-      await t.waitForFunction(() => document.getElementById("run-state").textContent === "count = 2");
-      await t.getByTestId("snapshot").click();
-      await run.getByRole("button", { name: "Add 1" }).click();
-      await t.waitForFunction(() => document.getElementById("run-state").textContent === "count = 3");
-      await t.getByTestId("restore").click();
-      await t.waitForFunction(() => document.getElementById("run-state").textContent === "count = 2");
-      // real time: compiled in the tab, and an edit drawn
-      await t.waitForFunction(() => document.getElementById("live-status").dataset.state === "ok");
-      await live.getByRole("button", { name: "Add 1" }).click();
-      const box = t.getByTestId("live-source");
-      await box.fill((await box.inputValue()).replace("@counter;", "@counter(by = 5);"));
-      await live.getByRole("button", { name: "Add 5" }).waitFor();
-      // `$state` kept through the edit
-      await t.waitForFunction(() => document.getElementById("live-state").textContent === "count = 1");
-      // a broken draft: the last page stays, and why is said
-      await box.fill((await box.inputValue()).replace("@counter(by = 5);", "@counter(by = );"));
-      await t.waitForFunction(() => document.getElementById("live-status").dataset.state === "errors");
-      assert.match(await t.getByTestId("live-status").textContent(), /^Doesn't compile \(\d+ errors?\): page\.xtmd:\d+:\d+: /);
-      assert.ok(await live.getByRole("button", { name: "Add 5" }).isVisible(), "the last page that compiled stays");
-
-      // React: <XtmdDoc>, its $state in React's own state, and a snapshot that brings it back
-      const rrun = t.getByTestId("react-run-page");
-      await rrun.getByRole("button", { name: "Add 1" }).click();
-      await t.waitForFunction(() => document.getElementById("react-run-state").textContent === "count = 1");
-      await t.getByTestId("react-snapshot").click();
-      await rrun.getByRole("button", { name: "Add 1" }).click();
-      await t.waitForFunction(() => document.getElementById("react-run-state").textContent === "count = 2");
-      await t.getByTestId("react-restore").click();
-      await t.waitForFunction(() => document.getElementById("react-run-state").textContent === "count = 1");
-      // React: <XtmdLiveDoc>, compiled in the tab, an edit drawn, a broken draft kept back
-      const rlive = t.getByTestId("react-live-page");
-      await t.waitForFunction(() => document.querySelector("[data-testid=react-live-status]").dataset.state === "ok");
-      const rbox = t.getByTestId("react-live-source");
-      await rbox.fill((await rbox.inputValue()).replace("@counter;", "@counter(by = 5);"));
-      await rlive.getByRole("button", { name: "Add 5" }).waitFor();
-      await rbox.fill((await rbox.inputValue()).replace("@counter(by = 5);", "@counter(by = );"));
-      await t.waitForFunction(() => document.querySelector("[data-testid=react-live-status]").dataset.state === "errors");
-      assert.match(await t.getByTestId("react-live-status").textContent(), /^Doesn't compile \(\d+ errors?\): page\.xtmd:\d+:\d+: /);
-      assert.ok(await rlive.getByRole("button", { name: "Add 5" }).isVisible(), "React keeps the last page that compiled");
+      await t.goto(`${server.url}${path}`);
+      await fn(t);
       assert.deepEqual(errors, []);
     } finally {
       await t.close();
+    }
+  }
+
+  test("/built: whole with no script, taken over by its own, with the reader's theme", async () => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const still = await context.newPage();
+    await still.goto(`${server.url}/built`);
+    assert.match(await still.locator("main").innerText(), /31 g[\s\S]*0:45\s+First pour, 175 ml/);
+    await context.close();
+
+    const asked = [];
+    await opened("/built", async (t) => {
+      t.on("request", (r) => asked.push(new URL(r.url()).pathname));
+      await t.reload();
+      const main = t.locator("main");
+      await main.getByLabel("Cups").fill("4");
+      await main.getByText("62 g", { exact: true }).or(main.getByText("63 g", { exact: true })).waitFor();
+      await main.getByLabel("Time, in seconds").fill("100");
+      await main.getByText("800 of 1000 ml poured").waitFor();
+      // the page is told the reader's theme, and a change of it
+      assert.equal(await main.getAttribute("data-xtmd-theme"), "light");
+      await t.emulateMedia({ colorScheme: "dark" });
+      await t.waitForFunction(() => document.querySelector("main").dataset.xtmdTheme === "dark");
+      // what is said of it: no compiler, no runtime, no IR was fetched
+      assert.match(await t.getByTestId("facts").innerText(), /Script, zipped\s+\d+\.\d kB/);
+      assert.ok(!asked.some((p) => /wasm|ir\.json|app\.js/.test(p)), asked.join(" "));
+    });
+  });
+
+  test("/embedded: the app holds its state, gives it values, hears what it calls, and says what was refused", async () => {
+    await opened("/embedded", async (t) => {
+      const main = t.locator("[data-xtmd-root]");
+      const holds = t.getByTestId("holds");
+      await main.getByText("18 €, 2 in the basket").waitFor();
+      await main.getByRole("button", { name: "More Forest honey" }).click();
+      await main.getByText("36 €, 3 in the basket").waitFor();
+      assert.match(await holds.innerText(), /1 × Forest honey/);
+      // past the budget: the write is refused, and the app says by which rule
+      await main.getByRole("button", { name: "More Forest honey" }).click();
+      await main.getByRole("button", { name: "More Forest honey" }).click();
+      await t.getByTestId("refused").waitFor();
+      assert.match(await t.getByTestId("refused").innerText(), /the basket stays within the budget/);
+      await main.getByText("54 €, 4 in the basket").waitFor();
+      // kept, changed, and brought back
+      await t.getByTestId("keep").click();
+      await main.getByRole("button", { name: "Fewer Green tea" }).click();
+      await main.getByText("42 €, 3 in the basket").waitFor();
+      await t.getByTestId("back").click();
+      await main.getByText("54 €, 4 in the basket").waitFor();
+      // heard, in the currency it was given
+      await t.getByTestId("currency").selectOption("$");
+      await main.getByText("54 $, 4 in the basket").waitFor();
+      await main.getByRole("button", { name: "Order" }).click();
+      assert.match(await t.getByTestId("orders").innerText(), /Order 1, 4 in it\s*54 \$/);
+      await t.getByTestId("open").uncheck();
+      assert.ok(await main.getByRole("button", { name: "The shop is closed" }).isDisabled());
+    });
+  });
+
+  test("/embedded: an IR that can't be had is said, and reported", async () => {
+    const t = await browser.newPage();
+    try {
+      await t.route("**/basket.ir.json", (r) => r.fulfill({ status: 404, body: "gone" }));
+      const reported = t.waitForRequest((r) => r.url().endsWith("/api/report") && r.method() === "POST");
+      await t.goto(`${server.url}/embedded`);
+      assert.equal(JSON.parse((await reported).postData()).kind, "embedded-load");
+      assert.match(await t.getByTestId("app").innerText(), /couldn't be loaded: 404/);
+    } finally {
+      await t.close();
+    }
+  });
+
+  test("/live: compiled as it is typed, its $state kept, and a broken draft kept back", async () => {
+    await opened("/live", async (t) => {
+      const ok = () => t.waitForFunction(() => document.getElementById("status").dataset.state === "ok");
+      const page = t.getByTestId("page");
+      const box = t.getByTestId("source");
+      await ok();
+      await page.getByText("The area is 16 squares.").or(page.getByText("The area is 17 squares.")).waitFor();
+      await t.locator("#picker").selectOption("counter");
+      await page.getByRole("button", { name: "Add 1" }).click();
+      await page.getByText("1", { exact: true }).waitFor();
+      await box.fill((await box.inputValue()).replace("@counter;", "@counter(by = 5);"));
+      await page.getByRole("button", { name: "Add 5" }).click();
+      await page.getByText("6", { exact: true }).waitFor();
+      await box.fill((await box.inputValue()).replace("@counter(by = 5);", "@counter(by = );"));
+      await t.waitForFunction(() => document.getElementById("status").dataset.state === "errors");
+      assert.match(await t.getByTestId("status").textContent(), /^Doesn't compile \(\d+ errors?\): page\.xtmd:\d+:\d+: /);
+      assert.ok(await page.getByRole("button", { name: "Add 5" }).isVisible(), "the last page that compiled stays");
+    });
+  });
+
+  test("the three pages fit a phone, and link to one another", async () => {
+    for (const path of ["/built", "/embedded", "/live"]) {
+      await opened(
+        path,
+        async (t) => {
+          await t.waitForSelector("[data-xtmd-root] [data-part]");
+          assert.ok(await t.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${path} is wider than a phone`);
+          assert.equal(await t.locator(".bar a[aria-current]").getAttribute("href"), path);
+        },
+        { viewport: { width: 390, height: 844 } },
+      );
     }
   });
 
