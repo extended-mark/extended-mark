@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import java.math.BigDecimal
 import java.util.TimeZone
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import xtmd.android.ffi.DataInit
 import xtmd.android.ffi.AppFns
@@ -214,8 +215,9 @@ class CompiledPage(val native: NativePage, supplies: Collection<String>?, theme:
     /**
      * A change made off the main thread: the runtime's work (the write, its redraw) runs on a
      * background thread while the main one keeps drawing frames, and the tree is read back on the
-     * main thread when it is done. Call it from the main thread. The page is behind a lock, so a
-     * call from the main thread meanwhile waits for it; a drag keeps at most one in flight.
+     * main thread when it is done, whatever the caller's dispatcher. Call it from the main thread.
+     * The page is behind a lock, so a call from the main thread meanwhile waits for it; a drag keeps
+     * at most one in flight.
      */
     suspend fun <T> changeAway(block: (NativePage) -> T): T {
         XtmdWork.running.incrementAndGet()
@@ -223,9 +225,12 @@ class CompiledPage(val native: NativePage, supplies: Collection<String>?, theme:
         try {
             return withContext(Dispatchers.Default) { block(native) }
         } finally {
-            stats.changeNanos += System.nanoTime() - started
-            stats.changes++
-            refresh()
+            // a write made is read back even when its widget is gone by now
+            withContext(NonCancellable + Dispatchers.Main.immediate) {
+                stats.changeNanos += System.nanoTime() - started
+                stats.changes++
+                refresh()
+            }
             XtmdWork.running.decrementAndGet()
         }
     }

@@ -24,6 +24,9 @@ import xtmd.android.check.waitsForXtmd
 import androidx.compose.ui.geometry.Offset
 import xtmd.android.ffi.Val
 import org.json.JSONObject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -64,6 +67,25 @@ open class XtmdPageTest {
     private fun blocks(tree: JSONObject): Set<String> {
         val inSentence = setOf("words", "bold", "italic", "strike", "link", "code_span", "inline_math", "inline_image", "note_mark", "line_break").map { "core/$it" }
         return tree.keys().asSequence().filter { tree.getJSONObject(it).getString("widget") !in inSentence }.toSet()
+    }
+
+    /** A coroutine goes on where its work ended when its dispatcher doesn't say where, as a Compose test's doesn't. */
+    @Test
+    fun aChangeMadeAwayIsReadBackOnTheMainThread() {
+        val page = CompiledPage.fromJson(tour, PageOptions(zone = UtcZone))
+        val main = Thread.currentThread()
+        var after: Thread? = null
+        CoroutineScope(Dispatchers.Unconfined).launch {
+            page.changeAway { Thread.sleep(50) }
+            after = Thread.currentThread()
+        }
+        val until = System.nanoTime() + 60_000_000_000L
+        while (after == null || !XtmdWork.idle) {
+            check(System.nanoTime() < until) { "the change never came back" }
+            Thread.sleep(2)
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        }
+        assertEquals(main, after)
     }
 
     @Test
