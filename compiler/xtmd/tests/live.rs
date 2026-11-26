@@ -78,7 +78,7 @@ fn the_resolved_ir_comes_when_asked_and_only_then() {
     assert!(!c.build("page.xtmd", COUNTER, &[]).to_json().contains("\"rir\""));
     let b = c.build_with("page.xtmd", COUNTER, &[], BuildOptions { rir: true, core: false });
     let rir = b.rir.expect("a resolved IR");
-    assert_eq!(rir["rir"], 1);
+    assert_eq!(rir["rir"], xtmd::check::RIR_VERSION);
     let files = rir["files"].as_array().unwrap();
     assert_eq!(files.len(), 1);
     assert_eq!(files[0]["path"], "page.xtmd");
@@ -109,7 +109,7 @@ fn cores_files_come_first_and_resolved_when_asked() {
     let controls = files.iter().find(|f| f["path"] == "core/controls.xtmdpack").expect("core's controls");
     let press = controls["declarations"].as_array().unwrap().iter().find(|d| d["extern_widget"]["id"] == "core/press").expect("press");
     assert_eq!(press["extern_widget"]["inputs"][0]["id"], "core/press.label");
-    assert!(press["extern_widget"]["doc"]["about"].as_str().unwrap().starts_with("Something to press"));
+    assert!(press["extern_widget"]["comments"]["doc"]["about"].as_str().unwrap().starts_with("Something to press"));
     // core's own expressions are typed: what a name resolves to is kept for core too
     let list = files.iter().find(|f| f["path"] == "core/list.xtmdpack").unwrap().to_string();
     assert!(list.matches("\"type\":").count() > 50);

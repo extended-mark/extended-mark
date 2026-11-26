@@ -3,7 +3,8 @@
 //! Inside a line, spacing is always the canonical one. Across lines, the printer keeps what the
 //! author chose where the spec leaves a choice: a list written over several lines stays over
 //! several lines, a lambda or a case body written on one line stays on one, blank lines stay
-//! (one at most), and a comment at the end of a line keeps its distance from the code. Prose is
+//! (one at most). A comment at the end of a line is one space after the code, never lined up with
+//! another. Prose is
 //! printed as written, with its holes printed as code, except that each block's lines are indented
 //! four spaces past its opening line, and its closing `}` sits under that line's `@`.
 
@@ -11,21 +12,21 @@ use crate::syntax::ast::*;
 use crate::syntax::lexer::Comment;
 
 pub fn print(src: &str, file: &File) -> String {
-    let mut p = Printer { src, out: String::new(), indent: 0 };
+    let mut p = Printer { src, out: String::new(), indent: 0, pending: Vec::new(), free: Vec::new() };
     p.file(file);
     p.out
 }
 
 /// An expression in the canonical layout, as a migration writes one into a use.
 pub fn print_expr(e: &Expr) -> String {
-    let mut p = Printer { src: "", out: String::new(), indent: 0 };
+    let mut p = Printer { src: "", out: String::new(), indent: 0, pending: Vec::new(), free: Vec::new() };
     p.expr(e);
     p.out
 }
 
 /// A block's statements in the canonical layout, at `indent` spaces.
 pub fn print_block(b: &Block, indent: usize) -> String {
-    let mut p = Printer { src: "", out: String::new(), indent };
+    let mut p = Printer { src: "", out: String::new(), indent, pending: Vec::new(), free: Vec::new() };
     p.block(b);
     p.out
 }
@@ -34,6 +35,11 @@ struct Printer<'a> {
     src: &'a str,
     out: String,
     indent: usize,
+    /// Comments after a closing bracket, written where its line ends.
+    pending: Vec<Comment>,
+    /// The free comments of the nodes being printed, innermost last, each written before the
+    /// first expression after it.
+    free: Vec<Vec<Comment>>,
 }
 
 const STEP: usize = 4;
@@ -43,7 +49,42 @@ impl<'a> Printer<'a> {
         self.out.push_str(s);
     }
 
+    /// Prints a node's item with its free comments: those left after its last expression end
+    /// its line.
+    fn node_item<T>(&mut self, n: &Node<T>, item: &mut impl FnMut(&mut Self, &T)) {
+        self.free.push(n.free.clone());
+        item(self, &n.item);
+        let left = self.free.pop().unwrap_or_default();
+        self.pending.extend(left);
+    }
+
+    /// The free comments written before `at`: each ends the line it is on, and the expression goes
+    /// on the next, one step in.
+    fn free_before(&mut self, at: u32) {
+        let Some(top) = self.free.last_mut() else { return };
+        let k = top.iter().take_while(|c| c.span.start < at).count();
+        if k == 0 {
+            return;
+        }
+        let these: Vec<Comment> = top.drain(..k).collect();
+        while self.out.ends_with(' ') {
+            self.out.pop();
+        }
+        for c in these {
+            self.w(" ");
+            self.w(&c.text);
+            self.nl();
+            for _ in 0..self.indent + STEP {
+                self.out.push(' ');
+            }
+        }
+    }
+
     fn nl(&mut self) {
+        for c in std::mem::take(&mut self.pending) {
+            self.out.push(' ');
+            self.out.push_str(&c.text);
+        }
         self.out.push('\n');
     }
 
@@ -51,11 +92,6 @@ impl<'a> Printer<'a> {
         for _ in 0..self.indent {
             self.out.push(' ');
         }
-    }
-
-    fn column(&self) -> usize {
-        let start = self.out.rfind('\n').map(|k| k + 1).unwrap_or(0);
-        self.out[start..].chars().count()
     }
 
     fn at_block_start(&self) -> bool {
@@ -85,21 +121,12 @@ impl<'a> Printer<'a> {
     }
 
     fn trailing(&mut self, trailing: &[Comment]) {
-        let mut col = None;
-        for c in trailing {
-            match col {
-                None => {
-                    for _ in 0..c.gap.max(1) {
-                        self.out.push(' ');
-                    }
-                    col = Some(self.column());
-                }
-                Some(k) => {
-                    self.nl();
-                    for _ in 0..k {
-                        self.out.push(' ');
-                    }
-                }
+        for (k, c) in trailing.iter().enumerate() {
+            if k == 0 {
+                self.w(" ");
+            } else {
+                self.nl();
+                self.ind();
             }
             self.w(&c.text);
         }
@@ -110,7 +137,7 @@ impl<'a> Printer<'a> {
         for n in items {
             self.leading(&n.leading);
             self.ind();
-            item(self, &n.item);
+            self.node_item(n, &mut item);
             self.trailing(&n.trailing);
             self.nl();
         }
@@ -118,6 +145,11 @@ impl<'a> Printer<'a> {
     }
 
     fn body<T>(&mut self, b: &Body<T>, item: impl FnMut(&mut Self, &T)) {
+        self.body_brackets(b, item);
+        self.pending.extend(b.close.iter().cloned());
+    }
+
+    fn body_brackets<T>(&mut self, b: &Body<T>, item: impl FnMut(&mut Self, &T)) {
         if b.items.is_empty() && b.open.is_empty() && !has_comment(&b.dangling) {
             self.w("{ }");
             return;
@@ -133,10 +165,15 @@ impl<'a> Printer<'a> {
     }
 
     /// A comma-separated list in brackets. `spaced` puts a space inside braces: `{ a = 1 }`.
-    fn group<T>(&mut self, g: &Group<T>, open: &str, close: &str, spaced: bool, mut item: impl FnMut(&mut Self, &T)) {
+    fn group<T>(&mut self, g: &Group<T>, open: &str, close: &str, spaced: bool, item: impl FnMut(&mut Self, &T)) {
+        self.group_brackets(g, open, close, spaced, item);
+        self.pending.extend(g.close.iter().cloned());
+    }
+
+    fn group_brackets<T>(&mut self, g: &Group<T>, open: &str, close: &str, spaced: bool, mut item: impl FnMut(&mut Self, &T)) {
         let commented = !g.open.is_empty()
             || has_comment(&g.dangling)
-            || g.items.iter().any(|n| !n.trailing.is_empty() || has_comment(&n.leading));
+            || g.items.iter().any(|n| !n.trailing.is_empty() || !n.free.is_empty() || has_comment(&n.leading));
         if !g.multiline && !commented {
             self.w(open);
             if g.items.is_empty() {
@@ -151,7 +188,7 @@ impl<'a> Printer<'a> {
                     if k > 0 {
                         self.w(", ");
                     }
-                    item(self, &n.item);
+                    self.node_item(n, &mut item);
                 }
                 if spaced {
                     self.w(" ");
@@ -175,14 +212,18 @@ impl<'a> Printer<'a> {
             } else {
                 self.w(" ");
             }
-            item(self, &n.item);
+            self.node_item(n, &mut item);
             self.w(",");
             self.trailing(&n.trailing);
             after_comment = !n.trailing.is_empty();
         }
         if has_comment(&g.dangling) {
             self.nl();
-            let d: Vec<Leading> = g.dangling.iter().filter(|l| matches!(l, Leading::Comment(_))).cloned().collect();
+            // blank lines before and between them stay; one before the bracket doesn't
+            let mut d = g.dangling.clone();
+            while d.last() == Some(&Leading::Blank) {
+                d.pop();
+            }
             self.leading_in_group(&d);
             self.out.pop();
         }
@@ -233,6 +274,7 @@ impl<'a> Printer<'a> {
             }
             self.w(";");
             self.trailing(&pkg.trailing);
+            self.pending.extend(pkg.free.iter().cloned());
             self.nl();
         }
         self.lines(&f.items, &f.dangling, |p, item| p.item(item));
@@ -783,7 +825,12 @@ impl<'a> Printer<'a> {
     // ---- statements
 
     fn block(&mut self, b: &Block) {
-        let quiet = b.open.is_empty() && !has_comment(&b.dangling) && b.stmts.iter().all(|n| n.trailing.is_empty() && !has_comment(&n.leading));
+        self.block_brackets(b);
+        self.pending.extend(b.close.iter().cloned());
+    }
+
+    fn block_brackets(&mut self, b: &Block) {
+        let quiet = b.open.is_empty() && !has_comment(&b.dangling) && b.stmts.iter().all(|n| n.trailing.is_empty() && n.free.is_empty() && !has_comment(&n.leading));
         if b.stmts.is_empty() && quiet {
             self.w("{ }");
             return;
@@ -810,6 +857,15 @@ impl<'a> Printer<'a> {
         self.w("}");
     }
 
+    fn else_start(&mut self, own_line: bool) {
+        if own_line {
+            self.nl();
+            self.ind();
+        } else {
+            self.w(" ");
+        }
+    }
+
     fn stmt(&mut self, s: &Stmt) {
         match s {
             Stmt::Let(v) => self.var("let", v),
@@ -829,14 +885,23 @@ impl<'a> Printer<'a> {
                 self.w(";");
             }
             Stmt::If(i) => {
+                // a comment after a block's `}` ends its line, so `else` starts the next
+                let mut after_comment = false;
                 for (k, (c, b)) in i.branches.iter().enumerate() {
-                    self.w(if k == 0 { "if (" } else { " else if (" });
+                    if k > 0 {
+                        self.else_start(after_comment);
+                        self.w("else if (");
+                    } else {
+                        self.w("if (");
+                    }
                     self.cond(c);
                     self.w(") ");
                     self.block(b);
+                    after_comment = !b.close.is_empty();
                 }
                 if let Some(b) = &i.otherwise {
-                    self.w(" else ");
+                    self.else_start(after_comment);
+                    self.w("else ");
                     self.block(b);
                 }
             }
@@ -972,6 +1037,7 @@ impl<'a> Printer<'a> {
     }
 
     pub(crate) fn expr(&mut self, e: &Expr) {
+        self.free_before(e.span.start);
         match &e.kind {
             ExprKind::Number(n) | ExprKind::Duration(n) => self.w(n),
             ExprKind::Text(t) => self.text(t),

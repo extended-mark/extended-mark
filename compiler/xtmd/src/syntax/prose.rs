@@ -365,13 +365,13 @@ impl<'a> Parser<'a> {
     /// tried first; when one of the block's own lines sits less deep, the block is read again.
     fn prose_block(&mut self, first: usize, region: Region, mode: Mode) -> R<(Prose, Stop)> {
         let base = self.first_indent(first, region.end);
-        let (diags, orphans) = (self.diags.len(), self.orphans.len());
+        let (diags, comments) = (self.diags.len(), self.comments_mark());
         let read = self.prose(first, Region { base, end: region.end }, mode)?;
         let least = read.0.nodes.iter().filter_map(|n| self.node_start(n)).map(|at| self.indent_of(at)).min();
         match least {
             Some(least) if least < base => {
                 self.diags.truncate(diags);
-                self.orphans.truncate(orphans);
+                self.comments_reset(comments);
                 self.prose(first, Region { base: least, end: region.end }, mode)
             }
             _ => Ok(read),

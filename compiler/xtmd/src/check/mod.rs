@@ -19,7 +19,7 @@ mod migrations;
 pub mod pieces;
 mod rir;
 mod shared;
-pub use rir::{compile_rir, compile_rir_with, sha256_hex, RirOptions};
+pub use rir::{compile_rir, compile_rir_with, sha256_hex, RirOptions, RIR_VERSION};
 mod versions;
 mod view;
 

@@ -158,7 +158,7 @@ impl Index {
             file: file.to_string(),
             name_span,
             span,
-            about: body["doc"]["about"].as_str().map(str::to_string),
+            about: body["comments"]["doc"]["about"].as_str().map(str::to_string),
             ty: body.get("type").filter(|t| t.is_object()).cloned(),
             owner: owner.map(str::to_string),
             members,

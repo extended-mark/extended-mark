@@ -247,13 +247,13 @@ fn migrate_keeps_a_rewritten_uses_lines_and_comments() {
     let surface = "package kit@1;\n\nextern widget chart(values: list<number>, color: color = color.ACCENT, title: text = \"\");\n";
     let pack = "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides plot;\n}\n\nextern widget plot(values: list<number>, tone: color = color.ACCENT, title: text = \"\") {\n    markdown { }\n}\n";
     let migration = "package kit;\n\nmigration kit@1 to kit@2 {\n    widget chart {\n        rename(to = plot);\n        rename(input = color, to = tone);\n    }\n}\n";
-    let doc = "import kit;\n\nwidget panel() {\n    view {\n        @chart(\n            // the week's numbers\n            values = [1, 2, 3],\n            color = color.OK,   // green for good\n            title = \"Sales\",\n        );\n    }\n}\n@@@\n@panel;\n\n@chart(values = [4], color = color.BAD);\n";
+    let doc = "import kit;\n\nwidget panel() {\n    view {\n        @chart(\n            // the week's numbers\n            values = [1, 2, 3],\n            color = color.OK, // green for good\n            title = \"Sales\",\n        );\n    }\n}\n@@@\n@panel;\n\n@chart(values = [4], color = color.BAD);\n";
     let dir = scratch("migrate-comments", &[("kit/kit.xtmdpack", pack), ("kit/surfaces/kit@1.xtmdpack", surface), ("kit/migrations/kit@2.xtmdpack", migration), ("xtmd.toml", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n"), ("docs/a.xtmd", doc)]);
     let docs = dir.join("docs");
     let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
     assert_eq!(code, 0, "{}{}", out, err);
     let moved = std::fs::read_to_string(docs.join("a.xtmd")).unwrap();
-    assert_eq!(moved, "import kit;\n\nwidget panel() {\n    view {\n        @plot(\n            // the week's numbers\n            values = [1, 2, 3],\n            tone = color.OK,   // green for good\n            title = \"Sales\",\n        );\n    }\n}\n@@@\n@panel;\n\n@plot(values = [4], tone = color.BAD);\n");
+    assert_eq!(moved, "import kit;\n\nwidget panel() {\n    view {\n        @plot(\n            // the week's numbers\n            values = [1, 2, 3],\n            tone = color.OK, // green for good\n            title = \"Sales\",\n        );\n    }\n}\n@@@\n@panel;\n\n@plot(values = [4], tone = color.BAD);\n");
     // what it wrote is canonical
     assert_eq!(xtmd(&["fmt", "--check", docs.join("a.xtmd").to_str().unwrap()]).0, 0);
 }

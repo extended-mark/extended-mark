@@ -37,14 +37,24 @@ pub struct Parser<'a> {
     buf: VecDeque<Token>,
     pub(crate) prev_end: usize,
     pub diags: Vec<Diagnostic>,
-    /// Comments the tree has no place for. `xtmd fmt` refuses to drop them.
+    /// Comments the tree has no place for: those inside an expression outside any node, which
+    /// only prose's calls can hold. `xtmd fmt` refuses to drop them.
     pub orphans: Vec<Comment>,
+    /// The nodes being read, innermost last, each with the comments read inside it where no node,
+    /// list or block of its own has a place for them: its free comments.
+    frames: Vec<Frame>,
+    /// How many comments came before the token read last: those before a `{` go on its line.
+    last_comments: usize,
     pub entry: Entry,
     has_state: bool,
     /// Whether the file is an earlier version's surface, which holds signatures only.
     surface: bool,
     /// Where [`Lexer::name_again`]'s word is a name.
     pub(crate) names: Vec<Span>,
+}
+
+struct Frame {
+    comments: Vec<Comment>,
 }
 
 #[derive(Clone)]
@@ -72,6 +82,8 @@ impl<'a> Parser<'a> {
             prev_end: 0,
             diags: Vec::new(),
             orphans: Vec::new(),
+            frames: Vec::new(),
+            last_comments: 0,
             entry,
             has_state: false,
             surface: false,
@@ -152,9 +164,14 @@ impl<'a> Parser<'a> {
     pub(crate) fn bump(&mut self) -> R<Token> {
         self.fill(0)?;
         let t = self.buf.pop_front().unwrap();
+        self.last_comments = 0;
         for piece in &t.trivia {
             if let Trivia::Comment(c) = piece {
-                self.orphans.push(c.clone());
+                match self.frames.last_mut() {
+                    Some(f) => f.comments.push(c.clone()),
+                    None => self.orphans.push(c.clone()),
+                }
+                self.last_comments += 1;
             }
         }
         if t.kind != Tok::Eof {
@@ -293,31 +310,57 @@ impl<'a> Parser<'a> {
 
     // ---- comments
 
-    /// The comments on the line that just ended, and any lined up under them.
+    /// The comment on the line that just ended. One under it is the next node's, however it lines up.
     pub(crate) fn take_trailing(&mut self) -> R<Vec<Comment>> {
         self.fill(0)?;
-        let src = self.src;
         let t = &mut self.buf[0];
-        let mut out = Vec::new();
         if let Some(Trivia::Comment(_)) = t.trivia.first() {
             if let Trivia::Comment(c) = t.trivia.remove(0) {
-                out.push(c);
-            }
-            let col = column0(src, out[0].span.start as usize);
-            let mut i = 0;
-            while i + 1 < t.trivia.len() {
-                match (&t.trivia[i], &t.trivia[i + 1]) {
-                    (Trivia::Newlines(1), Trivia::Comment(c)) if column0(src, c.span.start as usize) == col => {
-                        if let Trivia::Comment(c) = t.trivia.remove(i + 1) {
-                            out.push(c);
-                        }
-                        i += 1;
-                    }
-                    _ => break,
-                }
+                return Ok(vec![c]);
             }
         }
-        Ok(out)
+        Ok(Vec::new())
+    }
+
+    /// Starts reading a node.
+    fn enter(&mut self) -> R<()> {
+        self.frames.push(Frame { comments: Vec::new() });
+        Ok(())
+    }
+
+    /// Ends the node [`Self::enter`] began, with its free comments.
+    fn leave(&mut self) -> Vec<Comment> {
+        self.frames.pop().map(|f| f.comments).unwrap_or_default()
+    }
+
+    /// Where the comments read so far stand, so that a part read again doesn't keep them twice.
+    pub(crate) fn comments_mark(&self) -> (usize, usize) {
+        (self.orphans.len(), self.frames.last().map_or(0, |f| f.comments.len()))
+    }
+
+    pub(crate) fn comments_reset(&mut self, (orphans, top): (usize, usize)) {
+        self.orphans.truncate(orphans);
+        if let Some(f) = self.frames.last_mut() {
+            f.comments.truncate(top);
+        }
+    }
+
+    /// The comments of a bracket just read, `{`, `(` or `[`: the one after it on its line, and
+    /// those before it when it is a `{`, which joins the line before it.
+    fn opening(&mut self, brace: bool) -> R<Vec<Comment>> {
+        let mut all = Vec::new();
+        if brace && self.last_comments > 0 {
+            let n = self.last_comments;
+            let from = match self.frames.last_mut() {
+                Some(f) => &mut f.comments,
+                None => &mut self.orphans,
+            };
+            let at = from.len().saturating_sub(n);
+            all.extend(from.drain(at..));
+            self.last_comments = 0;
+        }
+        all.extend(self.take_trailing()?);
+        Ok(all)
     }
 
     /// The comments and blank lines in front of the next token.
@@ -342,7 +385,7 @@ impl<'a> Parser<'a> {
 
     /// A comma-separated list whose opening bracket was just read, up to its closing one.
     pub(crate) fn group<T>(&mut self, open: Span, close: P, mut item: impl FnMut(&mut Self) -> R<T>) -> R<Group<T>> {
-        let opened = self.take_trailing()?;
+        let opened = self.opening(close == P::RBrace)?;
         let multiline = !opened.is_empty() || self.on_new_line()?;
         let mut items = Vec::new();
         let dangling;
@@ -353,22 +396,25 @@ impl<'a> Parser<'a> {
             }
             let leading = self.take_leading()?;
             let newline = self.on_new_line()?;
+            self.enter()?;
             let value = item(self)?;
             let comma = self.eat(P::Comma)?;
             let trailing = self.take_trailing()?;
-            items.push(Node { leading, item: value, trailing, newline });
+            let free = self.leave();
+            items.push(Node { leading, item: value, trailing, newline, free });
             if !comma {
                 dangling = self.take_leading()?;
                 break;
             }
         }
         let end = self.expect(close)?;
-        Ok(Group { items, multiline, open: opened, dangling, span: open.to(end) })
+        let closed = self.take_trailing()?;
+        Ok(Group { items, multiline, open: opened, dangling, close: closed, span: open.to(end) })
     }
 
     /// The members of a declaration, after its `{`, up to and including its `}`.
     pub(crate) fn body<T>(&mut self, open: Span, mut member: impl FnMut(&mut Self) -> R<T>) -> R<Body<T>> {
-        let opened = self.take_trailing()?;
+        let opened = self.opening(true)?;
         let one_line = opened.is_empty() && !self.on_new_line()?;
         let mut items = Vec::new();
         loop {
@@ -383,16 +429,19 @@ impl<'a> Parser<'a> {
                     }
                 }
                 let end = self.bump()?.span;
-                return Ok(Body { items, open: opened, dangling, span: open.to(end) });
+                let closed = self.take_trailing()?;
+                return Ok(Body { items, open: opened, dangling, close: closed, span: open.to(end) });
             }
             if self.kind()? == Tok::Eof {
                 return Err(Diagnostic::error(codes::EXPECTED, open, "this `{` is never closed: expected `}`"));
             }
             let leading = self.take_leading()?;
             let newline = self.on_new_line()?;
+            self.enter()?;
             let value = member(self)?;
             let trailing = self.take_trailing()?;
-            items.push(Node { leading, item: value, trailing, newline });
+            let free = self.leave();
+            items.push(Node { leading, item: value, trailing, newline, free });
         }
     }
 
@@ -413,9 +462,11 @@ impl<'a> Parser<'a> {
             }
             let leading = self.take_leading()?;
             let newline = self.on_new_line()?;
+            self.enter()?;
             let item = self.item()?;
             let trailing = self.take_trailing()?;
-            let node = Node { leading, item, trailing, newline };
+            let free = self.leave();
+            let node = Node { leading, item, trailing, newline, free };
             self.check_docs(&node);
             items.push(node);
         }
@@ -431,6 +482,7 @@ impl<'a> Parser<'a> {
             ));
         }
         let leading = self.take_leading()?;
+        self.enter()?;
         self.bump()?;
         let name = self.ident("a package name")?;
         // `package kit@1;`: an earlier version's surface
@@ -438,7 +490,12 @@ impl<'a> Parser<'a> {
         self.surface = surface.is_some();
         self.semi()?;
         let trailing = self.take_trailing()?;
-        Ok((Some(Node { leading, item: name, trailing, newline: true }), surface))
+        let free = self.leave();
+        // the items are read from where the package line ends, which is past its comment
+        if let Some(c) = trailing.last() {
+            self.prev_end = c.span.end as usize;
+        }
+        Ok((Some(Node { leading, item: name, trailing, newline: true, free }), surface))
     }
 
     fn item(&mut self) -> R<Item> {
@@ -1526,7 +1583,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn block_rest(&mut self, kind: BlockKind, open: Span) -> R<Block> {
-        let opened = self.take_trailing()?;
+        let opened = self.opening(true)?;
         let one_line = opened.is_empty() && !self.on_new_line()?;
         let mut stmts = Vec::new();
         loop {
@@ -1541,16 +1598,19 @@ impl<'a> Parser<'a> {
                     }
                 }
                 let end = self.bump()?.span;
-                return Ok(Block { stmts, kind, one_line, open: opened, dangling, span: open.to(end) });
+                let closed = self.take_trailing()?;
+                return Ok(Block { stmts, kind, one_line, open: opened, dangling, close: closed, span: open.to(end) });
             }
             if self.kind()? == Tok::Eof {
                 return Err(Diagnostic::error(codes::EXPECTED, open, "this block is never closed: expected `}`"));
             }
             let leading = self.take_leading()?;
             let newline = self.on_new_line()?;
+            self.enter()?;
             let stmt = self.stmt(kind)?;
             let trailing = self.take_trailing()?;
-            stmts.push(Node { leading, item: stmt, trailing, newline });
+            let free = self.leave();
+            stmts.push(Node { leading, item: stmt, trailing, newline, free });
         }
     }
 
@@ -2317,11 +2377,6 @@ fn is_place(e: &Expr) -> bool {
         ExprKind::Field { target, .. } | ExprKind::Index { target, .. } => is_place(target),
         _ => false,
     }
-}
-
-pub(crate) fn column0(src: &str, offset: usize) -> usize {
-    let start = src[..offset].rfind('\n').map(|k| k + 1).unwrap_or(0);
-    src[start..offset].chars().count()
 }
 
 /// An extern's Markdown is part of what it is, so every one says it.

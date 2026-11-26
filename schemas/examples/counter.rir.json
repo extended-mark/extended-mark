@@ -168,7 +168,7 @@
       "sha256": "9adc48298447e634b4536955753875e5fd5bd4b61c8868ad95348ebb8757eb02",
       "state": {
         "comments": {
-          "before": [
+          "leading": [
             "// the counter from the plan"
           ]
         },
@@ -211,7 +211,7 @@
     "core.draw",
     "core.live"
   ],
-  "xtmd": "0.4.0",
   "packs": [],
-  "rir": 1
+  "rir": 2,
+  "xtmd": "0.4.0"
 }

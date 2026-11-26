@@ -15,9 +15,12 @@ fn spacing_and_braces_become_canonical() {
 }
 
 #[test]
-fn a_comment_at_the_end_of_a_line_keeps_its_distance() {
-    let src = "package t;\n\nrecord r {\n    a: text;      // first\n    bb: text;     // second\n                  // and more\n}\n";
-    assert_eq!(fmt(src), src);
+fn a_comment_at_the_end_of_a_line_is_one_space_after_the_code() {
+    let src = "package t;\n\nrecord r {\n    a: text;      // first\n    bb: text;     // second\n                  // and more\n    c: text;\n}\n";
+    // one lined up under another is the next member's, on a line of its own
+    let want = "package t;\n\nrecord r {\n    a: text; // first\n    bb: text; // second\n    // and more\n    c: text;\n}\n";
+    assert_eq!(fmt(src), want);
+    assert_eq!(fmt(want), want);
 }
 
 #[test]
@@ -54,10 +57,25 @@ fn a_markdown_block_is_indented_one_step_inside_its_widget() {
 }
 
 #[test]
-fn a_comment_fmt_has_no_place_for_is_refused_not_dropped() {
+fn a_free_comment_inside_an_expression_stays_where_it_is() {
     let src = "package t;\n\nlet a: number = 1 + // one\n    2;\n";
-    let err = format(src, Entry::Xtmd).unwrap_err();
-    assert_eq!(err[0].code, "fmt.comment-cannot-be-kept");
+    assert_eq!(fmt(src), src);
+    // on a line of its own, it ends the line before
+    assert_eq!(fmt("package t;\n\nlet a: number = 1 +\n    // one\n    2;\n"), src);
+}
+
+#[test]
+fn a_comment_after_a_bracket_stays_with_that_bracket() {
+    let src = "package t;\n\nfn f(a: number): number { // opens\n    if (a > 1) { // the first\n        return a;\n    } // ends the first\n    else { // the second\n        return 1;\n    }\n} // ends f\n";
+    assert_eq!(fmt(src), src);
+    // one between a signature and its brace goes on the brace's line
+    assert_eq!(fmt("package t;\n\nfn f(): number // opens\n{\n    return 1;\n}\n"), "package t;\n\nfn f(): number { // opens\n    return 1;\n}\n");
+}
+
+#[test]
+fn the_package_lines_comment_is_printed_once() {
+    let src = "package t; // the pack\n\nlet a: number = 1;\n";
+    assert_eq!(fmt(src), src);
 }
 
 #[test]
@@ -74,7 +92,7 @@ fn a_file_that_does_not_read_is_not_printed() {
 
 #[test]
 fn a_migration_reads_and_prints_back_as_written() {
-    let src = "package kit;\n\nmigration fn color_to_tone() {\n    rename(input = color, to = tone);\n    set(input = tone, value = color.BAD, when = tone == color.WARN);\n}\n\nmigration kit@1 to kit@2 {\n    fn tone_of(kind: text): tone {\n        return tone.INFO;\n    }\n\n    widget chart {\n        rename(to = plot);   // a plot now\n        color_to_tone();\n        drop(input = shadow, why = \"no shadows\");\n    }\n\n    widget button {\n        event click {\n            add(arg = at);\n        }\n    }\n\n    widget status {\n        execute {\n            return @status(label = label, tone = tone_of(kind));\n        }\n    }\n\n    fn text.slug {\n        rename(to = slugify);\n    }\n\n    enum state {\n        rename(from = state.LATE, to = state.OVERDUE);\n    }\n}\n";
+    let src = "package kit;\n\nmigration fn color_to_tone() {\n    rename(input = color, to = tone);\n    set(input = tone, value = color.BAD, when = tone == color.WARN);\n}\n\nmigration kit@1 to kit@2 {\n    fn tone_of(kind: text): tone {\n        return tone.INFO;\n    }\n\n    widget chart {\n        rename(to = plot); // a plot now\n        color_to_tone();\n        drop(input = shadow, why = \"no shadows\");\n    }\n\n    widget button {\n        event click {\n            add(arg = at);\n        }\n    }\n\n    widget status {\n        execute {\n            return @status(label = label, tone = tone_of(kind));\n        }\n    }\n\n    fn text.slug {\n        rename(to = slugify);\n    }\n\n    enum state {\n        rename(from = state.LATE, to = state.OVERDUE);\n    }\n}\n";
     assert_eq!(fmt(src), src);
     let loose = "package kit;\nmigration kit@1 to kit@2 { widget chart { rename(to = plot); } }\n";
     assert_eq!(fmt(loose), "package kit;\nmigration kit@1 to kit@2 {\n    widget chart {\n        rename(to = plot);\n    }\n}\n");

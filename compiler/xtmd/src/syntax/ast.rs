@@ -24,15 +24,19 @@ pub enum Leading {
 pub struct Node<T> {
     pub leading: Vec<Leading>,
     pub item: T,
-    /// A comment on the item's last line, and comments lined up under it.
+    /// The comment that ends the item's last line, after its `;` or `,`. One after a closing
+    /// bracket is that bracket's list's or block's.
     pub trailing: Vec<Comment>,
     /// The item starts a line of its own (in a list written over several lines).
     pub newline: bool,
+    /// Free comments inside the item, where no node, list or block of its own ends: each stays
+    /// where it is written, before the expression after it (`price + // before tax`, then `tax`).
+    pub free: Vec<Comment>,
 }
 
 impl<T> Node<T> {
     pub fn new(item: T) -> Node<T> {
-        Node { leading: Vec::new(), item, trailing: Vec::new(), newline: false }
+        Node { leading: Vec::new(), item, trailing: Vec::new(), newline: false, free: Vec::new() }
     }
 
     /// The doc comments above the item: `//@about`, `//@param`, `//@deprecated`.
@@ -54,12 +58,14 @@ pub struct Group<T> {
     pub open: Vec<Comment>,
     /// Comments before the closing bracket.
     pub dangling: Vec<Leading>,
+    /// A comment after the closing bracket, on its line.
+    pub close: Vec<Comment>,
     pub span: Span,
 }
 
 impl<T> Group<T> {
     pub fn empty(span: Span) -> Group<T> {
-        Group { items: Vec::new(), multiline: false, open: Vec::new(), dangling: Vec::new(), span }
+        Group { items: Vec::new(), multiline: false, open: Vec::new(), dangling: Vec::new(), close: Vec::new(), span }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &T> {
@@ -81,6 +87,8 @@ pub struct Body<T> {
     pub items: Vec<Node<T>>,
     pub open: Vec<Comment>,
     pub dangling: Vec<Leading>,
+    /// A comment after the closing brace, on its line.
+    pub close: Vec<Comment>,
     pub span: Span,
 }
 
@@ -586,6 +594,8 @@ pub struct Block {
     pub one_line: bool,
     pub open: Vec<Comment>,
     pub dangling: Vec<Leading>,
+    /// A comment after the closing brace, on its line.
+    pub close: Vec<Comment>,
     pub span: Span,
 }
 

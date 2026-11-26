@@ -22,6 +22,8 @@ comment   = "//" to the end of the line
 doc       = "//@about" words | "//@param" name words | "//@deprecated" words   above a declaration
 ```
 
+A comment belongs where it is written, and `xtmd fmt` and the resolved IR keep it there. One on the lines just above a node is the node's; one with a blank line after it, or before a list's closing bracket, belongs to no node and stands in the list by itself. One that ends a line after a `;` or a `,` is the node's that ends there, one after a bracket that ends a line is that bracket's (one before a `{` joins the `{`'s line), and one inside an expression stays before the expression after it. A comment at the end of a line is one space after the code.
+
 A keyword is never a `name`. `$state` is a keyword, written as one word, and the only token that starts with `$`: `$` on its own, or in front of any other name (`$abc`), is a compile error, so no name can collide with `$state`. Maths in code is a `latex` value, written as a text literal where one is expected. Extended Mark has no attributes: `#` is a token in code only after `markdown`, where `#quote` names a piece of Markdown, and in prose a `#` at the start of a line is always a Markdown heading. `1...` is the tokens `1` and `...`, and `0..10` is `0`, `..` and `10`, because a number needs a digit on both sides of its dot.
 
 A text with holes is a template literal: its pieces, the text between the holes, and its holes are kept apart, so a hole is always a value and never text that is read again. Where a type that fits `literal<template>` is wanted, the literal reaches that type's `from` as a `template` (page 4). A hole that holds an `opt` makes the literal an `opt`.

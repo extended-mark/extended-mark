@@ -123,7 +123,7 @@ test("core's files come first in the resolved IR when asked, resolved, as the bi
   assert.ok(files.length > 10 && files[0].path.startsWith("core/") && files.at(-1).path === "page.xtmd", files.map((f) => f.path).join(" "));
   const press = files.find((f) => f.path === "core/controls.xtmdpack").declarations.find((d) => d.extern_widget?.id === "core/press").extern_widget;
   assert.equal(press.inputs[0].id, "core/press.label");
-  assert.match(press.doc.about, /^Something to press/);
+  assert.match(press.comments.doc.about, /^Something to press/);
 });
 
 test("every case formats as xtmd fmt writes it", async () => {

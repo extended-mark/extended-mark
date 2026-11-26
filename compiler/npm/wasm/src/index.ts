@@ -53,7 +53,7 @@ export interface Built {
 /** The resolved IR: what the checker understood of a build, every name resolved and every value
  * typed, with each part's place in its source (schemas/rir.schema.json). */
 export interface Rir {
-  rir: 1;
+  rir: 2;
   xtmd: string;
   packs: unknown[];
   files: Array<{ path: string; kind: "document" | "pack" | "surface"; [part: string]: unknown }>;
