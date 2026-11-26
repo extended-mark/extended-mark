@@ -11,7 +11,7 @@ fn range.negate<T: scaled>(r: range<T>): range<T> {
     if (let high: T = r.high()) {
         return (-high)...;
     }
-    return r;                                   // never reached: a range always has a bound
+    return r; // never reached: a range always has a bound
 }
 
 //@about Each bound moved by the same amount: 1..10 by 5 gives 6..15.
@@ -25,7 +25,7 @@ fn range.shift<T: numeric>(r: range<T>, by: T): range<T> {
     if (let high: T = r.high()) {
         return ...(high + by);
     }
-    return r;                                   // never reached: a range always has a bound
+    return r; // never reached: a range always has a bound
 }
 
 //@about Each bound multiplied: 1..10 by 2 gives 2..20, and a negative k flips the range.
@@ -42,7 +42,7 @@ fn range.scale<T: scaled>(r: range<T>, k: number): range<T> {
     if (let high: T = r.high()) {
         return ...(high * k);
     }
-    return r;                                   // never reached: a range always has a bound
+    return r; // never reached: a range always has a bound
 }
 
 //@about Each bound moved out by an amount: 1..10 by 1 gives 0..11.
@@ -56,7 +56,7 @@ fn range.widen<T: numeric>(r: range<T>, by: T): range<T> {
     if (let high: T = r.high()) {
         return ...(high + by);
     }
-    return r;                                   // never reached: a range always has a bound
+    return r; // never reached: a range always has a bound
 }
 
 //@about Where two ranges meet: 1..10 and 5..20 give 5..10, and ranges that don't meet give opt.NONE.
@@ -75,7 +75,7 @@ fn range.overlap<T: ordered>(a: range<T>, b: range<T>): opt<range<T>> {
     if (let h: T = high) {
         return ...h;
     }
-    return opt.NONE;                            // never reached: a range always has a bound
+    return opt.NONE; // never reached: a range always has a bound
 }
 
 //@about The smallest range that holds both: 1..3 and 7..9 give 1..9. A side open in either is open in it.
@@ -101,7 +101,7 @@ fn range.span<T: ordered>(a: range<T>, b: range<T>): range<T> {
     if (let h: T = high) {
         return ...h;
     }
-    return a;                                   // 1... and ...3 hold every value together, which no range does
+    return a; // 1... and ...3 hold every value together, which no range does
 }
 
 // the later of two bounds, where a missing one is open. Private to core

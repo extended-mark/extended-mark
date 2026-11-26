@@ -10,7 +10,7 @@ extern widget label(
     align: align = align.START,
     wrap: bool = true,
     clip: bool = false,
-    halo: bool = false,                         // an outline in the surface colour, so it reads over lines
+    halo: bool = false, // an outline in the surface colour, so it reads over lines
 ) {
     tokens color.SURFACE;
 

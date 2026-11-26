@@ -11,16 +11,16 @@ pack android@1 {
 }
 
 tokens android {
-    color.SURFACE = color_value { light = "#fef7ff", dark = "#141218" };    // colorScheme.surface
-    color.INK = color_value { light = "#1d1b20", dark = "#e6e0e9" };        // onSurface
-    color.MUTED = color_value { light = "#49454f", dark = "#cac4d0" };      // onSurfaceVariant
-    color.LINE = color_value { light = "#cac4d0", dark = "#49454f" };       // outlineVariant
-    color.ACCENT = color_value { light = "#6750a4", dark = "#d0bcff" };     // primary
-    color.BAD = color_value { light = "#b3261e", dark = "#f2b8b5" };        // error
+    color.SURFACE = color_value { light = "#fef7ff", dark = "#141218" }; // colorScheme.surface
+    color.INK = color_value { light = "#1d1b20", dark = "#e6e0e9" }; // onSurface
+    color.MUTED = color_value { light = "#49454f", dark = "#cac4d0" }; // onSurfaceVariant
+    color.LINE = color_value { light = "#cac4d0", dark = "#49454f" }; // outlineVariant
+    color.ACCENT = color_value { light = "#6750a4", dark = "#d0bcff" }; // primary
+    color.BAD = color_value { light = "#b3261e", dark = "#f2b8b5" }; // error
 
-    radius.CARD = 12;                                                       // shapes.medium
+    radius.CARD = 12; // shapes.medium
 
-    font.BODY = font_value { family = "Roboto", size = 16, weight = 400, line = 1.5 };       // bodyLarge, 16/24
-    font.HEADING = font_value { family = "Roboto", size = 22, weight = 400, line = 1.27 };   // titleLarge, 22/28
-    font.MONO = font_value { family = "monospace", size = 14, weight = 400, line = 1.43 };   // bodyMedium's size, 14/20
+    font.BODY = font_value { family = "Roboto", size = 16, weight = 400, line = 1.5 }; // bodyLarge, 16/24
+    font.HEADING = font_value { family = "Roboto", size = 22, weight = 400, line = 1.27 }; // titleLarge, 22/28
+    font.MONO = font_value { family = "monospace", size = 14, weight = 400, line = 1.43 }; // bodyMedium's size, 14/20
 }

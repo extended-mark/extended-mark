@@ -173,7 +173,7 @@ widget meter(value: number 0..., label: text, max: number 0... = 100, tone: opt<
                     @flex(fill = tone.or(color.ACCENT), radius = radius.PILL) { }
                 }
             }
-            @grow(by = (max - value).clamp(0, max)) {     // the same share as max - value.clamp(0, max)
+            @grow(by = (max - value).clamp(0, max)) { // the same share as max - value.clamp(0, max)
                 @flex { }
             }
         }

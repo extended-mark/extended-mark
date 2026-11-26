@@ -224,19 +224,19 @@ widget todo_list(mut todos: list<todo>) {
 ```java
 // ranges step by 1 unless they say otherwise
 for (i in 0..10) {
-    @label(value = "\{i}");               // 0 to 10
+    @label(value = "\{i}"); // 0 to 10
 }
 for (i in 0..(limit - 1)) {
-    @label(value = "\{i}");               // 0 to limit - 1
+    @label(value = "\{i}"); // 0 to limit - 1
 }
 for (i in 0..100 step 5) {
     @label(value = "\{i}");
 }
 for (i in 10..1 step -1) {
-    @label(value = "\{i}");               // 10 down to 1
+    @label(value = "\{i}"); // 10 down to 1
 }
 for (k, t in todos) {
-    @label(value = "\{k + 1}. \{t.title}");   // position and item: k is an int 0...
+    @label(value = "\{k + 1}. \{t.title}"); // position and item: k is an int 0...
 }
 ```
 

@@ -51,56 +51,56 @@ extern fn duration.sub(self, other: duration): duration;
 extern fn duration.scale(self, k: number): duration;
 extern fn text.show(self): text;
 extern fn text.same(self, other: text): bool;
-extern fn text.before(self, other: text): bool;          // by character number, not by language
+extern fn text.before(self, other: text): bool; // by character number, not by language
 extern fn bool.show(self): text;
 extern fn bool.same(self, other: bool): bool;
-extern fn bool.before(self, other: bool): bool;          // false before true
+extern fn bool.before(self, other: bool): bool; // false before true
 
 // range<T>, for numbers, durations, dates and a pack's ordered types: a..b, a..., ...b, with an optional step
 extern fn range<T>.low(self): opt<T>;
 extern fn range<T>.high(self): opt<T>;
 extern fn range<T>.stride(self): opt<T>;
-extern fn range<T>.has(self, x: T): bool;                // written x in r
+extern fn range<T>.has(self, x: T): bool; // written x in r
 
 // duration: written 250ms or 2s
 extern fn duration.ms(self): number;
 
 // number: exact base-10, 34 significant digits. A result too large for that, such as (1000).exp(), is a failure
-extern fn number.round(self): int;                       // halves go away from zero
+extern fn number.round(self): int; // halves go away from zero
 extern fn number.floor(self): int;
 extern fn number.ceil(self): int;
 extern fn number.abs(self): number;
 extern fn number.fmt(self, places: int 0..10): text;
-extern fn number.sign(self): number;                     // -1, 0 or 1
-extern fn number.sqrt(self): opt<number>;                // opt.NONE below 0
-extern fn number.pow(self, p: number): opt<number>;      // opt.NONE for 0 to a negative power,
-                                                         // or a negative number to a power that isn't whole
+extern fn number.sign(self): number; // -1, 0 or 1
+extern fn number.sqrt(self): opt<number>; // opt.NONE below 0
+// opt.NONE for 0 to a negative power, or a negative number to a power that isn't whole
+extern fn number.pow(self, p: number): opt<number>;
 extern fn number.exp(self): number;
-extern fn number.ln(self): opt<number>;                  // opt.NONE at 0 or below
-extern fn number.sin(self): number;                      // angles in radians
+extern fn number.ln(self): opt<number>; // opt.NONE at 0 or below
+extern fn number.sin(self): number; // angles in radians
 extern fn number.cos(self): number;
 extern fn number.tan(self): number;
-extern fn number.asin(self): opt<number>;                // opt.NONE outside -1..1
-extern fn number.acos(self): opt<number>;                // opt.NONE outside -1..1
+extern fn number.asin(self): opt<number>; // opt.NONE outside -1..1
+extern fn number.acos(self): opt<number>; // opt.NONE outside -1..1
 extern fn number.atan(self): number;
-extern fn number.atan2(self, x: number): number;         // y.atan2(x): the angle of the point (x, y)
+extern fn number.atan2(self, x: number): number; // y.atan2(x): the angle of the point (x, y)
 extern fn number.sinh(self): number;
 extern fn number.cosh(self): number;
 extern fn number.tanh(self): number;
 
 // list<T>: xs[i] is another way to write xs.at(i)
 extern fn list<T>.len(self): int 0...;
-extern fn list<T>.at(self, pos: number): opt<T>;         // opt.NONE unless pos is a whole number in the list
+extern fn list<T>.at(self, pos: number): opt<T>; // opt.NONE unless pos is a whole number in the list
 extern fn list<T>.add(mut self, item: T);
-extern fn list<T>.insert(mut self, pos: int 0..., item: T);     // past the end, it is added last
-extern fn list<T>.remove_at(mut self, pos: int 0...);           // outside the list is a failure
+extern fn list<T>.insert(mut self, pos: int 0..., item: T); // past the end, it is added last
+extern fn list<T>.remove_at(mut self, pos: int 0...); // outside the list is a failure
 extern fn list<T>.move(mut self, pos: int 0..., to: int 0...);
-extern fn list<T: same>.remove(mut self, item: T);       // every item equal to it
+extern fn list<T: same>.remove(mut self, item: T); // every item equal to it
 extern fn list<T: ordered>.sort(mut self);
 
 // text
 extern fn text.len(self): int 0...;
-extern fn text.slice(self, start: int 0..., count: int 0...): text;     // stops at the end
+extern fn text.slice(self, start: int 0..., count: int 0...): text; // stops at the end
 extern fn text.chars(self): list<text[1]>;
 extern fn text.lower(self): text;
 extern fn text.upper(self): text;

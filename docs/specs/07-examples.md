@@ -235,8 +235,8 @@ package kit;
 record table_info {
     name: text[1...];
     fields: list<text>;
-    at: point;                                      // in the plane's units
-    mut box: opt<region> = opt.NONE;                // written by its spot after layout
+    at: point; // in the plane's units
+    mut box: opt<region> = opt.NONE; // written by its spot after layout
 }
 
 //@about A link from one table to another, by their names.

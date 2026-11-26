@@ -29,8 +29,8 @@ fn labelled.initial(self): text {
 // fits too, without saying so, because it has a label
 let svc: { label: text, up: bool } = { label = "api", up = true };
 
-let first: text = labelled_stat { label = "Deploys", value = "42" }.initial();    // "D"
-let second: text = svc.initial();                                                // "A"
+let first: text = labelled_stat { label = "Deploys", value = "42" }.initial(); // "D"
+let second: text = svc.initial(); // "A"
 ```
 
 **A type fits an interface when it has what the interface asks for.** That is the one rule, for every interface, the six standard ones included. `implements` is a checked promise, written where the type is declared: a missing field or fn is reported on that line. A type that doesn't say it still fits, so inline records and other packs' types fit too, and it is still checked at compile time.
@@ -134,7 +134,7 @@ fn vec2.show(self): text {
 }
 
 fn middle(a: vec2, b: vec2): vec2 {
-    return (a + b) / 2;                  // a.add(b).scale(0.5)
+    return (a + b) / 2; // a.add(b).scale(0.5)
 }
 ```
 
@@ -152,7 +152,7 @@ record email implements literal<text>, shown {
 }
 
 fn email.from(value: text): opt<email> {
-    return try email { address = value };    // checks text[3...] and the require block
+    return try email { address = value }; // checks text[3...] and the require block
 }
 
 fn email.show(self): text {
@@ -164,7 +164,7 @@ record money implements literal<number>, numeric, scaled, ordered, same, shown {
 }
 
 fn money.from(value: number): opt<money> {
-    return money { cents = (value * 100).round() };    // never NONE: a plain value is accepted where an opt is wanted
+    return money { cents = (value * 100).round() }; // never NONE: a plain value is accepted where an opt is wanted
 }
 
 fn money.add(self, other: money): money {
@@ -187,12 +187,12 @@ fn money.show(self): text {
     return (self.cents / 100).fmt(2);
 }
 
-let to: email = "ops@example.com";    // email.from gives opt.SOME at compile time
+let to: email = "ops@example.com"; // email.from gives opt.SOME at compile time
 let price: money = 4.99;
-let total: money = price * 3;         // through scaled
+let total: money = price * 3; // through scaled
 
 fn entered(entry: text): opt<email> {
-    return email.from(entry);         // when the page runs: an opt, the same as try
+    return email.from(entry); // when the page runs: an opt, the same as try
 }
 ```
 
@@ -281,7 +281,7 @@ fn tallest(items: list<bar>): number 0... {
     mut best: number 0... = 0;
     for (b in items) {
         if (b.value > best) {
-            best = b.value;                  // b.value is a number 0...
+            best = b.value; // b.value is a number 0...
         }
     }
     return best;

@@ -108,56 +108,56 @@ extern fn duration.sub(self, other: duration): duration;
 extern fn duration.scale(self, k: number): duration;
 extern fn text.show(self): text;
 extern fn text.same(self, other: text): bool;
-extern fn text.before(self, other: text): bool;          // by character number, not by language
+extern fn text.before(self, other: text): bool; // by character number, not by language
 extern fn bool.show(self): text;
 extern fn bool.same(self, other: bool): bool;
-extern fn bool.before(self, other: bool): bool;          // false before true
+extern fn bool.before(self, other: bool): bool; // false before true
 
 // range<T>, for numbers, durations, dates and a pack's ordered types: a..b, a..., ...b, with an optional step
 extern fn range<T>.low(self): opt<T>;
 extern fn range<T>.high(self): opt<T>;
 extern fn range<T>.stride(self): opt<T>;
-extern fn range<T>.has(self, x: T): bool;                // written x in r
+extern fn range<T>.has(self, x: T): bool; // written x in r
 
 // duration: written 250ms or 2s
 extern fn duration.ms(self): number;
 
 // number: exact base-10, 34 significant digits. A result too large for that, such as (1000).exp(), is a failure
-extern fn number.round(self): int;                       // halves go away from zero
+extern fn number.round(self): int; // halves go away from zero
 extern fn number.floor(self): int;
 extern fn number.ceil(self): int;
 extern fn number.abs(self): number;
 extern fn number.fmt(self, places: int 0..10): text;
-extern fn number.sign(self): number;                     // -1, 0 or 1
-extern fn number.sqrt(self): opt<number>;                // opt.NONE below 0
-extern fn number.pow(self, p: number): opt<number>;      // opt.NONE for 0 to a negative power,
-                                                         // or a negative number to a power that isn't whole
+extern fn number.sign(self): number; // -1, 0 or 1
+extern fn number.sqrt(self): opt<number>; // opt.NONE below 0
+// opt.NONE for 0 to a negative power, or a negative number to a power that isn't whole
+extern fn number.pow(self, p: number): opt<number>;
 extern fn number.exp(self): number;
-extern fn number.ln(self): opt<number>;                  // opt.NONE at 0 or below
-extern fn number.sin(self): number;                      // angles in radians
+extern fn number.ln(self): opt<number>; // opt.NONE at 0 or below
+extern fn number.sin(self): number; // angles in radians
 extern fn number.cos(self): number;
 extern fn number.tan(self): number;
-extern fn number.asin(self): opt<number>;                // opt.NONE outside -1..1
-extern fn number.acos(self): opt<number>;                // opt.NONE outside -1..1
+extern fn number.asin(self): opt<number>; // opt.NONE outside -1..1
+extern fn number.acos(self): opt<number>; // opt.NONE outside -1..1
 extern fn number.atan(self): number;
-extern fn number.atan2(self, x: number): number;         // y.atan2(x): the angle of the point (x, y)
+extern fn number.atan2(self, x: number): number; // y.atan2(x): the angle of the point (x, y)
 extern fn number.sinh(self): number;
 extern fn number.cosh(self): number;
 extern fn number.tanh(self): number;
 
 // list<T>: xs[i] is another way to write xs.at(i)
 extern fn list<T>.len(self): int 0...;
-extern fn list<T>.at(self, pos: number): opt<T>;         // opt.NONE unless pos is a whole number in the list
+extern fn list<T>.at(self, pos: number): opt<T>; // opt.NONE unless pos is a whole number in the list
 extern fn list<T>.add(mut self, item: T);
-extern fn list<T>.insert(mut self, pos: int 0..., item: T);     // past the end, it is added last
-extern fn list<T>.remove_at(mut self, pos: int 0...);           // outside the list is a failure
+extern fn list<T>.insert(mut self, pos: int 0..., item: T); // past the end, it is added last
+extern fn list<T>.remove_at(mut self, pos: int 0...); // outside the list is a failure
 extern fn list<T>.move(mut self, pos: int 0..., to: int 0...);
-extern fn list<T: same>.remove(mut self, item: T);       // every item equal to it
+extern fn list<T: same>.remove(mut self, item: T); // every item equal to it
 extern fn list<T: ordered>.sort(mut self);
 
 // text
 extern fn text.len(self): int 0...;
-extern fn text.slice(self, start: int 0..., count: int 0...): text;     // stops at the end
+extern fn text.slice(self, start: int 0..., count: int 0...): text; // stops at the end
 extern fn text.chars(self): list<text[1]>;
 extern fn text.lower(self): text;
 extern fn text.upper(self): text;
@@ -257,7 +257,7 @@ record moment implements literal<text>, same, ordered, shown {
     day: date;
     hour: int 0..23;
     minute: int 0..59;
-    east: bool;                                 // + in the text: the offset is east of UTC
+    east: bool; // + in the text: the offset is east of UTC
     offset_hour: int 0..14;
     offset_minute: int 0..59;
 
@@ -363,7 +363,7 @@ fn day_number(count: int): date {
 fn moment_at(utc: int, source: moment): moment {
     let local: int = utc + source.offset();
     let days: int = (local / 1440).floor();
-    let minutes: int = local - days * 1440;     // 0 to 1439, so clamp only proves the hour and the minute
+    let minutes: int = local - days * 1440; // 0 to 1439, so clamp only proves the hour and the minute
     return moment {
         day = day_number(days),
         hour = (minutes / 60).floor().clamp(0, 23),
@@ -376,14 +376,14 @@ fn moment_at(utc: int, source: moment): moment {
 
 //@about A literal with holes: the text between them, and their values. A hole is never part of a piece.
 record template {
-    pieces: list<text>[1...];                   // one more piece than holes
+    pieces: list<text>[1...]; // one more piece than holes
     holes: list<hole>;
 }
 
 //@about One hole of a template, which from places as a value and never reads.
 enum hole {
-    TEXT(value: text),                          // a value that fits shown, already shown
-    VIEW(child: view),                          // \{@icon(…)} in a sentence
+    TEXT(value: text), // a value that fits shown, already shown
+    VIEW(child: view), // \{@icon(…)} in a sentence
 }
 
 //@about A template from a plain text, with no holes.
@@ -472,7 +472,7 @@ fn tex_tokens(tex: template): list<text> {
     mut out: list<text> = [];
     for (k, piece in tex.pieces) {
         if (k > 0) {
-            out.add("hole");                    // TeX's own tokens are one character or a command, never this
+            out.add("hole"); // TeX's own tokens are one character or a command, never this
         }
         for (x in tex_piece(piece)) {
             out.add(x);
@@ -485,13 +485,13 @@ fn tex_tokens(tex: template): list<text> {
 fn tex_piece(tex: text): list<text> {
     let letters: text = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     mut out: list<text> = [];
-    mut cmd: text = "";                         // a command being read, from its backslash
+    mut cmd: text = ""; // a command being read, from its backslash
     for (c in tex.chars()) {
         if (cmd == "\\") {
             if (letters.has(c)) {
                 cmd = "\\\{c}";
             } else {
-                out.add("\\\{c}");              // \{, \\ and the like are whole commands
+                out.add("\\\{c}"); // \{, \\ and the like are whole commands
                 cmd = "";
             }
         } else if (cmd != "" && letters.has(c)) {
@@ -509,7 +509,7 @@ fn tex_piece(tex: text): list<text> {
         }
     }
     if (cmd != "") {
-        out.add(cmd);                           // a backslash at the very end stays a lone \
+        out.add(cmd); // a backslash at the very end stays a lone \
     }
     return out;
 }
@@ -534,7 +534,7 @@ fn tex_pairs(t: list<text>, open: text, close: text): bool {
 
 // \begin{name} and \end{name} pair up by name, innermost first. Private to core
 fn tex_environments(t: list<text>): bool {
-    mut open: list<text> = [];                  // names begun; the first depth of them are still open
+    mut open: list<text> = []; // names begun; the first depth of them are still open
     mut depth: int = 0;
     mut ok: bool = true;
     for (k, x in t) {
@@ -723,7 +723,7 @@ fn range.negate<T: scaled>(r: range<T>): range<T> {
     if (let high: T = r.high()) {
         return (-high)...;
     }
-    return r;                                   // never reached: a range always has a bound
+    return r; // never reached: a range always has a bound
 }
 
 //@about Each bound moved by the same amount: 1..10 by 5 gives 6..15.
@@ -737,7 +737,7 @@ fn range.shift<T: numeric>(r: range<T>, by: T): range<T> {
     if (let high: T = r.high()) {
         return ...(high + by);
     }
-    return r;                                   // never reached: a range always has a bound
+    return r; // never reached: a range always has a bound
 }
 
 //@about Each bound multiplied: 1..10 by 2 gives 2..20, and a negative k flips the range.
@@ -754,7 +754,7 @@ fn range.scale<T: scaled>(r: range<T>, k: number): range<T> {
     if (let high: T = r.high()) {
         return ...(high * k);
     }
-    return r;                                   // never reached: a range always has a bound
+    return r; // never reached: a range always has a bound
 }
 
 //@about Each bound moved out by an amount: 1..10 by 1 gives 0..11.
@@ -768,7 +768,7 @@ fn range.widen<T: numeric>(r: range<T>, by: T): range<T> {
     if (let high: T = r.high()) {
         return ...(high + by);
     }
-    return r;                                   // never reached: a range always has a bound
+    return r; // never reached: a range always has a bound
 }
 
 //@about Where two ranges meet: 1..10 and 5..20 give 5..10, and ranges that don't meet give opt.NONE.
@@ -787,7 +787,7 @@ fn range.overlap<T: ordered>(a: range<T>, b: range<T>): opt<range<T>> {
     if (let h: T = high) {
         return ...h;
     }
-    return opt.NONE;                            // never reached: a range always has a bound
+    return opt.NONE; // never reached: a range always has a bound
 }
 
 //@about The smallest range that holds both: 1..3 and 7..9 give 1..9. A side open in either is open in it.
@@ -813,7 +813,7 @@ fn range.span<T: ordered>(a: range<T>, b: range<T>): range<T> {
     if (let h: T = high) {
         return ...h;
     }
-    return a;                                   // 1... and ...3 hold every value together, which no range does
+    return a; // 1... and ...3 hold every value together, which no range does
 }
 
 // the later of two bounds, where a missing one is open. Private to core
@@ -1171,7 +1171,7 @@ extern page {
     width: width = width.WIDE;
     theme: theme = theme.LIGHT;
     today: date = "1970-01-01";
-    now: moment = "1970-01-01T00:00+00:00";      // the host's clock
+    now: moment = "1970-01-01T00:00+00:00"; // the host's clock
 
     // what the page itself is drawn with: its background, its words, what has the focus and a widget that failed
     tokens color.SURFACE, color.INK, color.ACCENT, color.BAD, font.BODY, radius.CARD;
@@ -1298,19 +1298,19 @@ extern widget sizing(
 //@about Widgets placed anywhere on a plane with coordinates of its own: x from left to right, y from bottom to top.
 //@about It draws the part of the plane around center, as big as the widget is on the page.
 extern widget plane(
-    label: text,                                    // what it shows, for screen readers and Markdown
-    bounds: opt<region> = opt.NONE,                 // the whole plane; left out, the region around every spot's box
-    mut center: point = point { x = 0, y = 0 },     // the middle of what is drawn, kept inside bounds; the caller may keep it
-    mut zoom: number 0.1..10 = 1,                   // at 1, one unit is one of the page's own lengths; the caller may keep it
-    zoom_range: range<number> = 1..1,               // how far the reader may zoom; 1..1 means not at all
-    fit: bool = false,                              // start zoomed so the whole of bounds fits; zoom_range counts from there
-    mut drawn: opt<region> = opt.NONE,              // written by the renderer: the part of the plane being drawn
-    width: opt<size> = opt.NONE,                    // left out, the width it is given, like a column
-    aspect: number 0.1..10 = 1.5,                   // the drawn area's width over its height
+    label: text, // what it shows, for screen readers and Markdown
+    bounds: opt<region> = opt.NONE, // the whole plane; left out, the region around every spot's box
+    mut center: point = point { x = 0, y = 0 }, // the middle of what is drawn, kept inside bounds; the caller may keep it
+    mut zoom: number 0.1..10 = 1, // at 1, one unit is one of the page's own lengths; the caller may keep it
+    zoom_range: range<number> = 1..1, // how far the reader may zoom; 1..1 means not at all
+    fit: bool = false, // start zoomed so the whole of bounds fits; zoom_range counts from there
+    mut drawn: opt<region> = opt.NONE, // written by the renderer: the part of the plane being drawn
+    width: opt<size> = opt.NONE, // left out, the width it is given, like a column
+    aspect: number 0.1..10 = 1.5, // the drawn area's width over its height
 ) {
-    slot background: opt<list<layer>>;              // drawn under the spots, in the plane's units
+    slot background: opt<list<layer>>; // drawn under the spots, in the plane's units
     slot items: opt<list<spot>>;
-    event click(at: point);                         // a click on empty space, in the plane's units
+    event click(at: point); // a click on empty space, in the plane's units
     tokens color.LINE, color.SURFACE, radius.CARD;
 
     warn "a spot is outside the plane's bounds: it is clipped, and the reader can't pan to it" {
@@ -1338,8 +1338,8 @@ extern widget plane(
 extern widget spot(
     at: point,
     anchor: anchor = anchor.CENTER,
-    nudge: point = point { x = 0, y = 0 },          // by the page's own lengths, y up
-    mut box: opt<region> = opt.NONE,                // written by the renderer: from the bottom-left corner to the top-right one
+    nudge: point = point { x = 0, y = 0 }, // by the page's own lengths, y up
+    mut box: opt<region> = opt.NONE, // written by the renderer: from the bottom-left corner to the top-right one
 ) {
     slot child: view;
 
@@ -1545,7 +1545,7 @@ extern widget label(
     align: align = align.START,
     wrap: bool = true,
     clip: bool = false,
-    halo: bool = false,                         // an outline in the surface colour, so it reads over lines
+    halo: bool = false, // an outline in the surface colour, so it reads over lines
 ) {
     tokens color.SURFACE;
 
@@ -1640,14 +1640,14 @@ package core;
 
 //@about A drawing surface with coordinates of its own: x from left to right, y from bottom to top.
 extern widget canvas(
-    label: text,                                // what it shows, for screen readers and Markdown
+    label: text, // what it shows, for screen readers and Markdown
     x: range<number> = -1..1,
     y: range<number> = -1..1,
     width: size = size.M,
-    aspect: opt<number 0.1..10> = opt.NONE,     // width over height; left out, from the two ranges
+    aspect: opt<number 0.1..10> = opt.NONE, // width over height; left out, from the two ranges
 ) {
     slot layers: list<layer>[1...];
-    event click(at: point);                     // a click on empty space, in the canvas's units
+    event click(at: point); // a click on empty space, in the canvas's units
     uses core.gfx;
 
     markdown {
@@ -1676,7 +1676,7 @@ extern widget circle(
     r: number 0...,
     fill: opt<color> = opt.NONE,
     stroke: opt<color> = opt.NONE,
-    width: stroke = stroke.THIN,                // the stroke's width: a stroke token, or a plain number of pixels
+    width: stroke = stroke.THIN, // the stroke's width: a stroke token, or a plain number of pixels
     opacity: number 0..1 = 1,
     label: text = "",
 ) implements shape {
@@ -1696,7 +1696,7 @@ extern widget path(
     stroke: opt<color> = color.INK,
     width: stroke = stroke.THIN,
     dash: bool = false,
-    head: head = head.NONE,                     // an arrow or a dot at the last point
+    head: head = head.NONE, // an arrow or a dot at the last point
     opacity: number 0..1 = 1,
     label: text = "",
 ) implements shape {
@@ -1944,7 +1944,7 @@ widget meter(value: number 0..., label: text, max: number 0... = 100, tone: opt<
                     @flex(fill = tone.or(color.ACCENT), radius = radius.PILL) { }
                 }
             }
-            @grow(by = (max - value).clamp(0, max)) {     // the same share as max - value.clamp(0, max)
+            @grow(by = (max - value).clamp(0, max)) { // the same share as max - value.clamp(0, max)
                 @flex { }
             }
         }

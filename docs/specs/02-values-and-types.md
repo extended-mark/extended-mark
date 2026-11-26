@@ -27,13 +27,13 @@ enum stage {
 
 //@about One tile.
 record stat {
-    label: text[1...];               // required
-    value: text;                     // required
-    change: opt<text> = opt.NONE;    // optional, may be absent
+    label: text[1...]; // required
+    value: text; // required
+    change: opt<text> = opt.NONE; // optional, may be absent
     note: opt<text> = opt.NONE;
     tone: opt<color> = opt.NONE;
-    size: int 1... = 16;             // optional, falls back to 16
-    mut seen: bool = false;          // can change
+    size: int 1... = 16; // optional, falls back to 16
+    mut seen: bool = false; // can change
 }
 
 // another name for a type, not a new type
@@ -109,18 +109,18 @@ Assigning makes a value of its own. `let b: stat = a;`, `mut out: list<number> =
 
 ```java
 fn sorted_copy(xs: list<number>): list<number> {
-    mut out: list<number> = xs;      // out is its own value: xs is untouched
+    mut out: list<number> = xs; // out is its own value: xs is untouched
     out.sort();
     return out;
 }
 
 fn sweep(mut stats: list<stat>) {
-    mut for (t in stats) {           // t is an opt<stat>, for the real item
-        if (mut s: stat = t) {       // still in the list
+    mut for (t in stats) { // t is an opt<stat>, for the real item
+        if (mut s: stat = t) { // still in the list
             if (s.seen) {
-                stats.remove(s);     // the loop goes on with the next item of its copy
+                stats.remove(s); // the loop goes on with the next item of its copy
             } else {
-                s.seen = true;       // writes the real item, wherever it now is
+                s.seen = true; // writes the real item, wherever it now is
             }
         }
     }
@@ -165,9 +165,9 @@ Using an `opt<color>` where a `color` is wanted is an ordinary type error. A pla
 
 ```java
 let readings: list<opt<number>> = [opt.SOME(3), opt.NONE];
-let b: opt<opt<number>> = readings[1];       // opt.SOME(opt.NONE): the item is there, and empty
-let c: opt<opt<number>> = readings[5];       // opt.NONE: there is no item 5
-let d: opt<opt<number>> = 3;                 // opt.SOME(opt.SOME(3))
+let b: opt<opt<number>> = readings[1]; // opt.SOME(opt.NONE): the item is there, and empty
+let c: opt<opt<number>> = readings[5]; // opt.NONE: there is no item 5
+let d: opt<opt<number>> = 3; // opt.SOME(opt.SOME(3))
 ```
 
 ### Numbers
@@ -183,12 +183,12 @@ There is one number type, `number`. It is exact base-10: IEEE 754 decimal128, wi
 - **`duration`** counts milliseconds and is written `250ms` or `2s`. It is a separate type, because a duration is not a plain number: `d.ms()` gives one.
 
 ```java
-let half: number = 7 / 2;                // 3.5
-let rest: number = 7 % 2;                // 1
-let whole: int = (7 / 2).floor();        // 3
-let sum: number = 0.1 + 0.2;             // 0.3
-let third: number = 1 / 3;               // 0.3333… to 34 digits
-let root: opt<number> = (-4).sqrt();     // opt.NONE: no real root
+let half: number = 7 / 2; // 3.5
+let rest: number = 7 % 2; // 1
+let whole: int = (7 / 2).floor(); // 3
+let sum: number = 0.1 + 0.2; // 0.3
+let third: number = 1 / 3; // 0.3333… to 34 digits
+let root: opt<number> = (-4).sqrt(); // opt.NONE: no real root
 ```
 
 ### Contracts
@@ -196,21 +196,21 @@ let root: opt<number> = (-4).sqrt();     // opt.NONE: no real root
 A contract narrows a type. There are four kinds.
 
 ```java
-start: number 0... = 5;                  // a range: 0 or more
-below: number ...10;                     // 10 or less
-level: number 0..10;                     // both bounds are always included
-offset: number -20..40;                  // the minus is the bound's own sign
-grade: number 0..limit;                  // a bound can be a named constant
-last: number 0..(limit - 1);             // anything longer goes in brackets
-count: int 0...;                         // a whole number, 0 or more: number 0... step 1
+start: number 0... = 5; // a range: 0 or more
+below: number ...10; // 10 or less
+level: number 0..10; // both bounds are always included
+offset: number -20..40; // the minus is the bound's own sign
+grade: number 0..limit; // a bound can be a named constant
+last: number 0..(limit - 1); // anything longer goes in brackets
+count: int 0...; // a whole number, 0 or more: number 0... step 1
 ratio: number 0.4..10;
 volume: number 0..1 step 0.05;
 delay: duration 100ms..10s;
-name: text[1...];                        // a length: square brackets, for text and lists
-code: text[3];                           // exactly 3 characters
+name: text[1...]; // a length: square brackets, for text and lists
+code: text[3]; // exactly 3 characters
 items: list<stat>[1...];
-pair: list<number>[2];                   // exactly 2 items
-scores: list<number 0..100>[1..50];      // a range on each item, a length on the list
+pair: list<number>[2]; // exactly 2 items
+scores: list<number 0..100>[1..50]; // a range on each item, a length on the list
 note: opt<text[1...]> = opt.NONE;
 tone: color only (color.INFO, color.OK, color.WARN, color.BAD) = color.INFO;
 side: text only ("left", "right") = "left";
@@ -252,7 +252,7 @@ fn rank(score: number 0..100): text {
 
 fn grade(n: number): text {
     if (n in 0..100) {
-        return rank(n);                  // n is a number 0..100 here
+        return rank(n); // n is a number 0..100 here
     }
     return "out of range";
 }

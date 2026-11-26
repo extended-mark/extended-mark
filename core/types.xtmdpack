@@ -79,7 +79,7 @@ record moment implements literal<text>, same, ordered, shown {
     day: date;
     hour: int 0..23;
     minute: int 0..59;
-    east: bool;                                 // + in the text: the offset is east of UTC
+    east: bool; // + in the text: the offset is east of UTC
     offset_hour: int 0..14;
     offset_minute: int 0..59;
 
@@ -183,7 +183,7 @@ fn day_number(count: int): date {
 fn moment_at(utc: int, source: moment): moment {
     let local: int = utc + source.offset();
     let days: int = (local / 1440).floor();
-    let minutes: int = local - days * 1440;     // 0 to 1439, so clamp only proves the hour and the minute
+    let minutes: int = local - days * 1440; // 0 to 1439, so clamp only proves the hour and the minute
     return moment {
         day = day_number(days),
         hour = (minutes / 60).floor().clamp(0, 23),
@@ -196,14 +196,14 @@ fn moment_at(utc: int, source: moment): moment {
 
 //@about A literal with holes: the text between them, and their values. A hole is never part of a piece.
 record template {
-    pieces: list<text>[1...];                   // one more piece than holes
+    pieces: list<text>[1...]; // one more piece than holes
     holes: list<hole>;
 }
 
 //@about One hole of a template, which from places as a value and never reads.
 enum hole {
-    TEXT(value: text),                          // a value that fits shown, already shown
-    VIEW(child: view),                          // \{@icon(…)} in a sentence
+    TEXT(value: text), // a value that fits shown, already shown
+    VIEW(child: view), // \{@icon(…)} in a sentence
 }
 
 //@about A template from a plain text, with no holes.
@@ -292,7 +292,7 @@ fn tex_tokens(tex: template): list<text> {
     mut out: list<text> = [];
     for (k, piece in tex.pieces) {
         if (k > 0) {
-            out.add("hole");                    // TeX's own tokens are one character or a command, never this
+            out.add("hole"); // TeX's own tokens are one character or a command, never this
         }
         for (x in tex_piece(piece)) {
             out.add(x);
@@ -305,13 +305,13 @@ fn tex_tokens(tex: template): list<text> {
 fn tex_piece(tex: text): list<text> {
     let letters: text = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     mut out: list<text> = [];
-    mut cmd: text = "";                         // a command being read, from its backslash
+    mut cmd: text = ""; // a command being read, from its backslash
     for (c in tex.chars()) {
         if (cmd == "\\") {
             if (letters.has(c)) {
                 cmd = "\\\{c}";
             } else {
-                out.add("\\\{c}");              // \{, \\ and the like are whole commands
+                out.add("\\\{c}"); // \{, \\ and the like are whole commands
                 cmd = "";
             }
         } else if (cmd != "" && letters.has(c)) {
@@ -329,7 +329,7 @@ fn tex_piece(tex: text): list<text> {
         }
     }
     if (cmd != "") {
-        out.add(cmd);                           // a backslash at the very end stays a lone \
+        out.add(cmd); // a backslash at the very end stays a lone \
     }
     return out;
 }
@@ -354,7 +354,7 @@ fn tex_pairs(t: list<text>, open: text, close: text): bool {
 
 // \begin{name} and \end{name} pair up by name, innermost first. Private to core
 fn tex_environments(t: list<text>): bool {
-    mut open: list<text> = [];                  // names begun; the first depth of them are still open
+    mut open: list<text> = []; // names begun; the first depth of them are still open
     mut depth: int = 0;
     mut ok: bool = true;
     for (k, x in t) {

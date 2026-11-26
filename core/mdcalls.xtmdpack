@@ -30,12 +30,12 @@ record md_segment {
 //@about What a segment holds. A hole's value is TEXT, or VIEW for a widget, so a value never becomes formatting. Private to core
 enum md_part {
     TEXT(value: text),
-    CODE(value: text),                          // a code span
-    MATH(tex: latex),                           // $x^2$
-    IMAGE(src: text, alt: text),                // ![alt](src)
-    NOTE(mark: text),                           // [^1], the mark of a footnote
-    BREAK,                                      // a hard line break
-    VIEW(child: view),                          // \{@icon(…)} in a sentence
+    CODE(value: text), // a code span
+    MATH(tex: latex), // $x^2$
+    IMAGE(src: text, alt: text), // ![alt](src)
+    NOTE(mark: text), // [^1], the mark of a footnote
+    BREAK, // a hard line break
+    VIEW(child: view), // \{@icon(…)} in a sentence
 }
 
 //@about How a segment is marked. A link is a mark, so bold words inside a link are one segment. Private to core
