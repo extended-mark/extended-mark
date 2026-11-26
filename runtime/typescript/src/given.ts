@@ -5,7 +5,7 @@ import { Page, type Outcome, type PageOptions } from "./host.js";
 import type { Input } from "./generated/tree.js";
 import type * as ir from "./generated/ir.js";
 
-/** A page's IR: the file `xtmd build` writes, as `import page from "./x.xtmd"` gives it. */
+/** A page's IR: the file `xtmd compile` writes, as `import page from "./x.xtmd"` gives it. */
 export type Ir = ir.File | ir.Module;
 
 /** A value the host gives, in the IR's form: `{ "num": "3" }`. */

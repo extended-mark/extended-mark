@@ -148,7 +148,7 @@ test("what each widget draws fits the widget set's format", () => {
     const c = JSON.parse(readFileSync(join(dir, f), "utf8"));
     let file;
     try {
-      file = JSON.parse(execFileSync(xtmd, ["build", join(dir, c.source), ...(c.packs ?? []).flatMap((p) => ["--pack", join(dir, p)])], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }));
+      file = JSON.parse(execFileSync(xtmd, ["compile", join(dir, c.source), ...(c.packs ?? []).flatMap((p) => ["--pack", join(dir, p)])], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }));
     } catch {
       continue; // a case of a page that doesn't compile
     }

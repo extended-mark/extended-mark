@@ -1,6 +1,6 @@
 # Editors, and Extended Mark's language server
 
-The editor features, worked out once from the checker's resolved IR (`xtmd build --rir`, with
+The editor features, worked out once from the checker's resolved IR (`xtmd compile --rir`, with
 core's own declarations in it: compiler/xtmd/src/lsp), and the server that gives them to any editor over the Language
 Server Protocol. `xtmd lsp` runs it over stdin and stdout; `@extended-mark/wasm` runs the same
 server in a browser or a worker (`LanguageServer`), which is how the VS Code extension

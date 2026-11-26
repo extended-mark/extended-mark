@@ -13,7 +13,7 @@ import { repo, workdir, xtmdBinary } from "./xtmd.mjs";
 const pages = join(repo, "renderers/testing");
 const built = (name) => {
   const out = join(workdir(), `given-${name}.json`);
-  execFileSync(xtmdBinary(), ["build", join(pages, name), "--out", out], { stdio: ["ignore", "pipe", "pipe"] });
+  execFileSync(xtmdBinary(), ["compile", join(pages, name), "--out", out], { stdio: ["ignore", "pipe", "pipe"] });
   return JSON.parse(readFileSync(out, "utf8"));
 };
 const irs = { v1: built("counter.xtmd"), v2: built("counter-v2.xtmd") };

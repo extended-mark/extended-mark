@@ -18,7 +18,7 @@ let n = 0;
 function build(file, packs = []) {
   const out = join(dir, `host${n++}.ir.json`);
   try {
-    execFileSync(xtmdBinary(), ["build", file, ...(packs.length ? ["--pack", packs.join(",")] : []), "--out", out], { stdio: ["ignore", "pipe", "pipe"] });
+    execFileSync(xtmdBinary(), ["compile", file, ...(packs.length ? ["--pack", packs.join(",")] : []), "--out", out], { stdio: ["ignore", "pipe", "pipe"] });
   } catch {
     return undefined; // a case about a compile error
   }

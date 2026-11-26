@@ -13,7 +13,7 @@ import { widgets as core } from "./widgets/index.js";
 
 /** What a host gives the document: the same in every framework. */
 export interface DocProps extends HeldProps {
-  /** The page's IR, in hand: the file `xtmd build` writes. */
+  /** The page's IR, in hand: the file `xtmd compile` writes. */
   ir?: Ir;
   /** A pack's own extern widgets, drawn the way core's are, by full name. */
   widgets?: Record<string, ViewWidget>;

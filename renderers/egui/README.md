@@ -43,7 +43,7 @@ The page under it, `XtmdPage`:
 use xtmd_egui::{runtime::Page, XtmdPage};
 
 fn host(json: &str) -> XtmdPage {
-    // once: the IR `xtmd build page.xtmd --out page.ir.json` wrote, with egui's value fns
+    // once: the IR `xtmd compile page.xtmd --out page.ir.json` wrote, with egui's value fns
     XtmdPage::new(Page::from_json(json, XtmdPage::options()).unwrap())
 }
 
@@ -130,7 +130,7 @@ through its AccessKit tree.
 
 ```sh
 cargo run -p xtmd-egui --example page --features app                          # examples/demo.xtmd
-cargo run -p xtmd-egui --example page --features app -- page.ir.json          # what xtmd build wrote
+cargo run -p xtmd-egui --example page --features app -- page.ir.json          # what xtmd compile wrote
 cargo run -p xtmd-egui --example page --features app -- doc.xtmd packs/maps # compiled there
 ```
 

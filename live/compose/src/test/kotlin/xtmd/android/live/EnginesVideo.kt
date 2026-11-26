@@ -46,7 +46,7 @@ import org.robolectric.annotation.GraphicsMode
 
 /**
  * Compose's two kinds of document in one screen, as frames for a video: xtmd-android's XtmdDoc drawing
- * the IR `xtmd build` wrote (static) and XtmdLiveDoc compiling its text on the device (live),
+ * the IR `xtmd compile` wrote (static) and XtmdLiveDoc compiling its text on the device (live),
  * driven through a script, each step's frame rendered by Robolectric's native graphics and written
  * with how long it shows, in build/video or where `-Pxtmd.video.out=<folder>` says:
  *
@@ -79,7 +79,7 @@ class EnginesVideo {
         val text0 = File(repo, "apps/playground/examples/counter.xtmd").readText()
         val written = File(dir, "counter.ir.json")
         val xtmd = File(repo, "compiler/target/release/xtmd")
-        val p = ProcessBuilder(xtmd.path, "build", File(repo, "apps/playground/examples/counter.xtmd").path, "--out", written.path).redirectErrorStream(true).start()
+        val p = ProcessBuilder(xtmd.path, "compile", File(repo, "apps/playground/examples/counter.xtmd").path, "--out", written.path).redirectErrorStream(true).start()
         val log = p.inputStream.bufferedReader().readText()
         assertEquals(log, 0, p.waitFor())
         val ir = written.readText()
@@ -100,7 +100,7 @@ class EnginesVideo {
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
                             Column(Modifier.weight(1f).padding(end = 8.dp)) {
                                 Text("Static: XtmdDoc (xtmd-android)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Text("XtmdDoc(ir = …): the IR xtmd build wrote. No compiler on the device.", fontSize = 12.sp, color = Color(0xFF6B7280))
+                                Text("XtmdDoc(ir = …): the IR xtmd compile wrote. No compiler on the device.", fontSize = 12.sp, color = Color(0xFF6B7280))
                                 Box(Modifier.padding(top = 6.dp).border(1.dp, Color(0xFFD4D7DC)).background(Color.White).padding(8.dp)) {
                                     XtmdDoc(ir = ir, docState = run, onStateChange = { runState = line(it) })
                                 }
@@ -169,7 +169,7 @@ class EnginesVideo {
         }
 
         say("Compose's two kinds of document, on one screen.", 3.0)
-        say("Static: XtmdDoc draws an IR built ahead (xtmd build). No compiler.", 3.2)
+        say("Static: XtmdDoc draws an IR built ahead (xtmd compile). No compiler.", 3.2)
         caption = "A press: the page writes \$state, checked by xtmd."
         onAllNodesWithText("Add 1")[0].performClick()
         frame(1.4)

@@ -29,7 +29,7 @@ function xtmd() {
 export function irOf(file, packs = []) {
   const out = join(dir, `${n++}.ir.json`);
   try {
-    execFileSync(xtmd(), ["build", file, ...packs.flatMap((p) => ["--pack", p]), "--out", out], { stdio: "pipe" });
+    execFileSync(xtmd(), ["compile", file, ...packs.flatMap((p) => ["--pack", p]), "--out", out], { stdio: "pipe" });
   } catch {
     return undefined;
   }

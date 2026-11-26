@@ -55,7 +55,7 @@ class DragPerfTest {
     private fun ir(source: File): String {
         check(xtmd.canExecute()) { "the xtmd binary isn't built: cargo build --release -p xtmd in compiler/" }
         val out = File.createTempFile("xtmd-page", ".ir.json")
-        val p = ProcessBuilder(xtmd.path, "build", source.path, "--out", out.path).redirectErrorStream(true).start()
+        val p = ProcessBuilder(xtmd.path, "compile", source.path, "--out", out.path).redirectErrorStream(true).start()
         p.inputStream.bufferedReader().readText()
         check(p.waitFor() == 0)
         return out.readText().also { out.delete() }

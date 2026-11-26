@@ -181,13 +181,13 @@ impl XtmdDoc {
         Ok(XtmdDoc { view, module, hash, shown, given: None, errors })
     }
 
-    /// A document from the IR file `xtmd build` wrote, as JSON.
+    /// A document from the IR file `xtmd compile` wrote, as JSON.
     pub fn from_json(json: &str, opts: DocOptions) -> Result<XtmdDoc, DocError> {
         let file: ir::File = serde_json::from_str(json).map_err(|e| DocError::Load(format!("the IR doesn't read: {}", e)))?;
         XtmdDoc::new(file, opts)
     }
 
-    /// A document from where its IR is: a file `xtmd build` wrote.
+    /// A document from where its IR is: a file `xtmd compile` wrote.
     pub fn open(src: impl AsRef<Path>, opts: DocOptions) -> Result<XtmdDoc, DocError> {
         let src = src.as_ref();
         let json = std::fs::read_to_string(src).map_err(|e| DocError::Load(format!("the page at {} couldn't be loaded: {}", src.display(), e)))?;

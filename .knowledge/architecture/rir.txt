@@ -1,6 +1,6 @@
 THE RESOLVED IR (rir)  schemas/rir.schema.json, compiler/xtmd/src/check/rir.rs
 What the checker understood of a build, for tools: names resolved, values typed, nothing lowered,
-prose still Markdown, every node with its span and comments. `xtmd build --rir`.
+prose still Markdown, every node with its span and comments. `xtmd compile --rir`.
 Version 2 keeps every comment (a test counts them over the repo's files, cli_rir.rs): a node's
 `comments` {doc, leading, trailing, block_start, block_end, free}; comment items {comment, span}
 in lists, or a body's `comment_items` where its members are split by kind; `part_comments` for

@@ -1,4 +1,4 @@
-//! `xtmd build` and `xtmd md` over several files and folders: core is compiled once, and each document is
+//! `xtmd compile` and `xtmd md` over several files and folders: core is compiled once, and each document is
 //! written into the `--out` folder, at its place in the folder named.
 
 use std::collections::{BTreeMap, HashMap};

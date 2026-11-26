@@ -21,8 +21,8 @@ The [releases](https://github.com/extended-mark/extended-mark/releases) have the
 ```sh
 xtmd check docs/              # every error and warning
 xtmd fmt docs/                # the canonical layout, in place
-xtmd build page.xtmd          # the IR a page runs from
-xtmd build docs --out dist    # every document's, core compiled once
+xtmd compile page.xtmd          # the IR a page runs from
+xtmd compile docs --out dist    # every document's, core compiled once
 xtmd md page.xtmd             # the page as Markdown
 xtmd build docs --out dist --engine ./web   # the files an engine makes: IR in, files out
 xtmd migrate docs/            # documents brought up to the packs they use

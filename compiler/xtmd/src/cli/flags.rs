@@ -9,7 +9,8 @@ fn known(cmd: &str) -> &'static [&'static str] {
         "fmt" => &["--check", "--diff", "--stdout", "--stdin", "--format", "--out", "--help"],
         "parse" => &["--format", "--out", "--help"],
         "check" => &["--pack", "--config", "--format", "--out", "--help"],
-        "build" => &["--engine", "--rir", "--core", "--pretty", "--pack", "--config", "--format", "--out", "--help"],
+        "compile" => &["--rir", "--core", "--pretty", "--pack", "--config", "--format", "--out", "--help"],
+        "build" => &["--engine", "--pack", "--config", "--format", "--out", "--help"],
         "md" => &["--pack", "--config", "--format", "--out", "--help"],
         "surface" => &["--check", "--diff", "--stdout", "--force", "--pack", "--config", "--format", "--out", "--help"],
         "migrate" => &[
@@ -45,6 +46,10 @@ const ASKED_FOR: &[(&str, &str, &str)] = &[
     ("*", "-h", "use --help"),
     ("*", "--json", "use --format json"),
     ("migrate", "-y", "use --yes"),
+    // build runs an engine; the IR and the resolved IR are compile's
+    ("build", "--rir", "xtmd compile writes the resolved IR: xtmd compile page.xtmd --rir"),
+    ("build", "--core", "xtmd compile writes the resolved IR, core's files in it: xtmd compile page.xtmd --rir --core"),
+    ("build", "--pretty", "xtmd compile writes the IR: xtmd compile page.xtmd --pretty"),
 ];
 
 /// The command's flags looked over: each one it doesn't know, warned about, and whether it can run;
@@ -113,7 +118,8 @@ mod tests {
         assert_eq!(check("migrate", &args(&["docs", "--yes=1,3", "--pack=kit", "--stdout", "--quiet"])), (vec!["--quiet".to_string()], true));
         assert!(!check("migrate", &args(&["docs", "--to", "0.3.0"])).1);
         assert_eq!(check("fmt", &args(&["a.xtmdpack", "--check", "-", "--format", "json", "--out", "x.txt"])), (vec![], true));
-        assert!(!check("build", &args(&["a.xtmd", "-o", "a.ir.json"])).1);
+        assert!(!check("compile", &args(&["a.xtmd", "-o", "a.ir.json"])).1);
+        assert!(!check("build", &args(&["a.xtmd", "--rir"])).1);
         assert!(!check("check", &args(&["a.xtmd", "-o", "report.txt"])).1);
     }
 

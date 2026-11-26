@@ -104,7 +104,7 @@ pub(crate) fn print(s: &str) {
     match SINK.lock().unwrap().as_mut() {
         Some((_, buf)) => buf.extend_from_slice(s.as_bytes()),
         None => {
-            // a pipe closed early (`xtmd build … | head`) ends xtmd quietly, as SIGPIPE ends a C
+            // a pipe closed early (`xtmd compile … | head`) ends xtmd quietly, as SIGPIPE ends a C
             // program, and with its exit code
             if let Err(e) = std::io::stdout().write_all(s.as_bytes()) {
                 if e.kind() == std::io::ErrorKind::BrokenPipe {

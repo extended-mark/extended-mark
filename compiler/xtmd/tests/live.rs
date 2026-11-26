@@ -1,4 +1,4 @@
-//! A live document's compiler: a text built into the IR xtmd build writes, a broken draft that leaves the last IR,
+//! A live document's compiler: a text built into the IR xtmd compile writes, a broken draft that leaves the last IR,
 //! packs given as text, and what an editor asks for: the resolved IR and the canonical layout.
 
 use xtmd::live::{BuildOptions, Compiler, Followed, Live, Severity, Source};
@@ -12,7 +12,7 @@ fn a_document_builds_into_the_binarys_ir() {
     assert_eq!(b.errors, 0, "{:?}", b.diagnostics);
     let ir = b.ir.expect("an IR");
     assert_eq!(ir.ir.module, "doc");
-    // lowered as xtmd build lowers it: the press's label is a constant, its click a handler
+    // lowered as xtmd compile lowers it: the press's label is a constant, its click a handler
     assert!(!ir.ir.handlers.is_empty());
     let sites = b.sites.clone();
     let json = xtmd::live::Built { ir: Some(ir), diagnostics: b.diagnostics, errors: 0, sites: b.sites, rir: None }.to_json();

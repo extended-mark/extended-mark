@@ -32,7 +32,7 @@ CI builds it and runs its tests, and it isn't published
 use xtmd_runtime::ir::Expr;
 use xtmd_runtime::{Drawn, Num, Page, PageOptions, Value, Write};
 
-// a page from `xtmd build page.xtmd --out page.ir.json`, mounted and drawn once
+// a page from `xtmd compile page.xtmd --out page.ir.json`, mounted and drawn once
 let json = std::fs::read_to_string("page.ir.json").unwrap();
 let mut page = Page::from_json(&json, PageOptions::default()).unwrap();
 

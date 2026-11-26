@@ -32,7 +32,7 @@ pub fn version(v: &Value) -> Option<i64> {
 /// The IR of this version, and the version it was: or why it can't be brought here.
 pub fn migrate(text: &str) -> Result<(Value, i64), Vec<String>> {
     let mut v: Value = serde_json::from_str(text).map_err(|e| vec![format!("it isn't JSON: {}", e)])?;
-    let Some(from) = version(&v) else { return Err(vec!["it isn't an IR: `xtmd build` writes { \"ir\": { \"version\": … } }".into()]) };
+    let Some(from) = version(&v) else { return Err(vec!["it isn't an IR: `xtmd compile` writes { \"ir\": { \"version\": … } }".into()]) };
     if from > VERSION {
         return Err(vec![format!("it is IR {}, and this xtmd writes IR {}: use the xtmd that wrote it, or a later one", from, VERSION)]);
     }

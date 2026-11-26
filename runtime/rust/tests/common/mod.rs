@@ -1,4 +1,4 @@
-//! Test helpers: pages compiled by the compiler in-process, as `xtmd build` compiles them.
+//! Test helpers: pages compiled by the compiler in-process, as `xtmd compile` compiles them.
 
 #![allow(dead_code)]
 

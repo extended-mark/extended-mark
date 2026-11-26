@@ -13,7 +13,7 @@ fn repo() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..")
 }
 
-/// A document's IR file, as `xtmd build` writes it: core is compiled once, on the compiler's own
+/// A document's IR file, as `xtmd compile` writes it: core is compiled once, on the compiler's own
 /// thread (a checker holds values that stay on one thread).
 fn build(source: &str) -> String {
     type Job = (String, Sender<Result<String, String>>);

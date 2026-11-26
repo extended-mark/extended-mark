@@ -93,7 +93,7 @@ test("a pack given as text is used, and one the document names but isn't given i
   assert.ok(missing.errors > 0 && missing.diagnostics.some((d) => d.code === "names.unknown-pack"), JSON.stringify(missing.diagnostics));
 });
 
-test("every case's resolved IR is the binary's (xtmd build --rir), and only when asked", async () => {
+test("every case's resolved IR is the binary's (xtmd compile --rir), and only when asked", async () => {
   let resolved = 0;
   for (const c of cases) {
     const text = readFileSync(c.source, "utf8");

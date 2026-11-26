@@ -2042,7 +2042,7 @@ fn check_version(version: i64) -> R<()> {
 }
 
 impl Page {
-    /// A page from the IR file `xtmd build` writes, as JSON.
+    /// A page from the IR file `xtmd compile` writes, as JSON.
     pub fn from_json(json: &str, opts: PageOptions) -> R<Page> {
         // its version first: another's may not read
         if let Some(v) = serde_json::from_str::<serde_json::Value>(json).ok().and_then(|v| v["ir"]["version"].as_i64()) {

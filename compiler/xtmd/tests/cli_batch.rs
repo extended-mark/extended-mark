@@ -37,12 +37,12 @@ fn tree(name: &str) -> PathBuf {
 #[test]
 fn a_folder_is_built_into_another_each_document_at_its_place() {
     let dir = tree("folder");
-    let (code, out, err) = xtmd_in(&dir, &["build", "docs", "loose.xtmd", "--out", "dist"]);
+    let (code, out, err) = xtmd_in(&dir, &["compile", "docs", "loose.xtmd", "--out", "dist"]);
     assert_eq!((code, out.is_empty()), (0, true), "{}", err);
     assert!(err.ends_with("3 documents: 3 written\n"), "{}", err);
     for (file, alone) in [("one.ir.json", "docs/one.xtmd"), ("deep/two.ir.json", "docs/deep/two.xtmd"), ("loose.ir.json", "loose.xtmd")] {
         // what building it alone writes, each with the packs of its own xtmd.toml
-        let (_, want, _) = xtmd_in(&dir, &["build", alone]);
+        let (_, want, _) = xtmd_in(&dir, &["compile", alone]);
         let got = std::fs::read_to_string(dir.join("dist").join(file)).unwrap();
         assert_eq!(got.trim_end(), String::from_utf8(want).unwrap().trim_end(), "{}", file);
     }
@@ -57,14 +57,14 @@ fn a_folder_is_built_into_another_each_document_at_its_place() {
     let blocks: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(dir.join("blocks/one.blocks.json")).unwrap()).unwrap();
     assert_eq!(blocks.as_array().unwrap().len(), 2);
     // the resolved IR too
-    let (code, _, err) = xtmd_in(&dir, &["build", "docs", "--rir", "--out", "tools"]);
+    let (code, _, err) = xtmd_in(&dir, &["compile", "docs", "--rir", "--out", "tools"]);
     assert!(code == 0 && dir.join("tools/one.rir.json").is_file(), "{}", err);
 }
 
 #[test]
 fn one_that_doesnt_compile_is_left_out_and_the_rest_are_written() {
     let dir = scratch("errors", &[("a.xtmd", "# A\n"), ("b.xtmd", "@nothing;\n"), ("c.xtmd", "# C\n")]);
-    let (code, out, err) = xtmd_in(&dir, &["build", ".", "--out", "dist", "--format", "json"]);
+    let (code, out, err) = xtmd_in(&dir, &["compile", ".", "--out", "dist", "--format", "json"]);
     assert_eq!(code, 1);
     let lines: Vec<serde_json::Value> = String::from_utf8(out).unwrap().lines().map(|l| serde_json::from_str(l).unwrap()).collect();
     assert_eq!(lines.iter().map(|l| l["result"].as_str().unwrap_or("")).collect::<Vec<_>>(), ["written", "errors", "written", ""]);
@@ -77,11 +77,11 @@ fn one_that_doesnt_compile_is_left_out_and_the_rest_are_written() {
 fn several_need_a_folder_to_go_into_and_never_the_same_place() {
     let dir = scratch("usage", &[("x/page.xtmd", "# X\n"), ("y/page.xtmd", "# Y\n"), ("file", ""), ("none/readme.txt", "")]);
     for (args, why) in [
-        (&["build", "x/page.xtmd", "y/page.xtmd"][..], "needs --out"),
-        (&["build", "x"], "needs --out"),
+        (&["compile", "x/page.xtmd", "y/page.xtmd"][..], "needs --out"),
+        (&["compile", "x"], "needs --out"),
         (&["md", "x", "y", "--out", "file"], "a file, and xtmd md"),
-        (&["build", "x", "y", "--out", "dist"], "would both be written to"),
-        (&["build", "none", "--out", "dist"], "no Extended Mark documents"),
+        (&["compile", "x", "y", "--out", "dist"], "would both be written to"),
+        (&["compile", "none", "--out", "dist"], "no Extended Mark documents"),
     ] {
         let (code, _, err) = xtmd_in(&dir, args);
         assert_eq!(code, 2, "{:?}", args);
@@ -89,14 +89,14 @@ fn several_need_a_folder_to_go_into_and_never_the_same_place() {
     }
     assert!(!dir.join("dist").exists());
     // a file named twice, or in a folder named too, is written once
-    let (code, _, err) = xtmd_in(&dir, &["build", "x/page.xtmd", "x/page.xtmd", "--out", "dist"]);
+    let (code, _, err) = xtmd_in(&dir, &["compile", "x/page.xtmd", "x/page.xtmd", "--out", "dist"]);
     assert!(code == 0 && err.contains("1 document: 1 written"), "{}", err);
 }
 
 #[test]
 fn a_flag_takes_its_value_after_an_equals_sign_too() {
     let dir = tree("equals");
-    let (code, out, err) = xtmd_in(&dir, &["build", "loose.xtmd", "--out=dist/loose.ir.json"]);
+    let (code, out, err) = xtmd_in(&dir, &["compile", "loose.xtmd", "--out=dist/loose.ir.json"]);
     assert!(code == 0 && out.is_empty() && dir.join("dist/loose.ir.json").is_file(), "{}", err);
 }
 
@@ -111,7 +111,7 @@ fn an_engine_that_cant_be_run_is_said() {
         (&["build", "has/page.xtmd", "--out", "d", "--engine", "none"], "an empty list"),
         (&["build", "has/page.xtmd", "--out", "d", "--engine", "lost"], "no-such-program-xtmd can't be run"),
         (&["build", "page.xtmd", "--out", "d", "--engine", "./nowhere"], "no such file"),
-        (&["build", "page.xtmd", "--rir", "--out", "d", "--engine", "./nowhere"], "leave it out with --engine"),
+        (&["build", "page.xtmd", "--rir", "--out", "d", "--engine", "./nowhere"], "xtmd compile writes the resolved IR"),
     ] {
         let (got, _, err) = xtmd_in(&dir, args);
         assert!(got == 2 && err.contains(why), "{:?}: {} {}", args, got, err);
@@ -154,9 +154,9 @@ mod engines {
         let job: serde_json::Value = serde_json::from_str(&read(dir.join("job.json"))).unwrap();
         let names: Vec<&str> = job["documents"].as_array().unwrap().iter().map(|d| d["name"].as_str().unwrap()).collect();
         assert_eq!((job["version"].as_i64(), names), (Some(1), vec!["deep/two", "one", "loose"]));
-        // each IR is the one `xtmd build` writes
+        // each IR is the one `xtmd compile` writes
         for (name, file) in [("one", "docs/one.xtmd"), ("deep/two", "docs/deep/two.xtmd")] {
-            let (_, ir, _) = xtmd_in(&dir, &["build", file]);
+            let (_, ir, _) = xtmd_in(&dir, &["compile", file]);
             let ir: serde_json::Value = serde_json::from_slice(&ir).unwrap();
             assert_eq!(job["documents"].as_array().unwrap().iter().find(|d| d["name"] == name).unwrap()["ir"], ir["ir"], "{name}");
         }

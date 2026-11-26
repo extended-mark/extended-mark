@@ -56,7 +56,7 @@ tasks.withType<Test>().configureEach {
     (project.findProperty("xtmd.render") as String?)?.let { systemProperty("xtmd.render", file(it).absolutePath) }
 }
 
-// The pages' IR, from their Extended Mark source, by the compiler: `xtmd build <page> --out <name>.ir.json`.
+// The pages' IR, from their Extended Mark source, by the compiler: `xtmd compile <page> --out <name>.ir.json`.
 val xtmd = rootProject.file("../../compiler/target/release/xtmd")
 val sources = mapOf(
     "shop" to rootProject.file("../../examples/pages/shop.xtmd"),
@@ -69,7 +69,7 @@ val buildPages = sources.map { (name, src) ->
         val out = pages.map { it.file("$name.ir.json") }
         outputs.file(out)
         doFirst { out.get().asFile.parentFile.mkdirs() }
-        commandLine(xtmd.absolutePath, "build", src.absolutePath, "--out", out.get().asFile.absolutePath)
+        commandLine(xtmd.absolutePath, "compile", src.absolutePath, "--out", out.get().asFile.absolutePath)
     }
 }
 tasks.named("preBuild") { dependsOn(buildPages) }

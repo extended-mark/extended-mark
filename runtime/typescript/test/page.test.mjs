@@ -17,7 +17,7 @@ function page(source, opts = {}) {
   const file = join(dir, `page${n++}.xtmd`);
   writeFileSync(file, source);
   const out = file.replace(/\.xtmd$/, ".ir.json");
-  execFileSync(xtmdBinary(), ["build", file, "--out", out], { stdio: ["ignore", "pipe", "pipe"] });
+  execFileSync(xtmdBinary(), ["compile", file, "--out", out], { stdio: ["ignore", "pipe", "pipe"] });
   return new Page(JSON.parse(readFileSync(out, "utf8")), opts);
 }
 
@@ -214,7 +214,7 @@ test("an extern widget the renderer doesn't supply shows its Markdown, and is re
   const file = join(dir, "pack-page.xtmd");
   writeFileSync(file, 'import badge;\n@@@\n# Votes\n\n@badge(label = "Votes", count = 2);\n\n@seal(text = "Checked by nobody");\n');
   const out = file.replace(/\.xtmd$/, ".ir.json");
-  execFileSync(xtmdBinary(), ["build", file, "--pack", pack, "--out", out], { stdio: ["ignore", "pipe", "pipe"] });
+  execFileSync(xtmdBinary(), ["compile", file, "--pack", pack, "--out", out], { stdio: ["ignore", "pipe", "pipe"] });
   const ir = JSON.parse(readFileSync(out, "utf8"));
   assert.deepEqual(ir.ir.needs.packs, [{ externs: ["badge/badge", "badge/seal"], name: "badge", version: 1 }]);
   const p = new Page(ir, { supplies: (w) => w.startsWith("core/") || w === "badge/badge" });
@@ -346,7 +346,7 @@ widget chart() {
 
 @chart;
 `);
-  execFileSync(xtmdBinary(), ["build", file, "--pack", join(dir, "ext.xtmdpack"), "--out", join(dir, "ext.ir.json")], { stdio: ["ignore", "pipe", "pipe"] });
+  execFileSync(xtmdBinary(), ["compile", file, "--pack", join(dir, "ext.xtmdpack"), "--out", join(dir, "ext.ir.json")], { stdio: ["ignore", "pipe", "pipe"] });
   const p = new Page(JSON.parse(readFileSync(join(dir, "ext.ir.json"), "utf8")), { supplies: () => true });
   assert.equal(p.markdown(), "> Hello\n\n1 bars\n");
   p.set({ points: p.value({ list: [] }) });

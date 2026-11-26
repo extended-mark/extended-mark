@@ -8,9 +8,9 @@ usage: xtmd <command> [arguments] [flags]
   xtmd fmt <file|folder>…        rewrite each file in the canonical layout, in place (the formatter)
   xtmd check <file|folder>…      report every error and warning, then a line for each file
   xtmd parse <file>              print a file's syntax tree, as JSON
-  xtmd build <file|folder>…      write each document's IR, for a runtime (--rir: the resolved IR, for tools)
+  xtmd compile <file|folder>…    write each document's IR, for a runtime (--rir: the resolved IR, for tools)
   xtmd md <file|folder>…         write each document's Markdown, as it reads when it first loads
-  xtmd build … --engine e        …or the files an engine makes of them: HTML, Rust, whatever it is for
+  xtmd build … --engine e        the files an engine makes of the documents: HTML, Rust, whatever it is for
   xtmd surface <pack>            the release step: record what this version of the pack provides
   xtmd migrate [<file|folder>…]  bring documents and packs up to the packs they are built with
   xtmd lsp                       the language server, for an editor: the protocol over stdin and stdout
@@ -18,14 +18,14 @@ usage: xtmd <command> [arguments] [flags]
   xtmd --version: this xtmd's release
 
 Every command takes:
-  --format json  JSON instead of text. A command that writes a document (build, md, parse) writes
+  --format json  JSON instead of text. A command that writes a document (compile, md, parse) writes
                  it as JSON, with its diagnostics as JSON lines on stderr. One that reports (check,
                  fmt, surface, migrate) prints JSON lines: one object a line, each with
                  its \"type\", and a \"summary\" last.
-  --out <file>   what it prints goes to the file, its folder made if need be (build, md and
+  --out <file>   what it prints goes to the file, its folder made if need be (compile, build, md and
                  surface write their document there); a run that stops at a usage error leaves it alone.
   --help         its own usage.
-And check, build, md, surface and migrate take:
+And check, compile, build, md, surface and migrate take:
   --pack a,b     the packs: folders and .xtmdpack files.
   --config f     an xtmd.toml; left out, xtmd looks for one in the file's folder and the folders above.
                  It says packs = [\"kit\", \"extra.xtmdpack\"] (as --pack does), xtmd = \"0.4.0\" (the release
@@ -91,12 +91,11 @@ const LSP: &str = "usage: xtmd lsp
   exit: 0 after the editor's shutdown and exit; 1 when the input ends first
   e.g.  xtmd lsp";
 
-const BUILD: &str = "usage: xtmd build <files|folders>… [--pack a,b] [--config xtmd.toml] [--rir [--core]] [--pretty] [--out out] [--format json]
-       xtmd build <files|folders>… [--pack a,b] [--config xtmd.toml] [--format json] --out dir --engine <name|path> [the engine's own arguments]
+const COMPILE: &str = "usage: xtmd compile <files|folders>… [--pack a,b] [--config xtmd.toml] [--rir [--core]] [--pretty] [--out out] [--format json]
   Writes a document's IR, what a runtime draws: the document, and only what it uses of core and
   its packs. The IR's top-level \"levels\" are what the page needs.
-  --rir          the resolved IR instead: every name and type resolved and nothing lowered, for
-                 editor tools (schemas/rir.schema.json); its \"levels\" are the document's too
+  --rir          the resolved IR instead: every name and type resolved, every comment kept and
+                 nothing lowered, for tools (schemas/rir.schema.json); its \"levels\" are the document's too
   --pretty       JSON over several lines, for a person to read; without it, as small as it goes
   --core         with --rir: core's own files first, resolved too, for an editor that completes
                  core's widgets and goes to their declarations
@@ -104,19 +103,26 @@ const BUILD: &str = "usage: xtmd build <files|folders>… [--pack a,b] [--config
   --out dir      several files, or a folder: each document as <dir>/<its place>/<name>.ir.json
                  (.rir.json with --rir), core compiled once; one that doesn't compile is left out
   --format json  its errors as JSON lines on stderr, and what was written on stdout
-  --engine name  writes the files an engine makes of the documents instead, into --out's folder. The
-                 engine is one of xtmd.toml's [engines], a command run in xtmd.toml's folder:
+  exit: 0 written; 1 one doesn't compile; 2 a usage error, or a file that can't be read
+  e.g.  xtmd compile page.xtmd --out dist/page.ir.json
+        xtmd compile docs --out dist
+        xtmd compile page.xtmd --rir --pretty";
+
+const BUILD: &str = "usage: xtmd build <files|folders>… [--pack a,b] [--config xtmd.toml] [--format json] --out dir --engine <name|path> [the engine's own arguments]
+  Writes the files an engine makes of the documents, into --out's folder: HTML, Rust, whatever the
+  engine is for. Each document is compiled as xtmd compile does, and its IR given to the engine.
+  Without --engine there is nothing to build: xtmd compile writes the IR.
+  --engine name  one of xtmd.toml's [engines], a command run in xtmd.toml's folder:
                    [engines]
                    web = [\"node\", \"engine.mjs\"]
   --engine path  a program, by a path with a / in it, run in the current folder
                  It reads the documents' IR on its standard input and gives the files on its standard
                  output (schemas/build.schema.json), its errors on standard error. Everything after its
                  name goes to it, untouched, so xtmd's own flags go before --engine
+  --format json  its errors as JSON lines on stderr, and what was written on stdout
   exit: 0 written; 1 one doesn't compile, or what the engine gave can't be written; 2 a usage error, a
         file that can't be read, or an engine that can't be run; the engine's own when that isn't 0
-  e.g.  xtmd build page.xtmd --out dist/page.ir.json
-        xtmd build docs --out dist
-        xtmd build docs --out dist --engine web --theme plain";
+  e.g.  xtmd build docs --out dist --engine web --theme plain";
 
 const MD: &str = "usage: xtmd md <files|folders>… [--pack a,b] [--config xtmd.toml] [--out out] [--format json]
   Writes a document's Markdown, as the page reads when it first loads: each value at its start,
@@ -151,6 +157,7 @@ pub(crate) fn of(cmd: &str) -> Option<&'static str> {
         "fmt" => FMT,
         "check" => CHECK,
         "parse" => PARSE,
+        "compile" => COMPILE,
         "build" => BUILD,
         "md" => MD,
         "surface" => SURFACE,

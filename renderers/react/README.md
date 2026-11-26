@@ -1,7 +1,7 @@
 # @extended-mark/react
 
 Extended Mark documents in React 19: the renderer. `XtmdDoc` draws a page from an IR built ahead
-(`xtmd build`, or xtmd's bundler plugin), with no compiler and no WebAssembly in the host. Core's
+(`xtmd compile`, or xtmd's bundler plugin), with no compiler and no WebAssembly in the host. Core's
 widgets are drawn by React itself, with `createElement`: the page is part of the host's tree, server-rendered with `renderToString` and hydrated like the rest. The live document, which compiles a document's text in the
 browser, is [@extended-mark/react-live](../../live/react).
 

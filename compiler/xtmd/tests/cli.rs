@@ -49,11 +49,11 @@ fn packs_from_folders_and_files() {
     let (code, _, err) = xtmd(&["check", "--pack", &packs, doc.to_str().unwrap()]);
     assert_eq!(code, 0, "{}", err);
     let out = dir.join("doc.ir.json");
-    let (code, _, err) = xtmd(&["build", doc.to_str().unwrap(), "--pack", &packs, "--out", out.to_str().unwrap()]);
+    let (code, _, err) = xtmd(&["compile", doc.to_str().unwrap(), "--pack", &packs, "--out", out.to_str().unwrap()]);
     assert_eq!(code, 0, "{}", err);
     let ir: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&out).unwrap()).unwrap();
     assert!(ir.to_string().contains("shelf/row_of_books"), "the pack's widget is in the IR");
-    let (code, _, err) = xtmd(&["build", doc.to_str().unwrap(), "--pack", "nowhere.txt"]);
+    let (code, _, err) = xtmd(&["compile", doc.to_str().unwrap(), "--pack", "nowhere.txt"]);
     assert_eq!(code, 2);
     assert!(err.contains("not a folder or a .xtmdpack file"), "{}", err);
 }
@@ -70,7 +70,7 @@ fn an_xtmd_toml_names_the_packs() {
     let doc = dir.join("site/pages/doc.xtmd");
     let (code, _, err) = xtmd(&["check", doc.to_str().unwrap()]);
     assert_eq!(code, 0, "{}", err);
-    let (code, _, err) = xtmd(&["build", doc.to_str().unwrap(), "--config", dir.join("other.toml").to_str().unwrap(), "--out", dir.join("doc.ir.json").to_str().unwrap()]);
+    let (code, _, err) = xtmd(&["compile", doc.to_str().unwrap(), "--config", dir.join("other.toml").to_str().unwrap(), "--out", dir.join("doc.ir.json").to_str().unwrap()]);
     assert_eq!(code, 0, "{}", err);
     // a key xtmd.toml doesn't have
     let dir = scratch("config-bad", &[("xtmd.toml", "pack = [\"packs\"]\n"), ("doc.xtmd", "# Hi\n")]);
@@ -423,9 +423,9 @@ fn an_unknown_flag_is_a_warning_and_one_asked_for_says_what_there_is() {
     let (code, _, err) = xtmd(&["check", "--json", docs.join("report.xtmd").to_str().unwrap()]);
     assert_eq!(code, 2);
     assert!(err.contains("error: xtmd check has no --json: use --format json"), "{}", err);
-    let (code, _, err) = xtmd(&["build", docs.join("report.xtmd").to_str().unwrap(), "-o", "x.json"]);
+    let (code, _, err) = xtmd(&["compile", docs.join("report.xtmd").to_str().unwrap(), "-o", "x.json"]);
     assert_eq!(code, 2);
-    assert!(err.contains("error: xtmd build has no -o: use --out"), "{}", err);
+    assert!(err.contains("error: xtmd compile has no -o: use --out"), "{}", err);
     assert_eq!(std::fs::read_to_string(docs.join("report.xtmd")).unwrap(), OLD_DOC);
 }
 
@@ -544,7 +544,7 @@ fn every_command_takes_format_json_and_out() {
     assert!(serde_json::from_str::<serde_json::Value>(&out).is_ok(), "{}", out);
     let broken = dir.join("broken.xtmd");
     std::fs::write(&broken, "@@@\nThe count is \\{$state.m}.\n").unwrap();
-    let (code, _, err) = xtmd(&["build", broken.to_str().unwrap(), "--format", "json"]);
+    let (code, _, err) = xtmd(&["compile", broken.to_str().unwrap(), "--format", "json"]);
     assert_eq!(code, 1);
     assert_eq!(lines(&err)[0]["type"], "diagnostic", "{}", err);
     // --out: what the command prints goes to the file
@@ -553,7 +553,7 @@ fn every_command_takes_format_json_and_out() {
     assert_eq!((code, out.as_str(), err.as_str()), (1, "", ""));
     assert!(std::fs::read_to_string(&report).unwrap().contains("error[names.unknown-field]"));
     let ir = dir.join("counter.ir.json");
-    assert_eq!(xtmd(&["build", c, "--out", ir.to_str().unwrap()]).0, 0);
+    assert_eq!(xtmd(&["compile", c, "--out", ir.to_str().unwrap()]).0, 0);
     assert!(std::fs::read_to_string(&ir).unwrap().contains("\"version\":4"));
     let (code, out, _) = xtmd(&["migrate", dir.join("docs").to_str().unwrap(), "--dry-run", "--format", "json", "--out", dir.join("plan.jsonl").to_str().unwrap()]);
     assert_eq!((code, out.as_str()), (0, ""));
@@ -577,8 +577,8 @@ fn every_command_has_its_own_help_and_xtmd_says_its_version() {
     assert_eq!(code, 0, "xtmd alone is its usage, not an error");
     assert!(out.contains("usage: xtmd <command>") && out.contains("Exit codes: 0 done"), "{}", out);
     let (code, out, _) = xtmd(&["--version"]);
-    assert_eq!((code, out.trim().to_string()), (0, format!("xtmd {} (Extended Mark 0.4; IR 4, resolved IR 1)", env!("CARGO_PKG_VERSION"))));
-    for cmd in ["fmt", "check", "parse", "build", "md", "surface", "migrate"] {
+    assert_eq!((code, out.trim().to_string()), (0, format!("xtmd {} (Extended Mark 0.4; IR 4, resolved IR {})", env!("CARGO_PKG_VERSION"), xtmd::check::RIR_VERSION)));
+    for cmd in ["fmt", "check", "parse", "compile", "build", "md", "surface", "migrate"] {
         let args: Vec<&str> = cmd.split(' ').chain(["--help"]).collect();
         let (code, out, err) = xtmd(&args);
         assert_eq!(code, 0, "{}: {}", cmd, err);
@@ -692,14 +692,14 @@ fn out_is_written_at_the_end_in_a_folder_it_makes_and_a_closed_pipe_is_quiet() {
     assert_eq!(std::fs::read_to_string(&kept).unwrap(), "keep\n");
     // its folder is made
     let ir = dir.join("dist/ir/doc.ir.json");
-    let (code, _, err) = xtmd(&["build", doc.to_str().unwrap(), "--pack", dir.join("packs").to_str().unwrap(), "--out", ir.to_str().unwrap()]);
+    let (code, _, err) = xtmd(&["compile", doc.to_str().unwrap(), "--pack", dir.join("packs").to_str().unwrap(), "--out", ir.to_str().unwrap()]);
     assert_eq!(code, 0, "{}", err);
     assert!(ir.is_file());
     // a file that can't be read is exit 2, not 1 (what a file with errors is)
     let (code, out, _) = xtmd(&["check", "--format", "json", dir.join("nowhere.xtmd").to_str().unwrap()]);
     assert_eq!(code, 2);
     assert!(out.contains("\"unreadable\":1"), "{}", out);
-    // `xtmd build … | head` ends quietly
+    // `xtmd compile … | head` ends quietly
     let sh = format!("{} build {} --pack {} | head -c 10 >/dev/null", env!("CARGO_BIN_EXE_xtmd"), doc.display(), dir.join("packs").display());
     let run = Command::new("sh").args(["-c", &sh]).output().unwrap();
     assert!(!String::from_utf8_lossy(&run.stderr).contains("panicked"), "{}", String::from_utf8_lossy(&run.stderr));
@@ -826,7 +826,7 @@ fn migrate_says_what_stops_it_and_how_to_go_on() {
 fn a_pages_ir_holds_only_what_the_page_uses() {
     let dir = scratch("page-only-ir", &[("page.xtmd", "$state { n: number = 0; when: moment = \"2026-07-01T12:00+00:00\"; }\n@@@\n# Hi\n\nAt \\{$state.when}.\n\n@press(label = \"Add\", click = fn() { $state.n = $state.n + 1; });\n"), ("pack.xtmdpack", "package t;\n"), ("local.xtmd", "let when: moment = \"2026-07-01T12:00+00:00\";\n@@@\nHere: \\{when.local()}\n")]);
     let ir_of = |f: &str| -> serde_json::Value {
-        let (code, out, err) = xtmd(&["build", dir.join(f).to_str().unwrap()]);
+        let (code, out, err) = xtmd(&["compile", dir.join(f).to_str().unwrap()]);
         assert_eq!(code, 0, "{}", err);
         serde_json::from_str::<serde_json::Value>(&out).unwrap()["ir"].clone()
     };
@@ -908,7 +908,7 @@ fn fmt_stdin_formats_an_unsaved_text_and_never_touches_the_file() {
 fn build_rir_core_writes_cores_files_resolved_before_the_document() {
     let dir = scratch("rir-core", &[("page.xtmd", "@@@\n@press(label = \"Go\");\n")]);
     let page = dir.join("page.xtmd");
-    let (code, out, err) = xtmd(&["build", "--rir", "--core", page.to_str().unwrap()]);
+    let (code, out, err) = xtmd(&["compile", "--rir", "--core", page.to_str().unwrap()]);
     assert_eq!(code, 0, "{}", err);
     let rir: serde_json::Value = serde_json::from_str(&out).unwrap();
     let files = rir["files"].as_array().unwrap();
@@ -917,11 +917,11 @@ fn build_rir_core_writes_cores_files_resolved_before_the_document() {
     let controls = files.iter().find(|f| f["path"] == "core/controls.xtmdpack").unwrap();
     assert!(controls.to_string().contains("\"id\":\"core/press.label\""));
     // without --core, only the document
-    let (_, out, _) = xtmd(&["build", "--rir", page.to_str().unwrap()]);
+    let (_, out, _) = xtmd(&["compile", "--rir", page.to_str().unwrap()]);
     let rir: serde_json::Value = serde_json::from_str(&out).unwrap();
     assert_eq!(rir["files"].as_array().unwrap().len(), 1);
     // --core goes with --rir
-    let (code, _, err) = xtmd(&["build", "--core", page.to_str().unwrap()]);
+    let (code, _, err) = xtmd(&["compile", "--core", page.to_str().unwrap()]);
     assert_eq!(code, 2);
     assert!(err.contains("it goes with --rir"), "{}", err);
 }
@@ -1004,4 +1004,29 @@ fn a_fix_with_edits_applies_and_the_file_then_compiles() {
     std::fs::write(&file, "record pair {\n    x: number;\n    y: number;\n}\n\nlet p: pair = pair { x = 1, y = 2, z = 3 };\n@@@\n@zebra();\n").unwrap();
     let (_, out, _) = xtmd(&["check", "--format", "json", file.to_str().unwrap()]);
     assert!(!out.contains("\"edits\"") && !out.contains("did you mean"), "{}", out);
+}
+
+#[test]
+fn compile_writes_the_ir_and_build_runs_an_engine() {
+    let dir = scratch("compile-and-build", &[("page.xtmd", "# Hi\n")]);
+    let page = dir.join("page.xtmd");
+    let page = page.to_str().unwrap();
+    let (code, out, err) = xtmd(&["compile", page]);
+    assert_eq!(code, 0, "{}", err);
+    assert!(out.starts_with("{\"ir\":"), "{}", out);
+    let (code, out, _) = xtmd(&["compile", page, "--rir"]);
+    assert_eq!(code, 0);
+    assert!(out.contains("\"rir\":2"), "{}", out);
+    // build with no engine has nothing to build, and says what writes the IR
+    let (code, _, err) = xtmd(&["build", page]);
+    assert_eq!(code, 2);
+    assert!(err.contains("xtmd build runs an engine") && err.contains(&format!("xtmd compile {}", page)), "{}", err);
+    // and its old flags for the IR say where they went
+    for flag in ["--rir", "--pretty", "--core"] {
+        let (code, _, err) = xtmd(&["build", page, flag]);
+        assert_eq!(code, 2, "{}", flag);
+        assert!(err.contains("xtmd compile"), "{}: {}", flag, err);
+    }
+    // the version names the resolved IR's
+    assert!(xtmd(&["--version"]).1.contains("resolved IR 2"));
 }

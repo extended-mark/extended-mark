@@ -116,7 +116,7 @@ function expect(page, want, at) {
 export function run(c, settle = () => {}) {
   const packs = (c.packs ?? []).map((p) => join(here, p));
   const out = join(dir, `case${n++}.ir.json`);
-  execFileSync(xtmdBinary(), ["build", join(here, c.source), ...(packs.length ? ["--pack", packs.join(",")] : []), "--out", out], { stdio: ["ignore", "pipe", "pipe"] });
+  execFileSync(xtmdBinary(), ["compile", join(here, c.source), ...(packs.length ? ["--pack", packs.join(",")] : []), "--out", out], { stdio: ["ignore", "pipe", "pipe"] });
   let page;
   const supplies = (w) => w.startsWith("core/") || w === "badge/badge";
   const host = new HostPage(JSON.parse(readFileSync(out, "utf8")), { page: c.page ?? {}, state: c.state, externs: c.externs, fns: engineFns(() => page), supplies });

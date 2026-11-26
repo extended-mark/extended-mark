@@ -13,7 +13,7 @@ test("every bodyless core extern fn is a native or renderer-only", () => {
   // a pack's IR keeps all of core it builds on; a page's keeps only what the page uses
   const page = join(workdir(), "t.xtmdpack");
   writeFileSync(page, "package t;\n");
-  const ir = JSON.parse(execFileSync(xtmdBinary(), ["build", page], { maxBuffer: 64 * 1024 * 1024 }).toString());
+  const ir = JSON.parse(execFileSync(xtmdBinary(), ["compile", page], { maxBuffer: 64 * 1024 * 1024 }).toString());
   const bodyless = ir.ir.declarations
     .map((d) => d.declare.extern?.fn)
     .filter((f) => f && f.supplier === "core" && !(f.default?.length > 0))

@@ -405,7 +405,7 @@ impl NativePage {
 
 #[uniffi::export]
 impl NativePage {
-    /// Mounts a page from the IR file `xtmd build` writes, as JSON, and draws it once. `zone`
+    /// Mounts a page from the IR file `xtmd compile` writes, as JSON, and draws it once. `zone`
     /// gives `core/moment.local` the reader's offset.
     #[uniffi::constructor]
     pub fn new(ir_json: String, init: PageInit, zone: Box<dyn Zone>) -> Res<Arc<Self>> {

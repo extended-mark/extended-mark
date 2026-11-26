@@ -23,7 +23,7 @@ theme.
 - **File icons**: a document is a page with the call sign on it, a pack a box with it, each for
   light and dark themes (brand/README.md).
 - **Commands**, from xtmd.wasm, in a browser too:
-  - **Show the IR** and **Show as Markdown** open what `xtmd build` and `xtmd md` write on a page
+  - **Show the IR** and **Show as Markdown** open what `xtmd compile` and `xtmd md` write on a page
     of its own beside the document; nothing is saved.
   - **Check a Folder** checks every `.xtmd` and `.xtmdpack` file under it as the language server
     checks an open one, into Problems.

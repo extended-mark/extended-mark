@@ -1,6 +1,6 @@
 # @extended-mark/runtime
 
-Extended Mark's runtime for the web: it runs the IR `xtmd build` writes, and gives the host a tree to draw
+Extended Mark's runtime for the web: it runs the IR `xtmd compile` writes, and gives the host a tree to draw
 (docs/specs/06, The host's side). It has no widgets and needs no DOM: [@extended-mark/dom](../../renderers/dom) draws
 with it, and so can a host of its own ([apps/example-host](../../apps/example-host)).
 

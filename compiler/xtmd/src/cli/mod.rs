@@ -262,7 +262,7 @@ fn missing_packs(c: &mut crate::check::Compiled) {
     }
 }
 
-/// What `xtmd build` writes: as small as it goes, or over several lines with `--pretty`.
+/// What `xtmd compile` writes: as small as it goes, or over several lines with `--pretty`.
 fn json_text<T: serde::Serialize>(v: &T, pretty: bool) -> String {
     if pretty { serde_json::to_string_pretty(v) } else { serde_json::to_string(v) }.unwrap()
 }
@@ -276,7 +276,7 @@ fn plural(n: usize, one: &str) -> String {
     format!("{} {}{}", n, one, if n == 1 { "" } else { "s" })
 }
 
-/// A file's IR, as `xtmd build` writes it; its diagnostics are reported, and what stops it is its exit code.
+/// A file's IR, as `xtmd compile` writes it; its diagnostics are reported, and what stops it is its exit code.
 fn build_ir(base: &crate::check::Checker, path: &str, packs: &[crate::check::Source], json: bool) -> Result<crate::formats::ir::Module, u8> {
     let mut m = compile_file(base, path, packs, json, true)?;
     crate::lower::lower(&mut m);
@@ -327,10 +327,21 @@ fn write_one(made: Result<String, u8>, out: Option<String>, print: impl Fn(&str)
     }
 }
 
-/// `xtmd build <files|folders>… [--pack a,b] [--rir] [--pretty] [--out out]`: each document as one standalone
-/// IR, core and the packs in it; with `--rir`, the resolved IR of the document and its packs instead; with
-/// `--engine`, the files an engine makes of them.
+/// `xtmd build <files|folders>… --out dir --engine e`: the files an engine makes of the documents. Without
+/// an engine there is nothing to build: the IR is `xtmd compile`'s.
 fn build(args: &[String], engine: Option<(String, Vec<String>)>) -> ExitCode {
+    if engine.is_none() {
+        let named: Vec<&str> = positional(args).iter().map(|s| s.as_str()).collect();
+        eprintln!("xtmd build runs an engine: --engine <name>, after xtmd's own flags. The IR a runtime runs is xtmd compile's: xtmd compile {}", if named.is_empty() { "page.xtmd".to_string() } else { named.join(" ") });
+        return ExitCode::from(2);
+    }
+    compile(args, engine)
+}
+
+/// `xtmd compile <files|folders>… [--pack a,b] [--rir [--core]] [--pretty] [--out out]`: each document as
+/// one standalone IR, core and the packs in it; with `--rir`, the resolved IR of the document and its packs
+/// instead. `xtmd build` comes here with its engine, for the IR it gives that engine.
+fn compile(args: &[String], engine: Option<(String, Vec<String>)>) -> ExitCode {
     let (files, _, _, out) = match given(args) {
         Ok(x) => x,
         Err(e) => {
@@ -339,7 +350,7 @@ fn build(args: &[String], engine: Option<(String, Vec<String>)>) -> ExitCode {
         }
     };
     if files.is_empty() {
-        eprintln!("{}", help::of("build").unwrap());
+        eprintln!("{}", help::of(if engine.is_some() { "build" } else { "compile" }).unwrap());
         return ExitCode::from(2);
     }
     let rir = args.iter().any(|a| a == "--rir");
@@ -374,14 +385,10 @@ fn build(args: &[String], engine: Option<(String, Vec<String>)>) -> ExitCode {
         r.map(|r| json_text(&r, pretty)).ok_or(1)
     };
     if let Some(e) = engine {
-        if rir || pretty {
-            eprintln!("{} says how an IR is written, and an engine builds files: leave it out with --engine", if rir { "--rir" } else { "--pretty" });
-            return ExitCode::from(2);
-        }
         return engine::build(&files, args, e, out, json, |path, packs| build_ir(base(), path, packs, json));
     }
     if batch::wanted(&files, out.as_deref()) {
-        return match batch::jobs("build", &files, out.as_deref(), if rir { "rir.json" } else { "ir.json" }) {
+        return match batch::jobs("compile", &files, out.as_deref(), if rir { "rir.json" } else { "ir.json" }) {
             Ok(jobs) => batch::run(&jobs, args, json, one),
             Err(e) => {
                 eprintln!("{}", e);
@@ -812,7 +819,7 @@ fn md(args: &[String]) -> ExitCode {
 }
 
 /// The commands, as `xtmd help` names them.
-const COMMANDS: &[&str] = &["fmt", "check", "parse", "build", "md", "surface", "migrate", "lsp"];
+const COMMANDS: &[&str] = &["fmt", "check", "parse", "compile", "build", "md", "surface", "migrate", "lsp"];
 
 /// Flags written before the command (`xtmd --format json check …`), moved to after it, where each
 /// command reads them.
@@ -858,7 +865,7 @@ fn run(args: &[String]) -> ExitCode {
             return ExitCode::SUCCESS;
         }
         Some("--version") => {
-            out::text(&format!("xtmd {} (Extended Mark 0.4; IR 4, resolved IR 1)", migrate::RELEASE));
+            out::text(&format!("xtmd {} (Extended Mark 0.4; IR 4, resolved IR {})", migrate::RELEASE, crate::check::RIR_VERSION));
             return ExitCode::SUCCESS;
         }
         _ => {}
@@ -906,7 +913,7 @@ fn run(args: &[String]) -> ExitCode {
         return ExitCode::from(2);
     }
     // --out: build, md and surface write their document there; the rest, what they print
-    if !matches!(cmd, "build" | "md" | "surface") {
+    if !matches!(cmd, "compile" | "build" | "md" | "surface") {
         if let Some(p) = out::out_path(rest) {
             out::to_file(&p);
         }
@@ -915,6 +922,7 @@ fn run(args: &[String]) -> ExitCode {
         "fmt" => fmt(rest),
         "parse" => parse_cmd(rest),
         "check" => check(rest),
+        "compile" => compile(rest, None),
         "build" => build(rest, engine),
         "md" => md(rest),
         "surface" => surface::surface_cmd(rest),

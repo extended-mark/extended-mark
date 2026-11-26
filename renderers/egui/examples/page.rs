@@ -1,7 +1,7 @@
 //! A window showing a page, drawn with xtmd-egui.
 //!
 //!   cargo run -p xtmd-egui --example page --features app                       # the demo page
-//!   cargo run -p xtmd-egui --example page --features app -- page.ir.json      # what `xtmd build` wrote
+//!   cargo run -p xtmd-egui --example page --features app -- page.ir.json      # what `xtmd compile` wrote
 //!   cargo run -p xtmd-egui --example page --features app -- doc.xtmd [pack…] # compiled here
 //!
 //! The page's Markdown is printed when the window closes, with the values it has then
@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use xtmd_egui::runtime::{ir, Page};
 use xtmd_egui::XtmdPage;
 
-/// The repository's core, compiled with the compiler's own crates (as `xtmd build` does).
+/// The repository's core, compiled with the compiler's own crates (as `xtmd compile` does).
 fn compile(doc: &str, packs: &[PathBuf]) -> Result<ir::File, String> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let read = |dir: &Path| -> Vec<xtmd::check::Source> {

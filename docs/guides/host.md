@@ -16,8 +16,8 @@ HTML, CSS and scripts ([@extended-mark/web](../../engines/web)), with no runtime
 ## 1. Build the page
 
 ```sh
-xtmd build page.xtmd --out page.ir.json
-xtmd build docs --out dist              # every document, core compiled once
+xtmd compile page.xtmd --out page.ir.json
+xtmd compile docs --out dist              # every document, core compiled once
 ```
 
 The IR is static JSON. It never changes while the page runs: keep it where you keep other assets.

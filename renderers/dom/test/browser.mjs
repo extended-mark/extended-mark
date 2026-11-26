@@ -37,9 +37,9 @@ export function ir(source, { packs = [] } = {}) {
   writeFileSync(file, source);
   const out = file.replace(/\.xtmd$/, ".ir.json");
   try {
-    execFileSync(xtmdBinary(), ["build", file, ...packs.flatMap((p) => ["--pack", p]), "--out", out], { stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
+    execFileSync(xtmdBinary(), ["compile", file, ...packs.flatMap((p) => ["--pack", p]), "--out", out], { stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
   } catch (e) {
-    throw new Error(`xtmd build failed:\n${e.stdout ?? ""}${e.stderr ?? ""}`);
+    throw new Error(`xtmd compile failed:\n${e.stdout ?? ""}${e.stderr ?? ""}`);
   }
   return readFileSync(out, "utf8");
 }

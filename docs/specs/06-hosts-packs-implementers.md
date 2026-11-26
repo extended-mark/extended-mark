@@ -120,7 +120,7 @@ A use moves exactly, never by searching the text. Each file is compiled against 
 
 Migrations and surfaces never reach a page: the IR has neither, and building a document never reads them.
 
-The compiler writes a build in two forms. The **IR** is what a page runs from: checked and lowered, with no Markdown left in it. The **resolved IR** is for tools: what the checker understood, with every name resolved to what it names and every value typed, nothing lowered, and each part's place in its source and every comment kept: a node's own (its doc comments, those just above it, the one that ends its line, those after a bracket that ends a line, and free ones inside an expression, before the expression after them) and those that belong to no node, which stand in their list as comment items; a document keeps its front matter's text. The resolved IR has a whole-number version of its own, and the schema of each one a release shipped is kept. `xtmd migrate` works from it, and so can an editor, a linter or a program that writes Extended Mark. Both are JSON with a versioned schema (`schemas/`): `xtmd build` writes the IR and `xtmd build --rir` the resolved IR, and nothing that runs, draws or builds a page reads the resolved IR. `--pretty` writes either over several lines.
+The compiler writes a build in two forms. The **IR** is what a page runs from: checked and lowered, with no Markdown left in it. The **resolved IR** is for tools: what the checker understood, with every name resolved to what it names and every value typed, nothing lowered, and each part's place in its source and every comment kept: a node's own (its doc comments, those just above it, the one that ends its line, those after a bracket that ends a line, and free ones inside an expression, before the expression after them) and those that belong to no node, which stand in their list as comment items; a document keeps its front matter's text. The resolved IR has a whole-number version of its own, and the schema of each one a release shipped is kept. `xtmd migrate` works from it, and so can an editor, a linter or a program that writes Extended Mark. Both are JSON with a versioned schema (`schemas/`): `xtmd compile` writes the IR and `xtmd compile --rir` the resolved IR, and nothing that runs, draws or builds a page reads the resolved IR. `--pretty` writes either over several lines.
 
 ### The IR
 
@@ -162,9 +162,9 @@ A document and its host talk through channels. An `extern` block declares what t
 ```markdown
 //@about What the host and the quiz tell each other.
 extern scores {
-    unit: text = "K";                             // used if the host gives none
-    best: opt<list<number>> = opt.NONE;           // not loaded yet
-    fn saved(total: int);                         // Extended Mark calls it, the host receives it
+    unit: text = "K"; // used if the host gives none
+    best: opt<list<number>> = opt.NONE; // not loaded yet
+    fn saved(total: int); // Extended Mark calls it, the host receives it
 }
 
 //@about What this document's widgets share, and what the host can read and write.

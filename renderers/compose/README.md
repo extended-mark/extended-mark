@@ -51,7 +51,7 @@ doc.restore(Snapshot.fromJson(snap!!)!!)               // ALL with the same IR, 
 The page under it:
 
 ```kotlin
-// the IR `xtmd build page.xtmd --out page.ir.json` wrote, in the host's assets
+// the IR `xtmd compile page.xtmd --out page.ir.json` wrote, in the host's assets
 val page = remember { CompiledPage.fromAsset(context, "page.ir.json", PageOptions(theme = "DARK")) }
 XtmdPage(page)                                         // draws it, and keeps it drawn
 XtmdPage(page, Externs(mapOf("acme/chart" to Widget { props, ctx -> MyChart(props, ctx) })))

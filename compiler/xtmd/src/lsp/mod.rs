@@ -2,7 +2,7 @@
 //! Protocol's messages with no input or output of its own: `xtmd lsp` runs it over stdio
 //! ([`serve`]), and @extended-mark/wasm runs it in a browser, where the client gives it the packs
 //! (`xtmd/packs`). The features are worked out from the checker's resolved IR ([`analysis`]), the
-//! same the compiler writes for `xtmd build --rir`, with core's own declarations in it.
+//! same the compiler writes for `xtmd compile --rir`, with core's own declarations in it.
 
 pub mod analysis;
 #[cfg(feature = "fs")]

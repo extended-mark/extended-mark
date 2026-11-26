@@ -1,7 +1,7 @@
 # @extended-mark/svelte
 
 Extended Mark documents in Svelte 5: the renderer. `XtmdDoc` draws a page from an IR built ahead
-(`xtmd build`, or xtmd's bundler plugin), with no compiler and no WebAssembly in the host. Core's
+(`xtmd compile`, or xtmd's bundler plugin), with no compiler and no WebAssembly in the host. Core's
 widgets are drawn by Svelte itself (`svelte:element`, recursively), server-rendered with `svelte/server`. The live document, which compiles a document's text in the
 browser, is [@extended-mark/svelte-live](../../live/svelte).
 

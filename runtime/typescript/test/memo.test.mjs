@@ -17,7 +17,7 @@ let why = "";
 function build(file, packs = []) {
   const out = join(dir, `memo${n++}.ir.json`);
   try {
-    execFileSync(xtmdBinary(), ["build", file, ...(packs.length ? ["--pack", packs.join(",")] : []), "--out", out], { stdio: ["ignore", "pipe", "pipe"] });
+    execFileSync(xtmdBinary(), ["compile", file, ...(packs.length ? ["--pack", packs.join(",")] : []), "--out", out], { stdio: ["ignore", "pipe", "pipe"] });
   } catch (e) {
     why = String(e.stderr);
     return undefined; // a case about a compile error

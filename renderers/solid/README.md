@@ -1,7 +1,7 @@
 # @extended-mark/solid
 
 Extended Mark documents in Solid: the renderer. `XtmdDoc` draws a page from an IR built ahead
-(`xtmd build`, or xtmd's bundler plugin), with no compiler and no WebAssembly in the host. Core's
+(`xtmd compile`, or xtmd's bundler plugin), with no compiler and no WebAssembly in the host. Core's
 widgets are drawn by Solid itself, with fine-grained updates (`Dynamic`, keyed by `mapArray`), server-rendered with `renderToString`; written without JSX, so it needs no Solid compiler. The live document, which compiles a document's text in the
 browser, is [@extended-mark/solid-live](../../live/solid).
 

@@ -1,7 +1,7 @@
 // The Extended Mark compiler in the browser: xtmd-wasm, built for wasm32-wasip1 (compiler/wasm), and the
 // little it asks of its host. A live document compiles a document's text as it is edited with
 // `Compiler.build`, and draws the IR it gives as a renderer draws one it was given: the
-// same IR `xtmd build` writes. An editor gets what `xtmd md` and `xtmd migrate` do from it too
+// same IR `xtmd compile` writes. An editor gets what `xtmd md` and `xtmd migrate` do from it too
 // (`Compiler.markdown`, `Compiler.migrate`), on the texts it has, with no xtmd binary.
 //
 // The module asks for six WASI functions only (randomness, the clock, its environment, writing to
@@ -36,7 +36,7 @@ export interface Written {
   end: { line: number; column: number };
 }
 
-/** What a build gives: the IR file `xtmd build` writes, or null when there are errors; every
+/** What a build gives: the IR file `xtmd compile` writes, or null when there are errors; every
  * diagnostic of the file built (and the errors of its packs); and where each call in the file is
  * written, by its template (`doc`, `doc/share`) and site (`s1`), so an editor can mark the call a
  * failed widget's site names. No IR holds that: a page runs without its source. */
@@ -45,7 +45,7 @@ export interface Built {
   diagnostics: Diagnostic[];
   errors: number;
   sites: Record<string, Record<string, Written>>;
-  /** The resolved IR (schemas/rir.schema.json), as `xtmd build --rir` writes it, when the build
+  /** The resolved IR (schemas/rir.schema.json), as `xtmd compile --rir` writes it, when the build
    * asked for it (`{ rir: true }`): written for a text with errors too, with what was resolved. */
   rir?: Rir;
 }
@@ -310,8 +310,8 @@ export class Compiler {
 
   /**
    * Builds one file: `path` ending in `.xtmd` for a document, else a pack's file; its `text`; and
-   * the files of the packs it uses. Gives the IR as `xtmd build` writes it, or the errors; with
-   * `{ rir: true }`, the resolved IR too, as `xtmd build --rir` writes it (`core`: core's files in it).
+   * the files of the packs it uses. Gives the IR as `xtmd compile` writes it, or the errors; with
+   * `{ rir: true }`, the resolved IR too, as `xtmd compile --rir` writes it (`core`: core's files in it).
    */
   build(path: string, text: string, packs: PackFile[] = [], options: BuildOptions = {}): Built {
     const req: Record<string, unknown> = { path, text, packs };

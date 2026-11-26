@@ -89,7 +89,7 @@ interface PageWatcher {
 }
 
 /**
- * A page running on Extended Mark's native runtime: built from the IR `xtmd build` writes. Compose reads its
+ * A page running on Extended Mark's native runtime: built from the IR `xtmd compile` writes. Compose reads its
  * [tree] and redraws when [revision] moves; the host writes to it through [set], [expose],
  * [setExtern] and [setPage], and reads [markdown], [state] and the extern calls it made.
  * Every change is one transaction in the runtime, checked, and undone when it fails.
@@ -335,7 +335,7 @@ class CompiledPage(val native: NativePage, supplies: Collection<String>?, theme:
     val missing: List<String> get() = native.missing()
 
     companion object {
-        /** A page from the IR `xtmd build` writes, as JSON text. */
+        /** A page from the IR `xtmd compile` writes, as JSON text. */
         fun fromJson(ir: String, options: PageOptions = PageOptions()): CompiledPage {
             val supplies = options.supplies ?: registry.keys
             val init = PageInit(

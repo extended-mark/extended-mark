@@ -48,11 +48,11 @@ open class XtmdPageTest {
     private val repo = generateSequence(File(System.getProperty("user.dir")).absoluteFile) { it.parentFile }.first { File(it, "checks").isDirectory }
     private val xtmd = File(repo, "compiler/target/release/xtmd")
 
-    /** A page's IR, as `xtmd build` writes it. */
+    /** A page's IR, as `xtmd compile` writes it. */
     private fun ir(source: File): String {
         check(xtmd.canExecute()) { "the xtmd binary isn't built: cargo build --release -p xtmd in compiler/" }
         val out = File.createTempFile("xtmd-page", ".ir.json")
-        val p = ProcessBuilder(xtmd.path, "build", source.path, "--out", out.path).redirectErrorStream(true).start()
+        val p = ProcessBuilder(xtmd.path, "compile", source.path, "--out", out.path).redirectErrorStream(true).start()
         val log = p.inputStream.bufferedReader().readText()
         assertEquals(log, 0, p.waitFor())
         return out.readText().also { out.delete() }

@@ -25,7 +25,7 @@ enum Step {
 
 const SCRIPT: &[(f32, Step)] = &[
     (0.5, Step::Say("egui's two kinds of target, in one window.")),
-    (3.5, Step::Say("Run time: XtmdDoc draws an IR built ahead (xtmd build). No compiler.")),
+    (3.5, Step::Say("Run time: XtmdDoc draws an IR built ahead (xtmd compile). No compiler.")),
     (6.5, Step::Say("A press: the page writes $state, checked by xtmd.")),
     (7.5, Step::Press),
     (8.8, Step::Press),
@@ -140,7 +140,7 @@ impl eframe::App for Demo {
             ui.columns(2, |cols| {
                 let ui = &mut cols[0];
                 ui.strong("Run time: xtmd_egui::doc::XtmdDoc");
-                ui.weak("XtmdDoc::open(\"page.ir.json\"): the IR xtmd build wrote. No compiler in the host.");
+                ui.weak("XtmdDoc::open(\"page.ir.json\"): the IR xtmd compile wrote. No compiler in the host.");
                 ui.add_space(6.0);
                 egui::Frame::group(ui.style()).show(ui, |ui| {
                     // in a scroll area, as a host draws a page (xtmd_egui::run_window)

@@ -13,7 +13,7 @@ import { xtmdBinary, workdir, repo } from "./xtmd.mjs";
 
 const pages = join(repo, "checks/pages");
 const out = join(workdir(), "outside.ir.json");
-execFileSync(xtmdBinary(), ["build", join(pages, "outside.xtmd"), "--pack", join(pages, "pick"), "--out", out], { stdio: ["ignore", "pipe", "pipe"] });
+execFileSync(xtmdBinary(), ["compile", join(pages, "outside.xtmd"), "--pack", join(pages, "pick"), "--out", out], { stdio: ["ignore", "pipe", "pipe"] });
 const ir = JSON.parse(readFileSync(out, "utf8"));
 const { changes } = JSON.parse(readFileSync(join(pages, "outside.json"), "utf8"));
 
@@ -89,7 +89,7 @@ test("a fn the renderer supplies gives a value of its type", () => {
 function page(text) {
   const file = join(workdir(), "outside-own.xtmd");
   writeFileSync(file, text);
-  execFileSync(xtmdBinary(), ["build", file, "--out", `${file}.json`], { stdio: ["ignore", "pipe", "pipe"] });
+  execFileSync(xtmdBinary(), ["compile", file, "--out", `${file}.json`], { stdio: ["ignore", "pipe", "pipe"] });
   return new Page(JSON.parse(readFileSync(`${file}.json`, "utf8")));
 }
 

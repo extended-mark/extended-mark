@@ -159,7 +159,7 @@ internal fun give(page: CompiledPage, given: Map<String, Val>, tell: ((DocError)
 }
 
 /**
- * An Extended Mark document. `ir` is its IR in hand (the JSON `xtmd build` writes), or `src` an IR file in
+ * An Extended Mark document. `ir` is its IR in hand (the JSON `xtmd compile` writes), or `src` an IR file in
  * the host's assets. `state` with `onStateChange` controls `$state`, or `defaultState` starts it,
  * or `defaultSnapshot` everything; every write is checked by xtmd, and what it refuses reaches
  * `onError`. A new `ir` keeps `$state` where its fields still exist. `fns` are the host's value

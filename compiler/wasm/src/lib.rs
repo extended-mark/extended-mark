@@ -1,4 +1,4 @@
-//! The Extended Mark compiler for the browser: what `xtmd build` does, on a core compiled once when the
+//! The Extended Mark compiler for the browser: what `xtmd compile` does, on a core compiled once when the
 //! compiler is made. A live document compiles a document's text as it is edited, and draws the
 //! IR as a renderer draws one it was given; the IR is the binary's (@extended-mark/wasm's tests hold
 //! it to that on every case). The compiler itself is the crate xtmd's.

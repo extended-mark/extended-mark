@@ -1,5 +1,5 @@
 //! What a live Extended Mark document embeds: the compiler, with core compiled once when it is made, which
-//! builds a document's text (and the packs it uses, as text) into the IR `xtmd build` writes; and
+//! builds a document's text (and the packs it uses, as text) into the IR `xtmd compile` writes; and
 //! [`Live`], a text followed as it is edited, which keeps the last IR that compiled while a draft
 //! has errors. The renderers don't depend on this crate: a host that only draws pages it was
 //! given carries no compiler.
@@ -81,7 +81,7 @@ pub struct Built {
     pub diagnostics: Vec<Diagnostic>,
     pub errors: usize,
     pub sites: BTreeMap<String, BTreeMap<String, Written>>,
-    /// The resolved IR (schemas/rir.schema.json), as `xtmd build --rir` writes it, when asked: for
+    /// The resolved IR (schemas/rir.schema.json), as `xtmd compile --rir` writes it, when asked: for
     /// an editor, so it is written for a text with errors too, with what was resolved.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rir: Option<serde_json::Value>,
@@ -105,7 +105,7 @@ pub struct Formatted {
 }
 
 impl Built {
-    /// As JSON, `{ "ir", "diagnostics", "errors", "sites" }`: the IR as `xtmd build` writes it, on one line.
+    /// As JSON, `{ "ir", "diagnostics", "errors", "sites" }`: the IR as `xtmd compile` writes it, on one line.
     pub fn to_json(&self) -> String {
         serde_json::to_string(self).unwrap_or_else(|e| format!("{{\"ir\":null,\"diagnostics\":[],\"errors\":1,\"sites\":{{}},\"why\":{:?}}}", e.to_string()))
     }
@@ -141,7 +141,7 @@ impl Compiler {
     }
 
     /// Builds one file: `path` ending in `.xtmd` for a document, else a pack's file; its text;
-    /// and the files of the packs it may use. The IR is the one `xtmd build` writes: every prop
+    /// and the files of the packs it may use. The IR is the one `xtmd compile` writes: every prop
     /// that isn't constant a binding, and a page's only what it uses.
     pub fn build(&self, path: &str, text: &str, packs: &[Source]) -> Built {
         self.build_with(path, text, packs, BuildOptions::default())
