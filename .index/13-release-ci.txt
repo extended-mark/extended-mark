@@ -17,7 +17,7 @@ tools/llm/check.mjs   holds CLAUDE.md, .index/ and .knowledge/ to the repository
 tools/cli-usability/  harness.py, the command tried as a person would
 
 .github/workflows/ci.yml        tests, once for each tree; the release dry run
-.github/workflows/notes.yml     release notes and versions, on merge requests into main
+.github/workflows/notes.yml     on merge requests into main: from staging, release notes and versions
 .github/workflows/release.yml   binaries, wasm, tests, publishing, on main
 .github/rulesets/               what main requires
 .github/pre-commit/             before a commit; test/

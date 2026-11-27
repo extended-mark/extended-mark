@@ -1,6 +1,8 @@
 # Releasing Extended Mark
 
-A merge into main that raises `VERSION` starts the release: `.github/workflows/release.yml` builds
+Work goes into `staging` first, and `main` takes it only from there: a merge request into main
+whose head isn't this repository's `staging` fails the **From staging** check, which main's ruleset
+requires. A merge into main that raises `VERSION` starts the release: `.github/workflows/release.yml` builds
 everything on Linux, tests it, tags the merge commit `v<VERSION>` and publishes it under that tag. The merge request raises the
 version everywhere with `node tools/release/bump.mjs <version>`, which also starts `notes/<VERSION>.md` (notes/README.md); the **Release notes** check holds it to that, and
 the **Types, tests and conformance** check (ci.yml) runs the tests, both required by main's ruleset
