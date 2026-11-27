@@ -111,7 +111,8 @@ EXAMPLES = (C["MIGRATION"]
                      'why = "a stat names its unit");\n        example(before = stat { label = "Deploys", value = "42" }, '
                      'after = stat { title = "Deploys", value = "42", unit = "" });'))
 
-USES_KIT1 = 'packs = ["kit"]\n\n[uses]\nkit = 1\n'
+# written for this release: a tree whose xtmd.toml names none is read as written for the release before
+USES_KIT1 = 'xtmd = "0.4.0"\npacks = ["kit"]\n\n[uses]\nkit = 1\n'
 
 
 def kit_tree(migration=C["MIGRATION"], doc=C["OLD_DOC"], config=USES_KIT1):
@@ -129,10 +130,18 @@ SHELF = {k: codecs.decode(v, "unicode_escape") for k, v in
 SHELF_TREE = {"shelf/shelf.xtmdpack": SHELF["SHELF"], "books.xtmd": SHELF["BOOKS"], "notes.xtmd": SHELF["NOTES"],
               "xtmd.toml": 'xtmd = "0.4.0"\npacks = ["shelf"]\n'}
 
+# releases: a tree written for 0.3.2, the migration guide's example (docs/guides/migration.md); one whose
+# code reads a rich_text's parts; and one written for a release further back
+GUIDE_032 = re.findall(r"```xtmd\n(.*?)```", repo_text("docs/guides/migration.md"), re.S)[0]
+PARTS_032 = ("fn first(a: rich_text): int {\n    return a.segments.len();\n}\n\n"
+             "fn same_words(a: rich_text, b: rich_text): bool {\n    return a == b;\n}\n@@@\nhi\n")
+
 # Each scene: (files, in git?). "repo" is the repository itself, read only.
 SCENES = {
     "shelf": (SHELF_TREE, True),
-    "shelf-broken": (dict(SHELF_TREE, **{"notes.xtmd": SHELF["NOTES"].replace("$state.n", "$state.count")}), True),
+    "tree032": ({"doc.xtmd": GUIDE_032, "xtmd.toml": 'xtmd = "0.3.2"\n'}, True),
+    "parts032": ({"doc.xtmd": PARTS_032, "xtmd.toml": 'xtmd = "0.3.2"\n'}, True),
+    "older": ({"doc.xtmd": "# Hi\n", "xtmd.toml": 'xtmd = "0.2.9"\n'}, True),
     "pages": ({"counter.xtmd": COUNTER, "broken.xtmd": BROKEN, "messy.xtmd": MESSY}, False),
     "flow": ({"graphs/graphs.xtmdpack": repo_text("examples/graphs/graphs.xtmdpack"),
               "release-flow.xtmd": repo_text("examples/graphs/release-flow.xtmd")}, False),
@@ -242,7 +251,7 @@ REELS = {
             S("json", "ci", "xtmd migrate docs --dry-run --format json"),
             S("report-md", "ci", "xtmd migrate docs --yes --report run.md", show=["run.md", "docs/report.xtmd"]),
             S("report-json", "ci", "xtmd migrate docs --check --report run.json", show=["run.json"]),
-            S("newer", "ci", "sed -i 's/^xtmd = \"0.3.0\"/xtmd = \"9.0.0\"/' xtmd.toml && xtmd migrate docs --check"),
+            S("newer", "ci", "sed -i 's/^xtmd = \"0.4.0\"/xtmd = \"9.0.0\"/' xtmd.toml && xtmd migrate docs --check"),
             S("examples", "kit2", "xtmd check --pack kit kit/migrations/kit@2.xtmdpack", show=["kit/migrations/kit@2.xtmdpack"]),
             S("bad-after", "kit2", "sed -i 's/size = size.S))/size = size.M))/' kit/migrations/kit@2.xtmdpack"
               " && xtmd check --pack kit kit/migrations/kit@2.xtmdpack", show=["kit/migrations/kit@2.xtmdpack"]),
@@ -251,23 +260,22 @@ REELS = {
         ],
     },
     "releases": {
-        "part": 8, "title": "From one release to the next: compile, decompile, migrate --reader",
-        "chapters": ["compile --rir", "decompile", "migrate --reader", "every file or none"],
+        "part": 8, "title": "From one release to the next: compile, decompile, migrate from 0.3.2",
+        "chapters": ["compile --rir", "decompile", "migrate from 0.3.2", "what is left, and older trees"],
         "steps": [
             S("tree", "shelf", "find . -type f -not -path './.git/*' | sort", show=["books.xtmd"]),
             S("rir", "shelf", "xtmd compile books.xtmd --rir | jq -c '{rir, xtmd, files: [.files[].kind]}'"),
             S("comments", "shelf", "xtmd compile books.xtmd --rir | jq -c '.files[] | select(.kind == \"document\") | .declarations[0].let | {id, comments}'"),
             S("back", "shelf", "xtmd compile books.xtmd --rir --out books.rir.json && xtmd decompile books.rir.json --stdout"),
             S("from-ir", "shelf", "xtmd compile books.xtmd --out books.ir.json && xtmd decompile books.ir.json --stdout"),
-            S("old", "shelf", "rm books.*.json && mkdir -p old && cp \"$(command -v xtmd)\" old/xtmd && old/xtmd --version"),
-            S("dry", "shelf", "xtmd migrate . --reader old/xtmd --dry-run"),
-            S("diff", "shelf", "xtmd migrate . --reader old/xtmd --diff"),
-            S("json", "shelf", "xtmd migrate . --reader old/xtmd --dry-run --format json"),
-            S("yes", "shelf", "xtmd migrate . --reader old/xtmd --yes", show=["books.xtmd"]),
-            S("check", "shelf", "xtmd migrate . --reader old/xtmd --check"),
-            S("broken-old", "shelf-broken", "mkdir -p old && cp \"$(command -v xtmd)\" old/xtmd && xtmd migrate . --reader old/xtmd --yes", show=["notes.xtmd"]),
-            S("untouched", "shelf-broken", "git status --short -- '*.xtmd' '*.xtmdpack' && echo 'every file is as it was'"),
-            S("no-reader", "shelf", "xtmd migrate . --reader /no/such/xtmd --yes"),
+            S("old", "tree032", "cat xtmd.toml", show=["doc.xtmd"]),
+            S("dry", "tree032", "xtmd migrate . --dry-run"),
+            S("diff", "tree032", "xtmd migrate . --diff"),
+            S("json", "tree032", "xtmd migrate . --dry-run --format json"),
+            S("yes", "tree032", "xtmd migrate . --yes", show=["doc.xtmd"]),
+            S("check", "tree032", "xtmd migrate . --check && xtmd check doc.xtmd"),
+            S("todo", "parts032", "xtmd migrate . --yes; echo \"exit $?\"", show=["doc.xtmd"]),
+            S("older", "older", "xtmd migrate . --dry-run; echo \"exit $?\""),
         ],
     },
     "fixes": {

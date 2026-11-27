@@ -29,8 +29,11 @@ What a release owes the one before it, gone through on the merge request that ra
    (docs/guides/migration.md says how).
 5. **The step and the front end.** This release's one step from the release before (`STEP`, in
    `compiler/xtmd/src/migrate/rir/`), with its tests, and the release before's front end in
-   `compiler/xtmd/previous/`, copied from its tag. Every change to what a file means comes with how what
-   exists moves to it: in the step, or in a pack's migration, each in the notes.
+   `compiler/xtmd/previous/`, copied from its tag (`node tools/release/previous.mjs <its tag>`). Every
+   change to what a file means comes with how what exists moves to it: in the step, or in a pack's
+   migration, core's included (`core/surfaces/`, `core/migrations/`), each in the notes. Every file the
+   release before shipped is in `checks/migrate-<x.y>/`, which a test migrates, and `rir::READY` is on:
+   the release dry run (`preflight.mjs`) and the pre-commit checks refuse a release without these.
 6. **Read by the release before.** The repository's documents move from the last release:
    `xtmd migrate <folder> --dry-run`, on a copy whose xtmd.toml says the last release, is ready,
    nothing refused and no question open, for each folder of examples/ and apps/ (the playground with

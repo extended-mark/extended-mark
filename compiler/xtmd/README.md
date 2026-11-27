@@ -27,8 +27,8 @@ xtmd compile page.xtmd --rir  # the resolved IR, for tools: every name resolved,
 xtmd decompile page.rir.json  # a resolved IR (or an IR) written back as source
 xtmd md page.xtmd             # the page as Markdown
 xtmd export docs --out dist --engine ./web   # the files an engine makes: IR in, files out
-xtmd migrate docs/            # documents brought up to the packs they use
-xtmd migrate docs/ --reader ~/xtmd-0.4.0/xtmd   # a tree moved from the release it is written for
+xtmd migrate docs/            # a tree moved from the release before (its xtmd.toml says which), and
+                              # documents brought up to the packs they use
 xtmd lsp                      # the language server, for an editor
 xtmd help <command>           # each command's flags and an example
 ```

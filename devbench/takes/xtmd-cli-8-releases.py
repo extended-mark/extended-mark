@@ -1,10 +1,10 @@
 """xtmd CLI, part 8: from one release to the next. compile --rir, decompile (from a resolved IR and
-from an IR), and xtmd migrate --reader: a tree moved by what each release understands of it, every
-file or none.
+from an IR), and xtmd migrate on a tree written for 0.3.2: moved by what each release understands of
+it, what it leaves for a person said out loud, and a tree further back refused by name.
 
 Every command and every line of output is real: devbench/takes/xtmd-cli/capture.py ran them with
-this repo's xtmd and kept what they printed, and the player only lays that out. The old release's
-xtmd is this one, 0.4.0, which the tree is written for: until 0.5.0 ships, what moves is the layout.
+this repo's xtmd and kept what they printed, and the player only lays that out. 0.3.2's front end is
+built into 0.4.0's xtmd, so moving a tree needs no other xtmd.
 To record:
 
     python3 devbench/takes/xtmd-cli/capture.py --work /tmp/xtmdv releases
@@ -45,27 +45,27 @@ def take(t):
     t.beat(r.out("from-ir", '@row_of_books(title = "Read");'), "The page comes back from what it runs: the let worked out into its value.", 3.6)
 
     r.chapter(2)
-    r.run("old", "To move a tree, the xtmd of the release it is written for reads it: here 0.4.0's.")
-    t.beat(r.out("old", "resolved IR 2"), "xtmd 0.4.0, IR 4, resolved IR 2.", 2.8)
-    r.run("dry", "xtmd migrate --reader: the old release reads every file, this one prints them again, and compiles them.")
-    t.beat(r.out("dry", "read by 0.4.0's xtmd as rir 2"), "Read by 0.4.0's xtmd as rir 2, and brought to this xtmd's version.", 3.4)
-    t.beat(r.out("dry", "./books.xtmd: changes"), "One file changes. --dry-run writes nothing.", 2.8)
+    r.run("old", "A tree written for 0.3.2: its xtmd.toml says so.")
+    r.file("old", "doc.xtmd", "before")
+    t.beat(r.line('let intro: md = "# Hi";'), "0.3.2's md, its @blocks, and an input named warn, a keyword in 0.4.0.", 3.6)
+    r.run("dry", "xtmd migrate: 0.3.2's own front end, built into this xtmd, reads every file; one step moves it.")
+    t.beat(r.out("dry", "read as written for 0.3.2 (rir 1), moved to 0.4.0 (rir 2)"), "Read as 0.3.2 understood it, moved to 0.4.0's resolved IR.", 3.4)
     r.run("diff", "--diff shows how.")
-    t.beat(r.out("diff", '+let first: text = "Read";'), "Its layout is fmt's now; the comment stays.", 3.0)
+    t.beat(r.out("diff", "+let intro: rich_text"), "md is the built-in rich_text…", 2.6)
+    t.beat(r.out("diff", "+\\{intro}"), "…@blocks places its value where it stands…", 2.8)
+    t.beat(r.out("diff", "+widget card(title: text, warn_: text) {"), "…and warn is warn_, everywhere it is read.", 3.0)
     r.run("json", "--format json gives a line a file, and a summary a program can read.")
-    t.beat(r.out("json", '"ready":true'), "Ready: nothing refused, no question open.", 2.8)
-    r.run("yes", "--yes writes it.")
-    t.beat(r.out("yes", "written: 1 file"), "Written.", 2.0)
-    r.run("check", "And run again, there is nothing left to change.")
-    t.beat(r.out("check", "nothing to change"), "--check passes: exit 0.", 2.6)
+    t.beat(r.out("json", '"ready":true'), "Ready: nothing refused, no question open, no TODO.", 2.8)
+    r.run("yes", "--yes writes it, xtmd.toml too.")
+    t.beat(r.out("yes", "written: 2 files"), "Written: every file, or none.", 2.4)
+    r.run("check", "Run again, there is nothing left to move, and it compiles in 0.4.0.")
+    t.beat(r.out("check", "1 up to date"), "--check passes, and so does xtmd check.", 2.8)
 
     r.chapter(3)
-    r.run("broken-old", "Another tree, where one document no longer compiles.")
-    t.beat(r.out("broken-old", "has no field `count`"), "The old release can't read notes.xtmd…", 3.0)
-    t.beat(r.out("broken-old", "nothing written"), "…so nothing is written: not even books.xtmd, which it could move.", 3.4)
-    r.run("untouched", "git agrees.")
-    t.beat(r.out("untouched", "every file is as it was"), "Every file, or none.", 2.6)
-    r.run("no-reader", "And a reader that can't be run is said once.")
-    t.beat(r.out("no-reader", "can't be run"), "Nothing written, exit 1.", 2.6)
+    r.run("todo", "Code that reads a rich_text's parts has no answer in 0.4.0.")
+    t.beat(r.out("todo", "nothing reads its parts"), "So it is written with a TODO above it, saying why…", 3.0)
+    t.beat(r.out("todo", "exit 3"), "…every TODO is said, and the run ends with exit 3.", 2.8)
+    r.run("older", "A tree written for 0.2.9 is two releases back.")
+    t.beat(r.out("older", "tools/migrate/chain.py"), "Refused by name: each release moves it in turn, and chain.py runs them.", 3.6)
 
     r.end("Spec page 6 and docs/guides/migration.md say how a release's own step is written.", 3.4)

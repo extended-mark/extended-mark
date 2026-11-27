@@ -160,3 +160,14 @@ fn b9_c1_what_0_3_2_read_as_a_sentence_keeps_its_marks_as_words() {
     assert!(doc.contains("let b: rich_text = \"\\\\- not a list, **bold**\";"), "{}", doc);
     assert!(doc.contains("// TODO(xtmd migrate): 0.4.0's `rich_text.from` reads blocks too"), "a text read while the page runs: {}", doc);
 }
+
+#[test]
+fn the_migration_guides_example_moves_as_it_says() {
+    // docs/guides/migration.md, "From 0.3.2 to 0.4.0": its first xtmd block, moved, is its second
+    let guide = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../docs/guides/migration.md")).unwrap();
+    let blocks: Vec<&str> = guide.split("```xtmd\n").skip(1).map(|b| b.split("```").next().unwrap()).collect();
+    assert_eq!(blocks.len(), 2, "the guide's two examples, before and after");
+    let (code, said, doc) = one("guide", blocks[0]);
+    assert_eq!(code, 0, "{}", said);
+    assert_eq!(doc, blocks[1], "{}", said);
+}

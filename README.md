@@ -27,8 +27,9 @@ download: `xtmd-<version>-<platform>.tar.gz` for `linux-x64`, `linux-arm64`, `da
 `%LOCALAPPDATA%\xtmd\bin`, added to your PATH); `XTMD_VERSION` picks a release and `XTMD_INSTALL_DIR`
 another folder.
 
-`xtmd migrate` moves a document of an earlier version to this one, and with `--reader` a whole tree
-from the release it is written for ([docs/guides/migration.md](docs/guides/migration.md)).
+`xtmd migrate` moves a tree written for the release before to this one, by what that release
+understands of it, and documents to the versions of the packs they use
+([docs/guides/migration.md](docs/guides/migration.md)).
 
 ## In this repository
 
@@ -61,7 +62,7 @@ from the release it is written for ([docs/guides/migration.md](docs/guides/migra
 - [Writing a host](docs/guides/host.md): drawing a page with code of your own, from its tree.
 - [Writing a runtime](docs/guides/runtime.md): running the IR on another platform.
 - [Writing an engine](docs/guides/engine.md): building pages into files ahead of time.
-- [Moving a tree to a new release](docs/guides/migration.md): `xtmd migrate --reader`, and a release's step.
+- [Moving a tree to a new release](docs/guides/migration.md): `xtmd migrate`, `tools/migrate/chain.py`, and a release's step.
 
 ## Releasing a new version of a pack
 

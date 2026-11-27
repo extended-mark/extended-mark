@@ -99,6 +99,27 @@ IRs apart by their content, not by which object or file holds them.
 
 A page that moves to a new xtmd may need its IR moved too: `xtmd migrate page.ir.json`, or build it again.
 
+**Data saved from 0.3.2.** `xtmd migrate` moves a tree, never what a host kept of a page. Put back on the
+page it moved, a `$state` field it renamed or gave another type is refused, whole and by its name, and
+nothing is put back. Carry it over yourself before you restore: a field named by a word that is a keyword
+now is that word with `_` after it (`warn` is `warn_`), and a field that held a `rich_text` holds the
+text it is made from. The TODOs `xtmd migrate` wrote above those fields name each one.
+
+## From 0.3.2: each name a host used, and what it is now
+
+| 0.3.2 | 0.4.0 |
+|---|---|
+| `@extended-mark/view`'s `XtmdDoc` | `@extended-mark/dom`'s `XtmdDoc`: `own` is `components`, `onMount` is `onPage`, and what a server wrote is taken over |
+| `@extended-mark/embed-live`'s `XtmdLiveDoc` | `@extended-mark/live/dom`'s |
+| `Doc`, `makePage`, a page's Markdown as HTML | `@extended-mark/widgets/doc`, `@extended-mark/runtime`, `@extended-mark/runtime/html` |
+| `@extended-mark/embed`'s `Embed` | none: `XtmdDoc`, or `mount` and `run` |
+| `XtmdDoc`'s `src` | `ir`: fetch the IR and give it |
+| `Mounted.view(id)` | `element(id)`; the stylesheet is `@extended-mark/widgets/style.css` |
+| `observeTree`, `observeState`, paths, `Value` classes | `page.tree()`, `page.onChange(changes)`, `page.event/write/call(id, …)`; the type `Value` is `Input` |
+| `needs.app` in the IR | `needs.host` |
+| `$state` given to a page, taken as it came | checked as a write is: what doesn't fit is refused and told (Rust: `PageOptions.state`) |
+| the crates `xtmd-syntax`, `xtmd-check`, `xtmd-lower`, `xtmd-markdown`, `xtmd-migrate`, `xtmd-live`, `xtmd-lsp`, `xtmd-eval` | modules of the crate `xtmd` of the same names; `xtmd-ir` is `xtmd::formats`; a runtime takes `xtmd` with `default-features = false` |
+
 ## 6. What it asks of you, and what went wrong
 
 | | |
