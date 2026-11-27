@@ -1,4 +1,5 @@
-//! Whether JSON fits one of the IR's schemas: the part of JSON Schema they are written in.
+//! Whether JSON fits one of the IR's schemas, or the resolved IR's: the part of JSON Schema they are
+//! written in.
 
 use serde_json::Value;
 
@@ -28,16 +29,37 @@ fn at(v: &Value, s: &Value, root: &Value, path: &str) -> Option<String> {
             None => no(format!("{} isn't known", key.map_or("what is here".into(), |k| format!("`{}`", k)))),
         };
     }
-    let ok = match s.get("type").and_then(Value::as_str) {
-        Some("object") => v.is_object(),
-        Some("array") => v.is_array(),
-        Some("string") => v.is_string(),
-        Some("integer") => v.is_i64() || v.is_u64(),
-        Some("boolean") => v.is_boolean(),
+    if let Some(all) = s.get("anyOf").and_then(Value::as_array) {
+        // the first way's reason, when none fits
+        let mut why = None;
+        for a in all {
+            match at(v, a, root, path) {
+                None => return None,
+                Some(w) => {
+                    why.get_or_insert(w);
+                }
+            }
+        }
+        return why;
+    }
+    let is = |t: &str| match t {
+        "object" => v.is_object(),
+        "array" => v.is_array(),
+        "string" => v.is_string(),
+        "integer" => v.is_i64() || v.is_u64(),
+        "number" => v.is_number(),
+        "boolean" => v.is_boolean(),
+        "null" => v.is_null(),
+        _ => true,
+    };
+    // one type, or a list of them (`["string", "null"]`)
+    let ok = match &s["type"] {
+        Value::String(t) => is(t),
+        Value::Array(ts) => ts.iter().filter_map(Value::as_str).any(is),
         _ => true,
     };
     if !ok {
-        return no(format!("a {} goes here", s["type"].as_str().unwrap_or("value")));
+        return no(format!("a {} goes here", s["type"].as_str().map_or_else(|| s["type"].to_string(), String::from)));
     }
     if let Value::Array(items) = v {
         let Some(item) = s.get("items") else { return None };

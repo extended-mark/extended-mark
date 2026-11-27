@@ -3,4 +3,5 @@ Three kinds, all from what is understood, never by searching text:
   packs      kit@1 to kit@2, by the pack's own migration block   compiler/xtmd/src/migrate/step.rs
   releases   what a release of xtmd changes in files             compiler/xtmd/src/migrate/releases.rs
   IR         a *.ir.json of an earlier version                   compiler/xtmd/src/migrate/ir
+  a tree     by what each release understands (--reader)         compiler/xtmd/src/migrate/pipeline.rs
 What can't be settled is asked, or left with a TODO. Nothing is written before a summary and a yes.

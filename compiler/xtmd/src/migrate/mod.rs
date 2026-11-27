@@ -13,6 +13,9 @@ use crate::syntax::{parse, Entry, Lines};
 
 mod externs;
 pub mod ir;
+pub mod pipeline;
+pub mod readers;
+pub mod rir;
 pub mod releases;
 mod slots;
 mod texts;

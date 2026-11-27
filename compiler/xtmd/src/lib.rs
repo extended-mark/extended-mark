@@ -14,7 +14,7 @@
 //! | `check` | Names, types, rules; gives the IR |
 //! | `decompile` | A resolved IR back to text: `xtmd decompile` |
 //! | `live` | Text to IR in one call, core compiled once; a text followed as it is edited |
-//! | `migrate` | `xtmd migrate`, on texts |
+//! | `migrate` | `xtmd migrate`: texts, IR files, and a tree by what each release understands of it |
 //! | `lsp` | The language server |
 //! | `cli` | The command |
 //!

@@ -4,6 +4,7 @@ use std::process::ExitCode;
 
 mod migrate;
 mod migrate_ir;
+mod migrate_rir;
 mod examples;
 mod batch;
 mod flags;

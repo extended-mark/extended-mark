@@ -1,0 +1,15 @@
+A TREE MOVED BY WHAT EACH RELEASE UNDERSTANDS  compiler/xtmd/src/migrate/pipeline.rs
+`xtmd migrate <tree> --reader <xtmd of the release it is written for>`. Nothing reads old text anew:
+1. readers/: the old release reads each file, `compile --rir` and `md`: its resolved IR and Markdown.
+   A reader is anything that gives those (trait Reader); 0.3's xtmd has no compile, so its reader, from
+   0.3.2's published crates, is to come (#14715).
+2. rir/: steps from rir N to N+1 over the JSON, by names and types. A step's input fits rir N's schema
+   (kept in schemas/rir-history; src/migrate/rir keeps copies, a test holds them to schemas/) and its
+   output N+1's. It asks what only a person knows (Asked::ask, by an id; answered in --answers as
+   [steps] "id" = "answer") and leaves a TODO above what no answer can move (Asked::todo).
+3. decompile prints every file; this xtmd compiles each document with the packs printed beside it.
+4. Each document's Markdown has to be the old release's: a step that changes what a page says is wrong.
+5. Anything refused or a question open: nothing written. Else every file, written beside and renamed.
+A new rir version: keep the old schema in schemas/rir-history (a folder a version) and in src/migrate/rir,
+write the step, add it to STEPS. compiler/xtmd/tests/migrate_pipeline.rs runs a made-up release, rir 1
+with `words` for `prose`, through all of it.

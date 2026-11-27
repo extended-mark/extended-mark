@@ -35,6 +35,12 @@ pub(crate) const USAGE: &str = "usage: xtmd migrate [<file|folder>…] [--pack a
   --from kit@1   the version the files are written for, where nothing says (xtmd.toml's [uses] does)
   xtmd.toml's xtmd = \"0.3.x\" says the release the tree is written for (0.3.0 when it says none),
   and [uses] each pack's version; a run that moves the tree writes both.
+  --reader x     moves the tree by what each release understands of it: x, the xtmd of the release
+                 it is written for (0.4.0 on), reads each file to a resolved IR; this xtmd brings that
+                 to its own version, prints every file again, and compiles them. Each document's
+                 Markdown has to be what x wrote; then every file is written, or none. A step's
+                 question is answered in --answers as [steps] \"id\" = \"answer\"; what no step can move
+                 is left with a TODO above it.
   An IR file (xtmd migrate page.ir.json) is brought to the version this xtmd's runtimes read, one way,
   in place; one that can't be keeps its file, and is told what is missing.
   --format json prints a JSON line for each file, note and question, then the summary, and asks
@@ -46,6 +52,10 @@ pub(crate) const USAGE: &str = "usage: xtmd migrate [<file|folder>…] [--pack a
         xtmd migrate docs --yes all --report migration.md";
 
 pub fn migrate_cmd(args: &[String]) -> ExitCode {
+    // by what each release understands: the old one reads, this one prints (cli/migrate_rir.rs)
+    if args.iter().any(|a| a == "--reader" || a.starts_with("--reader=")) {
+        return crate::cli::migrate_rir::run(args);
+    }
     let flag = |f: &str| args.iter().any(|a| a == f);
     let (dry, check, diff, dirty_ok) = (flag("--dry-run"), flag("--check"), flag("--diff"), flag("--allow-dirty"));
     let stdout = flag("--stdout");

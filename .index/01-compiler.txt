@@ -58,10 +58,14 @@ compiler/xtmd/src/live/       the compiler embedded, core compiled once; `Live` 
 compiler/xtmd/src/migrate/    text and IR brought up to a version
   step.rs             one pack migration applied to one file
   releases.rs         the steps between releases; slots.rs, externs.rs, texts.rs are 0.3 to 0.4's
-  ir/                 an earlier IR to the next: mod.rs, v3.rs, schema.rs
+  ir/                 an earlier IR to the next: mod.rs, v3.rs, schema.rs (also the rir's checker)
+  readers/            a tree read by the release it is written for: its resolved IR and Markdown
+  rir/                an earlier resolved IR to the next: steps, their questions and TODOs
+  pipeline.rs         read, steps, decompile, compile and Markdown compared; every file or none
 compiler/xtmd/src/lsp/        the language server (.index/09-editors.txt)
 compiler/xtmd/src/cli/        the command
   mod.rs              commands; batch.rs (folders), flags.rs, help.rs, out.rs (--format json)
+  migrate_rir.rs      xtmd migrate --reader: the pipeline, and writing every file or none
   engine.rs           xtmd export --engine
   migrate.rs          xtmd migrate; migrate_ir.rs (*.ir.json); examples.rs (a pack's examples)
   surface.rs          xtmd surface

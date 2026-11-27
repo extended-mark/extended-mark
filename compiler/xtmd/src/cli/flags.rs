@@ -15,7 +15,7 @@ fn known(cmd: &str) -> &'static [&'static str] {
         "md" => &["--pack", "--config", "--format", "--out", "--help"],
         "surface" => &["--check", "--diff", "--stdout", "--force", "--pack", "--config", "--format", "--out", "--help"],
         "migrate" => &[
-            "--pack", "--config", "--engine", "--from", "--answers", "--format", "--out", "--report", "--dry-run", "--check", "--diff", "--stdout", "--yes", "--allow-dirty", "--allow-errors", "--allow-todos", "--help",
+            "--pack", "--config", "--engine", "--from", "--reader", "--answers", "--format", "--out", "--report", "--dry-run", "--check", "--diff", "--stdout", "--yes", "--allow-dirty", "--allow-errors", "--allow-todos", "--help",
         ],
         "lsp" => &["--help"],
         _ => &[],
@@ -23,7 +23,7 @@ fn known(cmd: &str) -> &'static [&'static str] {
 }
 
 /// The flags that take a value, as the next argument or after `=`.
-pub(crate) const VALUED: &[&str] = &["--format", "--out", "--pack", "--config", "--from", "--answers", "--report"];
+pub(crate) const VALUED: &[&str] = &["--format", "--out", "--pack", "--config", "--from", "--reader", "--answers", "--report"];
 
 /// Whether a run of the command, with these flags, writes files the person has: fmt and surface
 /// unless they only look, and migrate unless it only looks or prints.
