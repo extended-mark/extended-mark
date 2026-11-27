@@ -1,9 +1,10 @@
-# The release-notes check, for main: a merge request into main raises VERSION past main's and adds
+# The checks for a merge into main. From staging: the merge request's head is this repository's
+# staging, as only what staging has tested goes to main. The release-notes check: a merge request into main raises VERSION past main's and adds
 # notes/<VERSION>.md, and every note is well formed (tools/release/check-notes.mjs); and every crate,
 # package and copy of the version says VERSION (tools/release/bump.mjs --check). While main's
 # VERSION has no release yet (the Release workflow held, to run by hand later), a merge request may
 # keep it and add to its note: it is held only above the last release. Main's ruleset
-# (.github/rulesets/main.json) requires the check by its job's name, "Release notes".
+# (.github/rulesets/main.json) requires both by their jobs' names, "From staging" and "Release notes".
 name: Release notes
 
 on:
@@ -16,6 +17,23 @@ permissions:
   contents: read
 
 jobs:
+  staging:
+    name: From staging
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: The merge request's head is this repository's staging
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          if [ "$HEAD_REF" != staging ] || [ "$HEAD_REPO" != "${{ github.repository }}" ]; then
+            echo "::error::A merge into main comes from staging, not from $HEAD_REPO:$HEAD_REF. Merge it into staging first, then open the merge request from staging."
+            exit 1
+          fi
+          echo "from staging"
+
   notes:
     name: Release notes
     runs-on: ubuntu-24.04

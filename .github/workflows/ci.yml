@@ -297,7 +297,11 @@ jobs:
           path: compiler/npm/wasm
       - name: The release tools' tests
         if: env.PACK == 'true'
-        run: node --test tools/release/test/*.test.mjs
+        # previous.test.mjs reads the release before's tag, which a checkout doesn't fetch
+        run: |
+          tag=$(sed -n 's/^pub const TAG: &str = "\(.*\)";$/\1/p' compiler/xtmd/previous/mod.rs)
+          git fetch --no-tags --depth=1 origin "refs/tags/$tag:refs/tags/$tag"
+          node --test tools/release/test/*.test.mjs
       - name: This machine's xtmd, in its platform package
         if: env.PACK == 'true'
         run: |
