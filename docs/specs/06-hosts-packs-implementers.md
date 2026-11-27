@@ -11,7 +11,7 @@ package kit;
 
 //@about A set of components for documents.
 pack kit@1 {
-    uses core@1, charts@2;
+    uses core@2, charts@2;
     provides card, stats, stat, checklist, task, tab, tabs, box, unit;
 }
 
@@ -25,7 +25,7 @@ tokens brand {
 | Line | Meaning |
 |---|---|
 | `pack kit@1` | The pack's name and its version, a whole number. A new number means something that used the old one may break |
-| `uses core@1, charts@2;` | The packs this one imports from, each at the version it needs. `core` is imported by every file anyway; listing it pins the version of the language and of `core` the pack is written for |
+| `uses core@2, charts@2;` | The packs this one imports from, each at the version it needs. `core` is imported by every file anyway; listing it pins the version of the language and of `core` the pack is written for |
 | `provides …;` | Every name other packs may import: widgets, records, enums, types, interfaces, fns, `let` constants such as `unit` (page 7), and extern blocks. Anything not listed can only be used inside the pack |
 
 - **`import kit;`** makes every name `kit` provides usable in the file. **`import kit.stats;`** brings in that one name, and **`import kit.stats as kit_stats;`** brings it in under another name.
@@ -132,7 +132,7 @@ The compiler writes a build in two forms. The **IR** is what a page runs from: c
 **A release moves what was written for the release right before it**, and nothing older: a tree written for an earlier release is moved by each release in between, in turn, patch releases too, each by its own `xtmd`. It moves it by what each release understands of it, never by its text:
 
 1. **The release before reads it.** Each release's command line carries the front end of the release before it, and only that one: it gives each file's resolved IR, the snapshot of what is written, and each document's Markdown, as that release understood them. A tree the release before doesn't take as valid is not moved.
-2. **One step.** The resolved IR is moved to this release's by its one step, from JSON to JSON, by names and types. A release whose files need moving has a step even when the resolved IR's shape stays. What the step is given is checked against the schema its version had, which is kept, and what it makes against this version's.
+2. **One step.** The resolved IR is moved to this release's by its one step, from JSON to JSON, by names and types. core is a pack like any other, with a surface for each version a release shipped and a migration to the next: Extended Mark 0.4's core is `core@2`, and the step from 0.3 applies core's migration from `core@1` after what the language changed, before any of the tree's packs. A release whose files need moving has a step even when the resolved IR's shape stays. What the step is given is checked against the schema its version had, which is kept, and what it makes against this version's.
 3. **What a person decides.** The step asks what only a person can decide, by a question with an id; whoever migrates answers it, or a file does. What no answer can move is left as it was, with a TODO above it.
 4. **Printed and checked.** Every file is written again from the resolved IR, in `xtmd fmt`'s layout with its comments, and compiled back to its resolved IR, which must be what the step made: the files written mean what the step decided. Each document's Markdown is compared with the release before's, and a difference is a warning: the Markdown misses what a page does, and a step may change it on purpose.
 5. **Said out loud.** A migration moves what is plain and never promises the result. Every TODO, question and warning is listed, and a run that writes a TODO, or waits on a question, ends with exit code 3.
@@ -273,7 +273,7 @@ An engine is a program. `xtmd export docs --out dist --engine web` runs it: ever
 package acme;
 
 pack acme@1 {
-    uses core@1;
+    uses core@2;
     implements core.draw@1, core.live@1;
     provides jump;
 }

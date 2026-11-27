@@ -51,7 +51,9 @@ fn go(v: &Value, at: &mut At, f: &mut dyn FnMut(&Value, &At)) {
 /// block of prose; never an expression, which a list of arguments or a list's items hold.
 pub fn holds(key: &str, item: &Value) -> bool {
     const LISTS: &[&str] = &["declarations", "body", "else", "view", "prose", "markdown", "fields", "inputs", "slots", "events", "fns", "then"];
-    LISTS.contains(&key) && item.get("span").is_some() && item.get("comment").is_none() && (key != "fields" || item.get("id").is_some())
+    // a declaration's span is in what it is: `{ "let": { …, "span" } }`
+    let tagged = key == "declarations" && item.as_object().map_or(false, |o| o.len() == 1 && o.values().all(|x| x.get("span").is_some()));
+    LISTS.contains(&key) && (item.get("span").is_some() || tagged) && item.get("comment").is_none() && (key != "fields" || item.get("id").is_some())
 }
 
 fn esc(k: &str) -> String {

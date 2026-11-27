@@ -293,6 +293,10 @@ fn rename_pack(t: &ir::Type, from: &str, to: &str) -> ir::Type {
         if let Some(rest) = t.name.strip_prefix(&format!("{}/", from)) {
             t.name = format!("{}/{}", to, rest);
         }
+        // and the interface an `any` fits
+        if let Some(rest) = t.interface.as_deref().and_then(|i| i.strip_prefix(&format!("{}/", from))) {
+            t.interface = Some(format!("{}/{}", to, rest));
+        }
         for a in t.args.iter_mut() {
             walk(a, from, to);
         }

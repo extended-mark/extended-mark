@@ -12,7 +12,7 @@ fn repo() -> PathBuf {
 }
 
 fn base() -> Checker {
-    let mut files: Vec<PathBuf> = std::fs::read_dir(repo().join("core")).unwrap().map(|e| e.unwrap().path()).collect();
+    let mut files: Vec<PathBuf> = std::fs::read_dir(repo().join("core")).unwrap().map(|e| e.unwrap().path()).filter(|p| p.extension().map_or(false, |x| x == "xtmdpack")).collect();
     files.sort();
     let core: Vec<Source> = files.iter().map(|p| Source { path: p.to_string_lossy().into_owned(), text: std::fs::read_to_string(p).unwrap() }).collect();
     compile_core(&core)

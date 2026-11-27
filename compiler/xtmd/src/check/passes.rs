@@ -259,6 +259,8 @@ impl Checker {
         // records' `warn` rules that constants break
         let mut warned: Vec<(usize, Span, String)> = Vec::new();
         let pending = std::mem::take(&mut self.pending);
+        // a surface's fns are signatures, so a literal there is kept as written, never worked out
+        let surfaces: std::collections::HashSet<usize> = (0..self.files.len()).filter(|f| self.files[*f].pack.contains('@')).collect();
         {
             let mut patch = |e: &mut ir::Expr| {
                 let ir::Expr::Call(c) = e else { return };
@@ -278,6 +280,7 @@ impl Checker {
                         *e = inner;
                     }
                     Err(f) if f.kind == FailKind::NotConstant => *e = inner,
+                    Err(_) if surfaces.contains(&pending[id].file) => *e = inner,
                     Err(f) => {
                         let p = &pending[id];
                         errors.push((p.file, p.span, format!("working out this literal failed: {}", f.message)));

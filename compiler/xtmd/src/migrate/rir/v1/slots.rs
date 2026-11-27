@@ -54,6 +54,9 @@ fn calls(v: &mut Value, node: String, holder: String, known: &Resolved, todos: &
                     }
                 }
                 let prose = key == "call";
+                // a slot given an empty block goes before those the call fills, in the widget's order, as
+                // the printed call has them
+                let mut added = Vec::new();
                 for s in slots {
                     let name = s["name"].as_str().unwrap_or("");
                     let id = format!("{}.{}", widget, name);
@@ -61,12 +64,13 @@ fn calls(v: &mut Value, node: String, holder: String, known: &Resolved, todos: &
                         continue;
                     }
                     if may_be_empty(&s["type"]) {
-                        entries.push(json!({ "slot": id, (if prose { "prose" } else { "view" }): [], "span": span }));
+                        added.push(json!({ "slot": id, (if prose { "prose" } else { "view" }): [], "span": span }));
                     } else {
                         let short = widget.rsplit('/').next().unwrap_or(&widget);
                         todos.push((holder.clone(), format!("`{}` needs its slot `{}`, which this call leaves out: fill it, or make it `opt` in the widget", short, name)));
                     }
                 }
+                entries.splice(0..0, added);
                 if !had && entries.is_empty() {
                     c.as_object_mut().map(|o| o.remove("slots"));
                 }

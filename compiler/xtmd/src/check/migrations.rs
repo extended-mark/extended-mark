@@ -45,6 +45,9 @@ struct Fate {
     args: Vec<(String, String)>,
     /// The widget a `wrap` put the uses inside.
     parent: Option<String>,
+    /// Whether it was renamed to a type the language has built in, which has no members to account
+    /// for: `rename(to = rich_text)`.
+    builtin: bool,
     /// What to type-check once every block is read: a value, a condition, an execute.
     pending: Vec<Pending>,
 }
@@ -180,7 +183,7 @@ impl Checker {
                 moved.items.insert(key.clone(), item.clone());
                 continue;
             };
-            if f.dropped || f.executed {
+            if f.dropped || f.executed || f.builtin {
                 continue;
             }
             let mut item = item.clone();
@@ -429,11 +432,28 @@ impl Checker {
                     }
                     step.fate.members.insert(c, Some(t));
                 } else {
+                    // a fn on a type whose type was renamed too names both: `to = rich_text.from`
+                    if let (ExprKind::Field { target, name }, true) = (&to.kind, step.item.contains('.')) {
+                        if let ExprKind::Name(on) = &target.kind {
+                            let key = format!("{}.{}", on.name, name.name);
+                            match step.new.items.get(&key) {
+                                Some(n) if n.kind == "fn" => step.fate.now = Some(key),
+                                _ => self.error(file, codes::MIGRATION, to.span, format!("{} provides no fn `{}`", label_new(step), key)),
+                            }
+                            return;
+                        }
+                    }
                     let Some(to) = bare(to) else {
                         self.error(file, codes::MIGRATION, to.span, "the new name, written bare: `to = plot`".to_string());
                         return;
                     };
                     let kind = old_item.as_ref().map(|o| o.kind).unwrap_or("");
+                    // a type that became one the language has built in
+                    if crate::check::BUILTINS.contains(&to.name.as_str()) && matches!(kind, "record" | "enum" | "alias" | "type") && !step.new.items.contains_key(&to.name) {
+                        step.fate.now = Some(to.name.clone());
+                        step.fate.builtin = true;
+                        return;
+                    }
                     match step.new.items.get(&rename_key(&step.item, &to.name)) {
                         Some(n) if n.kind == kind => step.fate.now = Some(rename_key(&step.item, &to.name)),
                         _ => {
@@ -655,15 +675,19 @@ impl Checker {
     /// `bool`, and an `execute` as a fn from the older use to the newer one. The older members
     /// keep their types, with the older version's declarations read as the newer ones they became.
     fn type_check_blocks(&mut self, file: usize, fates: &BTreeMap<String, Fate>, (start, end): (&str, &str)) {
-        let mut map: std::collections::HashMap<crate::check::DefId, crate::check::DefId> = std::collections::HashMap::new();
+        let mut map: std::collections::HashMap<crate::check::DefId, Ty> = std::collections::HashMap::new();
         for (d, def) in self.defs.iter().enumerate() {
             if def.pack != start {
+                continue;
+            }
+            if let Some(t) = fates.get(&def.name).filter(|f| f.builtin).and_then(|f| f.now.as_deref()).and_then(builtin_ty) {
+                map.insert(d, t);
                 continue;
             }
             let now = fates.get(&def.name).map(|f| f.now.clone()).unwrap_or_else(|| Some(def.name.clone()));
             if let Some(now) = now {
                 if let Some(n) = self.defs.iter().position(|x| x.pack == end && x.name == now) {
-                    map.insert(d, n);
+                    map.insert(d, Ty::Def(n, Vec::new()));
                 }
             }
         }
@@ -732,7 +756,7 @@ impl Checker {
 
 impl Checker {
     /// A fn's block, typed: each value as the newer fn's argument, over the older one's.
-    fn type_check_fn(&mut self, file: usize, key: &str, fate: &Fate, (start, end): (&str, &str), map: &std::collections::HashMap<crate::check::DefId, crate::check::DefId>) {
+    fn type_check_fn(&mut self, file: usize, key: &str, fate: &Fate, (start, end): (&str, &str), map: &std::collections::HashMap<crate::check::DefId, Ty>) {
         let params = |c: &Checker, pack: &str, key: &str| {
             let (on, name) = key.rsplit_once('.').map_or((None, key), |(o, n)| (Some(o), n));
             let f = c.fns.iter().find(|f| {
@@ -787,18 +811,37 @@ pub fn in_order<T: Clone>(args: &[(String, T)], newer: &[(String, T)]) -> Vec<(S
 }
 
 /// A type of the older version, its declarations read as the newer ones they became.
-fn map_ty(t: &Ty, map: &std::collections::HashMap<crate::check::DefId, crate::check::DefId>) -> Ty {
+fn map_ty(t: &Ty, map: &std::collections::HashMap<crate::check::DefId, Ty>) -> Ty {
     let m = |t: &Ty| map_ty(t, map);
+    let def = |d: &crate::check::DefId| match map.get(d) {
+        Some(Ty::Def(n, _)) => *n,
+        _ => *d,
+    };
     match t {
         Ty::List(x) => Ty::List(Box::new(m(x))),
         Ty::Opt(x) => Ty::Opt(Box::new(m(x))),
         Ty::Range(x) => Ty::Range(Box::new(m(x))),
-        Ty::Def(d, args) => Ty::Def(*map.get(d).unwrap_or(d), args.iter().map(m).collect()),
-        Ty::Any(d, args) => Ty::Any(*map.get(d).unwrap_or(d), args.iter().map(m).collect()),
+        // a type that became a built-in one is that one
+        Ty::Def(d, _) if map.get(d).map_or(false, |t| !matches!(t, Ty::Def(..))) => map[d].clone(),
+        Ty::Def(d, args) => Ty::Def(def(d), args.iter().map(m).collect()),
+        Ty::Any(d, args) => Ty::Any(def(d), args.iter().map(m).collect()),
         Ty::Fn(ps, r) => Ty::Fn(ps.iter().map(|p| crate::check::ty::FnParam { ty: m(&p.ty), mutable: p.mutable }).collect(), r.as_ref().map(|r| Box::new(m(r)))),
         Ty::Inline(fs) => Ty::Inline(fs.iter().map(|(n, t)| (n.clone(), m(t))).collect()),
         other => other.clone(),
     }
+}
+
+/// The type a built-in name is, for a declaration a migration says became it.
+fn builtin_ty(name: &str) -> Option<Ty> {
+    Some(match name {
+        "rich_text" => Ty::Rich,
+        "text" => Ty::Text,
+        "number" => Ty::Num,
+        "bool" => Ty::Bool,
+        "duration" => Ty::Dur,
+        "view" => Ty::View,
+        _ => return None,
+    })
 }
 
 /// Code as it is type-checked: what a person decides when migrating stands in as a value of its

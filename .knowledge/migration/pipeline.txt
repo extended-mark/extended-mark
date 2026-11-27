@@ -16,7 +16,8 @@ none is taken as that one, out loud).
 dropped come as left_out, with `now` (0.4.0's parse of the file), whose comments are taken by span;
 compiler/xtmd/tests/migrate_032_format.rs holds it to what 0.4.0 gives for the same text. What rir 1
 doesn't say (mut parameters and inputs, extern fns, slots) the reader adds as left_out.resolved, from
-0.3.2's checker. Then a file per language row. A file with a TODO is written even if it doesn't compile.
+0.3.2's checker. Then a file per language row, then core's migration (its core.rs).
+A file with a TODO is written even if it doesn't compile.
 Until rir::READY, a 0.3.2 tree still takes compiler/xtmd/src/cli/migrate.rs's text steps (releases.rs).
 compiler/xtmd/tests/migrate_pipeline.rs runs a made-up release before, rir 1 with `words` for `prose`;
 compiler/xtmd/tests/migrate_032.rs runs every 0.3.2 file of checks/migrate-0.3 against expected.tsv.

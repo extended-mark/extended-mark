@@ -3,7 +3,7 @@ package pick;
 //@about The check pack of checks/pages: a widget that writes a value of any type, with an event that
 //@about carries one, and a fn its renderer supplies.
 pack pick@1 {
-    uses core@1;
+    uses core@2;
     provides dial, pick;
 }
 

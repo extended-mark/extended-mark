@@ -282,7 +282,7 @@ test("gfx: the canvas, its shapes and the plane are named, and the canvas draws 
 test("a widget nobody supplies shows its Markdown and is reported, and a host's widget replaces ours by name", async () => {
   const acme = pack(
     "acme",
-    'package acme;\n\npack acme@1 {\n    uses core@1;\n    provides chart;\n}\n\n//@about A chart only acme draws.\nextern widget chart(title: text) {\n    markdown {\n        \\{title}\n    }\n}\n',
+    'package acme;\n\npack acme@1 {\n    uses core@2;\n    provides chart;\n}\n\n//@about A chart only acme draws.\nextern widget chart(title: text) {\n    markdown {\n        \\{title}\n    }\n}\n',
   );
   const page = await open(browser, ir("import acme;\n@@@\nBefore.\n\n@chart(title = \"Sales\");\n", { packs: [acme] }));
   // its Markdown, drawn as the blocks it is made of: a paragraph saying "Sales"

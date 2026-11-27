@@ -52,7 +52,7 @@ fn run(name: &str, k: &Kit, flags: &[&str]) -> Ran {
     };
     let (imports, uses) = if k.other.is_some() { ("import other;\n\n", ", other@1") } else { ("", "") };
     write("kit/surfaces/kit@1.xtmdpack", &format!("package kit@1;\n\n{}", k.old));
-    write("kit/kit.xtmdpack", &format!("package kit;\n\n{}pack kit@2 {{\n    uses core@1{};\n    provides {};\n}}\n\n{}", imports, uses, k.provides, k.new));
+    write("kit/kit.xtmdpack", &format!("package kit;\n\n{}pack kit@2 {{\n    uses core@2{};\n    provides {};\n}}\n\n{}", imports, uses, k.provides, k.new));
     write("kit/migrations/kit@2.xtmdpack", &format!("package kit;\n\n{}{}migration kit@1 to kit@2 {{\n{}\n}}\n", imports, k.beside, k.migration));
     write("xtmd.toml", &format!("packs = [\"kit\"{}]\nxtmd = \"{}\"\n\n[uses]\nkit = 1\n", if k.other.is_some() { ", \"other\"" } else { "" }, env!("CARGO_PKG_VERSION")));
     write("docs/a.xtmd", k.doc);

@@ -53,6 +53,20 @@ fn core(dir: &Path, dest: &Path) {
         out.push_str(&format!("    (\"core/{}\", include_str!({:?})),\n", f.file_name().unwrap().to_str().unwrap(), f.canonicalize().unwrap()));
     }
     out.push_str("];\n");
+    // and what migrating from its earlier versions needs, which no compile of a page reads: each
+    // released version's surface, and its migrations
+    out.push_str("/// core's surfaces and migrations, as (path, text): only xtmd migrate reads them.\npub const CORE_HISTORY: &[(&str, &str)] = &[\n");
+    for sub in ["surfaces", "migrations"] {
+        let d = dir.join(sub);
+        println!("cargo:rerun-if-changed={}", d.display());
+        let mut files: Vec<PathBuf> = std::fs::read_dir(&d).map(|r| r.map(|e| e.unwrap().path()).filter(|p| p.extension().map_or(false, |x| x == "xtmdpack")).collect()).unwrap_or_default();
+        files.sort();
+        for f in files {
+            println!("cargo:rerun-if-changed={}", f.display());
+            out.push_str(&format!("    (\"core/{}/{}\", include_str!({:?})),\n", sub, f.file_name().unwrap().to_str().unwrap(), f.canonicalize().unwrap()));
+        }
+    }
+    out.push_str("];\n");
     std::fs::write(dest.join("core.rs"), out).unwrap();
 }
 

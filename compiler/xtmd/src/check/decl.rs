@@ -441,9 +441,11 @@ impl Checker {
                 }
             }
         }
-        // every named case a token declaration lists has a value from the pack that declares it
+        // every named case a token declaration lists has a value from the pack that declares it; a
+        // surface's tokens blocks give none
         let first = self.from.defs;
-        for (d, cases) in declared.into_iter().filter(|(d, _)| *d >= first) {
+        let surfaces: HashSet<DefId> = (first..self.defs.len()).filter(|d| self.defs[*d].pack.contains('@')).collect();
+        for (d, cases) in declared.into_iter().filter(|(d, _)| *d >= first && !surfaces.contains(d)) {
             let pack = self.defs[d].pack.clone();
             for c in cases {
                 let given = self.token_values.iter().any(|(e, case, f, _)| *e == d && *case == c && self.files[*f].pack == pack);

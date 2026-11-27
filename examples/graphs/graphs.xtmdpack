@@ -1,7 +1,7 @@
 package graphs;
 
 pack graphs@1 {
-    uses core@1;
+    uses core@2;
     provides node, link, graph;
 }
 

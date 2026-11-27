@@ -7,6 +7,7 @@ use serde_json::Value;
 
 use crate::migrate::rir::Asked;
 
+mod core;
 mod externs;
 mod format;
 mod lets;
@@ -56,6 +57,17 @@ pub fn step(v: &mut Value, asked: &mut Asked) -> Result<(), Vec<String>> {
             }
         }
     }
+    // core's widgets as 0.4.0 has them: a slot core@2 made `opt` needs nothing from a call (A1)
+    let base = crate::check::compile_core(&crate::live::core());
+    for d in base.defs.iter().filter(|d| d.pack == "core") {
+        let crate::check::DefKind::Widget { slots, .. } = &d.kind else { continue };
+        let Some(was) = known.slots.get_mut(&d.full).and_then(Value::as_array_mut) else { continue };
+        for s in was.iter_mut() {
+            if let Some(now) = slots.iter().find(|n| s["name"] == n.name.as_str()) {
+                s["type"] = serde_json::to_value(&now.ir).unwrap_or(Value::Null);
+            }
+        }
+    }
     format(v, asked)?;
     names::keywords(v, asked);
     mutable::fields(v, &known, asked);
@@ -64,5 +76,7 @@ pub fn step(v: &mut Value, asked: &mut Asked) -> Result<(), Vec<String>> {
     slots::filled(v, &known, asked);
     views::blocks(v, &known, asked);
     texts::rich(v, asked);
+    // then core's own migration, as any pack's, before the tree's packs' own
+    core::migrated(v, &base, asked)?;
     Ok(())
 }

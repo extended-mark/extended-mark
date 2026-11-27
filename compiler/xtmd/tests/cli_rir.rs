@@ -34,6 +34,14 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
+/// core's own files: those at the top of core/, as build.rs embeds them; its surfaces and migrations are
+/// only xtmd migrate's.
+fn core_sources() -> Vec<xtmd::check::Source> {
+    let mut files: Vec<PathBuf> = std::fs::read_dir(repo().join("core")).unwrap().map(|e| e.unwrap().path()).filter(|p| p.extension().map_or(false, |x| x == "xtmdpack")).collect();
+    files.sort();
+    files.iter().map(|p| xtmd::check::Source { path: p.to_string_lossy().into_owned(), text: std::fs::read_to_string(p).unwrap() }).collect()
+}
+
 fn sources(dir: &Path, names: &[&str]) -> Vec<xtmd::check::Source> {
     fn add(p: &Path, out: &mut Vec<xtmd::check::Source>) {
         if p.is_dir() {
@@ -77,7 +85,7 @@ fn every_compiling_case_writes_a_resolved_ir_that_fits_its_schema() {
 
 fn write_every_case() {
     let v = validator();
-    let core = sources(&repo().join("core"), &["."]);
+    let core = core_sources();
     let base = xtmd::check::compile_core(&core);
     let mut cases = Vec::new();
     walk(&repo().join("checks/cases"), &mut cases);
@@ -213,7 +221,7 @@ fn every_comment_of_every_file_is_in_its_resolved_ir() {
 }
 
 fn keep_every_comment() {
-    let core = sources(&repo().join("core"), &["."]);
+    let core = core_sources();
     let base = xtmd::check::compile_core_logged(&core);
     let mut failures = Vec::new();
     let mut files = 0;

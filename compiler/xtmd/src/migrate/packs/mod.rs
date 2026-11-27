@@ -118,8 +118,8 @@ struct Block {
     args_change: bool,
     /// Each member's new name, by its old one.
     renamed: BTreeMap<String, String>,
-    /// Members it drops, and whether it drops the whole declaration.
-    dropped: BTreeSet<String>,
+    /// Members it drops, each with why, and whether it drops the whole declaration.
+    dropped: BTreeMap<String, String>,
     gone: Option<String>,
     /// Each case's new name, by its old one; each dropped case, with why.
     cases: BTreeMap<String, String>,
@@ -175,6 +175,8 @@ struct Use {
     wrappers: Vec<(String, Vec<Value>, Vec<(String, Value)>)>,
     /// Taken out, with why.
     removed: Option<String>,
+    /// Put in its place: the value an input of it was given, which is a view (`return @value;`).
+    placed: Option<Value>,
     /// In prose, or in a view.
     prose: bool,
     span: Value,
@@ -207,7 +209,7 @@ impl<'a> Moving<'a> {
             let key = b.path.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join(".");
             let mut ops = Vec::new();
             flatten(&b.body, &pack.fns, &BTreeMap::new(), &mut ops, 0);
-            let (mut now, mut renamed, mut dropped, mut gone, mut cases, mut cases_gone) = (key.clone(), BTreeMap::new(), BTreeSet::new(), None, BTreeMap::new(), BTreeMap::new());
+            let (mut now, mut renamed, mut dropped, mut gone, mut cases, mut cases_gone) = (key.clone(), BTreeMap::new(), BTreeMap::new(), None, BTreeMap::new(), BTreeMap::new());
             for op in &ops {
                 match op {
                     Op::Call(o, args) => match (o.as_str(), member(args), arg_name(args, "to")) {
@@ -223,8 +225,10 @@ impl<'a> Moving<'a> {
                             }
                         }
                         ("rename", None, Some(to)) => now = rename_key(&now, &to),
+                        // a fn on a type that was renamed too: `to = rich_text.from`
+                        ("rename", None, None) if ops::dotted(args, "to").is_some() => now = ops::dotted(args, "to").unwrap(),
                         ("drop", Some(m), _) => {
-                            dropped.insert(m);
+                            dropped.insert(m, why_of(args));
                         }
                         ("drop", None, _) => match args.iter().find(|(n, _)| n == "from").and_then(|(_, v)| case_of(v)) {
                             Some(c) => {
@@ -314,6 +318,7 @@ impl<'a> Moving<'a> {
     fn list(&self, key: &str, items: &mut Vec<Value>, env: &Env, done: &mut Done) -> Vec<String> {
         let none = json!([0]);
         let walked: Vec<Vec<String>> = items.iter_mut().map(|x| self.walk(x, key, &none, env, done)).collect();
+        let merge = matches!(key, "prose" | "markdown") && walked.iter().all(Vec::is_empty);
         let mut up = Vec::new();
         for (i, todos) in walked.into_iter().enumerate().rev() {
             // a use taken out whole stays as a comment
@@ -338,6 +343,18 @@ impl<'a> Moving<'a> {
                 }
             } else {
                 up.splice(0..0, todos);
+            }
+        }
+        // a value placed as a hole is Markdown, and one run with the Markdown beside it, as the
+        // printed file reads
+        if merge {
+            for i in (1..items.len()).rev() {
+                let (Some(a), Some(b)) = (items[i - 1].get("markdown"), items[i].get("markdown")) else { continue };
+                let text = format!("{}\n\n{}", a["markdown"].as_str().unwrap_or(""), b["markdown"].as_str().unwrap_or(""));
+                let holes: Vec<Value> = a["holes"].as_array().into_iter().flatten().chain(b["holes"].as_array().into_iter().flatten()).cloned().collect();
+                let span = json!([items[i - 1]["span"][0], items[i]["span"][1]]);
+                items[i - 1] = json!({ "markdown": { "markdown": text, "holes": holes }, "span": span });
+                items.remove(i);
             }
         }
         up
@@ -404,6 +421,24 @@ impl<'a> Moving<'a> {
                 return Vec::new();
             }
         }
+        // a use whose value is placed in its stead: a hole in prose, `@x;` in a view, the value
+        // itself where a value goes
+        for k in ["use", "call"] {
+            let Some(value) = v.get(k).and_then(|u| u.get("xtmd_placed")).cloned() else { continue };
+            let span = v.get("span").cloned().unwrap_or_else(|| at.clone());
+            *v = match key {
+                "prose" | "markdown" => json!({ "markdown": { "markdown": "\u{fffc}", "holes": [value] }, "span": span }),
+                "view" | "body" => match ["local", "input", "slot"].iter().find_map(|g| value.pointer(&format!("/get/{}", g)).and_then(Value::as_str)) {
+                    Some(name) => json!({ "use": { "widget": name, "args": [], "span": span }, "span": span }),
+                    None => {
+                        let w = format!("{} places this use's value where it stands, and in a view only a value with a name is placed: give it one (`let x: rich_text = …;`), then `@x;`", self.label);
+                        return self.cannot(done, &span, w.clone(), w);
+                    }
+                },
+                _ => value,
+            };
+            return Vec::new();
+        }
         if let Some(w) = v["widget"].as_str().map(str::to_string) {
             if let (Some(b), true) = (self.block(&w, &["widget"]), key == "use" || key == "call") {
                 return self.a_use(v, b, key == "call", at, env, done);
@@ -458,8 +493,8 @@ impl<'a> Moving<'a> {
                 if b.kind == "fn" {
                     continue;
                 }
-                if b.dropped.contains(m) {
-                    let w = format!("{} drops {}.{}: what read it is to change", self.label, b.key, m);
+                if let Some(why) = b.dropped.get(m) {
+                    let w = format!("{} drops {}.{}{}: what read it is to change", self.label, b.key, m, why);
                     todos.extend(self.cannot(done, &span, w.clone(), w));
                     break;
                 }
@@ -549,6 +584,7 @@ impl<'a> Moving<'a> {
             slots: v["slots"].as_array().into_iter().flatten().map(|s| (last(s["slot"].as_str().unwrap_or("")).to_string(), s.clone())).collect(),
             wrappers: Vec::new(),
             removed: None,
+            placed: None,
             prose,
             span: span.clone(),
         };
@@ -569,6 +605,12 @@ impl<'a> Moving<'a> {
         }
         done.notices.extend(said);
         done.changed.extend(changed);
+        if let Some(value) = u.placed.take() {
+            done.changed.push(format!("{}:{}  {} → the value it was given, placed where it stands", self.path, line, b.key));
+            *v = json!({ "xtmd_placed": value });
+            done.changes += 1;
+            return Vec::new();
+        }
         if let Some(why) = &u.removed {
             let first = printed_use(v, prose).lines().next().unwrap_or("").trim_end_matches(';').to_string();
             done.deletions.push(format!("{}:{}  {} (kept as a comment){}", self.path, line, first, why));
@@ -670,6 +712,12 @@ impl<'a> Moving<'a> {
             Op::Execute(blk) => match self.execute(blk, &mut e, said, &format!("{}:{}  {}, {}", self.path, line, self.label, key), line)? {
                 Flow::Return(Some(x)) => {
                     let ExprKind::View(call) = &x.kind else { return Err(format!("{}'s execute for {} returns something other than a use", self.label, key)) };
+                    // `return @value;`: the view one of its inputs was given, placed where the use stands
+                    if call.args.is_none() && call.block.is_none() && b.old.input(&call.name.name).is_some() {
+                        let given = e.given.get(&call.name.name).cloned().ok_or_else(|| format!("{}'s execute for {} places `{}`, which this use doesn't give", self.label, key, call.name.name))?;
+                        u.placed = Some(given);
+                        return Ok(());
+                    }
                     let new = self.home(&call.name.name).map(|(_, d)| d).ok_or_else(|| format!("{}'s execute for {} returns a use of `{}`, which {} doesn't provide", self.label, key, call.name.name, self.label))?;
                     // the use's own blocks go where what it returns places them: `@body;` for its slot `body`
                     let mut slots = Vec::new();
@@ -956,6 +1004,14 @@ impl<'a> Moving<'a> {
     fn a_record(&self, v: &mut Value, b: &Block, at: &Value, env: &Env, done: &mut Done) -> Vec<String> {
         let span = at.clone();
         let line = self.line(&span);
+        // a record that became a type the language has built in isn't written out in the newer version:
+        // what it holds stays as written, for a person
+        if crate::check::BUILTINS.contains(&b.now.as_str()) && b.new.kind.is_empty() {
+            let how = if b.now == "rich_text" { " (rich_text.from(…), rich_text.plain(…))" } else { "" };
+            let was = if b.key == b.now { String::new() } else { format!(" (`{}` before)", b.key) };
+            let w = format!("{}'s {}{} is built in, and isn't written out as a record: make it from what it holds{}", self.label, b.now, was, how);
+            return self.cannot(done, &span, w.clone(), w);
+        }
         let mut fields = v["fields"].as_array().cloned().unwrap_or_default();
         let mut name = b.key.clone();
         for op in &b.ops {
@@ -1035,6 +1091,11 @@ impl<'a> Moving<'a> {
         let given = v["args"].as_array().map_or(0, Vec::len);
         if given != args.len() {
             let w = format!("{}: this call of {} gives {} arguments, and {}@{} has {}", self.label, b.key, given, self.pack.name, self.label.rsplit('@').next().and_then(|x| x.parse::<u32>().ok()).map_or(0, |x| x - 1), b.old.inputs.len());
+            return self.cannot(done, &span, w.clone(), w);
+        }
+        // a fn dropped whole: what calls it is for a person
+        if let Some(why) = &b.gone {
+            let w = format!("{} drops {}{}: write what this is now", self.label, b.key, why);
             return self.cannot(done, &span, w.clone(), w);
         }
         for op in &b.ops {
@@ -1396,6 +1457,10 @@ impl<'a> Moving<'a> {
     /// imports it; a name that would mean another declaration in this file stops it.
     fn imports(&self, file: &mut Value, before: &BTreeSet<(String, String)>, done: &mut Done) {
         let pack = self.pack.name.clone();
+        // core is imported by every file
+        if pack == "core" {
+            return;
+        }
         let mut kept = Vec::new();
         for mut i in file["imports"].as_array().cloned().unwrap_or_default() {
             if i["pack"] == pack.as_str() {

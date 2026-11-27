@@ -6,7 +6,7 @@ package android;
 //@about theme replaces them); the rest keep core's values. Lengths are dp, and type is Material 3's
 //@about type scale. xtmd-android's unit tests check these values against Compose's own.
 pack android@1 {
-    uses core@1;
+    uses core@2;
     implements core.draw@1, core.live@1, core.gfx@1;
 }
 

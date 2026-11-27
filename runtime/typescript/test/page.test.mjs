@@ -300,7 +300,7 @@ test("an extern's require has to hold, and one a pack says is a piece of Markdow
   writeFileSync(join(dir, "ext.xtmdpack"), `package ext;
 
 pack ext@1 {
-    uses core@1;
+    uses core@2;
     provides said, bars;
 }
 

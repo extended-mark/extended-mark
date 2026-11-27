@@ -68,7 +68,7 @@ checks/cases/markdown/a-document-widget-built-from-its-view.xtmd	valid	moved
 checks/cases/markdown/a-hole-is-never-formatting.xtmd	valid	moved
 checks/cases/markdown/a-widget-writes-its-markdown.xtmd	valid	moved
 checks/cases/markdown/an-empty-markdown-writes-nothing.xtmd	valid	moved
-checks/cases/markdown/an-md-value-is-placed-by-blocks.xtmd	valid	refused
+checks/cases/markdown/an-md-value-is-placed-by-blocks.xtmd	valid	moved
 checks/cases/markdown/blocks-and-marks.xtmd	valid	moved
 checks/cases/markdown/extern-widgets-write-their-markdown.xtmd	valid	moved
 checks/cases/markdown/indented-blocks-read-as-flat-ones.xtmd	valid	moved
@@ -103,9 +103,9 @@ checks/cases/names/unknown-token.xtmdpack	invalid	refused
 checks/cases/names/unknown-widget-in-prose.xtmd	invalid	refused
 checks/cases/names/unknown-widget.xtmdpack	invalid	refused
 checks/cases/packs/a-pack-supplies-its-externs.xtmd	invalid	refused
-checks/cases/plane/a-layout-that-keeps-changing-stops.xtmd	valid	refused
-checks/cases/plane/bounds-come-from-the-spots.xtmd	valid	refused
-checks/cases/plane/boxes-stay-while-the-reader-moves.xtmd	valid	refused
+checks/cases/plane/a-layout-that-keeps-changing-stops.xtmd	valid	moved
+checks/cases/plane/bounds-come-from-the-spots.xtmd	valid	moved
+checks/cases/plane/boxes-stay-while-the-reader-moves.xtmd	valid	moved
 checks/cases/prose/a-bare-state-in-a-sentence-warns.xtmd	valid	moved
 checks/cases/prose/a-paragraph-takes-no-opt-hole.xtmd	invalid	refused
 checks/cases/prose/an-html-comment-warns.xtmd	valid	moved
@@ -272,7 +272,7 @@ checks/cases/views/a-prose-slot-must-exist.xtmd	invalid	refused
 checks/cases/views/a-sizing-property-is-set-once.xtmdpack	invalid	refused
 checks/cases/views/a-slot-length-written-out.xtmdpack	invalid	refused
 checks/cases/views/a-slot-takes-its-widget-type.xtmdpack	invalid	refused
-checks/cases/views/a-spot-outside-its-planes-bounds-warns.xtmd	valid	refused
+checks/cases/views/a-spot-outside-its-planes-bounds-warns.xtmd	valid	moved
 checks/cases/views/a-view-is-not-held-in-a-mut.xtmdpack	invalid	refused
 checks/cases/views/a-widget-require-on-constant-inputs.xtmd	invalid	refused
 checks/cases/views/a-widget-values-inputs-are-read-only.xtmdpack	invalid	refused
@@ -310,7 +310,7 @@ checks/cases/widgets/shade.xtmd	valid	moved
 checks/cases/widgets/slider.xtmd	valid	moved
 checks/cases/widgets/table.xtmd	valid	moved
 checks/core/lists-and-ranges.xtmdpack	valid	moved
-checks/core/markdown.xtmdpack	valid	refused
+checks/core/markdown.xtmdpack	valid	todo
 checks/core/numbers-and-text.xtmdpack	valid	moved
 checks/core/types.xtmdpack	valid	moved
 checks/packs/badge	valid	moved
@@ -320,8 +320,8 @@ examples/graphs	valid	moved
 examples/pages/shop.xtmd	valid	moved
 schemas/examples/counter.xtmd	valid	moved
 targets/examples/misc/android/compose	valid	moved
-targets/examples/misc/android/compose/sample/pages/tour.xtmd	valid	refused
-targets/examples/rust/egui/examples/demo.xtmd	valid	refused
+targets/examples/misc/android/compose/sample/pages/tour.xtmd	valid	moved
+targets/examples/rust/egui/examples/demo.xtmd	valid	moved
 targets/published/bindings/testing/counter-v2.xtmd	valid	moved
 targets/published/bindings/testing/counter.xtmd	valid	moved
 targets/published/bindings/testing/notes.xtmd	valid	moved
@@ -344,4 +344,4 @@ probes/packmig	invalid	refused
 probes/rt_blocks	valid	todo
 probes/rt_plain	valid	todo
 probes/rt_state	valid	todo
-probes/sentence	valid	refused
+probes/sentence	valid	todo

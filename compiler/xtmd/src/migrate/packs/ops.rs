@@ -123,6 +123,14 @@ pub(crate) fn arg_name(args: &[(String, Expr)], name: &str) -> Option<String> {
     args.iter().find(|(n, _)| n == name).and_then(|(_, v)| bare(v))
 }
 
+/// An argument written `type.name`, as one string.
+pub(crate) fn dotted(args: &[(String, Expr)], name: &str) -> Option<String> {
+    match &args.iter().find(|(n, _)| n == name)?.1.kind {
+        ExprKind::Field { target, name } => bare(target).map(|t| format!("{}.{}", t, name.name)),
+        _ => None,
+    }
+}
+
 pub(crate) fn member(args: &[(String, Expr)]) -> Option<String> {
     args.iter().find(|(n, _)| matches!(n.as_str(), "input" | "slot" | "field" | "event" | "arg")).and_then(|(_, v)| bare(v))
 }

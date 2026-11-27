@@ -70,7 +70,8 @@ export function copyOf(tag, root = repo) {
       out.set(to, rewrite(shown_(tag, f), part, parts, { modules, release: version }));
     }
   }
-  const core = listed_(tag, "core").filter((p) => p.endsWith(".xtmdpack"));
+  // core's own files, at the top of core/: its surfaces and migrations are only xtmd migrate's
+  const core = listed_(tag, "core").filter((p) => p.endsWith(".xtmdpack") && p.split("/").length === 2);
   for (const f of core) out.set(f, shown_(tag, f));
   const names = core.map((f) => f.slice("core/".length));
   out.set(

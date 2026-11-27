@@ -60,6 +60,14 @@ fn sources(dir: &Path, names: &[&str]) -> Vec<Source> {
     out
 }
 
+/// core's own files: those at the top of core/, as build.rs embeds them; its surfaces and migrations are
+/// only xtmd migrate's.
+fn core_sources() -> Vec<Source> {
+    let mut files: Vec<PathBuf> = std::fs::read_dir(repo().join("core")).unwrap().map(|e| e.unwrap().path()).filter(|p| p.extension().map_or(false, |x| x == "xtmdpack")).collect();
+    files.sort();
+    files.iter().map(|p| Source { path: p.to_string_lossy().into_owned(), text: std::fs::read_to_string(p).unwrap() }).collect()
+}
+
 /// A resolved IR without what says where its parts were written, which printing back changes.
 fn unplaced(v: &Value) -> Value {
     match v {
@@ -183,7 +191,7 @@ fn every_file_printed_back_from_its_resolved_ir_compiles_to_the_same_resolved_ir
 
 fn round_trip() {
     let mut t = Tally { verbose: std::env::var("XTMD_DECOMPILE_DIFF").is_ok(), ..Tally::default() };
-    let core = sources(&repo().join("core"), &["."]);
+    let core = core_sources();
     let base = compile_core_logged(&core);
     let core_rir = |base| compile_rir_with(base, &[], &[], "t", RirOptions { core: true, partial: true });
 
@@ -390,7 +398,7 @@ fn every_page_printed_back_from_its_ir_compiles_to_the_same_ir() {
 
 fn from_ir_round_trip() {
     let verbose = std::env::var("XTMD_DECOMPILE_DIFF").is_ok();
-    let core = sources(&repo().join("core"), &["."]);
+    let core = core_sources();
     let base = compile_core_logged(&core);
     // every document that compiles: the cases', and the examples' and apps' with their folders' packs
     let mut pages: Vec<(Vec<Source>, Source)> = Vec::new();

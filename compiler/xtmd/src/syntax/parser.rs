@@ -1308,7 +1308,7 @@ impl<'a> Parser<'a> {
                 return Err(Diagnostic::error(
                     codes::OLD_PACK_LINE,
                     t.span,
-                    "a pack block holds `uses`, `provides` and `implements` lines: `uses core@1, charts@2;`",
+                    "a pack block holds `uses`, `provides` and `implements` lines: `uses core@2, charts@2;`",
                 ));
             };
             p.semi()?;

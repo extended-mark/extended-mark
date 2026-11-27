@@ -16,6 +16,8 @@ CORE  core/    the standard library: a pack, imported by every file
   core/mdblocks.xtmdpack     a page's Markdown blocks, for text made as it runs
   core/mdcalls.xtmdpack      what the parser reads Markdown as, before it is calls
   core/entities.xtmdpack     HTML's named characters (a table)
+  core/surfaces/core@1.xtmdpack  0.3.2's core as a surface (compiler/xtmd/tests/migrate_core.rs)
+  core/migrations/core@2.xtmdpack  core@1 to core@2, applied by compiler/xtmd/src/migrate/rir/v1/core.rs
 
 40 extern widgets: 33 of core.draw, 7 of core.gfx. Who draws them:
   web      widgets/web/src/widgets/

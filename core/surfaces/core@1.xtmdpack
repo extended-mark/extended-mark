@@ -1,0 +1,1011 @@
+package core@1;
+
+//@about A paragraph of inline Markdown, parsed by core.
+extern widget paragraph(value: rich_text, tone: opt<color> = opt.NONE, align: align = align.START);
+
+//@about A heading, level 1 to 6.
+extern widget heading(level: int 1..6, value: rich_text);
+
+//@about A list: bulleted, or numbered from start.
+extern widget bullets(ordered: bool = false, start: int 0... = 1) {
+    slot items: list<item>[1...];
+}
+
+//@about One item of a list. done is a task box: ticked, not ticked, or none for an ordinary item.
+extern widget item(done: opt<bool> = opt.NONE) {
+    slot body: view;
+}
+
+//@about A quotation.
+extern widget quote() {
+    slot body: view;
+}
+
+//@about A block of literal text, such as code, in the mono font.
+extern widget code(src: text, lang: text = "");
+
+//@about Maths on a line of its own, drawn from TeX.
+extern widget math(tex: latex);
+
+//@about A table: a header row, rows of cells, and how each column is aligned.
+extern widget table(head: list<rich_text>[1...], rows: list<list<rich_text>>, align: list<cell_align> = []);
+
+//@about A note at the foot of the page, with its mark.
+extern widget footnote(mark: text) {
+    slot body: view;
+}
+
+//@about A line across the page.
+extern widget divider();
+
+//@about How a table column is aligned. A column the list doesn't reach starts.
+enum cell_align { START, CENTER, END }
+
+//@about A plain text value.
+extern widget label(
+    value: text,
+    tone: opt<color> = opt.NONE,
+    size: text_size = text_size.NORMAL,
+    weight: weight = weight.REGULAR,
+    font: opt<font> = opt.NONE,
+    align: align = align.START,
+    wrap: bool = true,
+    clip: bool = false,
+    halo: bool = false, // an outline in the surface colour, so it reads over lines
+);
+
+//@about A picture.
+extern widget image(src: text, alt: text, width: opt<size> = opt.NONE);
+
+//@about A symbol from a fixed set.
+extern widget icon(
+    name: glyph,
+    tone: opt<color> = opt.NONE,
+    size: text_size = text_size.NORMAL,
+    label: text = "",
+);
+
+//@about Something to press. With no content it shows its label.
+extern widget press(
+    label: text,
+    kind: press_kind = press_kind.BUTTON,
+    selected: bool = false,
+    disabled: bool = false,
+    tone: opt<color> = opt.NONE,
+) {
+    slot content: opt<view>;
+    event click();
+}
+
+//@about Text typed by the reader.
+extern widget field(
+    mut value: text,
+    label: text,
+    placeholder: text = "",
+    lines: int 1..20 = 1,
+) {
+    event submit();
+}
+
+//@about A number picked by dragging. Its ends come from range when it is given, and otherwise, with its step, from the variable it is given.
+extern widget slider(mut value: number, label: text, range: opt<range<number>> = opt.NONE, disabled: bool = false);
+
+//@about Content shown over the page, opened from its anchor. Pass open to keep it with the caller.
+extern widget overlay(label: text, mode: overlay_mode = overlay_mode.POPOVER, mut open: bool = false) {
+    slot anchor: view;
+    slot body: view;
+    event open_changed();
+}
+
+//@about A drawing surface with coordinates of its own: x from left to right, y from bottom to top.
+extern widget canvas(
+    label: text, // what it shows, for screen readers and Markdown
+    x: range<number> = -1..1,
+    y: range<number> = -1..1,
+    width: size = size.M,
+    aspect: opt<number 0.1..10> = opt.NONE, // width over height; left out, from the two ranges
+) {
+    slot layers: list<layer>[1...];
+    event click(at: point); // a click on empty space, in the canvas's units
+}
+
+//@about Shapes drawn together, in the order written. Later layers are drawn on top.
+extern widget layer(opacity: number 0..1 = 1, clip: opt<region> = opt.NONE) {
+    slot shapes: list<any shape>;
+}
+
+//@about What every shape has: a label for screen readers, and an opacity. A shape call that sets an event must give a label.
+widget interface shape {
+    label: text;
+    opacity: number 0..1;
+}
+
+//@about A circle around a point, r in the units of its canvas or plane.
+extern widget circle(
+    at: point,
+    r: number 0...,
+    fill: opt<color> = opt.NONE,
+    stroke: opt<color> = opt.NONE,
+    width: stroke = stroke.THIN, // the stroke's width: a stroke token, or a plain number of pixels
+    opacity: number 0..1 = 1,
+    label: text = "",
+) implements shape {
+    event click();
+    event enter();
+    event leave();
+}
+
+//@about A line through points; closed, it is a polygon and can be filled.
+extern widget path(
+    points: list<point>[2...],
+    closed: bool = false,
+    fill: opt<color> = opt.NONE,
+    stroke: opt<color> = color.INK,
+    width: stroke = stroke.THIN,
+    dash: bool = false,
+    head: head = head.NONE, // an arrow or a dot at the last point
+    opacity: number 0..1 = 1,
+    label: text = "",
+) implements shape {
+    event click();
+    event enter();
+    event leave();
+}
+
+//@about Ordinary widgets placed at a point of the canvas: a label, an image, anything. nudge moves them by pixels, with y up like the canvas.
+extern widget place(
+    at: point,
+    anchor: anchor = anchor.CENTER,
+    nudge: point = point { x = 0, y = 0 },
+    opacity: number 0..1 = 1,
+    label: text = "",
+) implements shape {
+    slot child: view;
+}
+
+//@about A point the reader drags. It writes where it is to the variable it is given.
+extern widget handle(mut at: point, tone: opt<color> = opt.NONE, opacity: number 0..1 = 1, label: text) implements shape;
+
+//@about A colour a shader works out for one pixel. Its channels go from 0 to 1.
+record pixel {
+    r: number 0..1;
+    g: number 0..1;
+    b: number 0..1;
+    a: number 0..1 = 1;
+}
+
+//@about Fills an area with the colour a shader works out for each pixel: at is the pixel's middle,
+//@about in the units of the canvas or plane, and px is one pixel's size in those units.
+extern widget shade<A>(
+    area: region,
+    shader: fn(at: point, px: number, args: A): pixel,
+    args: A,
+    opacity: number 0..1 = 1,
+    label: text,
+) implements shape;
+
+//@about The four corners of a rectangle, for a path.
+extern fn rect(x0: number, y0: number, x1: number, y1: number): list<point>[4];
+
+// lets a value go in a hole: \{x}
+interface shown {
+    fn show(self): text;
+}
+
+// lets a value be compared with == and !=
+interface same {
+    fn same(self, other: self): bool;
+}
+
+// lets a value be compared with < <= > >=, sorted, and given a range
+interface ordered {
+    fn before(self, other: self): bool;
+}
+
+// lets a value use + and -, and be summed
+interface numeric {
+    fn add(self, other: self): self;
+    fn sub(self, other: self): self;
+}
+
+// lets a value be multiplied and divided by a number, and negated
+interface scaled {
+    fn scale(self, k: number): self;
+}
+
+// lets a literal stand for a value: "…" for literal<text>, 4.2 for literal<number>,
+// [a, b] for literal<list<U>>, and a literal with holes for literal<template>.
+// from gives opt.NONE for a value that doesn't make one
+interface literal<T> {
+    fn from(value: T): opt<self>;
+}
+
+//@about A whole number. A contract written after it adds to its own: int 0..10 is number 0..10 step 1.
+type int = number step 1;
+
+// number, duration, text and bool fit the interfaces through these. number's * / and % are built in
+extern fn number.show(self): text;
+extern fn number.same(self, other: number): bool;
+extern fn number.before(self, other: number): bool;
+extern fn number.add(self, other: number): number;
+extern fn number.sub(self, other: number): number;
+extern fn number.scale(self, k: number): number;
+extern fn duration.show(self): text;
+extern fn duration.same(self, other: duration): bool;
+extern fn duration.before(self, other: duration): bool;
+extern fn duration.add(self, other: duration): duration;
+extern fn duration.sub(self, other: duration): duration;
+extern fn duration.scale(self, k: number): duration;
+extern fn text.show(self): text;
+extern fn text.same(self, other: text): bool;
+extern fn text.before(self, other: text): bool; // by character number, not by language
+extern fn bool.show(self): text;
+extern fn bool.same(self, other: bool): bool;
+extern fn bool.before(self, other: bool): bool; // false before true
+
+// range<T>, for numbers, durations, dates and a pack's ordered types: a..b, a..., ...b, with an optional step
+extern fn range<T>.low(self): opt<T>;
+extern fn range<T>.high(self): opt<T>;
+extern fn range<T>.stride(self): opt<T>;
+extern fn range<T>.has(self, x: T): bool; // written x in r
+
+// duration: written 250ms or 2s
+extern fn duration.ms(self): number;
+
+// number: exact base-10, 34 significant digits. A result too large for that, such as (1000).exp(), is a failure
+extern fn number.round(self): int; // halves go away from zero
+extern fn number.floor(self): int;
+extern fn number.ceil(self): int;
+extern fn number.abs(self): number;
+extern fn number.fmt(self, places: int 0..10): text;
+extern fn number.sign(self): number; // -1, 0 or 1
+extern fn number.sqrt(self): opt<number>; // opt.NONE below 0
+extern fn number.pow(self, p: number): opt<number>; // opt.NONE for 0 to a negative power,
+// or a negative number to a power that isn't whole
+extern fn number.exp(self): number;
+extern fn number.ln(self): opt<number>; // opt.NONE at 0 or below
+extern fn number.sin(self): number; // angles in radians
+extern fn number.cos(self): number;
+extern fn number.tan(self): number;
+extern fn number.asin(self): opt<number>; // opt.NONE outside -1..1
+extern fn number.acos(self): opt<number>; // opt.NONE outside -1..1
+extern fn number.atan(self): number;
+extern fn number.atan2(self, x: number): number; // y.atan2(x): the angle of the point (x, y)
+extern fn number.sinh(self): number;
+extern fn number.cosh(self): number;
+extern fn number.tanh(self): number;
+
+// list<T>: xs[i] is another way to write xs.at(i)
+extern fn list<T>.len(self): int 0...;
+extern fn list<T>.at(self, pos: number): opt<T>; // opt.NONE unless pos is a whole number in the list
+extern fn list<T>.add(mut self, item: T);
+extern fn list<T>.insert(mut self, pos: int 0..., item: T); // past the end, it is added last
+extern fn list<T>.remove_at(mut self, pos: int 0...); // outside the list is a failure
+extern fn list<T>.move(mut self, pos: int 0..., to: int 0...);
+extern fn list<T: same>.remove(mut self, item: T); // every item equal to it
+extern fn list<T: ordered>.sort(mut self);
+
+// text
+extern fn text.len(self): int 0...;
+extern fn text.slice(self, start: int 0..., count: int 0...): text; // stops at the end
+extern fn text.chars(self): list<text[1]>;
+extern fn text.lower(self): text;
+extern fn text.upper(self): text;
+extern fn text.trim(self): text;
+extern fn text.has(self, part: text): bool;
+extern fn text.split(self, sep: text[1...]): list<text>;
+// reads [-] digits [. digits], with no spaces, no +, no _ and no exponent; leading zeros are fine.
+// "-7" is -7 and "07" is 7; " 5", "+1", "1_000" and "1e3" are opt.NONE
+extern fn text.number(self): opt<number>;
+
+// on every ordered type. With constant bounds the result is in low..high; with bounds that have ranges,
+// it runs from the low bound's lowest value to the high bound's highest
+extern fn ordered.clamp(self, low: self, high: self): self;
+
+//@about Children along one axis, wrapping onto new lines when wrap is true.
+extern widget flex(
+    axis: axis = axis.Y,
+    wrap: bool = false,
+    align: align = align.STRETCH,
+    justify: justify = justify.START,
+    gap: opt<space> = opt.NONE,
+    pad: opt<space> = opt.NONE,
+    fill: opt<color> = opt.NONE,
+    stroke: opt<color> = opt.NONE,
+    edge: edge = edge.ALL,
+    radius: opt<radius> = opt.NONE,
+    shadow: opt<shadow> = opt.NONE,
+    label: text = "",
+) {
+    slot children: view;
+    event click();
+}
+
+//@about Children in columns that line up across rows.
+extern widget grid(
+    cols: cols,
+    align: align = align.STRETCH,
+    justify: justify = justify.START,
+    gap: opt<space> = opt.NONE,
+    pad: opt<space> = opt.NONE,
+    fill: opt<color> = opt.NONE,
+    stroke: opt<color> = opt.NONE,
+    edge: edge = edge.ALL,
+    radius: opt<radius> = opt.NONE,
+    shadow: opt<shadow> = opt.NONE,
+) {
+    slot children: view;
+    event click();
+}
+
+//@about Where a child sits in a grid. Several children may share one cell.
+extern widget cell(
+    span: int 1..12 = 1,
+    row: opt<int 1...> = opt.NONE,
+    col: opt<int 1...> = opt.NONE,
+    place: opt<align> = opt.NONE,
+) {
+    slot child: view;
+}
+
+//@about How big a child is, for implementers. Authors use grow, shrink, basis, min_size, max_size and aspect.
+extern widget sizing(
+    grow: opt<number 0...> = opt.NONE,
+    shrink: opt<number 0...> = opt.NONE,
+    basis: opt<size> = opt.NONE,
+    min_width: opt<size> = opt.NONE,
+    min_height: opt<size> = opt.NONE,
+    max_width: opt<size> = opt.NONE,
+    max_height: opt<size> = opt.NONE,
+    aspect: opt<number 0.1..10> = opt.NONE,
+) {
+    slot child: view;
+}
+
+//@about Widgets placed anywhere on a plane with coordinates of its own: x from left to right, y from bottom to top.
+//@about It draws the part of the plane around center, as big as the widget is on the page.
+extern widget plane(
+    label: text, // what it shows, for screen readers and Markdown
+    bounds: opt<region> = opt.NONE, // the whole plane; left out, the region around every spot's box
+    mut center: point = point { x = 0, y = 0 }, // the middle of what is drawn, kept inside bounds; the caller may keep it
+    mut zoom: number 0.1..10 = 1, // at 1, one unit is one of the page's own lengths; the caller may keep it
+    zoom_range: range<number> = 1..1, // how far the reader may zoom; 1..1 means not at all
+    fit: bool = false, // start zoomed so the whole of bounds fits; zoom_range counts from there
+    mut drawn: opt<region> = opt.NONE, // written by the target: the part of the plane being drawn
+    width: opt<size> = opt.NONE, // left out, the width it is given, like a column
+    aspect: number 0.1..10 = 1.5, // the drawn area's width over its height
+) {
+    slot background: list<layer>; // core.gfx: drawn under the spots, in the plane's units
+    slot items: list<spot>;
+    event click(at: point); // a click on empty space, in the plane's units
+}
+
+//@about Any widget at a point of a plane, as cell places a child in a grid. anchor says which part of it sits on the point.
+//@about After each layout, it writes where it landed to box.
+extern widget spot(
+    at: point,
+    anchor: anchor = anchor.CENTER,
+    nudge: point = point { x = 0, y = 0 }, // by the page's own lengths, y up
+    mut box: opt<region> = opt.NONE, // written by the target: from the bottom-left corner to the top-right one
+) {
+    slot child: view;
+}
+
+extern fn list<T>.some(self, test: fn(item: T): bool): bool;
+
+extern fn list<T>.all(self, test: fn(item: T): bool): bool;
+
+extern fn list<T>.count(self, test: fn(item: T): bool): int;
+
+extern fn list<T>.find(self, test: fn(item: T): bool): opt<T>;
+
+extern fn list<T>.filter(self, keep: fn(item: T): bool): list<T>;
+
+extern fn list<T>.map<U>(self, f: fn(item: T): U): list<U>;
+
+extern fn list<T>.remove_where(mut self, test: fn(item: T): bool);
+
+extern fn list<T>.first(self): opt<T>;
+
+extern fn list<T>.last(self): opt<T>;
+
+extern fn list<T>.reversed(self): list<T>;
+
+// a bound on the list's type: has exists only for items that fit same
+extern fn list<T: same>.has(self, x: T): bool;
+
+extern fn list<T: same>.position(self, x: T): opt<number>;
+
+extern fn list<T: same>.unique(self): list<T>;
+
+extern fn list<T: ordered>.sorted(self): list<T>;
+
+extern fn list<T: shown>.join(self, between: text): text;
+
+// opt.NONE for an empty list
+extern fn list<T: numeric>.sum(self): opt<T>;
+
+//@about Inline Markdown as segments: CommonMark's emphasis, GitHub's strikethrough, links and bare links, code spans, maths, pictures, footnote marks, hard breaks and escapes. Each hole is a segment of its own, with its marks. opt.NONE when the TeX of a maths span fails latex's checks.
+extern fn rich_text.from(value: template): opt<rich_text>;
+
+//@about The character with this Unicode number, or opt.NONE when the number isn't one.
+extern fn text.of_code(code: number): opt<text>;
+
+//@about Inline Markdown as segments, with the link reference definitions of the page or the md value around it, by their labels as CommonMark matches them.
+extern fn rich_text.read(value: template, links: map<text>): opt<rich_text>;
+
+//@about A piece of inline Markdown while it is read: text, or a run of `*`, `_` or `~` that may open or close emphasis. Private to core
+record md_piece {
+    mut part: part;
+    mut marks: marks = marks { };
+    mut run: text = "";
+    mut left: number = 0;
+    mut size: number = 0;
+    mut opens: bool = false;
+    mut closes: bool = false;
+    mut live: bool = false;
+    mut gone: bool = false;
+    hole: bool = false;
+}
+
+//@about An open bracket while links are read. Private to core
+record md_bracket {
+    at: number;
+    image: bool;
+    start: number;
+    mut active: bool = true;
+}
+
+//@about What reading a link, an autolink or an entity found: where it ends (0 for nothing), its destination and its text. Private to core
+record md_link {
+    end: number = 0;
+    dest: text = "";
+    label: text = "";
+}
+
+//@about Markdown blocks: CommonMark, with GitHub's tables, task lists and footnotes, and each block's inline Markdown through rich_text.read. A hole is never read, so it never starts or ends a block.
+extern fn md.from(value: template): opt<md>;
+
+//@about One block while it is read, of any kind; the parts that don't apply to its kind stay as they start. Private to core
+record mb_node {
+    kind: text;
+    parent: number;
+    mut children: list<number> = [];
+    mut open: bool = true;
+    mut content: text = "";
+    mut last_blank: bool = false;
+    start_line: number = 0;
+    mut ordered: bool = false;
+    mut start: number = 1;
+    mut bullet: text = "";
+    mut delim: text = "";
+    mut tight: bool = true;
+    mut marker_offset: number = 0;
+    mut padding: number = 0;
+    mut done: opt<bool> = opt.NONE;
+    mut label: text = "";
+    mut level: number 1..6 = 1;
+    mut setext: bool = false;
+    mut fenced: bool = false;
+    mut fence_char: text = "";
+    mut fence_len: number = 0;
+    mut fence_offset: number = 0;
+    mut info: text = "";
+    mut html: number = 0;
+    mut align: list<cell_align> = [];
+    mut head: list<text> = [];
+    mut rows: list<list<text>> = [];
+}
+
+//@about The block reader's state: CommonMark's parsing strategy, a line at a time. Private to core
+record mb_parser {
+    mut nodes: list<mb_node> = [];
+    mut tip: number = 0;
+    mut old_tip: number = 0;
+    mut line: list<text> = [];
+    mut line_no: number = 0;
+    mut offset: number = 0;
+    mut column: number = 0;
+    mut next_nonspace: number = 0;
+    mut next_nonspace_column: number = 0;
+    mut indent: number = 0;
+    mut indented: bool = false;
+    mut blank: bool = false;
+    mut partial_tab: bool = false;
+    mut all_closed: bool = true;
+    mut last_matched: number = 0;
+    mut links: list<{ key: text, value: text }> = [];
+    // what the last of continues and block_start found, and what take_link_defs left
+    mut answer: number = 0;
+    mut left: text = "";
+}
+
+// What turning blocks into md's blocks gave: the blocks, the next hole, and whether every inline read worked. Private to core
+record mb_out {
+    blocks: list<block> = [];
+    next: number = 0;
+    ok: bool = true;
+}
+
+extern fn mb_parser.peek(self, at: number): text;
+
+extern fn mb_parser.rest(self, from: number): text;
+
+extern fn mb_parser.find_next_nonspace(mut self);
+
+extern fn mb_parser.advance_next_nonspace(mut self);
+
+extern fn mb_parser.advance_offset(mut self, count: number, columns: bool);
+
+extern fn mb_parser.add_line(mut self);
+
+extern fn mb_parser.child(mut self, node: mb_node);
+
+extern fn mb_parser.close_unmatched(mut self);
+
+// 0: the open block goes on, 1: it doesn't, 2: the line is used up (a closing fence). Private to core
+extern fn mb_parser.continues(mut self, k: number);
+
+extern fn mb_parser.incorporate(mut self, ln: text);
+
+// 0: no block starts here, 1: a container started, 2: a leaf started. Private to core
+extern fn mb_parser.block_start(mut self, container: number);
+
+//@about A list marker: its length (0 for none), and the list it starts. Private to core
+record mb_marker {
+    len: number = 0;
+    ordered: bool = false;
+    start: number = 1;
+    bullet: text = "";
+    delim: text = "";
+}
+
+extern fn mb_parser.list_marker(self, container: number): mb_marker;
+
+extern fn mb_parser.finalize(mut self, k: number);
+
+// Takes the link reference definitions off the start of a paragraph's text, leaving the rest in left. Private to core
+extern fn mb_parser.take_link_defs(mut self, content: text);
+
+//@about A link reference definition read from a paragraph: where it ends (at its start for none), its label and its destination. Private to core
+record mb_def {
+    end: number = 0;
+    label: text = "";
+    dest: text = "";
+}
+
+enum align { START, CENTER, END, STRETCH, BASELINE }
+enum justify { START, CENTER, END, BETWEEN, AROUND }
+enum weight { REGULAR, MEDIUM, BOLD }
+enum text_size { SMALL, NORMAL, LARGE }
+enum press_kind { BUTTON, TAB, OPTION, TOGGLE, SWITCH, CHECK, RADIO, PLAIN }
+enum edge { ALL, TOP, RIGHT, BOTTOM, LEFT, X, Y }
+enum overlay_mode { POPOVER, TOOLTIP, DIALOG, MENU }
+enum axis { X, Y }
+enum anchor { CENTER, N, S, E, W, NE, NW, SE, SW }
+enum head { NONE, ARROW, DOT }
+enum width { NARROW, MEDIUM, WIDE }
+enum theme { LIGHT, DARK }
+
+//@about The theme in words, as a hole shows it: `light` or `dark`.
+extern fn theme.show(self): text;
+
+enum track {
+    AUTO,
+    FR(share: int 1...),
+    CH(count: int 1...),
+    SIZE(of: size),
+}
+
+enum cols {
+    EQUAL(count: int 1..12),
+    TRACKS(of: list<track>[1...]),
+}
+
+//@about A symbol from a fixed set, drawn in the implementer's own icon style.
+enum glyph {
+    PLAY, PAUSE, PREV, NEXT, MORE, LESS, FIRST, LAST, RESET, CHECK, CROSS, PLUS, MINUS,
+    UP, DOWN, LEFT, RIGHT, BAN, ALERT, INFO, HELP, LOCK, UNLOCK, EYE, EDIT, SEARCH,
+    USER, USERS, FILE, FOLDER, DATABASE, SERVER, CLOUD, MAIL, CLOCK, CALENDAR, FLAG,
+    TARGET, GAUGE, LAYERS, BRANCH, BOX, SQUARE, CIRCLE, DOT, STAR, BOLT, LINK, KEY,
+    SHIELD, CART, CHART, CODE, TERMINAL, BELL, HOME, SETTINGS, SLIDERS, TRASH, COPY,
+    DOWNLOAD, UPLOAD, EXPAND, LIGHTBULB, BOOK,
+}
+
+//@about What the app tells Extended Mark about the page being read.
+extern page {
+    width: width = width.WIDE;
+    theme: theme = theme.LIGHT;
+    today: date = "1970-01-01";
+    now: moment = "1970-01-01T00:00+00:00"; // the app's clock
+}
+
+//@about Each bound negated: 1..10 gives -10..-1, and 1... gives ...-1.
+extern fn range.negate<T: scaled>(r: range<T>): range<T>;
+
+//@about Each bound moved by the same amount: 1..10 by 5 gives 6..15.
+extern fn range.shift<T: numeric>(r: range<T>, by: T): range<T>;
+
+//@about Each bound multiplied: 1..10 by 2 gives 2..20, and a negative k flips the range.
+extern fn range.scale<T: scaled>(r: range<T>, k: number): range<T>;
+
+//@about Each bound moved out by an amount: 1..10 by 1 gives 0..11.
+extern fn range.widen<T: numeric>(r: range<T>, by: T): range<T>;
+
+//@about Where two ranges meet: 1..10 and 5..20 give 5..10, and ranges that don't meet give opt.NONE.
+extern fn range.overlap<T: ordered>(a: range<T>, b: range<T>): opt<range<T>>;
+
+//@about The smallest range that holds both: 1..3 and 7..9 give 1..9. A side open in either is open in it.
+extern fn range.span<T: ordered>(a: range<T>, b: range<T>): range<T>;
+
+extern fn text.starts(self, part: text): bool;
+
+extern fn text.ends(self, part: text): bool;
+
+//@about The same text, ignoring case and the spaces around it.
+extern fn text.like(self, other: text): bool;
+
+extern fn text.replace(self, old: text[1...], new: text): text;
+
+//@about The value of a colour token: one colour for each theme.
+record color_value {
+    light: text[7..9];
+    dark: text[7..9];
+}
+
+//@about The value of a font token.
+record font_value {
+    family: text[1...];
+    size: number 1...;
+    weight: int 100..900;
+    line: number 1..3 = 1.5;
+}
+
+//@about The value of a shadow token.
+record shadow_value {
+    x: number = 0;
+    y: number = 0;
+    blur: number 0...;
+    tone: color;
+}
+
+token color: color_value { SURFACE, INK, MUTED, LINE, ACCENT, INFO, OK, WARN, BAD, C1, C2, C3, C4, C5, C6, SHADOW }
+token space: number 0... { XS, S, M, L, XL }
+token size: number 0... { XS, S, M, L }
+token radius: number 0... { CARD, PILL }
+token font: font_value { BODY, HEADING, MONO }
+token shadow: shadow_value { RAISED }
+token stroke: number 0.25..16 implements literal<number> { HAIRLINE, THIN, BOLD, PX(px: number 0.25..16) }
+
+//@about A plain number where a stroke is wanted: width = 2.5 is stroke.PX(2.5).
+extern fn stroke.from(value: number): opt<stroke>;
+
+tokens core {
+    color.SURFACE = color_value { light = "#ffffff", dark = "#15171a" };
+    color.INK = color_value { light = "#1a1c1f", dark = "#eceef1" };
+    color.MUTED = color_value { light = "#6b7280", dark = "#9aa3ae" };
+    color.LINE = color_value { light = "#d4d7dc", dark = "#3a3f46" };
+    color.ACCENT = color_value { light = "#2563eb", dark = "#7aa7ff" };
+    color.INFO = color_value { light = "#0284c7", dark = "#38bdf8" };
+    color.OK = color_value { light = "#15803d", dark = "#4ade80" };
+    color.WARN = color_value { light = "#b45309", dark = "#fbbf24" };
+    color.BAD = color_value { light = "#dc2626", dark = "#f87171" };
+    color.C1 = color_value { light = "#2563eb", dark = "#7aa7ff" };
+    color.C2 = color_value { light = "#0d9488", dark = "#2dd4bf" };
+    color.C3 = color_value { light = "#d97706", dark = "#fbbf24" };
+    color.C4 = color_value { light = "#7c3aed", dark = "#c4b5fd" };
+    color.C5 = color_value { light = "#db2777", dark = "#f9a8d4" };
+    color.C6 = color_value { light = "#475569", dark = "#cbd5e1" };
+    color.SHADOW = color_value { light = "#0000001f", dark = "#0000001f" };
+
+    space.XS = 2;
+    space.S = 4;
+    space.M = 8;
+    space.L = 16;
+    space.XL = 32;
+
+    size.XS = 8;
+    size.S = 160;
+    size.M = 320;
+    size.L = 480;
+
+    radius.CARD = 8;
+    radius.PILL = 999;
+
+    font.BODY = font_value { family = "system-ui, sans-serif", size = 16, weight = 400 };
+    font.HEADING = font_value { family = "system-ui, sans-serif", size = 22, weight = 650, line = 1.25 };
+    font.MONO = font_value { family = "ui-monospace, monospace", size = 14, weight = 400, line = 1.45 };
+
+    shadow.RAISED = shadow_value { y = 1, blur = 3, tone = color.SHADOW };
+
+    stroke.HAIRLINE = 0.5;
+    stroke.THIN = 1;
+    stroke.BOLD = 2;
+}
+
+//@about Values looked up by a text key.
+record map<T> {
+    entries: list<{ key: text, value: T }>;
+}
+
+extern fn map<T>.get(self, key: text): opt<T>;
+
+extern fn map<T>.keys(self): list<text>;
+
+extern fn map<T>.has(self, key: text): bool;
+
+//@about A calendar day, written as a text: "2026-11-10". Its fields mirror the text.
+record date implements literal<text>, same, ordered, shown {
+    year: int 1..9999;
+    month: int 1..12;
+    day: int 1..31;
+}
+
+//@about Cuts the text and checks its separators. The record checks the numbers.
+extern fn date.from(value: text): opt<date>;
+
+// days since 1970-01-01
+extern fn date.days(self): int;
+
+extern fn date.before(self, other: date): bool;
+
+extern fn date.plus(self, days: number): date;
+
+extern fn date.days_to(self, other: date): int;
+
+extern fn date.show(self): text;
+
+//@about A moment, written as a text with its offset: "2026-11-10T09:30+01:00". Its fields mirror the text.
+record moment implements literal<text>, same, ordered, shown {
+    day: date;
+    hour: int 0..23;
+    minute: int 0..59;
+    east: bool; // + in the text: the offset is east of UTC
+    offset_hour: int 0..14;
+    offset_minute: int 0..59;
+}
+
+//@about Cuts the text and checks its T, colons and sign. The records check the numbers.
+extern fn moment.from(value: text): opt<moment>;
+
+// the offset in minutes, east of UTC above 0
+extern fn moment.offset(self): int;
+
+// minutes since 1970-01-01T00:00 in UTC
+extern fn moment.utc(self): int;
+
+// equal when they are the same instant: this same replaces the field-by-field one
+extern fn moment.same(self, other: moment): bool;
+
+extern fn moment.before(self, other: moment): bool;
+
+extern fn moment.plus(self, minutes: number): moment;
+
+extern fn moment.minutes_to(self, other: moment): int;
+
+// the same moment, with the offset the reader's zone uses on its date.
+// Supplied by the implementer from the platform's zone rules: Extended Mark can never know them
+extern fn moment.local(self): moment;
+
+extern fn moment.time(self): text;
+
+extern fn moment.show(self): text;
+
+//@about A literal with holes: the text between them, and their values. A hole is never part of a piece.
+record template {
+    pieces: list<text>[1...]; // one more piece than holes
+    holes: list<hole>;
+}
+
+//@about One hole of a template, which from places as a value and never reads.
+enum hole {
+    TEXT(value: text), // a value that fits shown, already shown
+    VIEW(child: view), // \{@icon(…)} in a sentence
+}
+
+//@about A template from a plain text, with no holes.
+extern fn template.of(value: text): template;
+
+extern fn hole.words(self): text;
+
+//@about Maths, written in TeX. Core checks how it is written; the target may also refuse what it can't draw.
+//@about Its holes stay values: each counts as one token in the checks, and show escapes it for TeX.
+record latex implements literal<template>, shown {
+    tex: template;
+}
+
+extern fn latex.from(value: template): opt<latex>;
+
+//@about The TeX, with each hole's characters escaped so that TeX reads them as themselves. A target draws this.
+extern fn latex.show(self): text;
+
+//@about Whether the target can draw this TeX, for example whether it knows every command in it. A target may supply its own; without one, all TeX that core accepts is drawn.
+extern fn can_draw_tex(tex: template): bool;
+
+//@about Markdown blocks, parsed by core when the value is made. @blocks draws them.
+record md implements literal<template> {
+    blocks: list<block>;
+}
+
+//@about One Markdown block, as md holds it. Each case is drawn by the extern block of its kind.
+enum block {
+    PARAGRAPH(value: rich_text),
+    HEADING(level: int 1..6, value: rich_text),
+    BULLETS(ordered: bool, start: int 0..., items: list<list_item>[1...]),
+    QUOTE(body: list<block>),
+    CODE(src: text, lang: text),
+    MATH(tex: latex),
+    TABLE(head: list<rich_text>[1...], rows: list<list<rich_text>>, align: list<cell_align>),
+    FOOTNOTE(mark: text, body: list<block>),
+    DIVIDER,
+}
+
+//@about One item of a list in md. done is a task box: ticked, not ticked, or none for an ordinary item.
+record list_item {
+    done: opt<bool> = opt.NONE;
+    body: list<block>;
+}
+
+//@about Inline Markdown as segments, parsed by core's rich_text.from: from prose, or from a text literal where rich_text is wanted.
+record rich_text implements literal<template>, shown {
+    segments: list<segment>;
+}
+
+//@about A part of a sentence and how it is marked.
+record segment {
+    part: part;
+    marks: marks = marks { };
+}
+
+//@about What a segment holds. A hole's value is TEXT, or VIEW for a widget, so a value never becomes formatting.
+enum part {
+    TEXT(value: text),
+    CODE(value: text), // a code span
+    MATH(tex: latex), // $x^2$
+    IMAGE(src: text, alt: text), // ![alt](src)
+    NOTE(mark: text), // [^1], the mark of a footnote
+    BREAK, // a hard line break
+    VIEW(child: view), // \{@icon(…)} in a sentence
+}
+
+//@about How a segment is marked. A link is a mark, so bold words inside a link are one segment.
+record marks {
+    bold: bool = false;
+    italic: bool = false;
+    strike: bool = false;
+    link: opt<text> = opt.NONE;
+}
+
+//@about Text from a value, as one plain segment: nothing in it is read as Markdown.
+extern fn rich_text.plain(value: text): rich_text;
+
+//@about The words, without their marks.
+extern fn rich_text.show(self): text;
+
+extern fn part.words(self): text;
+
+//@about A place on a canvas or a plane.
+record point implements numeric, scaled, same, shown {
+    x: number;
+    y: number;
+}
+
+extern fn point.add(self, other: point): point;
+
+extern fn point.sub(self, other: point): point;
+
+extern fn point.scale(self, k: number): point;
+
+extern fn point.show(self): text;
+
+//@about A part of a canvas or a plane, from one corner to the other, in its units.
+record region {
+    from: point;
+    to: point;
+}
+
+extern fn region.width(self): number;
+
+extern fn region.height(self): number;
+
+extern fn region.middle(self): point;
+
+//@about Whether two regions share a point. Both go from their bottom-left corner to their top-right one, as a spot's box and a plane's drawn region do.
+extern fn region.overlaps(self, other: region): bool;
+
+extern fn opt<T>.or(self, fallback: T): T;
+
+// constants, to 34 digits like every number
+let pi: number = 3.141592653589793238462643383279503;
+let euler: number = 2.718281828459045235360287471352662;
+
+// on every ordered type
+extern fn ordered.min(self, other: self): self;
+
+extern fn ordered.max(self, other: self): self;
+
+//@about Takes a share of the spare room in a row or column.
+extern widget grow(by: number 0... = 1) {
+    slot child: view;
+}
+
+//@about How much it gives up when there isn't room. 0 never shrinks.
+extern widget shrink(by: number 0... = 1) {
+    slot child: view;
+}
+
+//@about The size it starts from, before growing or shrinking.
+extern widget basis(size: size) {
+    slot child: view;
+}
+
+//@about Its smallest width and height.
+extern widget min_size(width: opt<size> = opt.NONE, height: opt<size> = opt.NONE) {
+    slot child: view;
+}
+
+//@about Its largest width and height.
+extern widget max_size(width: opt<size> = opt.NONE, height: opt<size> = opt.NONE) {
+    slot child: view;
+}
+
+//@about Its shape: width divided by height.
+extern widget aspect(ratio: number 0.1..10) {
+    slot child: view;
+}
+
+//@about Children one below another.
+extern widget column(
+    align: align = align.STRETCH,
+    justify: justify = justify.START,
+    gap: opt<space> = opt.NONE,
+    pad: opt<space> = opt.NONE,
+    fill: opt<color> = opt.NONE,
+    stroke: opt<color> = opt.NONE,
+    edge: edge = edge.ALL,
+    radius: opt<radius> = opt.NONE,
+    shadow: opt<shadow> = opt.NONE,
+) {
+    slot children: view;
+    event click();
+}
+
+//@about Children side by side, wrapping when there is no room.
+extern widget row(
+    align: align = align.STRETCH,
+    justify: justify = justify.START,
+    gap: opt<space> = opt.NONE,
+    pad: opt<space> = opt.NONE,
+    fill: opt<color> = opt.NONE,
+    stroke: opt<color> = opt.NONE,
+    edge: edge = edge.ALL,
+    radius: opt<radius> = opt.NONE,
+    shadow: opt<shadow> = opt.NONE,
+    wrap: bool = true,
+) {
+    slot children: view;
+    event click();
+}
+
+//@about Children on top of each other, the last one in front: a grid with every child in one cell.
+extern widget stack(align: align = align.CENTER, justify: justify = justify.CENTER, pad: opt<space> = opt.NONE) {
+    slot children: list<view>;
+}
+
+//@about How much of something, as a bar.
+extern widget meter(value: number 0..., label: text, max: number 0... = 100, tone: opt<color> = opt.NONE);
+
+//@about A titled shell around content, with room for actions.
+extern widget frame(title: text = "", height: opt<size> = opt.NONE) {
+    slot body: view;
+    slot actions: opt<view>;
+}
+
+//@about A plain titled section, with a note and an optional footer.
+extern widget pane(title: text = "", note: text = "") {
+    slot body: view;
+    slot footer: opt<view>;
+}
+
+//@about The blocks of an md value, each drawn by the extern Markdown block of its kind.
+extern widget blocks(value: md);

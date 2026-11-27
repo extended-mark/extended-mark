@@ -25,13 +25,18 @@ fn is(ty: &Value, name: &str) -> bool {
     ty["name"] == name
 }
 
+/// A rich_text in 0.4.0: 0.3.2's, or its md, which core@2 makes one (core.rs).
+fn rich_now(ty: &Value) -> bool {
+    is(ty, RICH) || is(ty, "core/md")
+}
+
 pub fn rich(v: &mut Value, asked: &mut Asked) {
     // B7: the fields of `$state` that held a rich_text
     let mut held: BTreeSet<String> = BTreeSet::new();
     let mut host: Vec<(usize, String)> = Vec::new();
     for (i, f) in v["files"].as_array_mut().into_iter().flatten().enumerate() {
         for (k, field) in f.pointer_mut("/state/fields").and_then(Value::as_array_mut).into_iter().flatten().enumerate() {
-            if !is(&field["type"], RICH) {
+            if !rich_now(&field["type"]) {
                 continue;
             }
             let name = field["name"].as_str().unwrap_or("").to_string();
@@ -72,7 +77,7 @@ pub fn rich(v: &mut Value, asked: &mut Asked) {
             return Some("`rich_text.read(…)` is gone in 0.4.0: `rich_text.from(t)` reads a template's Markdown, its holes filled where it is written".into());
         }
         // B7: a read of a field that holds the text now
-        if n.pointer("/get/state").and_then(Value::as_str).map_or(false, |s| held.contains(s)) && is(&n["type"], RICH) {
+        if n.pointer("/get/state").and_then(Value::as_str).map_or(false, |s| held.contains(s)) && rich_now(&n["type"]) {
             let span = n["span"].clone();
             let mut read = n.clone();
             read["type"] = json!({ "name": "core/text" });

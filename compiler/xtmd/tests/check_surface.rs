@@ -10,7 +10,7 @@ fn core_sources() -> Vec<Source> {
     files.into_iter().map(|p| Source { path: format!("core/{}", p.file_name().unwrap().to_str().unwrap()), text: std::fs::read_to_string(&p).unwrap() }).collect()
 }
 
-const PACK: &str = "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides plot, badge;\n}\n\nextern widget plot(values: list<number>) {\n    markdown { }\n}\nextern widget badge(label: text) {\n    markdown { }\n}\n";
+const PACK: &str = "package kit;\n\npack kit@2 {\n    uses core@2;\n    provides plot, badge;\n}\n\nextern widget plot(values: list<number>) {\n    markdown { }\n}\nextern widget badge(label: text) {\n    markdown { }\n}\n";
 const MIGRATION: &str = "package kit;\n\nmigration kit@1 to kit@2 {\n    widget chart {\n        rename(to = plot);\n    }\n}\n";
 const SURFACE: &str = "package kit@1;\n\nextern widget chart(values: list<number>);\nextern widget badge(label: text, shadow: bool = false);\n";
 
@@ -35,7 +35,7 @@ fn a_surface_holds_signatures_only() {
     assert!(c.diagnostics.iter().any(|d| d.diagnostic.code == "pack.surface" && d.diagnostic.message.contains("extern fn")));
 }
 
-const KIT1: &str = "package kit;\n\npack kit@1 {\n    uses core@1;\n    provides chart, stat, state;\n}\n\nrecord stat {\n    label: text[1...];\n    value: text;\n}\n\nenum state { DONE, LATE }\n\nextern widget chart(values: list<number>, color: color = color.ACCENT) {\n    markdown { }\n}\n";
+const KIT1: &str = "package kit;\n\npack kit@1 {\n    uses core@2;\n    provides chart, stat, state;\n}\n\nrecord stat {\n    label: text[1...];\n    value: text;\n}\n\nenum state { DONE, LATE }\n\nextern widget chart(values: list<number>, color: color = color.ACCENT) {\n    markdown { }\n}\n";
 const KIT1_SURFACE: &str = "package kit@1;\n\nrecord stat {\n    label: text[1...];\n    value: text;\n}\n\nenum state { DONE, LATE }\n\nextern widget chart(values: list<number>, color: color = color.ACCENT);\n";
 
 fn promise(pack: &str) -> Vec<String> {
@@ -71,7 +71,7 @@ fn a_surface_never_reaches_the_ir() {
     assert!(!json.contains("kit@1"), "a surface's names are in the IR");
 }
 
-const KIT2: &str = "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides plot, stat, state;\n}\n\nrecord stat {\n    title: text[1...];\n    value: text;\n    unit: text;\n}\n\nenum state { DONE, OVERDUE }\n\nextern widget plot(values: list<number>, tone: color = color.ACCENT) {\n    markdown { }\n}\n";
+const KIT2: &str = "package kit;\n\npack kit@2 {\n    uses core@2;\n    provides plot, stat, state;\n}\n\nrecord stat {\n    title: text[1...];\n    value: text;\n    unit: text;\n}\n\nenum state { DONE, OVERDUE }\n\nextern widget plot(values: list<number>, tone: color = color.ACCENT) {\n    markdown { }\n}\n";
 
 fn migrate(migration: &str) -> Vec<(String, String)> {
     let c = compile(&core_sources(), &[vec![src("kit/kit.xtmdpack", KIT2), src("kit/surfaces/kit@1.xtmdpack", KIT1_SURFACE)]], &[src("kit/migrations/kit@2.xtmdpack", migration)], "main");

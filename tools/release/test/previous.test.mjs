@@ -83,11 +83,15 @@ test("a tag of 0.4 on: the xtmd crate's modules, without its command, its editor
       "compiler/xtmd/src/lsp/mod.rs": "lsp\n",
       "compiler/xtmd/previous/mod.rs": "0.3.2's\n",
       "core/types.xtmdpack": "package core;\n",
+      "core/surfaces/core@1.xtmdpack": "package core@1;\n",
+      "core/migrations/core@2.xtmdpack": "package core;\n",
     },
     "v0.4.0",
   );
   const { files } = copyOf("v0.4.0", root);
   assert.deepEqual([...files.keys()].filter((k) => k.endsWith(".rs")).sort(), ["check/mod.rs", "core_files.rs", "mod.rs", "syntax.rs"]);
+  // core is its own files: its surfaces and migrations are only xtmd migrate's
+  assert.deepEqual([...files.keys()].filter((k) => k.startsWith("core/")), ["core/types.xtmdpack"]);
   assert.equal(files.get("check/mod.rs"), "use crate::previous::syntax::x;\n");
 });
 
