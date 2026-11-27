@@ -119,11 +119,26 @@ jobs:
         run: cargo test --workspace --no-fail-fast
 
   npm:
-    name: npm packages and the playground
+    # on four machines at once: every one builds all the packages, and tests its own part of them
+    # (tools/release/build-ts.mjs --only, --except: the last part is every package the others don't
+    # name, so none is left out), or the checks that aren't a package's
+    name: npm packages and the playground (${{ matrix.part }})
     needs: [gate, wasm]
     if: needs.gate.outputs.tested != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: compiler, runtime and widgets
+            tests: --only compiler/npm,runtime,widgets
+          - part: engines
+            tests: --only engines
+          - part: renderers, live and apps
+            tests: --except compiler/npm,runtime,widgets,engines
+          - part: notes, migrate's tools and VS Code
+            tests: ""
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -151,16 +166,20 @@ jobs:
       - name: Built, in order
         run: node tools/release/build-ts.mjs
       - name: Tested
-        run: node tools/release/build-ts.mjs --test-only
+        if: matrix.tests != ''
+        run: node tools/release/build-ts.mjs --test-only ${{ matrix.tests }}
       - name: The notes for agents, held to the repository
+        if: matrix.tests == ''
         run: |
           node --test tools/llm/test/*.test.mjs
           node tools/llm/check.mjs
       - name: The pre-commit checks, and the table of what each release removes
+        if: matrix.tests == ''
         run: |
           node --test .github/pre-commit/test/*.test.mjs
           node .github/pre-commit/check.mjs
       - name: xtmd migrate's tools - the release before's front end is its tag's, and chain.py
+        if: matrix.tests == ''
         # the 0.3.2 corpus itself is migrated by Rust's tests (compiler/xtmd/tests/migrate_032.rs)
         run: |
           tag=$(sed -n 's/^pub const TAG: &str = "\(.*\)";$/\1/p' compiler/xtmd/previous/mod.rs)
@@ -168,6 +187,7 @@ jobs:
           node tools/release/previous.mjs --check
           python3 -m unittest discover tools/migrate/test
       - name: The VS Code extension, built and tested
+        if: matrix.tests == ''
         working-directory: ide/vscode
         run: npm install --no-audit --no-fund && npm test
 

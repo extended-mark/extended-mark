@@ -250,10 +250,12 @@ describe("the examples, compiled by the xtmd.wasm the page runs", () => {
   });
 });
 
-test("server.mjs as a program reads PORT and the DEVBENCH_NOTIFY_* variables", async () => {
+test("server.mjs as a program reads PORT, PLAYGROUND_DIST and the DEVBENCH_NOTIFY_* variables", async () => {
   const notify = await fakeNotify();
+  // a dist/ of its own: the real one may be half made by the browser test, and the program would build it again
+  const dist = await fakeDist();
   const child = spawn(process.execPath, [join(app, "server.mjs")], {
-    env: { ...process.env, PORT: "0", HOST: "127.0.0.1", DEVBENCH_NOTIFY_URL: notify.url, DEVBENCH_NOTIFY_TOKEN: "env-token-456" },
+    env: { ...process.env, PORT: "0", HOST: "127.0.0.1", PLAYGROUND_DIST: dist, DEVBENCH_NOTIFY_URL: notify.url, DEVBENCH_NOTIFY_TOKEN: "env-token-456" },
     stdio: ["ignore", "ignore", "pipe"],
   });
   let stderr = "";
@@ -266,9 +268,12 @@ test("server.mjs as a program reads PORT and the DEVBENCH_NOTIFY_* variables", a
     assert.equal(notify.received[0].headers.authorization, "Bearer env-token-456");
     assert.match(stderr, /compiler-load/);
     assert.ok(!stderr.includes("env-token-456"), "the token is never logged");
+    assert.ok(!stderr.includes("bundle missing"), "it serves the dist/ it is given, and builds nothing");
+    assert.equal((await fetch(`http://127.0.0.1:${port}/app.js`)).status, 200);
   } finally {
     child.kill("SIGTERM");
     await new Promise((ok) => child.on("exit", ok));
     await notify.close();
+    await rm(dist, { recursive: true, force: true });
   }
 });

@@ -53,6 +53,7 @@ For tests and takes, `window.playground` reads the editor without touching it: `
 | `DEVBENCH_NOTIFY_URL` | DevBench's base URL. With the token, a failure (the server's, or one a browser reports) posts an alert to `<url>/api/notify/`. |
 | `DEVBENCH_NOTIFY_TOKEN` | The workspace's production notification token (DevBench → workspace settings → Production notifications). A server-side secret: never put it in the bundle. |
 | `HOST` | The interface to listen on. Default `0.0.0.0`. |
+| `PLAYGROUND_DIST` | The folder the bundle is served from. Default `dist/` beside `server.mjs`. |
 
 ## The API
 
