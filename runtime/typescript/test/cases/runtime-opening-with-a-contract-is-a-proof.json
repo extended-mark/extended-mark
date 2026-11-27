@@ -1,0 +1,18 @@
+{
+  "id": "runtime.opening-with-a-contract-is-a-proof",
+  "about": "if (let …) and if (mut …) with a contract open only when the value fits: a small number is zeroed and a large one left, a blank draft isn't added",
+  "source": "runtime-opening-with-a-contract-is-a-proof.xtmd",
+  "expect": {
+    "diagnostics": []
+  },
+  "steps": [
+    {
+      "do": { "event": { "site": "s0/s0", "name": "click" } },
+      "expect": { "state": { "xs": { "list": [{ "num": "0" }, { "num": "12" }] } } }
+    },
+    {
+      "do": { "event": { "site": "s1/s0", "name": "click" } },
+      "expect": { "state": { "names": { "list": [] } } }
+    }
+  ]
+}

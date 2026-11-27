@@ -1,0 +1,4 @@
+RELEASE NOTES  (notes/README.md)
+One file a version, New / Changed / Fixed, for Extended Mark's users: what they can do, what changed
+with what to do instead, what no longer goes wrong. Never internals. Written in the merge request
+that makes the change.

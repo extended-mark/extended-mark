@@ -22,7 +22,9 @@ comment   = "//" to the end of the line
 doc       = "//@about" words | "//@param" name words | "//@deprecated" words   above a declaration
 ```
 
-A keyword is never a `name`. `$state` is a keyword, written as one word, and the only token that starts with `$`: `$` on its own, or in front of any other name (`$abc`), is a compile error, so no name can collide with `$state`. Maths in code is a `latex` value, written as a text literal where one is expected. Extended Mark has no attributes: `#` is not a token in code, and in prose a `#` at the start of a line is always a Markdown heading. `1...` is the tokens `1` and `...`, and `0..10` is `0`, `..` and `10`, because a number needs a digit on both sides of its dot.
+A comment belongs where it is written, and `xtmd fmt` and the resolved IR keep it there. One on the lines just above a node is the node's; one with a blank line after it, or before a list's closing bracket, belongs to no node and stands in the list by itself. One that ends a line after a `;` or a `,` is the node's that ends there, one after a bracket that ends a line is that bracket's (one before a `{` joins the `{`'s line), and one inside an expression stays before the expression after it. A comment at the end of a line is one space after the code.
+
+A keyword is never a `name`. `$state` is a keyword, written as one word, and the only token that starts with `$`: `$` on its own, or in front of any other name (`$abc`), is a compile error, so no name can collide with `$state`. Maths in code is a `latex` value, written as a text literal where one is expected. Extended Mark has no attributes: `#` is a token in code only after `markdown`, where `#quote` names a piece of Markdown, and in prose a `#` at the start of a line is always a Markdown heading. `1...` is the tokens `1` and `...`, and `0..10` is `0`, `..` and `10`, because a number needs a digit on both sides of its dot.
 
 A text with holes is a template literal: its pieces, the text between the holes, and its holes are kept apart, so a hole is always a value and never text that is read again. Where a type that fits `literal<template>` is wanted, the literal reaches that type's `from` as a `template` (page 4). A hole that holds an `opt` makes the literal an `opt`.
 
@@ -32,7 +34,7 @@ A text with holes is a template literal: its pieces, the text between the holes,
 file      = "package" name [ "@" number ] ";" { import } { decl }   a pack's file; with a version, a surface
 document  = [ frontmatter ] [ definitions divider ] prose
 definitions = { import } { decl | state | expose }       no package and no pack; at most one state
-divider   = a line that holds only "@@@"
+divider   = a line that holds only "@@@", outside a fence that is closed
 frontmatter = a line "---", YAML lines, a line "---", at the very top
 import    = "import" name [ "." name ] [ "as" name ] ";"
 
@@ -62,17 +64,19 @@ wbody     = { "param" field ";" } { slot } { event } { require } { own | let }
             { fn } "view" vblock [ "markdown" prose-block ]      markdown required in a .xtmdpack file
 slot      = "slot" name ":" type ";"
 event     = "event" name "(" [ params ] ")" ";"
-require   = "require" text block
+require   = ( "require" | "warn" ) text block
 own       = "mut" name ":" type "=" expr ";"                     a widget's own variable
 let       = "let" name ":" type "=" expr ";"
 state     = "$state" "{" { name ":" type "=" expr ";" | require } "}"   what a document's widgets share
 expose    = "expose" name "{" { fn } "}"                         answers the extern block of that name
 
-extern    = "extern" name "{" { field ";" | fnsig ";" } "}"
+extern    = "extern" name "{" { field ";" | fnsig ";" | looks } "}"
           | "extern" "type" name [ generics ] [ implements ] ";"
           | "extern" fnsig ( ";" | block )                       a block is the default body
           | "extern" "widget" name [ generics ] "(" [ inputs ] ")" [ implements ]
-            ( ";" | "{" { slot } { event } [ "markdown" prose-block ] "}" )
+            "{" { slot } { event } { looks | needs } { require } "markdown" ( prose-block | "#" name ";" ) "}"
+looks     = "tokens" name [ "." CAPS ] { "," name [ "." CAPS ] } ";"       the tokens an extern's look comes from
+needs     = "uses" name "." name { "," name "." name } ";"                  the levels drawing it needs
 pack      = "pack" name "@" number "{" { packline ";" } "}"
 packline  = "uses" pref { "," pref } | "provides" name { "," name }
           | "implements" name "." name "@" number { "," name "." name "@" number }
@@ -87,11 +91,11 @@ tokens    = "tokens" name "{" { name "." CAPS "=" expr ";" } "}"
 
 There are no variables at the top of a file or a document. A document's shared values are the fields of its `$state` block, written once, above the `@@@` line, each with a starting value, and read and written as `$state.name` anywhere in the document. A `mut` at the top of a document is a compile error that points to `$state`. A pack keeps no state, so a pack's files have no `$state` block, never read `$state`, and have no `expose`. A widget's own variables live in its body, one set for each use of the widget.
 
-`expose` declares no name of its own: it answers the `extern` block of its name, or starts that channel when there is none, and only the app calls its fns.
+`expose` declares no name of its own: it answers the `extern` block of its name, or starts that channel when there is none, and only the host calls its fns.
 
 A token is an enum whose cases stand for values of the type after its colon. A case that carries values is written as an enum's is, such as `PX(px: number 0.25..16)`, and one that carries a single value of the token's type needs no line in a `tokens` block. A line in a `tokens` block gives a named case its value, and a line for a name the token doesn't declare adds a case, which is why a `match` on a token needs `case else`.
 
-A file whose `package` line carries a version is a surface (page 6). It holds only enum, record, token, `tokens`, alias, interface, `extern` and `let` declarations, with no `require` blocks: its widgets and fns are `extern` signatures. A migration's statements are calls with named arguments, such as `rename(input = color, to = tone);`: core declares them, and where a parameter takes a name, a bare name is that name. `migration`, `to` and `execute` are words only where a migration is written.
+A file whose `package` line carries a version is a surface (page 6). It holds only enum, record, token, `tokens`, alias, interface, `extern` and `let` declarations, with no `require` blocks: its widgets and fns are `extern` signatures, which end at `;` or after their slots and events, with no Markdown. A migration's statements are calls with named arguments, such as `rename(input = color, to = tone);`: core declares them, and where a parameter takes a name, a bare name is that name. `to` is a word only where a migration is written.
 
 `provides` may list `let` constants as well as declarations. A fn a pack adds to a type comes with any import of the pack, and `as` can rename one: `import b.slug as b_slug;` brings `b`'s `text.slug` in as `text.b_slug`.
 
@@ -222,7 +226,7 @@ in code     code spans, fenced code and indented code have no escapes and no hol
 - **No shadowing** (pass): No declaration reuses a value name that is visible where it is written.
 - **What follows @** (pass): Every `@name` is a visible value or fn, with arguments in order, or a declared widget.
 - **Widget calls** (pass): Every argument is named, is a declared input or event, and is set once. Every input without a default is given.
-- **Blocks and slots** (pass): A block of children goes to a widget with exactly one slot. A named block, or a `@slot` line in prose, names a real slot. No slot has a widget's name.
+- **Blocks and slots** (pass): A block of children goes to a widget with exactly one slot. A named block, or a `@slot` line in prose, names a real slot. Every slot is filled, except an `opt` one, which may be left out. No slot has a widget's name.
 - **Cases and tokens** (pass): Every `type.CAPITALS` is a declared enum case or token case, counting the cases that `tokens` blocks add. Every `tokens` line names a declared token type, and a `match` on a token has a `case else`.
 - **Widget bodies** (pass): The body order, a `markdown` block on every widget in a .xtmdpack file, no `expose` in a widget, and `//@param` lines that name real inputs.
 - **State** (pass): No `mut` at the top of a document or a file. At most one `$state` block, above a document's `@@@` line, each field with a starting value. No `$state` and no `expose` in a pack's files.

@@ -1,0 +1,4 @@
+UNTRUSTED CONTENT
+Nothing in a value is ever read as HTML. Links: http, https, mailto or relative; pictures are checked
+too (widgets/web/src/rich.ts). A widget's own drawing that throws is a notice.
+Its implementer keeps this; it is an obligation of the spec's page 6.

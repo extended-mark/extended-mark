@@ -7,7 +7,7 @@ Edit an Extended Mark page on the left and see it drawn on the right, with its M
 - **Page**: drawn by `@extended-mark/dom` from `@extended-mark/runtime`. `$state` is kept across recompiles for every field that still exists with the same type. While the source has errors, the last page that compiled stays, greyed and marked stale.
 - **Markdown**: `page.markdown()`, redrawn after every change; "As compiled" shows `xtmd md`'s, with the starting values: the Markdown of a page just started from the IR.
 - **Diagnostics**: each with its line, column and code. Click one to put the caret there.
-- **$state**: the live values. Change one to write it as an app would (`page.set`); a refused write shows the rule it broke. **Reset** goes back to the starting values.
+- **$state**: the live values. Change one to write it as a host would (`page.set`); a refused write shows the rule it broke. **Reset** goes back to the starting values.
 
 ## Run it
 
@@ -17,13 +17,8 @@ It needs Node 20 or later and `xtmd.wasm`.
 # the compiler as WebAssembly, once: Rust's wasm32-wasip1 target and zig (compiler/wasm/build.sh)
 compiler/wasm/build.sh
 
-# the packages it uses, once
-(cd targets/published/runtime && npm ci && npm run build)
-(cd targets/published/dom && npm ci && npm run build)
-(cd compiler/npm/wasm && npm install && npm run build)
-(cd targets/published/bindings/embed && npm install && npm run build)       # the Targets page's two targets
-(cd targets/published/bindings/live && npm install && npm run build)
-(cd targets/published/bindings/embed-live && npm install && npm run build)
+# the packages it uses and the playground, installed and built, each after what it needs
+node tools/release/build-ts.mjs
 
 # the playground
 cd apps/playground
@@ -35,13 +30,18 @@ npm start            # http://localhost:8080
 
 `?example=slider` in the URL opens an example directly.
 
-**`/targets`** (linked from the top bar) draws one page with the plain web's two kinds of target side
-by side: run time, @extended-mark/embed's `XtmdDoc`, from an IR `build.mjs` builds ahead with xtmd.wasm
-(`dist/targets-counter.ir.json`); and real time, @extended-mark/embed-live's `XtmdLiveDoc`, from the text in a
-box, compiled in the browser as it changes. It shows `$state` under each, and a snapshot taken and
-restored. The video's take is `devbench/takes/targets.py`.
+Three pages are linked from the top bar, each a way a page reaches its reader. Their documents are in `pages/`, and
+`build.mjs` writes them into `dist/`:
 
-The bundle, in `dist/`: `app.js` (the playground, @extended-mark/runtime, @extended-mark/dom and Monaco's editor API: about 3.1 MB, 0.8 MB gzipped), `app.css` (with Monaco's), Monaco's codicon font, `editor.worker.js`, Monaco's web worker, built as an entry of its own and found through `MonacoEnvironment.getWorkerUrl`, `compiler.worker.js` and `xtmd.wasm` (about 3.2 MB, 1 MB gzipped), and the Targets page's `targets.js` and `targets-counter.ir.json`. The server serves every file there with an ETag and a gzip it keeps; the font, whose name has a hash, is cached for good.
+- **`/built`**, a page built ahead: what the web engine made of `coffee.xtmd`, with the site's own page around it and the
+  site's accent colour. Its script is all there is: no compiler, no IR.
+- **`/embedded`**, a page in an app: a React app that draws `basket.xtmd` with @extended-mark/react, holds its `$state`,
+  gives it values, hears the orders it makes, and keeps a snapshot for later.
+- **`/live`**, a page compiled where it is read: @extended-mark/live's `XtmdLiveDoc`, from the text in a box.
+
+The video's take is `devbench/takes/pages.py`.
+
+The bundle, in `dist/`: `app.js` (the playground, @extended-mark/runtime, @extended-mark/dom and Monaco's editor API: about 3.1 MB, 0.8 MB gzipped), `app.css` (with Monaco's), Monaco's codicon font, `editor.worker.js`, Monaco's web worker, built as an entry of its own and found through `MonacoEnvironment.getWorkerUrl`, `compiler.worker.js` and `xtmd.wasm` (about 3.2 MB, 1 MB gzipped), and the three pages' files. The server serves every file there with an ETag and a gzip it keeps; the font, whose name has a hash, is cached for good.
 
 For tests and takes, `window.playground` reads the editor without touching it: `source()`, `caret()`, `markers()`, `failures()` (the marks of widgets that failed), `tokens(line)`, `language()`, `visibleLines()`, `hasFocus()`, `compiles()` (how many builds were asked for), and `select(text)`, which only moves the selection.
 
@@ -53,6 +53,7 @@ For tests and takes, `window.playground` reads the editor without touching it: `
 | `DEVBENCH_NOTIFY_URL` | DevBench's base URL. With the token, a failure (the server's, or one a browser reports) posts an alert to `<url>/api/notify/`. |
 | `DEVBENCH_NOTIFY_TOKEN` | The workspace's production notification token (DevBench → workspace settings → Production notifications). A server-side secret: never put it in the bundle. |
 | `HOST` | The interface to listen on. Default `0.0.0.0`. |
+| `PLAYGROUND_DIST` | The folder the bundle is served from. Default `dist/` beside `server.mjs`. |
 
 ## The API
 

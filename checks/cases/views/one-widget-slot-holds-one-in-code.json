@@ -1,0 +1,11 @@
+{
+  "id": "views.one-widget-slot-holds-one-in-code",
+  "about": "a slot that holds one widget takes exactly one, and a list keeps its length, optional or not, in code",
+  "source": "one-widget-slot-holds-one-in-code.xtmd",
+  "expect": {
+    "diagnostics": [
+      {"code": "views.slot-length", "line": 64, "column": 14},
+      {"code": "views.slot-length", "line": 71, "column": 13}
+    ]
+  }
+}

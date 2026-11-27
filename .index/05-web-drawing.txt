@@ -1,0 +1,28 @@
+WEB DRAWING
+
+widgets/web    npm @extended-mark/widgets: the web's one widget set
+  src/widgets/          core's widgets: blocks, controls, gfx, layout, plane, rich; index.ts by full name
+  src/draw.ts           nodes as elements (children, drawn); ViewWidget, ViewContext, Drawing
+  src/vnode.ts          VNode: tag, attrs, props, style, on, children, hook, component
+  src/patch.ts          Patcher: VNodes followed onto a live tree, through a Host (DOM, Angular), or taken
+                        over where HTML was written (adoptAll); dom.ts the DOM's Host
+  src/each.ts           each widget by itself, for what holds only the ones it draws
+  src/html.ts           VNodes as HTML and as schemas/web.schema.json
+  src/style.css         the stylesheet; src/style.ts holds it as text
+  src/held.ts           Held: a page as a framework holds it, however it is run; snapshot.ts
+  src/doc.ts            Doc: one run from its IR (an entry of its own, /doc)
+  src/tokens.ts         tokens as CSS custom properties, both themes
+  src/values.ts         reading a node's inputs
+  src/planes.ts         a page's planes measured and laid out (layoutPlanes)
+  src/composing.ts      whether a person is composing text in an element (an IME)
+  src/tex.ts, shade.ts, rich.ts, icons.ts, fns.ts, act.ts
+  test/                 without a page or a browser
+
+renderers/dom    npm @extended-mark/dom: the plain web's renderer
+  src/doc.ts            XtmdDoc: a document in an element
+  src/mount.ts          a page drawn into an element; own.ts: a host's own elements
+  src/api.ts            MountOptions, Mounted, OwnWidget
+  test/                 real Chromium: widgets, interact, plane; planes.test.mjs without one;
+                        copied.test.mjs: a copied widget set passes widgets.test.mjs
+
+ide/vscode/src/webview/widgets.ts is the same set in VS Code's look.

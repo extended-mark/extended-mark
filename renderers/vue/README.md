@@ -1,0 +1,84 @@
+# @extended-mark/vue
+
+Extended Mark documents in Vue 3: the renderer. `XtmdDoc` draws a page from an IR built ahead
+(`xtmd compile`, or xtmd's bundler plugin), with no compiler and no WebAssembly in the host. Core's
+widgets are drawn by Vue itself, with `h`: patched by key, server-rendered with `renderToString`. The live document, which compiles a document's text in the
+browser, is [@extended-mark/vue-live](../../live/vue).
+
+```sh
+npm install @extended-mark/vue
+```
+
+```vue
+<script setup>
+import { ref } from "vue";
+import { XtmdDoc } from "@extended-mark/vue";
+const state = ref(saved);
+const doc = ref(null);   // doc.value.snapshot(), .restore(…), .set(…)
+</script>
+
+<template>
+  <XtmdDoc ref="doc" :ir="shop" :state="state" @state-change="(s) => (state = s)"
+    :externs="{ shop: { currency: { text: 'EUR' } } }" @error="console.warn" @calls="handle" />
+</template>
+```
+
+## Props
+
+The same in every framework (`DocProps`, in @extended-mark/widgets/doc):
+
+| Prop | What it does |
+|---|---|
+| `ir` | The page's IR, which the host brings. A new one keeps `$state` where its fields still exist. |
+| `state` and `onStateChange`, or `defaultState` | `$state` controlled by the host, or started from. A new `state` is a write checked by xtmd; one it refuses leaves the page as it was. |
+| `defaultSnapshot` | A snapshot to start from: `$state` and every widget's own variables. |
+| `onError` | `{ kind: "refused" }` (the rule, the code, the widget), `"failed"`, `"load"` (an IR that couldn't be had). |
+| `onCalls` | The host's extern fns the page called. |
+| `externs`, `fns` | Each channel's values, by its name in the document or in full; the host's value fns, by full name. |
+| `page`, `widgets`, `measure` | The page's width and theme; a pack's own extern widgets, drawn the way core's are; how the plane's spots are measured. |
+| `components` | Vue components as widgets, by full name. Each is given the props `node`, `event`, `write` and `call`, and an input's widgets as the slot of its name (`<slot name="body" />`). |
+| `failed` | What is drawn where a widget failed, in place of our notice. |
+
+Listeners are callback props: `@state-change` is `onStateChange`. The handle is a template ref: `{ doc, set, state, markdown, expose, snapshot, restore }` (`XtmdDocRef`). A snapshot is opaque JSON: with the same IR, `restore` puts all of
+it back; with another, `$state` only.
+
+## Real time
+
+```vue
+<XtmdLiveDoc :source="text" :wasm="wasmUrl" @error="(e) => e.kind === 'compile' && show(e.diagnostics)" />
+<!-- import { XtmdLiveDoc } from "@extended-mark/vue-live" -->
+```
+
+## Pages built ahead
+
+With [@extended-mark/web](../../engines/web) beside it, this package has an engine, `xtmd-vue`: a document known when the app is
+built becomes a Vue component, with no IR, no runtime and no package of ours in it.
+
+```toml
+# xtmd.toml
+[engines]
+vue = ["xtmd-vue"]
+```
+
+```sh
+npm install -D @extended-mark/vue @extended-mark/web
+xtmd export docs --out src/xtmd --engine vue
+```
+
+```vue
+<script setup>
+import Shop from "./xtmd/shop.js";
+</script>
+
+<template><Shop :state="state" @state-change="(s) => (state = s)" /></template>
+```
+
+A component has `XtmdDoc`'s props and handle, without `ir`, `widgets`, `measure` and `markdown`. Its snapshots and `XtmdDoc`'s of
+the same IR go into each other. Options after the engine's name: `--widgets FILE`, `--only-widgets`, `--tokens FILE`,
+`--fns FILE`, `--components a/b,c/d` (the widgets you give Vue components for) and `--readable`.
+
+## Tests
+
+`npm test`: `XtmdDoc` rendered on a server, then the shared steps in Chromium (`../testing/browser.mjs`,
+`docSteps`): controlled `$state`, refusals, the handle, props, a new IR, widgets' own variables and
+snapshots.

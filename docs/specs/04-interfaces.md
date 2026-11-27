@@ -29,8 +29,8 @@ fn labelled.initial(self): text {
 // fits too, without saying so, because it has a label
 let svc: { label: text, up: bool } = { label = "api", up = true };
 
-let first: text = labelled_stat { label = "Deploys", value = "42" }.initial();    // "D"
-let second: text = svc.initial();                                                // "A"
+let first: text = labelled_stat { label = "Deploys", value = "42" }.initial(); // "D"
+let second: text = svc.initial(); // "A"
 ```
 
 **A type fits an interface when it has what the interface asks for.** That is the one rule, for every interface, the six standard ones included. `implements` is a checked promise, written where the type is declared: a missing field or fn is reported on that line. A type that doesn't say it still fits, so inline records and other packs' types fit too, and it is still checked at compile time.
@@ -134,7 +134,7 @@ fn vec2.show(self): text {
 }
 
 fn middle(a: vec2, b: vec2): vec2 {
-    return (a + b) / 2;                  // a.add(b).scale(0.5)
+    return (a + b) / 2; // a.add(b).scale(0.5)
 }
 ```
 
@@ -152,7 +152,7 @@ record email implements literal<text>, shown {
 }
 
 fn email.from(value: text): opt<email> {
-    return try email { address = value };    // checks text[3...] and the require block
+    return try email { address = value }; // checks text[3...] and the require block
 }
 
 fn email.show(self): text {
@@ -164,7 +164,7 @@ record money implements literal<number>, numeric, scaled, ordered, same, shown {
 }
 
 fn money.from(value: number): opt<money> {
-    return money { cents = (value * 100).round() };    // never NONE: a plain value is accepted where an opt is wanted
+    return money { cents = (value * 100).round() }; // never NONE: a plain value is accepted where an opt is wanted
 }
 
 fn money.add(self, other: money): money {
@@ -187,12 +187,12 @@ fn money.show(self): text {
     return (self.cents / 100).fmt(2);
 }
 
-let to: email = "ops@example.com";    // email.from gives opt.SOME at compile time
+let to: email = "ops@example.com"; // email.from gives opt.SOME at compile time
 let price: money = 4.99;
-let total: money = price * 3;         // through scaled
+let total: money = price * 3; // through scaled
 
 fn entered(entry: text): opt<email> {
-    return email.from(entry);         // when the page runs: an opt, the same as try
+    return email.from(entry); // when the page runs: an opt, the same as try
 }
 ```
 
@@ -203,16 +203,16 @@ fn entered(entry: text): opt<email> {
 
 #### Literals with holes
 
-A literal with holes, where a type that fits `literal<template>` is wanted, reaches `from` as a `template`: core's record of the literal's pieces and its holes, kept apart (page 5). `from` places each hole as a value and never reads it as text, so a hole can't turn into formatting. Core's `rich_text`, `md` and `latex` fit `literal<template>`, and a pack's type can too.
+A literal with holes, where a type that fits `literal<template>` is wanted, reaches `from` as a `template`: core's record of the literal's pieces and its holes, kept apart (page 5). `from` places each hole as a value and never reads it as text, so a hole can't turn into formatting. Core's `latex` fits `literal<template>`, and a pack's type can too.
 
 ```java
-@paragraph(value = "Read **this**, \{name}.");
-// rich_text.from gets template { pieces = ["Read **this**, ", "."], holes = [hole.TEXT(name.show())] }
+@math(tex = "x^\{power}");
+// latex.from gets template { pieces = ["x^", ""], holes = [hole.TEXT(power.show())] }
 ```
 
 - **A hole that holds an `opt`** makes the literal an `opt` of its type, and `opt.NONE` when the hole is `NONE`. With page 2's `stat`, `"Note: \{s.note}"` where a `rich_text` is wanted is an `opt<rich_text>`, which `paragraph` doesn't take. A fallback in the hole, `\{s.note.or("none")}`, makes it a plain `rich_text` again.
 - **A hole that `from` would have to read** is a compile error that names the hole and says to build the record instead. A type that takes no `template` would get the hole glued into the text and parsed again, so in `let start: date = "2026-\{month}-01";` even a month of 7 would fail, as "2026-7-01". The fix is `date { year = 2026, month = month, day = 1 }`, where `month` is proved to fit `date`'s field like any value given to a contract (page 2).
-- **Only holes that are placed, never read, stay in literals**: those of text, `rich_text`, `md` and `latex`. For a literal, `from` runs only at compile time, where a hole is a value it can place but not see.
+- **Only holes that are placed, never read, stay in literals**: those of `text`, `rich_text` and `latex`. For a literal, `from` runs only at compile time, where a hole is a value it can place but not see.
 
 That covers every piece of syntax a type can join: literals, holes, `==`, `<` and sorting, ranges, and arithmetic. New symbols are left out on purpose: a pack can't add an operator, a literal form like `250ms`, or `for` and `xs[i]` on its own types (it gives them a fn that returns a list instead). Every file then reads the same way, and every symbol in it is one the reader already knows.
 
@@ -281,7 +281,7 @@ fn tallest(items: list<bar>): number 0... {
     mut best: number 0... = 0;
     for (b in items) {
         if (b.value > best) {
-            best = b.value;                  // b.value is a number 0...
+            best = b.value; // b.value is a number 0...
         }
     }
     return best;
@@ -351,7 +351,7 @@ widget compare<T: chart>() {
 }
 ```
 
-The parent can read what the interface promises: `c.title` works for every chart. The app finds widgets the same way, by interface and never by a widget's name.
+The parent can read what the interface promises: `c.title` works for every chart. The host finds widgets the same way, by interface and never by a widget's name.
 
 ### One kind, or any kind
 

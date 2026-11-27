@@ -1,5 +1,5 @@
 // Draws the brand's PNGs and favicon.ico from its SVGs, in Chromium: node brand/render.mjs
-// Chromium is XTMD_CHROMIUM's, as the target checks use, or Playwright's own.
+// Chromium is XTMD_CHROMIUM's, or Playwright's own.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";

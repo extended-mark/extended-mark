@@ -1,0 +1,91 @@
+record task {
+    mut title: text;
+    mut done: bool = false;
+}
+
+extern clock {
+    today: text = "some day";
+    fn finished(title: text);
+}
+
+$state {
+    tasks: list<task> = [task { title = "Read the spec" }, task { title = "Write a host" }];
+    next: text = "";
+    size: int 1..5 = 2;
+}
+
+expose clock {
+    fn clear() {
+        $state.tasks = [];
+    }
+}
+
+widget line(mut t: task) {
+    event drop();
+
+    mut open: bool = false;
+
+    view {
+        @row(gap = space.S) {
+            @press(label = t.title, kind = press_kind.CHECK, selected = t.done, click = fn() {
+                t.done = !t.done;
+                clock.finished(t.title);
+            });
+            @press(label = open ? "Less" : "More", kind = press_kind.PLAIN, click = fn() { open = !open; });
+            @press(label = "Drop", kind = press_kind.PLAIN, click = fn() { invoke drop(); });
+        }
+        if (open) {
+            @field(label = "Title", value = t.title);
+        }
+    }
+    markdown {
+        \{t.title}
+    }
+}
+
+widget board() {
+    view {
+        @column(gap = space.S) {
+            mut for (t in $state.tasks) {
+                if (mut x: task = t) {
+                    @line(t = x, drop = fn() { $state.tasks.remove(x); });
+                }
+            }
+        }
+    }
+    markdown {
+        @for (t in $state.tasks) {
+            - \{t.title}
+        }
+    }
+}
+
+widget share() {
+    view {
+        @label(value = "Each task is \{100 / $state.tasks.len()} percent", tone = color.MUTED);
+    }
+    markdown {
+        Shares
+    }
+}
+@@@
+# Tasks for \{clock.today}
+
+There are **\{$state.tasks.len()}** of them, *each* with `a title` and a [link](https://extendedmark.org).
+
+@board;
+
+@field(label = "Next", value = $state.next, submit = fn() {
+    $state.tasks.add(task { title = $state.next });
+    $state.next = "";
+});
+
+@slider(label = "Size", value = $state.size);
+
+@share;
+
+> Drawn by a host of its own.
+
+| What | Who |
+| --- | --- |
+| This table | has no drawing here, so it is its Markdown |

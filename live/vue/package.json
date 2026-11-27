@@ -1,0 +1,45 @@
+{
+  "name": "@extended-mark/vue-live",
+  "version": "0.4.0",
+  "description": "Extended Mark documents in Vue, compiled in the browser as they are edited: <XtmdLiveDoc source={…} />, @extended-mark/wasm's compiler and @extended-mark/vue's <XtmdDoc>",
+  "license": "MIT",
+  "homepage": "https://github.com/extended-mark/extended-mark",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/extended-mark/extended-mark.git",
+    "directory": "live/vue"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@extended-mark/live": "file:../web",
+    "@extended-mark/runtime": "file:../../runtime/typescript",
+    "@extended-mark/vue": "file:../../renderers/vue",
+    "@extended-mark/widgets": "file:../../widgets/web"
+  },
+  "peerDependencies": {
+    "vue": "^3.3.0"
+  },
+  "devDependencies": {
+    "extended-mark": "file:../../compiler/npm/extended-mark",
+    "esbuild": "0.28.2",
+    "playwright-core": "1.64.1",
+    "typescript": "5.9.3",
+    "vue": "3.5.45"
+  }
+}

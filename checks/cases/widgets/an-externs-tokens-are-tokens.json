@@ -1,0 +1,24 @@
+{
+  "id": "widgets.an-externs-tokens-are-tokens",
+  "about": "an extern's tokens line lists tokens and their cases",
+  "source": "an-externs-tokens-are-tokens.xtmdpack",
+  "expect": {
+    "diagnostics": [
+      {
+        "code": "widget.extern-tokens",
+        "line": 5,
+        "column": 24
+      },
+      {
+        "code": "widget.extern-tokens",
+        "line": 5,
+        "column": 42
+      },
+      {
+        "code": "widget.markdown-empty",
+        "line": 4,
+        "column": 15
+      }
+    ]
+  }
+}

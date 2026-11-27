@@ -1,0 +1,28 @@
+package kit;
+
+pack kit@2 {
+    uses core@1;
+    provides note, panel;
+}
+
+widget note(body: md, tone: color = color.ACCENT) {
+    view {
+        @blocks(value = body);
+    }
+    markdown {
+        @blocks(value = body);
+    }
+}
+
+widget panel(title: text) {
+    slot body: view;
+    view {
+        @label(value = title);
+        @body;
+    }
+    markdown {
+        \{title}
+
+        \{body}
+    }
+}

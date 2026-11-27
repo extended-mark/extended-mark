@@ -1,0 +1,11 @@
+package kit@2;
+
+enum status { GOOD, SLOW, OVERDUE }
+
+//@about A share of a whole, as a number from 0 to 1.
+extern widget gauge(part: number 0..1, label: text, tone: color = color.INK);
+
+//@about Anything, in a box.
+extern widget note(state: status = status.GOOD) {
+    slot body: view;
+}

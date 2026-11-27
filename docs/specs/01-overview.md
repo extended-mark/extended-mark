@@ -1,6 +1,6 @@
 # Overview
 
-Extended Mark (called MKP, Markdown Markup, up to 0.2) is a statically typed language for drawing widgets in Markdown documents. This page has the rules, the words, the two file types and how a document is read.
+Extended Mark is a statically typed language for drawing widgets in Markdown documents. This page has the rules, the words, the two file types and how a document is read.
 
 > **The language in five lines**
 >
@@ -8,9 +8,24 @@ Extended Mark (called MKP, Markdown Markup, up to 0.2) is a statically typed lan
 
 | | |
 |---|---|
-| Keywords | **41** |
+| Keywords | **46** |
 | File types | **2** (.xtmdpack and .xtmd) |
 | Rules | **19** |
+
+### One compiler, and modules around it
+
+Extended Mark has one compiler, and everything a page means is in the IR it writes. Every other part is a module with a set input and a set output, and any of them can be replaced: what runs a page, what draws it, what builds it into files, the host that shows it.
+
+| Part | Takes | Gives |
+|---|---|---|
+| The compiler | A document's text and the packs it uses | The IR, or what is wrong and where |
+| A runtime | The IR, and what the host gives (`$state`, extern values, the page's own) | The drawn tree, what changed in it, and the page's Markdown (page 6) |
+| A renderer, with a widget set | The drawn tree | What a reader sees, and the reader's events and writes, by a widget's id |
+| An engine | The IR, and a widget set | Its platform's own files, built ahead, which do what a runtime and a renderer would |
+| A host | A page, through those calls | Its own values, and what becomes of the calls the page makes |
+
+- **The IR decides.** A module never works out what the language means: a default, a rule, which widget a call is, what a slot holds and what Markdown says are in the IR. A module that had to know more would be a second compiler, and the two would drift.
+- **No module is special.** The ones that come with Extended Mark use the same inputs and outputs as anyone's, and nothing more. Core is the same: a pack like any other (rule 10), with slots that are inputs and externs whoever draws supplies.
 
 ### The rules
 
@@ -30,18 +45,18 @@ Extended Mark (called MKP, Markdown Markup, up to 0.2) is a statically typed lan
 14. **One hole, always replaced.** Backslash and braces around an expression, in text, prose and maths. A second backslash escapes it. Code spans, fenced code and indented code are literal. A hole's value is never read as Markdown, or as part of the literal it sits in.
 15. **Every widget has a markdown block.** So the Markdown of any view is always complete. An empty one, `markdown { }`, says the widget writes nothing, for parts whose meaning the widget around them writes, such as a canvas's shapes. The compiler warns where such a widget is declared, and compiles it all the same. A widget declared in a document may leave the block out, and Extended Mark builds it from the view. Markdown's own blocks, such as `paragraph` and `heading`, are extern and write themselves out as the block they stand for.
 16. **Widgets can't inherit.** Reuse is by calling, slots, interfaces and fns added to types.
-17. **Variables live while the page is open.** A document's shared variables are the fields of its one `$state` block, used as `$state.name` by every widget and fn in the document. A `mut` at the top of a file is a compile error that points to `$state`, and a pack has no state of its own. A `mut` in a widget is that widget's own variable, one per use of the widget. Nothing persists across sessions by itself: the app can read `$state`, keep it, and hand it back when the page opens, where it is checked like any write from the app (page 6).
+17. **Variables live while the page is open.** A document's shared variables are the fields of its one `$state` block, used as `$state.name` by every widget and fn in the document. A `mut` at the top of a file is a compile error that points to `$state`, and a pack has no state of its own. A `mut` in a widget is that widget's own variable, one per use of the widget. Nothing persists across sessions by itself: the host can read `$state`, keep it, and hand it back when the page opens, where it is checked like any write from the host (page 6).
 18. **A fn that returns a value changes nothing.** Only a fn with no return type can assign variables, fire an event or call an `extern` fn that has no return type. A view, a markdown block, a `require` and a starting value can only call the first kind, so drawing a page never changes it.
 19. **No thrown exceptions.** Trouble that can be expected is an `opt`, and the code has to open it: a record built with `try` from what a reader typed, or the square root of a negative number. A bug when the page runs, such as a division by zero or a record built against its own `require`, is a failure: it is contained to its widget, the event that caused it is undone, and page 6 lists them all.
 
 ```txt
 package import enum record type interface implements widget extern expose fn pack tokens
-mut let event invoke view markdown require if else for in match case return only step
+mut let event invoke view markdown require warn if else for in match case return only step
 void any param slot try with self true false
-as token $state
+as token provides uses migration execute $state
 ```
 
-A keyword can never be a name, after a dot included. `$state` is one word: `$` is not a prefix, so `$` on its own and `$abc` are neither keywords nor names, and in code each is a compile error whose message names `$state`. No name starts with `$`, so `$state` never meets a variable, an input or a field, and `state` stays free as a name: `$state.state` reads a field called `state`. `uses` and `provides` are words only inside a `pack` block, and `migration` and `execute` only where a migration is written, so all four stay free as ordinary names.
+A keyword can never be a name, after a dot included. `$state` is one word: `$` is not a prefix, so `$` on its own and `$abc` are neither keywords nor names, and in code each is a compile error whose message names `$state`. No name starts with `$`, so `$state` never meets a variable, an input or a field, and `state` stays free as a name: `$state.state` reads a field called `state`. `provides` is written in a `pack` block, `uses` there and in an extern widget's body, and `migration` and `execute` where a migration is written; all four are keywords everywhere.
 
 ### Names
 
@@ -134,19 +149,19 @@ It has been retried \{$state.tries} times.
 \@ops is the team that gets the alert.
 ````
 
-- **The `@@@` line**: The first line that holds only `@@@` ends the definitions. It can never be valid code, because an `@` needs a name after it, so the definitions never need escaping. To show `@@@` as text in the document, write `\@@@`. A second unescaped `@@@` line is a compile error.
+- **The `@@@` line**: The first line that holds only `@@@`, outside a fenced code block, ends the definitions, so a document can show Extended Mark in a fence. It can never be valid code, because an `@` needs a name after it, so the definitions never need escaping. To show `@@@` as text in the document, write `\@@@`. A second unescaped `@@@` line is a compile error.
 - **No `@@@` line**: The whole file is the document, with only core imported.
 - **Below the line**: Everything is Markdown. A fenced code block marked `xtmd` is shown as code, like any other.
 - **A widget declared in a document may leave out `markdown`**: Extended Mark builds it from the view, with the starting values. A branch that depends on a variable, a `$state` field or the widget's own, gets a warning naming the line, and writing a `markdown` block replaces the built one. In a .xtmdpack file the block is required.
 - **`$state`**: One block, anywhere above the line, and a second one is a compile error. Its fields are written like a record's, each with its type and a starting value, and its `require` blocks link them (page 2).
-- **Front matter**: YAML front matter, if a document has it, stays at the very top, above the definitions, and is passed to the app untouched.
+- **Front matter**: YAML front matter, if a document has it, stays at the very top, above the definitions, and is passed to the host untouched.
 - **Where they overlap**: A call with no block, such as `@stats(items = rows);`, and a call whose block holds only other calls are written in the document. A widget above the line is for what Markdown can't say: loops over data, `match`, buttons and variables.
 
 ### Prose
 
 Prose is view code in another notation. The Markdown Extended Mark extends is CommonMark, with GitHub's tables, task lists, strikethrough, footnotes and bare links. Each Markdown block is drawn by the extern widget of the same kind: a paragraph by `paragraph`, a heading by `heading`, a list by `bullets` and its `item`s, and so on for `quote`, `code`, `math`, `divider`, `table` and `footnote`. Every implementer draws these natively, which is what makes Extended Mark a superset of Markdown.
 
-- **Inline Markdown is parsed by core**, in Extended Mark, when the page is compiled. Bold, italics, strikethrough, links, code spans, inline maths, pictures and footnote marks become `rich_text`: a list of segments, each a `part` with its `marks` (page 5). Each paragraph reaches `paragraph` with its text and its holes kept apart, so a hole's value is always a segment of its own, plain text or a view, and can never turn into formatting. No implementer parses Markdown.
+- **A sentence is calls too.** Inline Markdown is parsed by core, in Extended Mark, when the page is compiled, and each thing in it becomes a call, as a block does: words are `words`, bold is `bold` around them, and so on for `italic`, `strike`, `link`, `code_span`, `inline_math`, `inline_image`, `note_mark` and `line_break` (page 5). So `Hi **\{@abc()}**` is `words` and a `bold` that holds the call of `abc`. Nothing about inline is special: any widget can stand in a sentence, and any pack's extern can mark words or stand for them. A hole's value is words or a view of its own, and can never turn into formatting. No implementer parses Markdown.
 - **Markdown out** keeps the meaning in one spelling for each block and mark, listed below. The source isn't kept byte for byte.
 - **Raw HTML** is shown as text, never run. An HTML comment is raw HTML too, so it shows, with a warning that says to write `@//`, prose's own comment.
 
@@ -231,8 +246,8 @@ table           | a | b |, then a |---| row; :---: centres a column and ---: put
 - **A view** is drawn where the hole sits. In a `markdown` block its Markdown goes there. A `text` can't hold a view, so a view in a hole of a `text` literal is a compile error.
 - **An `opt`** makes the literal an `opt`: with `change: opt<text>`, `"was \{s.change}"` is an `opt<text>`, and `opt.NONE` when `s.change` is. A literal with no `opt` hole is a plain value. A paragraph takes a `rich_text`, not an `opt`, so in prose and in a `markdown` block a paragraph with an `opt` hole is a compile error that names the hole. Give a fallback in the hole, `\{s.change.or("none")}`, or open it first with `@if (let c: text = s.change) {`.
 - **`\\{x}`** shows the characters `\{x}`. In maths it hands `\{` to TeX as its literal brace, so set notation is `$\\{ x \}$`.
-- **A literal of another type** keeps its text and its holes apart, as a `template` (page 4), and its type's `from` makes the value when the page is compiled. A hole is never read as part of the literal, so only types that place their holes take them: `text`, `rich_text`, `md` and `latex`. A literal whose `from` would have to read a hole, such as `"\{year}-01-01"` for a `date`, is a compile error that names the hole and says to build the record instead (page 2).
-- **An `md` value** holds Markdown blocks, parsed by core when the value is made: `let note: md = "**42** deploys, by \{who}";` keeps `who` plain text, and `@blocks(value = note);` places the blocks (page 5). What a reader typed becomes Markdown only when the code asks for it by name, with `md.from(template.of(entry))`.
+- **A literal of another type** keeps its text and its holes apart, as a `template` (page 4), and its type's `from` makes the value when the page is compiled. A hole is never read as part of the literal, so only types that place their holes take them: `text`, `rich_text` and `latex`. A literal whose `from` would have to read a hole, such as `"\{year}-01-01"` for a `date`, is a compile error that names the hole and says to build the record instead (page 2).
+- **A `rich_text`** holds Markdown, read by core when the value is made: `let note: rich_text = "**42** deploys, by \{who}";` keeps `who` plain text. One paragraph is a sentence, and anything else is blocks: a list, two paragraphs, a heading. A hole that holds a `rich_text` places it, `\{note}`: a sentence's own calls among the words around it. What a reader typed becomes Markdown only when the code asks for it by name, with `rich_text.from(template.of(entry))`.
 - **A text literal** is written between double quotes on one line. Its escapes are `\"`, `\\`, `\n`, `\t`, `\u{…}` with a Unicode number in hex, and the hole. Texts are joined with holes: `"\{first} \{last}"`. There is no `+` on text.
 
 A `markdown` block needs no quotes. It is prose, with its common indent removed, and it is read exactly as prose below the `@@@` line is: it makes the same Markdown blocks, a hole's value is never read as Markdown, and it ends like any prose block.

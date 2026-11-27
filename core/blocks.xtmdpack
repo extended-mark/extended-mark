@@ -1,42 +1,140 @@
 package core;
 
-//@about A paragraph of inline Markdown, parsed by core.
-extern widget paragraph(value: rich_text, tone: opt<color> = opt.NONE, align: align = align.START);
+//@about A paragraph: a sentence on its own.
+extern widget paragraph(value: rich_text, tone: opt<color> = opt.NONE, align: align = align.START) {
+    markdown #paragraph;
+}
 
 //@about A heading, level 1 to 6.
-extern widget heading(level: int 1..6, value: rich_text);
+extern widget heading(level: int 1..6, value: rich_text) {
+    tokens font.HEADING, color.MUTED;
+
+    markdown #heading;
+}
 
 //@about A list: bulleted, or numbered from start.
 extern widget bullets(ordered: bool = false, start: int 0... = 1) {
     slot items: list<item>[1...];
+
+    markdown #bullets;
 }
 
 //@about One item of a list. done is a task box: ticked, not ticked, or none for an ordinary item.
 extern widget item(done: opt<bool> = opt.NONE) {
     slot body: view;
+    tokens color.ACCENT;
+
+    markdown #item;
 }
 
 //@about A quotation.
 extern widget quote() {
     slot body: view;
+    tokens color.LINE, color.MUTED;
+
+    markdown #quote;
 }
 
 //@about A block of literal text, such as code, in the mono font.
-extern widget code(src: text, lang: text = "");
+extern widget code(src: text, lang: text = "") {
+    tokens font.MONO, color.LINE, color.SURFACE, radius.CARD;
+
+    markdown #code;
+}
 
 //@about Maths on a line of its own, drawn from TeX.
-extern widget math(tex: latex);
+extern widget math(tex: latex) {
+    tokens font.MONO;
+
+    markdown #math;
+}
 
 //@about A table: a header row, rows of cells, and how each column is aligned.
-extern widget table(head: list<rich_text>[1...], rows: list<list<rich_text>>, align: list<cell_align> = []);
+extern widget table(head: list<rich_text>[1...], rows: list<list<rich_text>>, align: list<cell_align> = []) {
+    tokens color.LINE;
+
+    markdown #table;
+}
 
 //@about A note at the foot of the page, with its mark.
 extern widget footnote(mark: text) {
     slot body: view;
+    tokens color.MUTED;
+
+    markdown #footnote;
 }
 
 //@about A line across the page.
-extern widget divider();
+extern widget divider() {
+    tokens color.LINE;
+
+    markdown #divider;
+}
 
 //@about How a table column is aligned. A column the list doesn't reach starts.
 enum cell_align { START, CENTER, END }
+
+//@about Words of a sentence, as they are.
+extern widget words(value: text) {
+    markdown #text;
+}
+
+//@about Words in bold: **so**.
+extern widget bold() {
+    slot body: rich_text;
+
+    markdown #bold;
+}
+
+//@about Words in italics: *so*.
+extern widget italic() {
+    slot body: rich_text;
+
+    markdown #italic;
+}
+
+//@about Words struck through: ~~so~~.
+extern widget strike() {
+    slot body: rich_text;
+
+    markdown #strike;
+}
+
+//@about Words that lead somewhere: [so](to).
+extern widget link(to: text) {
+    slot body: rich_text;
+    tokens color.ACCENT;
+
+    markdown #link;
+}
+
+//@about Literal text in a sentence, in the mono font: `so`.
+extern widget code_span(src: text) {
+    tokens font.MONO, color.LINE;
+
+    markdown #code_span;
+}
+
+//@about Maths in a sentence: $x^2$.
+extern widget inline_math(tex: latex) {
+    tokens font.MONO;
+
+    markdown #inline_math;
+}
+
+//@about A picture in a sentence.
+extern widget inline_image(src: text, alt: text) {
+    markdown #inline_image;
+}
+
+//@about The mark of a footnote, in the sentence the note is about: [^1].
+extern widget note_mark(mark: text) {
+    tokens color.ACCENT;
+
+    markdown #note_mark;
+}
+
+//@about A line break in a sentence.
+extern widget line_break() {
+    markdown #line_break;
+}

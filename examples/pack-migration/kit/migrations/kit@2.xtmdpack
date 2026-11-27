@@ -1,0 +1,19 @@
+package kit;
+
+migration kit@1 to kit@2 {
+    widget meter {
+        rename(to = gauge);
+        rename(input = colour, to = tone);
+        set(input = tone, value = color.ACCENT, when = !given(tone), why = "a gauge is in the ink's colour unless it says another");
+        example(before = @meter(part = 0.4, label = "Docs"), after = @gauge(part = 0.4, label = "Docs", tone = color.ACCENT));
+    }
+
+    widget note {
+        move(from = message, to = body, why = "a note holds anything now");
+        drop(input = loud, why = "a note that isn't GOOD has a red line instead");
+    }
+
+    enum status {
+        rename(from = status.LATE, to = status.OVERDUE);
+    }
+}

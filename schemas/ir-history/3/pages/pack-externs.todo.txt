@@ -1,0 +1,1 @@
+`kit/plot`, `kit/badge` are drawn by pack kit's own renderer, as it was when IR 3 was written: the page runs only where kit has a renderer for this runtime, and kit may have a later version since; build the page again from its source, moved by `xtmd migrate`, to be sure

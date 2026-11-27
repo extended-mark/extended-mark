@@ -1,0 +1,6 @@
+EFFECTS  (compiler/xtmd/src/check/effects.rs)
+Drawing never changes anything. A fn with a return type, a view, a markdown block, a require, a
+contract and a starting value change only their own `mut` locals. Only a fn with no return type may
+write variables, fire events or call an extern action.
+A record's field is written only if it is `mut`, however it is reached (compiler/xtmd/src/check/body.rs,
+check_fields_mut).

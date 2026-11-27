@@ -1,0 +1,9 @@
+DIAGNOSTICS
+A code is stable (`types.not-mut`); a message may be reworded. Codes are constants in
+compiler/xtmd/src/syntax/diag.rs and in compiler/xtmd/src/check/mod.rs (module codes).
+The prefix says the pass: syntax file widget prose doc layout fmt names views types contracts effects.
+`pack.` is the exception: its codes are the file pass's.
+Every code belongs to a rule in checks/rules.json, whose `line` is a line of the spec page: adding
+lines to the spec moves them, so correct the lines of that page's rules.
+A message says what is wrong and what to write. `fix` is words; `edits` only when exactly one fix is
+right, as an editor applies it in a click.

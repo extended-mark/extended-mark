@@ -1,0 +1,10 @@
+{
+  "id": "views.slot-type-in-prose",
+  "about": "a slot takes only its own widget, in prose",
+  "source": "slot-type-in-prose.xtmd",
+  "expect": {
+    "diagnostics": [
+      {"code": "views.slot-takes-its-type", "line": 62, "column": 2}
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 // `$state` as a reader reads it: values and types written as Extended Mark writes them, from the IR's form.
 
-import type { ir } from "@extended-mark/runtime";
+import type { Input, ir } from "@extended-mark/runtime";
 import { escapeHtml } from "./highlight.js";
 
 type Decl = Record<string, unknown>;
@@ -38,8 +38,8 @@ export function shortName(full: string): string {
 
 function bounds(b: ir.Bounds | undefined, sep = ".."): string {
   if (!b) return "";
-  const low = b.low ? valueText(b.low) : "";
-  const high = b.high ? valueText(b.high) : "";
+  const low = b.low ? valueText(b.low as Input) : "";
+  const high = b.high ? valueText(b.high as Input) : "";
   if (low && high) return low === high ? low : `${low}${sep}${high}`;
   if (low) return `${low}...`;
   return high ? `...${high}` : "";
@@ -53,8 +53,8 @@ export function typeText(t: ir.Type): string {
   if (c) {
     if (c.length) s += `[${bounds(c.length)}]`;
     if (c.range) s += ` ${bounds(c.range)}`;
-    if (c.step) s += ` step ${valueText(c.step)}`;
-    if (c.only) s += ` only [${c.only.map((x) => valueText(x)).join(", ")}]`;
+    if (c.step) s += ` step ${valueText(c.step as Input)}`;
+    if (c.only) s += ` only [${c.only.map((x) => valueText(x as Input)).join(", ")}]`;
   }
   return s;
 }
@@ -102,7 +102,7 @@ export function plainCases(file: ir.File | ir.Module, enumName: string): string[
  * a value against its field's contracts only, so the playground checks the shape before it writes.
  * Types it can't see into (aliases, interfaces, generics) pass.
  */
-export function shapeError(x: ir.Expr, t: ir.Type, file: ir.File | ir.Module, at = "the value"): string | undefined {
+export function shapeError(x: Input, t: ir.Type, file: ir.File | ir.Module, at = "the value"): string | undefined {
   const want = typeText({ ...t, contract: undefined });
   const a = (s: string) => `${/^[aeiou]/.test(s) ? "an" : "a"} ${s}`;
   const no = (what: string) => `${at} is ${what}, not ${a(want)}`;
@@ -143,7 +143,7 @@ export function shapeError(x: ir.Expr, t: ir.Type, file: ir.File | ir.Module, at
   if (d.kind === "record") {
     if (!("record" in x)) return no(kind);
     if (x.record.type !== t.name) return no(a(shortName(x.record.type)));
-    const given = x.record.fields as Record<string, ir.Expr>;
+    const given = x.record.fields as Record<string, Input>;
     for (const f of (d.decl.fields as ir.Field[]) ?? []) {
       const v = given[f.name];
       if (v === undefined) {
@@ -167,15 +167,15 @@ export function shapeError(x: ir.Expr, t: ir.Type, file: ir.File | ir.Module, at
 
 // ---- values
 
-const pad2 = (x: ir.Expr | undefined) => String(x && "num" in x ? x.num : "0").padStart(2, "0");
+const pad2 = (x: Input | undefined) => String(x && "num" in x ? x.num : "0").padStart(2, "0");
 
 function textLiteral(s: string): string {
   return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\t/g, "\\t")}"`;
 }
 
 /** A date or a moment as its text literal: `"2026-11-15"`, `"2026-11-15T09:30+01:00"`. */
-function dateText(r: ir.ExprRecord): string | undefined {
-  const f = r.fields as Record<string, ir.Expr>;
+function dateText(r: Extract<Input, { record: unknown }>["record"]): string | undefined {
+  const f = r.fields as Record<string, Input>;
   if (r.type === "core/date") {
     const y = f.year && "num" in f.year ? f.year.num : "0";
     return `"${y.padStart(4, "0")}-${pad2(f.month)}-${pad2(f.day)}"`;
@@ -231,7 +231,7 @@ function group(open: string, items: Doc[], close: string, sep = ", "): Doc {
   };
 }
 
-function doc(x: ir.Expr, order: Order): Doc {
+function doc(x: Input, order: Order): Doc {
   if ("num" in x) return leaf(x.num, "num");
   if ("text" in x) return leaf(textLiteral(x.text), "text");
   if ("bool" in x) return leaf(String(x.bool), "bool");
@@ -250,7 +250,7 @@ function doc(x: ir.Expr, order: Order): Doc {
   if ("record" in x) {
     const date = dateText(x.record);
     if (date) return leaf(date, "text");
-    let fields = Object.entries(x.record.fields as Record<string, ir.Expr>);
+    let fields = Object.entries(x.record.fields as Record<string, Input>);
     const declared = order(x.record.type);
     if (declared) fields = fields.sort(([a], [b]) => (declared.indexOf(a) >>> 0) - (declared.indexOf(b) >>> 0));
     const name = shortName(x.record.type ?? "record");
@@ -263,22 +263,21 @@ function doc(x: ir.Expr, order: Order): Doc {
     const high = r.high ? doc(r.high, order).flat : "";
     return leaf(`${low}${high ? ".." + high : "..."}${r.step ? ` step ${doc(r.step, order).flat}` : ""}`, "num");
   }
-  if ("view" in x) return leaf(`@${shortName(x.view.widget)}(…)`, "plain");
   if ("token" in x) return leaf(shortName(String(x.token)), "case");
   return leaf(JSON.stringify(x), "plain");
 }
 
-function field(name: string, v: ir.Expr, order: Order): Doc {
+function field(name: string, v: Input, order: Order): Doc {
   const d = doc(v, order);
   return { flat: `${name} = ${d.flat}`, html: (i) => `${escapeHtml(name)} = ${d.html(i)}` };
 }
 
 /** A value on one line, as Extended Mark writes it; a record's fields in the order `file` declares them. */
-export function valueText(x: ir.Expr, file?: ir.File | ir.Module): string {
+export function valueText(x: Input, file?: ir.File | ir.Module): string {
   return doc(x, orderOf(file)).flat;
 }
 
 /** A value as HTML, in lines when it is long. */
-export function valueHtml(x: ir.Expr, file?: ir.File | ir.Module): string {
+export function valueHtml(x: Input, file?: ir.File | ir.Module): string {
   return doc(x, orderOf(file)).html("");
 }

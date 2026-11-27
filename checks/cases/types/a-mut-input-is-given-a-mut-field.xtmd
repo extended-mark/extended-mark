@@ -1,0 +1,17 @@
+record pt {
+    x: int;
+    mut y: int;
+}
+
+$state {
+    p: pt = pt {
+        x = 1,
+        y = 2
+    };
+}
+@@@
+@slider(value = $state.p.y, label = "Y");
+
+@slider(value = $state.p.x, label = "X");
+
+@press(label = "With", click = fn() { $state.p = $state.p with { x = 5 }; });

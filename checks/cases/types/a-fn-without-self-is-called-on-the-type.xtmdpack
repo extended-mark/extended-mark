@@ -8,6 +8,6 @@ fn stat.blank(label: text): stat {
     return stat { label = label };
 }
 
-fn uses(s: stat): stat {
+fn user(s: stat): stat {
     return s.blank("x");
 }

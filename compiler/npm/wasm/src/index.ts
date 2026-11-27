@@ -1,7 +1,7 @@
 // The Extended Mark compiler in the browser: xtmd-wasm, built for wasm32-wasip1 (compiler/wasm), and the
-// little it asks of its host. A real-time target compiles a document's text as it is edited with
-// `Compiler.build`, and draws the IR it gives as a run-time target draws one it was given: the
-// same IR `xtmd build` writes. An editor gets what `xtmd md` and `xtmd migrate` do from it too
+// little it asks of its host. A live document compiles a document's text as it is edited with
+// `Compiler.build`, and draws the IR it gives as a renderer draws one it was given: the
+// same IR `xtmd compile` writes. An editor gets what `xtmd md` and `xtmd migrate` do from it too
 // (`Compiler.markdown`, `Compiler.migrate`), on the texts it has, with no xtmd binary.
 //
 // The module asks for six WASI functions only (randomness, the clock, its environment, writing to
@@ -36,7 +36,7 @@ export interface Written {
   end: { line: number; column: number };
 }
 
-/** What a build gives: the IR file `xtmd build` writes, or null when there are errors; every
+/** What a build gives: the IR file `xtmd compile` writes, or null when there are errors; every
  * diagnostic of the file built (and the errors of its packs); and where each call in the file is
  * written, by its template (`doc`, `doc/share`) and site (`s1`), so an editor can mark the call a
  * failed widget's site names. No IR holds that: a page runs without its source. */
@@ -45,7 +45,7 @@ export interface Built {
   diagnostics: Diagnostic[];
   errors: number;
   sites: Record<string, Record<string, Written>>;
-  /** The resolved IR (schemas/rir.schema.json), as `xtmd build --rir` writes it, when the build
+  /** The resolved IR (schemas/rir.schema.json), as `xtmd compile --rir` writes it, when the build
    * asked for it (`{ rir: true }`): written for a text with errors too, with what was resolved. */
   rir?: Rir;
 }
@@ -53,7 +53,7 @@ export interface Built {
 /** The resolved IR: what the checker understood of a build, every name resolved and every value
  * typed, with each part's place in its source (schemas/rir.schema.json). */
 export interface Rir {
-  rir: 1;
+  rir: 2;
   xtmd: string;
   packs: unknown[];
   files: Array<{ path: string; kind: "document" | "pack" | "surface"; [part: string]: unknown }>;
@@ -88,9 +88,9 @@ export interface Markdown {
 
 /** What a migration is asked to do: `xtmd migrate`'s plan, on texts, with nothing read or written. */
 export interface MigrateRequest {
-  /** The 0.3 packs' files, as xtmd.toml's `packs` gives them. */
+  /** The packs' files, as xtmd.toml's `packs` gives them. */
   sources?: PackFile[];
-  /** The documents (`.xtmd`, and `.mkp.md` as MKP 0.2 named them), as the editor has them. */
+  /** The documents (`.xtmd`), as the editor has them. */
   docs?: PackFile[];
   /** The tree's xtmd.toml: its `xtmd` release and `[uses]` say what the files are written for. */
   config?: PackFile | null;
@@ -101,21 +101,12 @@ export interface MigrateRequest {
   /** As `--allow-todos` and `--allow-errors`. */
   allowTodos?: boolean;
   allowErrors?: boolean;
-  /** Where the stand-ins for 0.2 packs with no 0.3 release go: a folder beside the documents. */
-  standIns?: string;
-  /** What the frozen 0.2 step (tools/migrate-0.2/frozen, run with Node) printed for each document
-   * `needs02` named, or `{ notRun: why }` where it can't run. */
-  step02?: Record<string, unknown>;
-  /** Whether 0.2 packs were given to the 0.2 step. */
-  packs02?: boolean;
 }
 
-/** One file's part of a migration. `result`: `migrate` (it changes, or moves to `to`), `up to date`,
- * or `refused` (`refused` says why, and nothing of it is written). */
+/** One file's part of a migration. `result`: `migrate` (it changes), `up to date`, or `refused`
+ * (`refused` says why, and nothing of it is written). */
 export interface MigratedFile {
   path: string;
-  /** Where it is written: a 0.2 name, `name.mkp.md`, moves to `name.xtmd`. */
-  to: string;
   old: string;
   text: string;
   result: "migrate" | "up to date" | "refused";
@@ -129,18 +120,14 @@ export interface MigratedFile {
   todos: string[];
   changed: string[];
   errors: string[];
-  standIns: string[];
 }
 
-/** A migration's plan: each file, the stand-ins to write, the questions no one has answered (asked,
- * the plan is made again with their answers), the documents the 0.2 step must run on first, and
- * xtmd.toml once the tree moves (only when every file can). `error`: what stops it before a plan. */
+/** A migration's plan: each file, the questions no one has answered (asked, the plan is made again
+ * with their answers), and xtmd.toml once the tree moves (only when every file can). `error`: what stops it before a plan. */
 export interface Migration {
   files: MigratedFile[];
-  standIns: Array<{ name: string; path: string; text: string }>;
   questions: Array<{ number: number; key: string; asks: string; options: string[] }>;
   asked: Array<{ number: number; asks: string; answer: boolean; by: string }>;
-  needs02: string[];
   config: { path: string; old: string; text: string } | null;
   release: { from: string; to: string };
   error?: string;
@@ -231,7 +218,7 @@ async function compile(source: WasmSource): Promise<WebAssembly.Module> {
 export type LspMessage = Record<string, unknown>;
 
 /**
- * The language server (ide/lsp), in the browser or a worker: what `xtmd lsp` answers, with core
+ * The language server (compiler/xtmd/src/lsp), in the browser or a worker: what `xtmd lsp` answers, with core
  * compiled once as it loads. It reads no disk, so the client gives each document's packs with the
  * `xtmd/packs` notification (`{ uri, packs: [{ path, text }] }`). Each message gives what the server
  * sends back, in order: a reply to a request, and notifications such as publishDiagnostics.
@@ -323,8 +310,8 @@ export class Compiler {
 
   /**
    * Builds one file: `path` ending in `.xtmd` for a document, else a pack's file; its `text`; and
-   * the files of the packs it uses. Gives the IR as `xtmd build` writes it, or the errors; with
-   * `{ rir: true }`, the resolved IR too, as `xtmd build --rir` writes it (`core`: core's files in it).
+   * the files of the packs it uses. Gives the IR as `xtmd compile` writes it, or the errors; with
+   * `{ rir: true }`, the resolved IR too, as `xtmd compile --rir` writes it (`core`: core's files in it).
    */
   build(path: string, text: string, packs: PackFile[] = [], options: BuildOptions = {}): Built {
     const req: Record<string, unknown> = { path, text, packs };
@@ -352,8 +339,7 @@ export class Compiler {
   /**
    * What `xtmd migrate` would do to these files, as a plan: nothing is read or written. Give the
    * documents and packs as the editor has them; ask a person the plan's `questions` and plan again
-   * with the answers; run the 0.2 step on each of `needs02` (it needs Node) and plan again with what
-   * it printed; then write each file's `text` (at `to`), the stand-ins and `config`.
+   * with the answers; then write each file's `text`, and `config`.
    */
   migrate(request: MigrateRequest): Migration {
     return this.call("xtmd_migrate", "the migration", request as Record<string, unknown>) as Migration;

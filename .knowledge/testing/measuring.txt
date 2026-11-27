@@ -1,0 +1,4 @@
+MEASURING
+Compare old and new interleaved on one quiet machine, many times, and give the spread. A number from
+another day or a busier box is not a before. Say what was measured and what was not.
+Compile time: cargo run --release -p xtmd --example speed -- page.xtmd

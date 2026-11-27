@@ -1,0 +1,4 @@
+CORE IS EMBEDDED
+compiler/xtmd/build.rs puts core's files, its table of entities and checks/rules.json in the crate, so in the
+binary and the wasm. Editing core needs a rebuild of xtmd, and of the wasm. A published crate carries its own
+copy, put in by the release. Without the feature `compiler` (a runtime) nothing is embedded.

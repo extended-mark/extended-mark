@@ -1,0 +1,8 @@
+$state {
+    note: rich_text = "a **b**";
+    long: md = "# a";
+}
+@@@
+\{$state.note}
+
+@blocks(value = $state.long);

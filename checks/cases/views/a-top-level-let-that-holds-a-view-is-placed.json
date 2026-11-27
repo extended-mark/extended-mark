@@ -1,0 +1,10 @@
+{
+  "id": "views.a-top-level-let-that-holds-a-view-is-placed",
+  "about": "@name places what a let at the top of a file holds, in prose and in a widget, when it is a view; any other value is skipped, and the name is a widget's",
+  "source": "a-top-level-let-that-holds-a-view-is-placed.xtmd",
+  "expect": {
+    "diagnostics": [
+      {"code": "names.unknown-widget", "line": 22, "column": 2}
+    ]
+  }
+}

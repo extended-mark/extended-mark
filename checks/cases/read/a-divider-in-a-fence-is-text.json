@@ -1,0 +1,8 @@
+{
+  "id": "read.a-divider-in-a-fence-is-text",
+  "about": "a @@@ line in a fenced code block is code, so this document has no definitions and is prose all through",
+  "source": "a-divider-in-a-fence-is-text.xtmd",
+  "expect": {
+    "diagnostics": []
+  }
+}

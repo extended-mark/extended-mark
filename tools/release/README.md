@@ -1,6 +1,8 @@
 # Releasing Extended Mark
 
-A merge into main that raises `VERSION` starts the release: `.github/workflows/release.yml` builds
+Work goes into `staging` first, and `main` takes it only from there: a merge request into main
+whose head isn't this repository's `staging` fails the **From staging** check, which main's ruleset
+requires. A merge into main that raises `VERSION` starts the release: `.github/workflows/release.yml` builds
 everything on Linux, tests it, tags the merge commit `v<VERSION>` and publishes it under that tag. The merge request raises the
 version everywhere with `node tools/release/bump.mjs <version>`, which also starts `notes/<VERSION>.md` (notes/README.md); the **Release notes** check holds it to that, and
 the **Types, tests and conformance** check (ci.yml) runs the tests, both required by main's ruleset
@@ -13,16 +15,43 @@ merge; enable it and run it by hand when the release should go out. While `main`
 release, a merge request may keep it and add to `notes/<VERSION>.md`: the check holds it only above
 the last release.
 
+## Before a release: the checklist
+
+What a release owes the one before it, gone through on the merge request that raises `VERSION`:
+
+1. `node tools/release/bump.mjs <version>` raises it everywhere and starts `notes/<version>.md`.
+2. `node .github/pre-commit/check.mjs` passes: the notes for agents, every version the same, core
+   formatted, and the table of moved commands and flags. A row whose "Remove in" is this release fails
+   it until its entry, its message and its tests are taken out, and the notes say so.
+3. **The IR.** A change to what a runtime reads raises its version: the old schema kept in
+   `schemas/ir-history/<old>/` and `compiler/xtmd/src/migrate/ir/`, the step in `migrate/ir/`, and the
+   table in spec page 6 ("The IR").
+4. **The resolved IR.** A change to what it holds raises its version: the old schema kept in
+   `schemas/rir-history/<old>/` and `compiler/xtmd/src/migrate/rir/`, and the table in spec page 6
+   (docs/guides/migration.md says how).
+5. **The step and the front end.** This release's one step from the release before (`STEP`, in
+   `compiler/xtmd/src/migrate/rir/`), with its tests, and the release before's front end in
+   `compiler/xtmd/previous/`, copied from its tag (`node tools/release/previous.mjs <its tag>`). Every
+   change to what a file means comes with how what exists moves to it: in the step, or in a pack's
+   migration, core's included (`core/surfaces/`, `core/migrations/`), each in the notes. Every file the
+   release before shipped is in `checks/migrate-<x.y>/`, which a test migrates, and `rir::READY` is on:
+   the release dry run (`preflight.mjs`) and the pre-commit checks refuse a release without these.
+6. **Read by the release before.** The repository's documents move from the last release:
+   `xtmd migrate <folder> --dry-run`, on a copy whose xtmd.toml says the last release, is ready,
+   nothing refused and no question open, for each folder of examples/ and apps/ (the playground with
+   `--pack examples/graphs`). examples/pack-migration is refused, as it should be: its documents are
+   written for kit@1, for `xtmd migrate` to move by the pack's migration.
+
 What it does, in order:
 
 1. **Binaries.** `xtmd` for Linux on x64 and arm64 (static, musl), macOS on Intel and Apple
    silicon, and Windows on x64, each cross-built with `cargo zigbuild` and put in its
    `@extended-mark/cli-<os>-<cpu>` package (`compiler/npm/extended-mark/scripts/copy-binary.mjs --target <triple>`).
-2. **xtmd.wasm**, for `@extended-mark/wasm` and the real-time targets (`compiler/wasm/build.sh`).
+2. **xtmd.wasm**, for `@extended-mark/wasm` and the live engines (`compiler/wasm/build.sh`).
 3. **Tests:** the same checks every pull request runs (ci.yml): the Rust workspace, every npm
-   package's and the playground's tests, and every target's conformance checks, the examples' too.
+   package's and the playground's tests.
 4. **Publishing.** The GitHub release `v<VERSION>`, titled and described by its note; then the npm
-   packages (`publish-npm.mjs`), the VS Code extension and the crates (`publish-crates.sh`). Each
+   packages (`publish-npm.mjs`), the VS Code extension and the crate (`publish-crates.sh`). Each
    registry is tried even when one before it failed, and a version a registry has already is left
    alone, so `Re-run failed jobs` finishes what's left.
 
@@ -48,46 +77,42 @@ when it wouldn't. `preflight.mjs` checks what only the registries know:
   `xtmd` for `xtend`, `xml` and others) and says so only when the name is first published, so a new
   unscoped package is published by hand once. `NPM_TOKEN` signs in, may write every package and
   doesn't run out within two days; under trusted publishing no package is new.
-- crates.io: under trusted publishing no crate is new; a crate's version must be the release's. More
-  than 5 new crates is noted: crates.io takes 5 at once, then one every 10 minutes, and
-  `publish-crates.sh` waits for it (the Publish job allows two hours).
+- crates.io: under trusted publishing the crate isn't new; its version must be the release's.
 - Open VSX: the namespace exists, and `OVSX_PAT` may publish to it.
 - each registry: whether it publishes, stages, passes over a version it has, or is skipped for want
   of a credential, in the job's summary.
 
 Then each publish is dry-run: every npm package packed and checked (`publish-npm.mjs --stage
---dry-run`), every crate built as crates.io would (`publish-crates.sh --dry-run`), and the `.vsix`
+--dry-run`), the crate built as crates.io would (`publish-crates.sh --dry-run`), and the `.vsix`
 packed.
 
 ## What it publishes
 
-Exactly these. Nothing in `targets/examples` (Android, egui, the native runtime, the web and test
-targets) is published: CI builds and checks them, and no release puts them out.
+Exactly these. Nothing private (Android, egui, the native runtime, the playground) is published: CI builds and checks them, and no release puts them out.
 
 - **The GitHub release** `v<VERSION>`: each platform's binary, `xtmd-<VERSION>-<platform>.tar.gz`
   for `linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64` and `win32-x64` (what `install.sh`
   and `install.ps1` fetch); `SHA256SUMS`, the SHA-256 of each file; `xtmd-<VERSION>.wasm`; and the
   VS Code extension, `xtmd-<VERSION>.vsix`.
-- **npm**, 24 packages:
+- **npm**, 23 packages:
   - from compiler/npm: `extended-mark` (the `xtmd` command, its API and Vite plugin),
     `@extended-mark/wasm`, and the binary for each platform,
     `@extended-mark/cli-linux-x64`, `@extended-mark/cli-linux-arm64`, `@extended-mark/cli-darwin-x64`,
     `@extended-mark/cli-darwin-arm64` and `@extended-mark/cli-win32-x64`;
-  - from targets/published: `@extended-mark/runtime`, `@extended-mark/dom`, and the bindings,
-    `@extended-mark/embed`, `@extended-mark/embed-live`, `@extended-mark/view`, `@extended-mark/live`,
+  - from runtime, widgets, renderers, engines and live: `@extended-mark/runtime`, `@extended-mark/widgets`, `@extended-mark/dom`, `@extended-mark/web`,
+    `@extended-mark/live`,
     `@extended-mark/react`, `@extended-mark/react-live`, `@extended-mark/next`, `@extended-mark/vue`,
     `@extended-mark/vue-live`, `@extended-mark/svelte`, `@extended-mark/svelte-live`,
     `@extended-mark/solid`, `@extended-mark/solid-live`, `@extended-mark/angular` and
     `@extended-mark/angular-live`.
-- **crates.io**, 10 crates: `xtmd` (the command), `xtmd-live`, `xtmd-lsp`, `xtmd-syntax`,
-  `xtmd-check`, `xtmd-ir`, `xtmd-lower`, `xtmd-eval`, `xtmd-markdown` and `xtmd-migrate`.
+- **crates.io**, one crate: `xtmd`, the compiler as a library and the command. Its parts are modules, and it
+  uses no other crate of ours. (Up to 0.3.2 there were ten; the other nine end there.)
 - **The VS Code Marketplace and Open VSX**: the extension (ide/vscode), the same `.vsix`.
 
 ## What it needs
 
 The npm packages are `extended-mark` (the `xtmd` command, its API and Vite plugin; npm refuses the
-name `xtmd` itself, as too like `xtend` and others) and `@extended-mark/*`; the crates are `xtmd`
-and `xtmd-*`. Each
+name `xtmd` itself, as too like `xtend` and others) and `@extended-mark/*`; the crate is `xtmd`. Each
 registry is published to by trusted publishing, with the run's own OIDC token, once it is set up;
 until then, and for a package's first release (a registry sets up trusted publishing only for a
 package it already has), with a token. On npm the token only stages: the first release's versions
@@ -112,9 +137,11 @@ permissions: read and write).
 
 ## The scripts
 
-- `build-ts.mjs [--test | --test-only]`: installs and builds every npm package in order, the
-  playground last, each after what it uses (npm links a `file:` dependency, so it is built first),
-  then tests them all.
+- `build-ts.mjs [--test | --test-only] [--only <folders> | --except <folders>] [--list]`: installs
+  and builds every npm package in order, the playground last, each after what it uses (npm links a
+  `file:` dependency, so it is built first), then tests them all, or those under `--only`'s folders,
+  or all but `--except`'s; `--list` says which and does nothing. CI's npm job tests on four
+  machines at once, its last part taking every package the others don't name.
 - `check-notes.mjs [--base-version x.y.z] | --notes-for x.y.z`: the release-notes check, and a
   note's title and body for its release.
 - `publish-npm.mjs --version x.y.z [--stage] [--dry-run]`: publishes each package after its
@@ -122,11 +149,8 @@ permissions: read and write).
   without its binary is left out, and a version already staged or published is passed over, so a run
   can be repeated. `--stage` stages each one instead (`npm stage publish`) and ends with how many it
   staged and where to approve them.
-- `publish-crates.sh [--dry-run]`: copies core's Extended Mark files into the crates that embed them, then
-  `cargo publish --workspace`, leaving out each crate crates.io has at its version already and every
-  crate with `publish = false`. When crates.io's limit on new crates answers 429, it waits until the
-  time it gives (up to 15 minutes) and goes on with the crates left. It leaves out xtmd-schemagen
-  (a tool here), xtmd-wasm (xtmd.wasm ships another way) and the example targets' crates.
+- `publish-crates.sh [--dry-run]`: copies core and checks/rules.json into the crate, then `cargo publish -p xtmd`,
+  unless crates.io has its version already.
 - `bump.mjs <version> | --check`: sets the release's version everywhere it is written (`VERSION`, every
   crate and its path dependencies, `Cargo.lock`'s own crates, every package.json of ours and its
   `@extended-mark` pins, the lock files' own entries, the Android example's Gradle versions, the schemas'
@@ -136,5 +160,5 @@ permissions: read and write).
   (`node --test tools/release/test/*.test.mjs`).
 - `packages.mjs`: the npm packages and their order, for both.
 
-Every package and crate carries the release's version (0.3.2); `publish-npm.mjs` refuses one that
+Every package and crate carries the release's version (0.4.0); `publish-npm.mjs` refuses one that
 doesn't.

@@ -1,0 +1,9 @@
+A HOST'S OWN WIDGETS
+Given by full name (`acme/chart`, `core/press`), they replace ours: `widgets` or `own` in dom's mount, a
+component in a framework's XtmdDoc, XtmdPage::widget in egui, the registry on Android.
+An extern nobody supplies is drawn as its Markdown and told by missing(). A fn or value
+nobody gives is told by lacking().
+A whole set may be copied as a starting point, and runs the widgets' own tests as a copy: copied.test.mjs
+(renderers/dom/test), renderers/egui/tests/copied.rs, CopiedSetTest.kt on Android.
+So a renderer takes nothing from our widgets but what any set has.
+checks/packs/badge is a pack each platform supplies, for tests.

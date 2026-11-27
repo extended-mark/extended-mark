@@ -7,14 +7,16 @@ let names: list<text> = ["api", "worker"];
 # Indented blocks
 
 @frame(title = "Build") {
-    It passed in **4 minutes**.
+    @slot body {
+        It passed in **4 minutes**.
 
-    ```sh
-    make
-      all
-    ```
+        ```sh
+        make
+          all
+        ```
 
-        a line of code
+            a line of code
+    }
 }
 
 @for (x in names) {

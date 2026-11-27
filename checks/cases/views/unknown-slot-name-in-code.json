@@ -1,0 +1,10 @@
+{
+  "id": "views.unknown-slot-name-in-code",
+  "about": "a named block names a real slot, in code",
+  "source": "unknown-slot-name-in-code.xtmd",
+  "expect": {
+    "diagnostics": [
+      {"code": "views.unknown-slot", "line": 67, "column": 13}
+    ]
+  }
+}

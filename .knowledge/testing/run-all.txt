@@ -1,0 +1,11 @@
+RUNNING THE TESTS
+cargo build --release -p xtmd                 in compiler; npm and Android tests build pages with it
+cargo test --workspace --no-fail-fast         in compiler (use --release: the evaluator is slow without)
+compiler/wasm/build.sh                        before the npm suites
+node tools/release/build-ts.mjs --test        installs, builds and tests every npm package
+  --only engines,runtime / --except …         some of them (CI: four machines); --list says which
+npm install && npm test                       in ide/vscode
+node --test tools/release/test/*.test.mjs tools/llm/test/*.test.mjs
+node tools/llm/check.mjs
+Android: .knowledge/testing/android.txt.   Browser tests need Chromium: XTMD_CHROMIUM or /usr/bin/chromium.
+The playground's browser tests skip without a build or a browser: a skip is a gap, say so.

@@ -3,7 +3,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { npmFindings, tokenFindings } from "../preflight.mjs";
+import { migrationFindings, migrationTree, npmFindings, releaseBefore, tokenFindings } from "../preflight.mjs";
 
 const names = ["@extended-mark/runtime", "extended-mark", "@extended-mark/react"];
 const now = Date.parse("2026-11-21T12:00:00Z");
@@ -53,4 +53,40 @@ test("a token that runs out within two days, or only reads, stops the release", 
   assert.match(tokenFindings(soon, names, now).errors[0], /expires 2026-11-22/);
   const reads = { permissions: [{ name: "package", action: "read" }], scopes: [{ name: null, type: "package" }] };
   assert.match(tokenFindings(reads, names, now).errors[0], /can't write packages/);
+});
+
+// xtmd migrate: a release can't ship without what moves a tree written for the release right before it
+
+const tags = ["v0.2.9", "v0.3.0", "v0.3.1", "v0.3.2", "v0.3.2^{}"];
+const whole = { copied: "v0.3.2", reads: "0.3.2", step: true, ready: true, corpora: ["migrate-0.3"] };
+
+test("the release before is the newest tag below the version, patch releases too", () => {
+  assert.equal(releaseBefore("0.4.0", tags), "v0.3.2");
+  assert.equal(releaseBefore("0.3.2", tags), "v0.3.1");
+  assert.equal(releaseBefore("0.4.1", [...tags, "v0.4.0"]), "v0.4.0");
+  assert.equal(releaseBefore("0.1.0", tags), null);
+});
+
+test("a release with the release before's front end, its step, on, and its corpus can ship", () => {
+  const f = migrationFindings("0.4.0", tags, whole);
+  assert.deepEqual(f.errors, []);
+  assert.match(f.ok, /^a tree written for 0\.3\.2 moves/);
+});
+
+test("a release without its step, or with it off, can't ship", () => {
+  assert.match(migrationFindings("0.4.0", tags, { ...whole, step: false }).errors.join("\n"), /there is no step from 0\.3\.2/);
+  assert.match(migrationFindings("0.4.0", tags, { ...whole, ready: false }).errors.join("\n"), /isn't on \(rir::READY\)/);
+});
+
+test("a release whose front end is an older release's, or whose readers read another, can't ship", () => {
+  const f = migrationFindings("0.4.1", [...tags, "v0.4.0"], whole);
+  assert.match(f.errors[0], /^compiler\/xtmd\/previous\/ is v0\.3\.2's front end, not v0\.4\.0's: run node tools\/release\/previous\.mjs v0\.4\.0/);
+  assert.match(f.errors.join("\n"), /readers::PREVIOUS .* is "0\.3\.2", not "0\.4\.0"/);
+  assert.match(f.errors.join("\n"), /checks\/migrate-0\.4\/ has no corpus/);
+  assert.match(migrationFindings("0.4.0", tags, { ...whole, copied: null }).errors[0], /^compiler\/xtmd\/previous\/ holds no front end, not v0\.3\.2's/);
+});
+
+test("this repository can ship its VERSION: 0.4.0 moves 0.3.2's trees", () => {
+  const f = migrationFindings("0.4.0", tags, migrationTree());
+  assert.deepEqual(f.errors, []);
 });

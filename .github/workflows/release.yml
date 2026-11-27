@@ -14,11 +14,11 @@
 #   - the GitHub release v<VERSION>, its notes the note's: each platform's binary
 #     (xtmd-<VERSION>-<os>-<cpu>.tar.gz, what install.sh and install.ps1 fetch), SHA256SUMS,
 #     xtmd.wasm (xtmd-<VERSION>.wasm) and the VS Code extension (xtmd-<VERSION>.vsix);
-#   - npm: the 24 packages of compiler/npm and targets/published (extended-mark, @extended-mark/*);
-#   - crates.io: the 10 crates of compiler/ and ide/lsp (xtmd, xtmd-live, xtmd-lsp and the compiler's);
+#   - npm: the 23 packages of compiler/npm, runtime, widgets, renderers, engines and live (extended-mark, @extended-mark/*);
+#   - crates.io: the crate xtmd;
 #   - the VS Code Marketplace and Open VSX, each by its trusted publishing (VSCE_TRUSTED_PUBLISHING,
 #     OVSX_TRUSTED_PUBLISHING = true; Open VSX with an OVSX_PAT token instead until it is set up): the extension.
-# targets/examples (Android, egui, the native runtime, the web and test targets) is built and
+# What is private (Android, egui, the native runtime) is built and
 # checked by the test job, and never published. npm and crates.io are published to by
 # trusted publishing once the repository variable says it is set up (NPM_TRUSTED_PUBLISHING,
 # CRATES_TRUSTED_PUBLISHING = true), and otherwise with a token: NPM_TOKEN, with which each npm
@@ -63,8 +63,8 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       new: ${{ steps.v.outputs.new }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - id: v
@@ -100,7 +100,7 @@ jobs:
           - { target: aarch64-apple-darwin, platform: darwin-arm64, exe: xtmd }
           - { target: x86_64-pc-windows-gnu, platform: win32-x64, exe: xtmd.exe }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Rust, for ${{ matrix.target }}
         run: rustup toolchain install stable --profile minimal --target ${{ matrix.target }} && rustup default stable
       - name: zig and cargo-zigbuild
@@ -113,7 +113,7 @@ jobs:
       - name: Runs where it was built for
         if: matrix.platform == 'linux-x64'
         run: compiler/npm/extended-mark/platforms/linux-x64/bin/xtmd --version
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: xtmd-${{ matrix.platform }}
           path: compiler/npm/extended-mark/platforms/${{ matrix.platform }}/bin/
@@ -126,14 +126,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Rust, for wasm32-wasip1
         run: rustup toolchain install stable --profile minimal --target wasm32-wasip1 && rustup default stable
       - name: zig
         run: pip install "ziglang==$ZIGLANG"
       - name: Build
         run: XTMD_ZIG="python3 -m ziglang" compiler/wasm/build.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: xtmd-wasm
           path: compiler/npm/wasm/xtmd.wasm
@@ -156,14 +156,14 @@ jobs:
       # trusted publishing: npm, crates.io, the VS Code Marketplace and Open VSX take the run's OIDC token in place of a secret
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
       - name: Rust
         run: rustup toolchain install stable --profile minimal && rustup default stable
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
       - name: Each binary in its platform package, xtmd.wasm in @extended-mark/wasm

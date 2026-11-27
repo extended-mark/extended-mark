@@ -1,0 +1,19 @@
+{
+  "id": "types.a-rich-text-is-not-text",
+  "about": "a rich_text goes in no text and compares with nothing",
+  "source": "a-rich-text-is-not-text.xtmd",
+  "expect": {
+    "diagnostics": [
+      {
+        "code": "types.view-in-text",
+        "line": 3,
+        "column": 18
+      },
+      {
+        "code": "types.not-comparable",
+        "line": 5,
+        "column": 15
+      }
+    ]
+  }
+}

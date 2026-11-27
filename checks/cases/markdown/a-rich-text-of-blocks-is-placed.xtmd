@@ -1,0 +1,3 @@
+let note: rich_text = "**42** deploys\n\n- fast\n- safe";
+@@@
+\{note}

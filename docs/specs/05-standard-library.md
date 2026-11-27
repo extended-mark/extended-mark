@@ -10,7 +10,7 @@ Only the syntax is built in: literals, operators, holes, prose and `@`. A number
 | Interfaces in core | **6** (shown, same, ordered, numeric, scaled, literal&lt;T>) |
 | Native fns in core | **61** |
 | core fns written in Extended Mark | **30** |
-| Base widgets | **43** (23 extern, 7 more in core.gfx, 13 written in Extended Mark) |
+| Base widgets | **52** (33 extern, 7 more in core.gfx, 12 written in Extended Mark) |
 
 ### Built in
 
@@ -108,56 +108,56 @@ extern fn duration.sub(self, other: duration): duration;
 extern fn duration.scale(self, k: number): duration;
 extern fn text.show(self): text;
 extern fn text.same(self, other: text): bool;
-extern fn text.before(self, other: text): bool;          // by character number, not by language
+extern fn text.before(self, other: text): bool; // by character number, not by language
 extern fn bool.show(self): text;
 extern fn bool.same(self, other: bool): bool;
-extern fn bool.before(self, other: bool): bool;          // false before true
+extern fn bool.before(self, other: bool): bool; // false before true
 
 // range<T>, for numbers, durations, dates and a pack's ordered types: a..b, a..., ...b, with an optional step
 extern fn range<T>.low(self): opt<T>;
 extern fn range<T>.high(self): opt<T>;
 extern fn range<T>.stride(self): opt<T>;
-extern fn range<T>.has(self, x: T): bool;                // written x in r
+extern fn range<T>.has(self, x: T): bool; // written x in r
 
 // duration: written 250ms or 2s
 extern fn duration.ms(self): number;
 
 // number: exact base-10, 34 significant digits. A result too large for that, such as (1000).exp(), is a failure
-extern fn number.round(self): int;                       // halves go away from zero
+extern fn number.round(self): int; // halves go away from zero
 extern fn number.floor(self): int;
 extern fn number.ceil(self): int;
 extern fn number.abs(self): number;
 extern fn number.fmt(self, places: int 0..10): text;
-extern fn number.sign(self): number;                     // -1, 0 or 1
-extern fn number.sqrt(self): opt<number>;                // opt.NONE below 0
-extern fn number.pow(self, p: number): opt<number>;      // opt.NONE for 0 to a negative power,
-                                                         // or a negative number to a power that isn't whole
+extern fn number.sign(self): number; // -1, 0 or 1
+extern fn number.sqrt(self): opt<number>; // opt.NONE below 0
+// opt.NONE for 0 to a negative power, or a negative number to a power that isn't whole
+extern fn number.pow(self, p: number): opt<number>;
 extern fn number.exp(self): number;
-extern fn number.ln(self): opt<number>;                  // opt.NONE at 0 or below
-extern fn number.sin(self): number;                      // angles in radians
+extern fn number.ln(self): opt<number>; // opt.NONE at 0 or below
+extern fn number.sin(self): number; // angles in radians
 extern fn number.cos(self): number;
 extern fn number.tan(self): number;
-extern fn number.asin(self): opt<number>;                // opt.NONE outside -1..1
-extern fn number.acos(self): opt<number>;                // opt.NONE outside -1..1
+extern fn number.asin(self): opt<number>; // opt.NONE outside -1..1
+extern fn number.acos(self): opt<number>; // opt.NONE outside -1..1
 extern fn number.atan(self): number;
-extern fn number.atan2(self, x: number): number;         // y.atan2(x): the angle of the point (x, y)
+extern fn number.atan2(self, x: number): number; // y.atan2(x): the angle of the point (x, y)
 extern fn number.sinh(self): number;
 extern fn number.cosh(self): number;
 extern fn number.tanh(self): number;
 
 // list<T>: xs[i] is another way to write xs.at(i)
 extern fn list<T>.len(self): int 0...;
-extern fn list<T>.at(self, pos: number): opt<T>;         // opt.NONE unless pos is a whole number in the list
+extern fn list<T>.at(self, pos: number): opt<T>; // opt.NONE unless pos is a whole number in the list
 extern fn list<T>.add(mut self, item: T);
-extern fn list<T>.insert(mut self, pos: int 0..., item: T);     // past the end, it is added last
-extern fn list<T>.remove_at(mut self, pos: int 0...);           // outside the list is a failure
+extern fn list<T>.insert(mut self, pos: int 0..., item: T); // past the end, it is added last
+extern fn list<T>.remove_at(mut self, pos: int 0...); // outside the list is a failure
 extern fn list<T>.move(mut self, pos: int 0..., to: int 0...);
-extern fn list<T: same>.remove(mut self, item: T);       // every item equal to it
+extern fn list<T: same>.remove(mut self, item: T); // every item equal to it
 extern fn list<T: ordered>.sort(mut self);
 
 // text
 extern fn text.len(self): int 0...;
-extern fn text.slice(self, start: int 0..., count: int 0...): text;     // stops at the end
+extern fn text.slice(self, start: int 0..., count: int 0...): text; // stops at the end
 extern fn text.chars(self): list<text[1]>;
 extern fn text.lower(self): text;
 extern fn text.upper(self): text;
@@ -257,7 +257,7 @@ record moment implements literal<text>, same, ordered, shown {
     day: date;
     hour: int 0..23;
     minute: int 0..59;
-    east: bool;                                 // + in the text: the offset is east of UTC
+    east: bool; // + in the text: the offset is east of UTC
     offset_hour: int 0..14;
     offset_minute: int 0..59;
 
@@ -363,7 +363,7 @@ fn day_number(count: int): date {
 fn moment_at(utc: int, source: moment): moment {
     let local: int = utc + source.offset();
     let days: int = (local / 1440).floor();
-    let minutes: int = local - days * 1440;     // 0 to 1439, so clamp only proves the hour and the minute
+    let minutes: int = local - days * 1440; // 0 to 1439, so clamp only proves the hour and the minute
     return moment {
         day = day_number(days),
         hour = (minutes / 60).floor().clamp(0, 23),
@@ -376,14 +376,14 @@ fn moment_at(utc: int, source: moment): moment {
 
 //@about A literal with holes: the text between them, and their values. A hole is never part of a piece.
 record template {
-    pieces: list<text>[1...];                   // one more piece than holes
+    pieces: list<text>[1...]; // one more piece than holes
     holes: list<hole>;
 }
 
 //@about One hole of a template, which from places as a value and never reads.
 enum hole {
-    TEXT(value: text),                          // a value that fits shown, already shown
-    VIEW(child: view),                          // \{@icon(…)} in a sentence
+    TEXT(value: text), // a value that fits shown, already shown
+    VIEW(child: view), // \{@icon(…)} in a sentence
 }
 
 //@about A template from a plain text, with no holes.
@@ -402,7 +402,7 @@ fn hole.words(self): text {
     }
 }
 
-//@about Maths, written in TeX. Core checks how it is written; the target may also refuse what it can't draw.
+//@about Maths, written in TeX. Core checks how it is written; a renderer may also refuse what it can't draw.
 //@about Its holes stay values: each counts as one token in the checks, and show escapes it for TeX.
 record latex implements literal<template>, shown {
     tex: template;
@@ -435,7 +435,7 @@ record latex implements literal<template>, shown {
         return tex_values(tex);
     }
 
-    require "the target can draw this TeX" {
+    require "the renderer can draw this TeX" {
         return can_draw_tex(tex);
     }
 }
@@ -444,7 +444,7 @@ fn latex.from(value: template): opt<latex> {
     return try latex { tex = value };
 }
 
-//@about The TeX, with each hole's characters escaped so that TeX reads them as themselves. A target draws this.
+//@about The TeX, with each hole's characters escaped so that TeX reads them as themselves. A renderer draws this.
 fn latex.show(self): text {
     mut out: text = "";
     for (k, piece in self.tex.pieces) {
@@ -456,96 +456,14 @@ fn latex.show(self): text {
     return out;
 }
 
-//@about Whether the target can draw this TeX, for example whether it knows every command in it. A target may supply its own; without one, all TeX that core accepts is drawn.
+//@about Whether the renderer can draw this TeX, for example whether it knows every command in it. A renderer may supply its own; without one, all TeX that core accepts is drawn.
 extern fn can_draw_tex(tex: template): bool {
     return true;
 }
 
-//@about Markdown blocks, parsed by core when the value is made. @blocks draws them.
-record md implements literal<template> {
-    blocks: list<block>;
-}
-
-//@about One Markdown block, as md holds it. Each case is drawn by the extern block of its kind.
-enum block {
-    PARAGRAPH(value: rich_text),
-    HEADING(level: int 1..6, value: rich_text),
-    BULLETS(ordered: bool, start: int 0..., items: list<list_item>[1...]),
-    QUOTE(body: list<block>),
-    CODE(src: text, lang: text),
-    MATH(tex: latex),
-    TABLE(head: list<rich_text>[1...], rows: list<list<rich_text>>, align: list<cell_align>),
-    FOOTNOTE(mark: text, body: list<block>),
-    DIVIDER,
-}
-
-//@about One item of a list in md. done is a task box: ticked, not ticked, or none for an ordinary item.
-record list_item {
-    done: opt<bool> = opt.NONE;
-    body: list<block>;
-}
-
-//@about Inline Markdown as segments, parsed by core's rich_text.from: from prose, or from a text literal where rich_text is wanted.
-record rich_text implements literal<template>, shown {
-    segments: list<segment>;
-}
-
-//@about A part of a sentence and how it is marked.
-record segment {
-    part: part;
-    marks: marks = marks { };
-}
-
-//@about What a segment holds. A hole's value is TEXT, or VIEW for a widget, so a value never becomes formatting.
-enum part {
-    TEXT(value: text),
-    CODE(value: text),                          // a code span
-    MATH(tex: latex),                           // $x^2$
-    IMAGE(src: text, alt: text),                // ![alt](src)
-    NOTE(mark: text),                           // [^1], the mark of a footnote
-    BREAK,                                      // a hard line break
-    VIEW(child: view),                          // \{@icon(…)} in a sentence
-}
-
-//@about How a segment is marked. A link is a mark, so bold words inside a link are one segment.
-record marks {
-    bold: bool = false;
-    italic: bool = false;
-    strike: bool = false;
-    link: opt<text> = opt.NONE;
-}
-
-//@about Text from a value, as one plain segment: nothing in it is read as Markdown.
+//@about Text from a value, as one plain sentence: nothing in it is read as Markdown.
 fn rich_text.plain(value: text): rich_text {
-    return rich_text { segments = [segment { part = part.TEXT(value) }] };
-}
-
-//@about The words, without their marks.
-fn rich_text.show(self): text {
-    return self.segments.map(fn(s) { return s.part.words(); }).join("");
-}
-
-fn part.words(self): text {
-    match (self) {
-        case part.TEXT(v) {
-            return v;
-        }
-        case part.CODE(v) {
-            return v;
-        }
-        case part.MATH(m) {
-            return m.show();
-        }
-        case part.IMAGE(src, alt) {
-            return alt;
-        }
-        case part.BREAK {
-            return " ";
-        }
-        case else {
-            return "";
-        }
-    }
+    return "\{value}";
 }
 
 // TeX as tokens: a command (\frac, \{, \\), one character, or a hole, which is the one token "hole".
@@ -554,7 +472,7 @@ fn tex_tokens(tex: template): list<text> {
     mut out: list<text> = [];
     for (k, piece in tex.pieces) {
         if (k > 0) {
-            out.add("hole");                    // TeX's own tokens are one character or a command, never this
+            out.add("hole"); // TeX's own tokens are one character or a command, never this
         }
         for (x in tex_piece(piece)) {
             out.add(x);
@@ -567,13 +485,13 @@ fn tex_tokens(tex: template): list<text> {
 fn tex_piece(tex: text): list<text> {
     let letters: text = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     mut out: list<text> = [];
-    mut cmd: text = "";                         // a command being read, from its backslash
+    mut cmd: text = ""; // a command being read, from its backslash
     for (c in tex.chars()) {
         if (cmd == "\\") {
             if (letters.has(c)) {
                 cmd = "\\\{c}";
             } else {
-                out.add("\\\{c}");              // \{, \\ and the like are whole commands
+                out.add("\\\{c}"); // \{, \\ and the like are whole commands
                 cmd = "";
             }
         } else if (cmd != "" && letters.has(c)) {
@@ -591,7 +509,7 @@ fn tex_piece(tex: text): list<text> {
         }
     }
     if (cmd != "") {
-        out.add(cmd);                           // a backslash at the very end stays a lone \
+        out.add(cmd); // a backslash at the very end stays a lone \
     }
     return out;
 }
@@ -616,7 +534,7 @@ fn tex_pairs(t: list<text>, open: text, close: text): bool {
 
 // \begin{name} and \end{name} pair up by name, innermost first. Private to core
 fn tex_environments(t: list<text>): bool {
-    mut open: list<text> = [];                  // names begun; the first depth of them are still open
+    mut open: list<text> = []; // names begun; the first depth of them are still open
     mut depth: int = 0;
     mut ok: bool = true;
     for (k, x in t) {
@@ -772,23 +690,21 @@ fn ordered.max(self, other: self): self {
 }
 ```
 
-`map`, `date`, `moment`, `template`, `latex`, `md` and `rich_text` are ordinary records written in Extended Mark, not extern: nothing about them needs the implementer.
+`map`, `date`, `moment`, `template` and `latex` are ordinary records written in Extended Mark, not extern: nothing about them needs the implementer.
 
 - **Dates and moments** fit `literal<text>`, like `email` on page 4, so `"2026-11-10"` is checked where it is written. Their fields mirror the text, so each simple limit is a field contract, proved like any other, and only a rule across fields, that the day fits its month, is a `require`. `from` only cuts the text and checks its separators, and a reader's text goes through it by name: `date.from(entry)` is an `opt<date>`. A date literal with a hole is a compile error that says to build the record: `date { year = 2026, month = month, day = 1 }`. `plus` stops at the ends of the calendar, 0001-01-01 and 9999-12-31.
-- **Offsets, not zones.** `moment` always carries its offset; named zones and daylight saving are left out, and authors write offsets. The current time is `page.now`, which the app updates, because drawing can't ask what time it is. `local()` is an extern fn: it shows a moment in the reader's own zone, with the offset that zone uses on that date, from the platform's zone rules. Two moments are equal when they are the same instant, because `moment`'s own `same` replaces the field-by-field one.
-- **Holes stay values.** `rich_text`, `md` and `latex` fit `literal<template>`: a literal, holes and all, reaches their `from` as a `template`, and each hole is placed as a value, never read, so it can't become formatting or TeX.
-- **Markdown is parsed by core**, in Extended Mark, as any pack could: CommonMark, with GitHub's tables, task lists, strikethrough, footnotes and bare links. No implementer parses it. The parser is long and follows those two specs, so this page gives its two entry points as signatures, below. `md.from` may also be called by name: `md.from(template.of(entry))` reads what a reader typed as Markdown, and `@blocks(value = …)` draws it.
-- **TeX** is checked by `latex`'s seven `require` blocks, written in Extended Mark, each counting a hole as one token. An eighth asks `can_draw_tex`, an extern fn whose body is the default and which a target may replace with its own, such as one that refuses a command it can't draw. `show` gives the whole TeX with each hole's characters escaped, which is what a target draws.
+- **Offsets, not zones.** `moment` always carries its offset; named zones and daylight saving are left out, and authors write offsets. The current time is `page.now`, which the host updates, because drawing can't ask what time it is. `local()` is an extern fn: it shows a moment in the reader's own zone, with the offset that zone uses on that date, from the platform's zone rules. Two moments are equal when they are the same instant, because `moment`'s own `same` replaces the field-by-field one.
+- **Holes stay values.** `latex` fits `literal<template>`: a literal, holes and all, reaches its `from` as a `template`, and each hole is placed as a value, never read, so it can't become TeX. A hole of a `rich_text` is placed the same way, as words or a view.
+- **`rich_text` is calls.** It is built in, and a view: a list of calls, a sentence's or blocks', made by a literal or by `rich_text.from`. A literal is read when the page is compiled, so the page holds its calls. It is placed like any view, given to an input or a slot of type `rich_text`, returned, kept in a record or a `let`. It has no fields, can't be compared, measured or put in a `text`, and can't be kept in `$state` or a widget's own variable, which hold data: keep the text, and make the calls where they are placed.
+- **A sentence or blocks.** One paragraph is a sentence, and anything else is blocks. Placed on its own, a sentence is a paragraph. Where only a sentence fits, in a paragraph, a heading, a table's cell, `bold` and its like, or among the words around a hole, blocks are an error when they are written there, and otherwise a failure of that widget.
+- **Markdown is parsed by core**, in Extended Mark, as any pack could: CommonMark, with GitHub's tables, task lists, strikethrough, footnotes and bare links. No implementer parses it. The parser is long and follows those two specs, so this page gives its entry point as a signature, below. `rich_text.from(template.of(entry))` reads what a reader typed as Markdown, and `rich_text.plain(entry)` keeps it as words.
+- **TeX** is checked by `latex`'s seven `require` blocks, written in Extended Mark, each counting a hole as one token. An eighth asks `can_draw_tex`, an extern fn whose body is the default and which a renderer may replace with its own, such as one that refuses a command it can't draw. `show` gives the whole TeX with each hole's characters escaped, which is what a renderer draws.
 
 ```java
-// inline Markdown as segments: CommonMark's emphasis, GitHub's strikethrough, links and bare links, code spans,
-// maths, pictures, footnote marks, hard breaks and escapes. Each hole is a segment of its own, with its marks.
+// Markdown as calls: CommonMark, with GitHub's tables, task lists, strikethrough, footnotes and bare links, maths,
+// and each block's sentences. A hole is placed, never read, so it never starts or ends a block.
 // opt.NONE when the TeX of a maths span fails latex's checks
 fn rich_text.from(value: template): opt<rich_text>;
-
-// Markdown blocks: CommonMark, with GitHub's tables, task lists and footnotes, and each block's inline Markdown
-// through rich_text.from. A hole is never read, so it never starts or ends a block
-fn md.from(value: template): opt<md>;
 ```
 
 #### range
@@ -807,7 +723,7 @@ fn range.negate<T: scaled>(r: range<T>): range<T> {
     if (let high: T = r.high()) {
         return (-high)...;
     }
-    return r;                                   // never reached: a range always has a bound
+    return r; // never reached: a range always has a bound
 }
 
 //@about Each bound moved by the same amount: 1..10 by 5 gives 6..15.
@@ -821,7 +737,7 @@ fn range.shift<T: numeric>(r: range<T>, by: T): range<T> {
     if (let high: T = r.high()) {
         return ...(high + by);
     }
-    return r;                                   // never reached: a range always has a bound
+    return r; // never reached: a range always has a bound
 }
 
 //@about Each bound multiplied: 1..10 by 2 gives 2..20, and a negative k flips the range.
@@ -838,7 +754,7 @@ fn range.scale<T: scaled>(r: range<T>, k: number): range<T> {
     if (let high: T = r.high()) {
         return ...(high * k);
     }
-    return r;                                   // never reached: a range always has a bound
+    return r; // never reached: a range always has a bound
 }
 
 //@about Each bound moved out by an amount: 1..10 by 1 gives 0..11.
@@ -852,7 +768,7 @@ fn range.widen<T: numeric>(r: range<T>, by: T): range<T> {
     if (let high: T = r.high()) {
         return ...(high + by);
     }
-    return r;                                   // never reached: a range always has a bound
+    return r; // never reached: a range always has a bound
 }
 
 //@about Where two ranges meet: 1..10 and 5..20 give 5..10, and ranges that don't meet give opt.NONE.
@@ -871,7 +787,7 @@ fn range.overlap<T: ordered>(a: range<T>, b: range<T>): opt<range<T>> {
     if (let h: T = high) {
         return ...h;
     }
-    return opt.NONE;                            // never reached: a range always has a bound
+    return opt.NONE; // never reached: a range always has a bound
 }
 
 //@about The smallest range that holds both: 1..3 and 7..9 give 1..9. A side open in either is open in it.
@@ -897,7 +813,7 @@ fn range.span<T: ordered>(a: range<T>, b: range<T>): range<T> {
     if (let h: T = high) {
         return ...h;
     }
-    return a;                                   // 1... and ...3 hold every value together, which no range does
+    return a; // 1... and ...3 hold every value together, which no range does
 }
 
 // the later of two bounds, where a missing one is open. Private to core
@@ -1250,16 +1166,19 @@ These are ordinary enums, so `match` on any of them has to cover every case. Tok
 ```java
 package core;
 
-//@about What the app tells Extended Mark about the page being read.
+//@about What the host tells Extended Mark about the page being read.
 extern page {
     width: width = width.WIDE;
     theme: theme = theme.LIGHT;
     today: date = "1970-01-01";
-    now: moment = "1970-01-01T00:00+00:00";      // the app's clock
+    now: moment = "1970-01-01T00:00+00:00"; // the host's clock
+
+    // what the page itself is drawn with: its background, its words, what has the focus and a widget that failed
+    tokens color.SURFACE, color.INK, color.ACCENT, color.BAD, font.BODY, radius.CARD;
 }
 ```
 
-`page` is an `extern` block like the ones on page 6. The defaults are what a target that supplies nothing gets.
+`page` is an `extern` block like the ones on page 6. The defaults are what a page gets when nothing supplies them.
 
 #### migrations
 
@@ -1283,12 +1202,13 @@ The statements a migration is written with (page 6), and the fns it decides with
 
 #### widgets
 
-Twenty-three widgets are extern: ten are Markdown's own blocks, so every implementer draws Markdown natively, and thirteen are what Extended Mark can't express in terms of the others. Seven more belong to the optional `core.gfx` level. The other thirteen are written in Extended Mark below, from the extern ones, so an implementer draws only the twenty-three, and the seven for `core.gfx`.
+Thirty-three widgets are extern: ten are Markdown's own blocks and ten are what its sentences are made of, so every implementer draws Markdown natively, and thirteen are what Extended Mark can't express in terms of the others. Seven more belong to the optional `core.gfx` level. The other twelve are written in Extended Mark below, from the extern ones, so an implementer draws only the thirty-three, and the seven for `core.gfx`.
 
 | Extern | Widgets | What Extended Mark can't do itself |
 |---|---|---|
 | Layout | `flex`, `grid`, `cell`, `sizing`, `plane`, `spot` | Lay children along one axis with wrapping; line columns up across rows; place a child in a grid; say how big a child is; place any widget anywhere on a plane the reader can pan and zoom, and say where it landed |
-| Markdown blocks | `paragraph`, `heading`, `bullets`, `item`, `quote`, `code`, `math`, `table`, `footnote`, `divider` | Markdown's own blocks, drawn natively, with inline Markdown already parsed into `rich_text` |
+| Markdown blocks | `paragraph`, `heading`, `bullets`, `item`, `quote`, `code`, `math`, `table`, `footnote`, `divider` | Markdown's own blocks, drawn natively, with inline Markdown already parsed |
+| Sentences | `words`, `bold`, `italic`, `strike`, `link`, `code_span`, `inline_math`, `inline_image`, `note_mark`, `line_break` | What a sentence is made of, drawn natively |
 | Drawing | `label`, `image`, `icon` | Draw plain text, a picture, and a glyph from the implementer's set |
 | Input | `press`, `field`, `slider` | Being clicked, typed into and dragged |
 | Above the page | `overlay` | Content outside the layout: popovers, tooltips, dialogs and menus |
@@ -1378,25 +1298,37 @@ extern widget sizing(
 //@about Widgets placed anywhere on a plane with coordinates of its own: x from left to right, y from bottom to top.
 //@about It draws the part of the plane around center, as big as the widget is on the page.
 extern widget plane(
-    label: text,                                    // what it shows, for screen readers and Markdown
-    bounds: opt<region> = opt.NONE,                 // the whole plane; left out, the region around every spot's box
-    mut center: point = point { x = 0, y = 0 },     // the middle of what is drawn, kept inside bounds; the caller may keep it
-    mut zoom: number 0.1..10 = 1,                   // at 1, one unit is one of the page's own lengths; the caller may keep it
-    zoom_range: range<number> = 1..1,               // how far the reader may zoom; 1..1 means not at all
-    fit: bool = false,                              // start zoomed so the whole of bounds fits; zoom_range counts from there
-    mut drawn: opt<region> = opt.NONE,              // written by the target: the part of the plane being drawn
-    width: opt<size> = opt.NONE,                    // left out, the width it is given, like a column
-    aspect: number 0.1..10 = 1.5,                   // the drawn area's width over its height
+    label: text, // what it shows, for screen readers and Markdown
+    bounds: opt<region> = opt.NONE, // the whole plane; left out, the region around every spot's box
+    mut center: point = point { x = 0, y = 0 }, // the middle of what is drawn, kept inside bounds; the caller may keep it
+    mut zoom: number 0.1..10 = 1, // at 1, one unit is one of the page's own lengths; the caller may keep it
+    zoom_range: range<number> = 1..1, // how far the reader may zoom; 1..1 means not at all
+    fit: bool = false, // start zoomed so the whole of bounds fits; zoom_range counts from there
+    mut drawn: opt<region> = opt.NONE, // written by the renderer: the part of the plane being drawn
+    width: opt<size> = opt.NONE, // left out, the width it is given, like a column
+    aspect: number 0.1..10 = 1.5, // the drawn area's width over its height
 ) {
-    slot background: list<layer>;                   // core.gfx: drawn under the spots, in the plane's units
-    slot items: list<spot>;
-    event click(at: point);                         // a click on empty space, in the plane's units
+    slot background: opt<list<layer>>; // drawn under the spots, in the plane's units
+    slot items: opt<list<spot>>;
+    event click(at: point); // a click on empty space, in the plane's units
+    tokens color.LINE, color.SURFACE, radius.CARD;
+
+    warn "a spot is outside the plane's bounds: it is clipped, and the reader can't pan to it" {
+        if (let b: region = bounds) {
+            if (let spots: list<spot> = items) {
+                return spots.all(fn(s) { return b.overlaps(region { from = s.at, to = s.at }); });
+            }
+        }
+        return true;
+    }
 
     markdown {
         \{label}
 
-        @for (p in items) {
-            \{p}
+        @if (let spots: list<spot> = items) {
+            @for (p in spots) {
+                \{p}
+            }
         }
     }
 }
@@ -1406,8 +1338,8 @@ extern widget plane(
 extern widget spot(
     at: point,
     anchor: anchor = anchor.CENTER,
-    nudge: point = point { x = 0, y = 0 },          // by the page's own lengths, y up
-    mut box: opt<region> = opt.NONE,                // written by the target: from the bottom-left corner to the top-right one
+    nudge: point = point { x = 0, y = 0 }, // by the page's own lengths, y up
+    mut box: opt<region> = opt.NONE, // written by the renderer: from the bottom-left corner to the top-right one
 ) {
     slot child: view;
 
@@ -1418,7 +1350,7 @@ extern widget spot(
 ```
 
 - **The plane's unit.** At zoom 1, one unit of a plane is one of the page's own lengths (a CSS pixel, an Android dp), so a widget on a plane is the size it is anywhere else, and its box never depends on the plane's size. `fit` starts the plane zoomed so the whole of `bounds` fits.
-- **Bounds.** A region; left out, the region around every spot's box, worked out after layout. Nothing outside it is drawn, and the reader can't pan past it. A spot outside the bounds is a warning: at compile time when both are constants, and otherwise reported to the app when the page runs, not as a failure, and clipped.
+- **Bounds.** A region; left out, the region around every spot's box, worked out after layout. Nothing outside it is drawn, and the reader can't pan past it. A spot outside the bounds is a warning, which the plane's `warn` gives, and is clipped.
 - **The centre** is kept where the drawn area stays inside the bounds, and is their middle where they are smaller than it. A centre that had to be moved is written back to the caller's variable.
 - **Moving around** needs `core.live`: dragging pans, and pinching or scrolling zooms, within `zoom_range`, whose default `1..1` doesn't zoom. Without `core.live`, the plane is drawn where its centre puts it and doesn't move.
 - **What is reported.** Each spot's `box`, in the plane's units, so panning and zooming never change it: it changes only when the widget's own size does. And the plane's `drawn` region, written as the reader moves, as `center` is. What is in view is worked out in Extended Mark: `box.overlaps(drawn)`. The boxes of one layout are written as one change, and writing the value a variable already has is no change. A layout that keeps changing is stopped after a fixed number of passes, and is a failure of the plane.
@@ -1430,52 +1362,173 @@ extern widget spot(
 ```java
 package core;
 
-//@about A paragraph of inline Markdown, parsed by core.
-extern widget paragraph(value: rich_text, tone: opt<color> = opt.NONE, align: align = align.START);
+//@about A paragraph: a sentence on its own.
+extern widget paragraph(value: rich_text, tone: opt<color> = opt.NONE, align: align = align.START) {
+    markdown #paragraph;
+}
 
 //@about A heading, level 1 to 6.
-extern widget heading(level: int 1..6, value: rich_text);
+extern widget heading(level: int 1..6, value: rich_text) {
+    tokens font.HEADING, color.MUTED;
+
+    markdown #heading;
+}
 
 //@about A list: bulleted, or numbered from start.
 extern widget bullets(ordered: bool = false, start: int 0... = 1) {
     slot items: list<item>[1...];
+
+    markdown #bullets;
 }
 
 //@about One item of a list. done is a task box: ticked, not ticked, or none for an ordinary item.
 extern widget item(done: opt<bool> = opt.NONE) {
     slot body: view;
+    tokens color.ACCENT;
+
+    markdown #item;
 }
 
 //@about A quotation.
 extern widget quote() {
     slot body: view;
+    tokens color.LINE, color.MUTED;
+
+    markdown #quote;
 }
 
 //@about A block of literal text, such as code, in the mono font.
-extern widget code(src: text, lang: text = "");
+extern widget code(src: text, lang: text = "") {
+    tokens font.MONO, color.LINE, color.SURFACE, radius.CARD;
+
+    markdown #code;
+}
 
 //@about Maths on a line of its own, drawn from TeX.
-extern widget math(tex: latex);
+extern widget math(tex: latex) {
+    tokens font.MONO;
+
+    markdown #math;
+}
 
 //@about A table: a header row, rows of cells, and how each column is aligned.
-extern widget table(head: list<rich_text>[1...], rows: list<list<rich_text>>, align: list<cell_align> = []);
+extern widget table(head: list<rich_text>[1...], rows: list<list<rich_text>>, align: list<cell_align> = []) {
+    tokens color.LINE;
+
+    markdown #table;
+}
 
 //@about A note at the foot of the page, with its mark.
 extern widget footnote(mark: text) {
     slot body: view;
+    tokens color.MUTED;
+
+    markdown #footnote;
 }
 
 //@about A line across the page.
-extern widget divider();
+extern widget divider() {
+    tokens color.LINE;
+
+    markdown #divider;
+}
 
 //@about How a table column is aligned. A column the list doesn't reach starts.
 enum cell_align { START, CENTER, END }
+
+//@about Words of a sentence, as they are.
+extern widget words(value: text) {
+    markdown #text;
+}
+
+//@about Words in bold: **so**.
+extern widget bold() {
+    slot body: rich_text;
+
+    markdown #bold;
+}
+
+//@about Words in italics: *so*.
+extern widget italic() {
+    slot body: rich_text;
+
+    markdown #italic;
+}
+
+//@about Words struck through: ~~so~~.
+extern widget strike() {
+    slot body: rich_text;
+
+    markdown #strike;
+}
+
+//@about Words that lead somewhere: [so](to).
+extern widget link(to: text) {
+    slot body: rich_text;
+    tokens color.ACCENT;
+
+    markdown #link;
+}
+
+//@about Literal text in a sentence, in the mono font: `so`.
+extern widget code_span(src: text) {
+    tokens font.MONO, color.LINE;
+
+    markdown #code_span;
+}
+
+//@about Maths in a sentence: $x^2$.
+extern widget inline_math(tex: latex) {
+    tokens font.MONO;
+
+    markdown #inline_math;
+}
+
+//@about A picture in a sentence.
+extern widget inline_image(src: text, alt: text) {
+    markdown #inline_image;
+}
+
+//@about The mark of a footnote, in the sentence the note is about: [^1].
+extern widget note_mark(mark: text) {
+    tokens color.ACCENT;
+
+    markdown #note_mark;
+}
+
+//@about A line break in a sentence.
+extern widget line_break() {
+    markdown #line_break;
+}
 ```
 
 - **Markdown's own blocks are extern.** Every implementer draws them natively, which is what makes Extended Mark a superset of Markdown: a document is Markdown first, and Extended Mark lowers onto the same blocks. They have no `markdown` block, because they are Markdown blocks themselves. Every implementer, a Markdown-only one included, writes each out as the block it stands for, with the spellings page 1 gives.
-- **Inline Markdown arrives parsed.** A paragraph, a heading and a table cell take `rich_text`: segments of text, code spans, maths, pictures, footnote marks and line breaks, each with its marks. Core parses it, in Extended Mark, with `rich_text.from`, so an implementer draws the segments and never parses Markdown. A hole's value is a `TEXT` segment, so it can never turn into formatting.
-- **From code**, a text literal where `rich_text` is wanted goes to `rich_text.from` as a template, holes included: `@paragraph(value = "Read **this**, \{name}.");`. A value from a variable goes through `rich_text.plain(entry)`, which keeps it as plain text, or through `rich_text.from(template.of(entry))`, which reads it as Markdown and gives an `opt`.
-- **Blocks from code** are an `md` value, drawn with `@blocks(value = note);` (below). Each block is drawn by the extern block of its kind.
+- **Pieces of Markdown.** `markdown #quote;` says that an extern is one of Markdown's own pieces, and its Markdown is then that piece's. Core's blocks are written so, and so may any pack's extern be: a pack's own way to draw a quotation is an extern with `markdown #quote;`. A piece is made of inputs and slots by their names and types, and the compiler checks that the extern has them.
+
+| Piece | Made of |
+|---|---|
+| `#paragraph` | `value: rich_text` |
+| `#heading` | `level: int`, `value: rich_text` |
+| `#bullets` | the slot `items`, and `ordered: bool` and `start: int`, which may be left out |
+| `#item` | the slot `body`, and `done: opt<bool>`, which may be left out |
+| `#quote` | the slot `body` |
+| `#code` | `src: text`, and `lang: text`, which may be left out |
+| `#math` | `tex: latex` |
+| `#table` | `head: list<rich_text>`, `rows: list<list<rich_text>>`, and `align: list<cell_align>`, which may be left out |
+| `#footnote` | `mark: text`, the slot `body` |
+| `#divider` | nothing |
+| `#text` | `value: text` |
+| `#bold`, `#italic`, `#strike` | the slot `body` |
+| `#link` | `to: text`, the slot `body` |
+| `#code_span` | `src: text` |
+| `#inline_math` | `tex: latex` |
+| `#inline_image` | `src: text`, `alt: text` |
+| `#note_mark` | `mark: text` |
+| `#line_break` | nothing |
+
+- **A sentence arrives as calls.** A paragraph, a heading and a table's cell take a `rich_text`, whose calls the renderer draws among the words: `words`, the marks around them, and any other widget. Core parses Markdown, in Extended Mark, so a runtime or a renderer never does. A hole's value is words, so it can never turn into formatting.
+- **From code**, a text literal where a `rich_text` is wanted is Markdown, holes included: `@paragraph(value = "Read **this**, \{name}.");`. A value from a variable goes through `rich_text.plain(entry)`, which keeps it as words, or through `rich_text.from(template.of(entry))`, which reads it as Markdown and gives an `opt`. A link to an address code works out is a call: `@link(to = address) { @title; }`.
+- **In a sentence** go words, marks and any widget: `Press \{@press(label = "Add one", …)} to start`. `bold`, `italic`, `strike` and `link` hold a `rich_text`, so in a block they take a sentence's calls: `@bold { @title; }`.
 
 #### widgets: extern drawing, input and overlay
 
@@ -1492,8 +1545,10 @@ extern widget label(
     align: align = align.START,
     wrap: bool = true,
     clip: bool = false,
-    halo: bool = false,                         // an outline in the surface colour, so it reads over lines
+    halo: bool = false, // an outline in the surface colour, so it reads over lines
 ) {
+    tokens color.SURFACE;
+
     markdown {
         \{value}
     }
@@ -1528,6 +1583,7 @@ extern widget press(
 ) {
     slot content: opt<view>;
     event click();
+    tokens color.INK, color.SURFACE, color.LINE, color.ACCENT, color.MUTED, radius.CARD, radius.PILL;
 
     markdown {
         \{label}
@@ -1542,6 +1598,7 @@ extern widget field(
     lines: int 1..20 = 1,
 ) {
     event submit();
+    tokens color.INK, color.SURFACE, color.LINE, color.ACCENT, color.MUTED, radius.CARD;
 
     markdown {
         \{label}: \{value}
@@ -1550,6 +1607,8 @@ extern widget field(
 
 //@about A number picked by dragging. Its ends come from range when it is given, and otherwise, with its step, from the variable it is given.
 extern widget slider(mut value: number, label: text, range: opt<range<number>> = opt.NONE, disabled: bool = false) {
+    tokens color.ACCENT, color.LINE, color.MUTED;
+
     markdown {
         \{label}: \{value}
     }
@@ -1560,6 +1619,7 @@ extern widget overlay(label: text, mode: overlay_mode = overlay_mode.POPOVER, mu
     slot anchor: view;
     slot body: view;
     event open_changed();
+    tokens color.INK, color.SURFACE, color.LINE, radius.CARD, shadow.RAISED;
 
     markdown {
         \{anchor}
@@ -1569,9 +1629,9 @@ extern widget overlay(label: text, mode: overlay_mode = overlay_mode.POPOVER, mu
 }
 ```
 
-**Shared values at the edge.** A `mut` input of an `extern` widget, such as `slider`'s `value`, accepts a variable with any contract of the declared type. The implementer may read that contract, which is where a slider gets its step, and its ends when no `range` is given, and the runtime refuses any value the widget writes that is outside it. Given a `range`, the slider's ends come from it and a drag outside it is refused, so its ends can follow another value: `range = 0..($state.high)`. A variable with no range and no `range` gives a slider from 0 to 1. This is the one case where a wider contract is accepted, and it is allowed because the app boundary is checked at run time anyway.
+**Shared values at the edge.** A `mut` input of an `extern` widget, such as `slider`'s `value`, accepts a variable with any contract of the declared type. The implementer may read that contract, which is where a slider gets its step, and its ends when no `range` is given, and the runtime refuses any value the widget writes that is outside it. Given a `range`, the slider's ends come from it and a drag outside it is refused, so its ends can follow another value: `range = 0..($state.high)`. A variable with no range and no `range` gives a slider from 0 to 1. This is the one case where a wider contract is accepted, and it is allowed because the host boundary is checked at run time anyway.
 
-**Inputs a caller may keep.** `overlay`'s `open`, and `plane`'s `center` and `zoom`, are `mut` inputs with a default: given a variable, the caller keeps the value; left out, the widget keeps it itself. In a loop, rows follow their items, so a widget's own value stays with its item (page 3). `plane`'s `drawn` and `spot`'s `box` are written by the target, so a caller gives them a variable to read.
+**Inputs a caller may keep.** `overlay`'s `open`, and `plane`'s `center` and `zoom`, are `mut` inputs with a default: given a variable, the caller keeps the value; left out, the widget keeps it itself. In a loop, rows follow their items, so a widget's own value stays with its item (page 3). `plane`'s `drawn` and `spot`'s `box` are written by the renderer, so a caller gives them a variable to read.
 
 #### widgets: core.gfx
 
@@ -1580,14 +1640,15 @@ package core;
 
 //@about A drawing surface with coordinates of its own: x from left to right, y from bottom to top.
 extern widget canvas(
-    label: text,                                // what it shows, for screen readers and Markdown
+    label: text, // what it shows, for screen readers and Markdown
     x: range<number> = -1..1,
     y: range<number> = -1..1,
     width: size = size.M,
-    aspect: opt<number 0.1..10> = opt.NONE,     // width over height; left out, from the two ranges
+    aspect: opt<number 0.1..10> = opt.NONE, // width over height; left out, from the two ranges
 ) {
     slot layers: list<layer>[1...];
-    event click(at: point);                     // a click on empty space, in the canvas's units
+    event click(at: point); // a click on empty space, in the canvas's units
+    uses core.gfx;
 
     markdown {
         \{label}
@@ -1597,6 +1658,7 @@ extern widget canvas(
 //@about Shapes drawn together, in the order written. Later layers are drawn on top.
 extern widget layer(opacity: number 0..1 = 1, clip: opt<region> = opt.NONE) {
     slot shapes: list<any shape>;
+    uses core.gfx;
 
     // writes nothing: the canvas or plane around it writes what the picture shows
     markdown { }
@@ -1614,13 +1676,14 @@ extern widget circle(
     r: number 0...,
     fill: opt<color> = opt.NONE,
     stroke: opt<color> = opt.NONE,
-    width: stroke = stroke.THIN,                // the stroke's width: a stroke token, or a plain number of pixels
+    width: stroke = stroke.THIN, // the stroke's width: a stroke token, or a plain number of pixels
     opacity: number 0..1 = 1,
     label: text = "",
 ) implements shape {
     event click();
     event enter();
     event leave();
+    uses core.gfx;
 
     markdown { }
 }
@@ -1633,13 +1696,14 @@ extern widget path(
     stroke: opt<color> = color.INK,
     width: stroke = stroke.THIN,
     dash: bool = false,
-    head: head = head.NONE,                     // an arrow or a dot at the last point
+    head: head = head.NONE, // an arrow or a dot at the last point
     opacity: number 0..1 = 1,
     label: text = "",
 ) implements shape {
     event click();
     event enter();
     event leave();
+    uses core.gfx;
 
     markdown { }
 }
@@ -1653,12 +1717,16 @@ extern widget place(
     label: text = "",
 ) implements shape {
     slot child: view;
+    uses core.gfx;
 
     markdown { }
 }
 
 //@about A point the reader drags. It writes where it is to the variable it is given.
 extern widget handle(mut at: point, tone: opt<color> = opt.NONE, opacity: number 0..1 = 1, label: text) implements shape {
+    tokens color.ACCENT, color.SURFACE;
+    uses core.gfx;
+
     markdown { }
 }
 
@@ -1679,6 +1747,8 @@ extern widget shade<A>(
     opacity: number 0..1 = 1,
     label: text,
 ) implements shape {
+    uses core.gfx;
+
     markdown { }
 }
 
@@ -1690,10 +1760,10 @@ fn rect(x0: number, y0: number, x1: number, y1: number): list<point>[4] {
 
 - **Shapes write no Markdown of their own.** `layer`, `circle`, `path`, `place`, `handle` and `shade` have an empty `markdown { }`, and the canvas, or the plane, around them writes what the picture shows.
 - **Positions, radii and nudges are plain numbers**, on a canvas and on a plane: they say where things are drawn, not how the page looks, so they take no tokens. A stroke's `width` takes a `stroke`: a named one by convention, or a plain number.
-- **A shader** is an extern fn with a return type (page 6). Declared in a document's `extern` block, the app supplies it; declared in a pack, the pack does, for each target it supports. The target runs it for every pixel of `area`, natively.
+- **A shader** is an extern fn with a return type (page 6). Declared in a document's `extern` block, the host supplies it; declared in a pack, the pack does, for each platform it supports. The renderer runs it for every pixel of `area`, natively.
 - **`args`** is given once and handed to the shader as uniforms: numbers, points, colours (a colour token goes in as the theme's current value) and bools.
 - **`pixel`'s colours are its own**, like an `image`'s. The page's colours still take tokens only.
-- **An Extended Mark fn fits the type too.** The runtime calls it for each pixel within the step limit, so only small areas fit, and the compiler warns.
+- **An Extended Mark fn fits the type too.** The runtime calls it for each pixel within the step limit, so only small areas fit, and the compiler warns, as it does for any fn with a return type given to an extern widget.
 - **A shader nobody supplies** draws nothing, and is reported when the page is mounted.
 
 #### widgets: written in Extended Mark
@@ -1874,7 +1944,7 @@ widget meter(value: number 0..., label: text, max: number 0... = 100, tone: opt<
                     @flex(fill = tone.or(color.ACCENT), radius = radius.PILL) { }
                 }
             }
-            @grow(by = (max - value).clamp(0, max)) {     // the same share as max - value.clamp(0, max)
+            @grow(by = (max - value).clamp(0, max)) { // the same share as max - value.clamp(0, max)
                 @flex { }
             }
         }
@@ -1933,69 +2003,11 @@ widget pane(title: text = "", note: text = "") {
         \{body}
     }
 }
-
-// one block of an md value, as the extern block of its kind. Private to core
-fn block_view(b: block): view {
-    match (b) {
-        case block.PARAGRAPH(words) {
-            return @paragraph(value = words);
-        }
-        case block.HEADING(level, words) {
-            return @heading(level = level, value = words);
-        }
-        case block.BULLETS(ordered, start, items) {
-            return @bullets(ordered = ordered, start = start) {
-                for (it in items) {
-                    @item(done = it.done) {
-                        @blocks(value = md { blocks = it.body });
-                    }
-                }
-            };
-        }
-        case block.QUOTE(body) {
-            return @quote {
-                @blocks(value = md { blocks = body });
-            };
-        }
-        case block.CODE(src, lang) {
-            return @code(src = src, lang = lang);
-        }
-        case block.MATH(tex) {
-            return @math(tex = tex);
-        }
-        case block.TABLE(head, rows, align) {
-            return @table(head = head, rows = rows, align = align);
-        }
-        case block.FOOTNOTE(mark, body) {
-            return @footnote(mark = mark) {
-                @blocks(value = md { blocks = body });
-            };
-        }
-        case block.DIVIDER {
-            return @divider;
-        }
-    }
-}
-
-//@about The blocks of an md value, each drawn by the extern Markdown block of its kind.
-widget blocks(value: md) {
-    view {
-        for (b in value.blocks) {
-            @block_view(b);
-        }
-    }
-
-    markdown {
-        @for (b in value.blocks) {
-            \{@block_view(b)}
-        }
-    }
-}
 ```
 
-- **Sizing wrappers nest in any order and mean the same.** A chain of `sizing` around one child is folded into one set of properties on that child, so `@grow { @min_size(…) { … } }` and the other way round are equal. Setting one property twice in a chain is a compile error. A child with no wrapper doesn't grow, shrinks by 1, and starts from its own size, as in CSS.
-- **Built in**: The eight types the syntax makes, and the syntax itself: literals, operators, holes, prose and `@`.
-- **core, declared extern with no body**: the 61 native fns: list storage, Unicode text, exact numbers with their maths, the interface fns of `number`, `duration`, `text` and `bool`, a range's ends and step, a duration in milliseconds, and `clamp`.
-- **core, written in Extended Mark**: the six interfaces, `int`, point, region, map, date, moment, template, latex, md, rich_text, the tokens and options, the thirteen widgets above, and 30 fns built from the native ones: or, min, max, some, all, count, find, filter, map, remove_where, first, last, reversed, has, position, unique, sorted, join, sum, starts, ends, like, replace, the range helpers negate, shift, scale, widen, overlap and span, and `rect` for canvas paths.
-- **core, supplied by the implementer**: the native fns, page values, `moment.local`, `can_draw_tex` if it replaces the default, and the drawing of the 23 extern widgets (and 7 more for `core.gfx`), marked extern. Extern is only for what Extended Mark can never do on its own, and for Markdown's own blocks.
+- **Each sizing wrapper is a box.** A wrapper inside another is a box in a box, so `@grow { @min_size(…) { … } }` grows a box that holds one with a least size, and the other way round gives a least size to a box that holds one that grows. `@sizing` sets several properties on one box. A child with no wrapper doesn't grow, shrinks by 1, and starts from its own size, as in CSS.
+- **Built in**: The nine types the syntax makes, and the syntax itself: literals, operators, holes, prose and `@`.
+- **core, declared extern with no body**: the 63 native fns: list storage, Unicode text, exact numbers with their maths, the interface fns of `number`, `duration`, `text` and `bool`, a range's ends and step, a duration in milliseconds, `clamp`, and the two that hold calls as a `rich_text`.
+- **core, written in Extended Mark**: the six interfaces, `int`, point, region, map, date, moment, template, latex, the tokens and options, the twelve widgets above, and 30 fns built from the native ones: or, min, max, some, all, count, find, filter, map, remove_where, first, last, reversed, has, position, unique, sorted, join, sum, starts, ends, like, replace, the range helpers negate, shift, scale, widen, overlap and span, and `rect` for canvas paths.
+- **core, supplied by the implementer**: the native fns, page values, `moment.local`, `can_draw_tex` if it replaces the default, and the drawing of the 33 extern widgets (and 7 more for `core.gfx`), marked extern. Extern is only for what Extended Mark can never do on its own, and for Markdown's own blocks.
 - **A pack's own types**: Join the syntax by fitting shown, same, ordered, numeric, scaled or literal&lt;T>. They can't add new symbols, on purpose.

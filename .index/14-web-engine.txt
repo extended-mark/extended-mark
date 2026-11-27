@@ -1,0 +1,23 @@
+WEB ENGINE, AND THE FRAMEWORKS' ENGINES
+
+engines/web    npm @extended-mark/web, bin xtmd-web: pages built ahead into HTML, CSS and scripts
+  src/index.ts          build: a page drawn here for its HTML, its script bundled (esbuild)
+  src/generate.ts       IR to a page's code: expressions, statements and rules as fns, views as Parts
+  src/static.ts         which of a document's own parts never change: HTML alone
+  src/components.ts     a framework's engine: pages into components, for whoever gives a Framework
+  src/run.ts            an engine's command, its options; cli.ts: xtmd-web's
+  src/kit/              what a page's script holds, as far as it uses it
+    kit.ts              Kit on the evaluator's Ops: state, changes done whole, what is drawn again
+    parts.ts            the kinds of part: extern, use, loop, branch, placed, local
+    held.ts             BuiltDoc: a built page as a framework holds it (widgets' Held)
+    nodes.ts            what is drawn, as nodes; mount.ts: taking the HTML over; layout.ts: planes
+    code.ts             what generated code calls besides
+  test/side.mjs, harness.mjs    a page two ways in Chromium, side by side
+  test/engine.test.mjs  every document and random runs, against the runtime
+  test/held.test.mjs    the same in Node, as a framework's component holds a page; changes.mjs
+  test/places.test.mjs  widget set, tokens, shell, fns, and xtmd export --engine
+renderers: react, next, vue, svelte, solid, angular, each with an engine
+  renderers/*/src/engine.ts    what is the framework's: a Framework; cli.ts: xtmd-react, ...
+  renderers/*/src/built.ts     a component of a built page
+  renderers/svelte/src/XtmdPage.svelte    Svelte's; Angular's is the next
+  renderers/angular/src/page.ts

@@ -1,0 +1,15 @@
+# How a document looks
+
+```xtmd
+let n: int = 1;
+@@@
+The count is \{n}.
+```
+
+~~~~text
+@@@
+~~~
+@@@
+~~~~
+
+The end.

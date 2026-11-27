@@ -1,0 +1,99 @@
+{
+  "nodes": [
+    {
+      "id": "m0",
+      "widget": "core/heading",
+      "inputs": {
+        "level": {
+          "num": "1"
+        },
+        "value": {
+          "nodes": [
+            {
+              "id": "m0/value/t0",
+              "widget": "core/words",
+              "inputs": {
+                "value": {
+                  "text": "Counter"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "m1",
+      "widget": "core/paragraph",
+      "inputs": {
+        "value": {
+          "nodes": [
+            {
+              "id": "m1/value/t0",
+              "widget": "core/words",
+              "inputs": {
+                "value": {
+                  "text": "The count is "
+                }
+              }
+            },
+            {
+              "id": "m1/value/t1",
+              "widget": "core/words",
+              "inputs": {
+                "value": {
+                  "text": "0"
+                }
+              }
+            },
+            {
+              "id": "m1/value/t2",
+              "widget": "core/words",
+              "inputs": {
+                "value": {
+                  "text": "."
+                }
+              }
+            }
+          ]
+        },
+        "tone": {
+          "none": {}
+        },
+        "align": {
+          "case": {
+            "enum": "core/align",
+            "name": "START"
+          }
+        }
+      }
+    },
+    {
+      "id": "s2",
+      "widget": "core/press",
+      "inputs": {
+        "label": {
+          "text": "Add"
+        },
+        "kind": {
+          "case": {
+            "enum": "core/press_kind",
+            "name": "BUTTON"
+          }
+        },
+        "selected": {
+          "bool": false
+        },
+        "disabled": {
+          "bool": false
+        },
+        "tone": {
+          "none": {}
+        }
+      },
+      "events": [
+        "click"
+      ]
+    }
+  ]
+}

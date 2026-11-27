@@ -1,5 +1,5 @@
 pack page@1 {
-    uses core@1;
+    uses core@2;
 }
 @@@
 # Page

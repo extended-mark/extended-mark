@@ -1,0 +1,10 @@
+{
+  "id": "read.a-migrations-word-as-an-input",
+  "about": "a word of a migration as an input's name",
+  "source": "a-migrations-word-as-an-input.xtmdpack",
+  "expect": {
+    "diagnostics": [
+      {"code": "syntax.keyword-as-name", "line": 3, "column": 17}
+    ]
+  }
+}

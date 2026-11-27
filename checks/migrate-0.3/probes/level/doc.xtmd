@@ -1,0 +1,12 @@
+widget w() {
+    view {
+        @frame(title = "a") {
+            @heading(level = 2, value = "# x");
+        }
+    }
+    markdown {
+        x
+    }
+}
+@@@
+@w;

@@ -1,0 +1,4 @@
+XTMD.WASM
+compiler/wasm/build.sh -> compiler/npm/wasm/xtmd.wasm. Needs the wasm32-wasip1 target and zig, for
+decNumber's C: pip install ziglang, XTMD_ZIG="python3 -m ziglang". Not committed.
+Rebuild after a change in compiler, core or compiler/xtmd/src/lsp: the browser and VS Code use it.

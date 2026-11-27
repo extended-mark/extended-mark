@@ -1,0 +1,19 @@
+{
+  "id": "widgets.an-extern-uses-a-level-there-is",
+  "about": "an extern uses core.draw, core.live or core.gfx",
+  "source": "an-extern-uses-a-level-there-is.xtmdpack",
+  "expect": {
+    "diagnostics": [
+      {
+        "code": "widget.extern-uses",
+        "line": 5,
+        "column": 20
+      },
+      {
+        "code": "widget.markdown-empty",
+        "line": 4,
+        "column": 15
+      }
+    ]
+  }
+}

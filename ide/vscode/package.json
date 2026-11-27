@@ -2,7 +2,7 @@
   "name": "xtmd",
   "displayName": "Extended Mark",
   "description": "Extended Mark for VS Code: highlighting, errors as you type, hover, go to definition, outline, completion and formatting from xtmd's own language server, and a live preview drawn by VS Code's own widgets",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "publisher": "extended-mark",
   "icon": "media/icon.png",
   "galleryBanner": {
@@ -182,7 +182,7 @@
         },
         {
           "command": "xtmd.migrate",
-          "when": "explorerResourceIsFolder || resourceExtname == .xtmd || resourceFilename =~ /\\.mkp\\.md$/",
+          "when": "explorerResourceIsFolder || resourceExtname == .xtmd",
           "group": "7_modification"
         }
       ],
@@ -265,14 +265,14 @@
   "scripts": {
     "build": "node build.mjs",
     "test": "node build.mjs && node --test test/grammar.test.mjs test/language.test.mjs",
-    "vscode": "node build.mjs && node test/vscode.mjs",
+    "vscode": "node build.mjs && node test/drive.mjs",
     "package": "node build.mjs && vsce package --no-dependencies --skip-license"
   },
   "devDependencies": {
-    "@extended-mark/dom": "file:../../targets/published/dom",
-    "@extended-mark/embed-live": "file:../../targets/published/bindings/embed-live",
-    "@extended-mark/live": "file:../../targets/published/bindings/live",
-    "@extended-mark/runtime": "file:../../targets/published/runtime",
+    "@extended-mark/dom": "file:../../renderers/dom",
+    "@extended-mark/widgets": "file:../../widgets/web",
+    "@extended-mark/live": "file:../../live/web",
+    "@extended-mark/runtime": "file:../../runtime/typescript",
     "@extended-mark/wasm": "file:../../compiler/npm/wasm",
     "@types/node": "20.19.43",
     "@types/vscode": "1.91.0",

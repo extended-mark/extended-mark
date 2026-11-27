@@ -1,0 +1,13 @@
+THE PIPELINE
+text -> tree -> whole IR -> the page's IR -> drawn tree -> elements, and the reader's events back.
+
+1. compiler/xtmd/src/syntax reads a document or a pack's file. The tree is untyped and loses nothing
+   (comments, blank lines), so xtmd fmt prints it back.
+2. compiler/xtmd/src/check resolves names, types everything, checks every rule and writes IR as it goes.
+   Markdown becomes calls of core's widgets here. Nothing after this reads Markdown of a document.
+3. compiler/xtmd/src/lower drops what the page can't run.
+4. A runtime evaluates the IR and gives a drawn tree: extern widgets only, inputs worked out.
+5. What draws makes elements of the tree, and gives events and writes back by a node's id.
+
+Two kinds of document: static is given IR and has no compiler; live is given text and has it inside.
+An engine stands in for steps 4 and 5: it writes, ahead of time, code that does both.

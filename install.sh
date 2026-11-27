@@ -74,10 +74,6 @@ mkdir -p "$dir"
 cp "$tmp/xtmd" "$dir/xtmd.new"
 chmod 755 "$dir/xtmd.new"
 mv -f "$dir/xtmd.new" "$dir/xtmd"
-# 0.3's frozen 0.2 → 0.3 step, which `xtmd migrate` looks for beside the binary
-if [ -f "$tmp/migrate-0.2.cjs" ]; then
-  cp "$tmp/migrate-0.2.cjs" "$dir/migrate-0.2.cjs"
-fi
 
 say "Installed $("$dir/xtmd" --version 2> /dev/null || echo "xtmd $version") at $dir/xtmd"
 case ":$PATH:" in

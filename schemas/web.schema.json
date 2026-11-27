@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/web.schema.json",
+  "title": "Extended Mark web widget set 1",
+  "description": "What a web widget set gives for a widget, whoever puts it on the page: a renderer, or an engine that writes it into a file (docs/specs/06, Implementing Extended Mark). A widget set is a fn for each extern widget it draws, by full name, from a node of the drawn tree to one of these.",
+  "x-version": 1,
+  "$ref": "#/$defs/drawn",
+  "$defs": {
+    "drawn": {
+      "description": "What a widget draws.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "words": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "words"
+          ],
+          "additionalProperties": false,
+          "description": "Words, as they are: nothing in them is read as HTML."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "element": {
+              "$ref": "#/$defs/element"
+            }
+          },
+          "required": [
+            "element"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "element": {
+      "type": "object",
+      "description": "One element.",
+      "properties": {
+        "tag": {
+          "type": "string"
+        },
+        "svg": {
+          "type": "boolean",
+          "description": "It is in SVG's namespace."
+        },
+        "key": {
+          "type": "string",
+          "description": "Who it is among the ones beside it, across redraws: a widget's is its node's id."
+        },
+        "attrs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Its attributes, as HTML writes them."
+        },
+        "props": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/prop"
+          },
+          "description": "What the live element holds that no attribute does: a field's `value`, a box's `checked`."
+        },
+        "style": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "CSS properties, in CSS's spelling."
+        },
+        "listens": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "description": "The DOM events it listens for. What it does then is the widget's code."
+        },
+        "hook": {
+          "type": "boolean",
+          "description": "Only the live element can do the rest: a canvas painted, a plane measured. The widget's code is told as it enters the page, after each change, and as it leaves."
+        },
+        "component": {
+          "type": "string",
+          "description": "The widget a host's own component draws in it, by full name."
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/drawn"
+          }
+        }
+      },
+      "required": [
+        "tag"
+      ],
+      "additionalProperties": false
+    },
+    "prop": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "bool": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "bool"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

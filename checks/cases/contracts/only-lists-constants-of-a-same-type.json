@@ -4,6 +4,7 @@
   "source": "only-lists-constants-of-a-same-type.xtmd",
   "expect": {
     "diagnostics": [
+      {"code": "types.let-not-constant", "line": 5, "column": 5},
       {"code": "contracts.bound-not-constant", "line": 9, "column": 29}
     ]
   }

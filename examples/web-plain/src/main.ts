@@ -6,7 +6,7 @@ import shop from "../../pages/shop.xtmd";
 const orders = document.getElementById("orders")!;
 window.__calls = [];
 
-/** The app's side of `extern shop`: each checkout the page asks for, listed under it. */
+/** The host's side of `extern shop`: each checkout the page asks for, listed under it. */
 function heard(calls: Call[]): void {
   for (const c of calls) {
     window.__calls.push(c);

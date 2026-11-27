@@ -1,0 +1,9 @@
+CONTRACTS AND PROOFS  (compiler/xtmd/src/check/proof.rs)
+A contract (`number 0..100`) has to be proved where a value is given. What is known of a value is
+`Known`: its declared type, constants, clamp, `if (x in 0..100)`, a loop's range, a list's length.
+A constant is worked out and checked on its line. Anything else without a proof is a compile error.
+What comes from outside is checked as the page runs instead (.knowledge/runtime/outside.txt).
+Opening with a contract, `if (let t: text[1...] = v)`, is a proof that the page checks when it runs: the
+IR's open keeps the contract on its type (body.rs), and both runtimes' open fits the value to it first
+(compiler/xtmd/src/eval/interp.rs, runtime/typescript/src/eval/interp.ts): one that doesn't fit doesn't open.
+Not a proof today: the contract a lambda writes on its own parameter.

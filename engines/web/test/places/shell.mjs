@@ -1,0 +1,1 @@
+export default (p) => `<!doctype html><title>${p.title} at ours</title><body class="site" data-name="${p.name}">${p.body}${p.styles.map((s) => `<link rel="stylesheet" href="${s}">`).join("")}${p.script ? `<script type="module" src="${p.script}"></script>` : ""}`;

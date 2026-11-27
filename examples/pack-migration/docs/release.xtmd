@@ -1,0 +1,18 @@
+import kit;
+
+let tests: number 0..1 = 0.75;
+
+widget week() {
+    view {
+        @meter(part = tests, label = "Tests", colour = color.OK);
+        @meter(part = 0.4, label = "Docs");
+    }
+}
+@@@
+# The release
+
+@week;
+
+@note(message = "Two days late.", loud = true, state = status.LATE);
+
+@note(message = "The build is green.");

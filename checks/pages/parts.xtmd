@@ -1,0 +1,116 @@
+record part {
+    mut title: text;
+    mut done: bool = false;
+}
+
+record task {
+    mut title: text;
+    mut n: int = 0;
+    mut steps: list<part> = [];
+    mut note: opt<text> = opt.NONE;
+}
+
+$state {
+    tasks: list<task> = [
+        task {
+            title = "A",
+            steps = [
+                part { title = "a1" },
+                part { title = "a2" },
+            ],
+        },
+        task { title = "B", note = "b" },
+        task {
+            title = "C",
+            n = 2,
+            steps = [
+                part { title = "c1" },
+            ],
+        },
+        task { title = "D" },
+    ];
+    at: int = 0;
+    grid: list<list<int>> = [[1, 2], [3, 4]];
+    one: task = task { title = "One" };
+}
+
+widget part_row(mut s: part) {
+    view {
+        @press(label = s.title, kind = press_kind.CHECK, selected = s.done, click = fn() { s.done = !s.done; });
+    }
+    markdown {
+        \{s.title}
+    }
+}
+
+widget counted(mut n: int, label: text) {
+    mut seen: int = 0;
+    view {
+        @press(label = "\{label}: \{n}, \{seen}", click = fn() {
+            n = n + 1;
+            seen = seen + 1;
+        });
+    }
+    markdown {
+        \{n}
+    }
+}
+
+widget task_row(mut t: task) {
+    view {
+        @column {
+            @label(value = "\{t.title} \{t.steps.len()} \{t.steps.filter(fn(s) { return s.done; }).len()}");
+            @counted(n = t.n, label = t.title);
+            @field(value = t.title, label = "Title");
+            if (mut x: text = t.note) {
+                @field(value = x, label = "Note");
+            } else {
+                @press(label = "Add a note", click = fn() { t.note = "n"; });
+            }
+            mut for (s in t.steps) {
+                if (mut y: part = s) {
+                    @part_row(s = y);
+                }
+            }
+            @press(label = "More", click = fn() { t.steps.add(part { title = "new \{t.steps.len()}" }); });
+        }
+    }
+    markdown {
+        \{t.title}
+    }
+}
+
+widget board() {
+    view {
+        @label(value = "\{$state.tasks.filter(fn(t) { return t.n > 0; }).len()} of \{$state.tasks.len()}");
+        mut for (i, t in $state.tasks) {
+            if (mut x: task = t) {
+                @label(value = "Row \{i}");
+                @task_row(t = x);
+                @press(label = "Drop", click = fn() { $state.tasks.remove(x); });
+            }
+        }
+        for (t in $state.tasks) {
+            @label(value = t.title);
+        }
+        for (row in $state.grid) {
+            for (c in row) {
+                @label(value = "\{c}");
+            }
+        }
+        @press(label = "Turn", click = fn() { $state.tasks.move(0, 1); });
+        @press(label = "Cell", click = fn() { $state.grid[1][0] = $state.at; });
+        @press(label = "Next", click = fn() { $state.at = $state.at + 1; });
+        @press(label = "Again", click = fn() { $state.one = $state.one with { n = 0 }; });
+        @task_row(t = $state.one);
+        @counted(n = $state.one.n, label = "one");
+        @slider(value = $state.at, label = "At");
+    }
+    markdown {
+        \{$state.at}
+    }
+}
+@@@
+@board;
+
+\{$state.one.title} and \{$state.tasks.len()}

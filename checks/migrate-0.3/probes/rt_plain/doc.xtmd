@@ -1,0 +1,19 @@
+widget a(t: text) {
+    view {
+        @paragraph(value = rich_text.plain(t));
+        @label(value = rich_text.plain(t).show());
+    }
+    markdown {
+        \{t}
+    }
+}
+
+fn f(x: rich_text): rich_text {
+    return rich_text { segments = [] };
+}
+
+fn g(x: template): opt<rich_text> {
+    return rich_text.read(x, map { entries = [] });
+}
+@@@
+@a(t = "x");

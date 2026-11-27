@@ -1,0 +1,7 @@
+package kit@1;
+
+extern widget note(content: md, tone: color = color.ACCENT);
+
+extern widget panel(title: text) {
+    slot body: view;
+}

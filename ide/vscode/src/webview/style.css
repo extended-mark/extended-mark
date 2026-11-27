@@ -1,4 +1,4 @@
-/* The vscode target's look: core's tokens as the editor's theme colours and fonts, and core's
+/* The vscode renderer's look: core's tokens as the editor's theme colours and fonts, and core's
    controls as VS Code's own components. VS Code gives a webview its theme as --vscode-* properties
    and the body's vscode-light, vscode-dark or vscode-high-contrast class. */
 
@@ -113,18 +113,19 @@ body {
   cursor: default;
 }
 /* a checkbox and a radio, as VS Code's checkbox: its background and border whether ticked or not,
-   and the tick (or the dot) in its foreground colour */
-.vsc-press:is(.vsc-check, .vsc-radio) .xtmd-press-indicator {
+   and the tick (or the dot) in its foreground colour. `.vsc` again, as the web's own rules for these
+   come after and weigh as much */
+.vsc.vsc-press:is(.vsc-check, .vsc-radio) .xtmd-press-indicator {
   box-sizing: border-box;
   width: 18px;
   height: 18px;
   border: var(--vsc-stroke) solid var(--vscode-checkbox-border) !important;
   background: var(--vscode-checkbox-background) !important;
 }
-.vsc-press.vsc-check .xtmd-press-indicator {
+.vsc.vsc-press.vsc-check .xtmd-press-indicator {
   border-radius: 3px;
 }
-.vsc-press.vsc-check.xtmd-selected .xtmd-press-indicator::after {
+.vsc.vsc-press.vsc-check.xtmd-selected .xtmd-press-indicator::after {
   left: 5.5px;
   top: 2px;
   width: 4px;
@@ -132,18 +133,18 @@ body {
   border-color: var(--vscode-checkbox-foreground);
   border-width: 0 1.5px 1.5px 0;
 }
-.vsc-press.vsc-radio .xtmd-press-indicator {
+.vsc.vsc-press.vsc-radio .xtmd-press-indicator {
   width: 16px;
   height: 16px;
   border-radius: 50%;
 }
-.vsc-press.vsc-radio.xtmd-selected .xtmd-press-indicator::after {
+.vsc.vsc-press.vsc-radio.xtmd-selected .xtmd-press-indicator::after {
   inset: 3.5px;
   background: var(--vscode-checkbox-foreground);
 }
 /* the switch, as VS Code's own (.monaco-switch): a 28 by 16 pill, grey off, the button's colour on,
    and a thumb the button's text colour */
-.vsc-press.vsc-switch .xtmd-press-indicator {
+.vsc.vsc-press.vsc-switch .xtmd-press-indicator {
   position: relative;
   box-sizing: border-box;
   flex: 0 0 auto;
@@ -153,7 +154,7 @@ body {
   border-radius: 9999px;
   background: color-mix(in srgb, var(--vscode-descriptionForeground) 36%, transparent);
 }
-.vsc-press.vsc-switch .xtmd-press-indicator::after {
+.vsc.vsc-press.vsc-switch .xtmd-press-indicator::after {
   content: "";
   position: absolute;
   top: 0;
@@ -168,11 +169,11 @@ body {
   background-clip: padding-box;
   transition: left 0.12s ease;
 }
-.vsc-press.vsc-switch.xtmd-selected .xtmd-press-indicator {
+.vsc.vsc-press.vsc-switch.xtmd-selected .xtmd-press-indicator {
   background: var(--vscode-button-background);
   border-color: var(--vscode-button-background);
 }
-.vsc-press.vsc-switch.xtmd-selected .xtmd-press-indicator::after {
+.vsc.vsc-press.vsc-switch.xtmd-selected .xtmd-press-indicator::after {
   left: 12px;
   translate: none;
   background-color: var(--vscode-button-foreground);

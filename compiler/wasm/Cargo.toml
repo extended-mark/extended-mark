@@ -1,6 +1,6 @@
 [package]
 name = "xtmd-wasm"
-description = "The Extended Mark compiler for the browser: what xtmd build does, on a core compiled once, for a real-time target; the language server, and what xtmd md and xtmd migrate do, for an editor"
+description = "The Extended Mark compiler for the browser: what xtmd compile does, on a core compiled once, for a live document; the language server, and what xtmd md and xtmd migrate do, for an editor"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,9 +12,6 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-xtmd-live = { path = "../live", version = "0.3.2" }
-xtmd-markdown = { path = "../markdown", version = "0.3.2" }
-xtmd-migrate = { path = "../migrate", version = "0.3.2" }
-# the language server, with no disk to read: the client gives the packs
-xtmd-lsp = { path = "../../ide/lsp", version = "0.3.2", default-features = false }
+# the language server has no disk to read: the client gives the packs
+xtmd = { path = "../xtmd", version = "0.4.0", default-features = false, features = ["compiler"] }
 serde_json.workspace = true

@@ -1,6 +1,6 @@
 {
   "name": "extended-mark",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Extended Mark's compiler: the xtmd command (a native binary for each platform), a JS API that runs it, and a Vite plugin",
   "license": "MIT",
   "homepage": "https://github.com/extended-mark/extended-mark",
@@ -36,11 +36,11 @@
   },
   "optionalDependencies": {
     "@extended-mark/wasm": "file:../wasm",
-    "@extended-mark/cli-linux-x64": "0.3.2",
-    "@extended-mark/cli-linux-arm64": "0.3.2",
-    "@extended-mark/cli-darwin-x64": "0.3.2",
-    "@extended-mark/cli-darwin-arm64": "0.3.2",
-    "@extended-mark/cli-win32-x64": "0.3.2"
+    "@extended-mark/cli-linux-x64": "0.4.0",
+    "@extended-mark/cli-linux-arm64": "0.4.0",
+    "@extended-mark/cli-darwin-x64": "0.4.0",
+    "@extended-mark/cli-darwin-arm64": "0.4.0",
+    "@extended-mark/cli-win32-x64": "0.4.0"
   },
   "peerDependencies": {
     "vite": ">=5"

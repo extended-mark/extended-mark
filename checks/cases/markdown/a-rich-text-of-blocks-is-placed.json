@@ -1,0 +1,11 @@
+{
+  "id": "markdown.a-rich-text-of-blocks-is-placed",
+  "about": "a rich_text holds blocks, and placed on its own it is them",
+  "source": "a-rich-text-of-blocks-is-placed.xtmd",
+  "expect": {
+    "diagnostics": [],
+    "markdown": {
+      "file": "a-rich-text-of-blocks-is-placed.expected.md"
+    }
+  }
+}

@@ -1,0 +1,5 @@
+ADDING A RUNTIME TEST
+runtime/typescript/test/cases/<name>.xtmd and .json: steps, and what the page is after each.
+The Rust runtime's are in runtime/rust/tests, in Rust, their pages written in the test.
+A page both must answer alike goes in checks/pages, read by a test on each side.
+Anything about reuse: run it with and without the memo, and count what was drawn.

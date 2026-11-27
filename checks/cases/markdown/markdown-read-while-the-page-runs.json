@@ -1,0 +1,11 @@
+{
+  "id": "markdown.markdown-read-while-the-page-runs",
+  "about": "rich_text.from reads Markdown while the page runs: one paragraph is a sentence, anything else is blocks, and a hole is never read",
+  "source": "markdown-read-while-the-page-runs.xtmd",
+  "expect": {
+    "diagnostics": [],
+    "markdown": {
+      "file": "markdown-read-while-the-page-runs.expected.md"
+    }
+  }
+}

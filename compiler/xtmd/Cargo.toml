@@ -1,0 +1,36 @@
+[package]
+name = "xtmd"
+description = "Extended Mark's compiler, as a library and as the xtmd command: check, fmt, compile, decompile, export, md, migrate and the language server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+include = ["src/**", "previous/**", "build.rs", "README.md", "core/**", "checks/**"]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "xtmd"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[features]
+default = ["cli"]
+# the compiler, for a program that compiles: without it the crate is the formats, the evaluator and the Markdown writer,
+# which a runtime or an engine uses
+compiler = ["dep:toml"]
+# the language server reads xtmd.toml and the packs it names from disk; without it, the client gives them (a browser)
+fs = ["compiler"]
+# the xtmd command
+cli = ["fs"]
+
+[dependencies]
+dec = "0.4.11"
+serde.workspace = true
+serde_json.workspace = true
+toml = { version = "0.8", optional = true }
+
+[dev-dependencies]
+xtmd-schemagen = { path = "../schemagen" }
+jsonschema = { version = "0.61", default-features = false }

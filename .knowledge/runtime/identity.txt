@@ -1,0 +1,6 @@
+WHO A WIDGET IS
+Path: where it is drawn now (loop rows by position). Key: who it is (loop rows by item).
+A row's widget follows its item, so its variables, element, focus and id stay when it moves.
+Items of a list have identities of their own, kept through a sort or an insert.
+The same content placed twice is two widgets: the second key ends in ~2.
+A node's id is its key. The same IR and data give the same ids, on a server as in a browser.

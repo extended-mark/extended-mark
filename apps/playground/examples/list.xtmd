@@ -1,6 +1,6 @@
 record task {
     title: text[1...];
-    done: bool = false;
+    mut done: bool = false;
 }
 
 $state {

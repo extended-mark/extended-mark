@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/told.schema.json",
+  "title": "Extended Mark told 1",
+  "description": "What a page tells its host of what it called, refused, failed at and warned of (docs/specs/06, Failures and Warnings).",
+  "x-version": 1,
+  "$ref": "#/$defs/told",
+  "$defs": {
+    "told": {
+      "type": "object",
+      "description": "What a page tells its host, since it was last taken.",
+      "properties": {
+        "calls": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/call"
+          },
+          "description": "The host's fns the page called, in order."
+        },
+        "refused": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/broken"
+          },
+          "description": "Writes that were refused: nothing changed."
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/broken"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/broken"
+          },
+          "description": "The `warn`s found false."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "call": {
+      "type": "object",
+      "description": "A fn of the host's the page called, with its arguments.",
+      "properties": {
+        "call": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "tree.schema.json#/$defs/input"
+              }
+            }
+          },
+          "required": [
+            "name",
+            "args"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "call"
+      ],
+      "additionalProperties": false
+    },
+    "outcome": {
+      "type": "object",
+      "properties": {
+        "refused": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/broken"
+          }
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/broken"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "broken": {
+      "type": "object",
+      "description": "A rule that failed: a `require`'s message, or a contract's code, and where.",
+      "properties": {
+        "rule": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "site": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

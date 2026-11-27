@@ -1,14 +1,14 @@
-// The preview's page: the vscode target, a real-time target in VS Code's webview. The extension
+// The preview's page: the vscode renderer, a live document in VS Code's webview. The extension
 // gives it the document's text and its packs as they are edited; it compiles them here with
-// xtmd.wasm (@extended-mark/embed-live) and draws the page with the vscode target's widgets, in the
+// xtmd.wasm (@extended-mark/live/dom) and draws the page with the vscode renderer's widgets, in the
 // editor's theme. A text that doesn't compile leaves the last page that did, and says why. A widget
 // that fails while drawn is told to the extension, which marks its call in the editor.
 
-import { XtmdLiveDoc, Compiler, type PackFile } from "@extended-mark/embed-live";
+import { XtmdLiveDoc, Compiler, type PackFile } from "@extended-mark/live/dom";
 import type { ir } from "@extended-mark/runtime";
 import type { Built } from "@extended-mark/wasm";
 import { failedCalls } from "../../../../apps/playground/src/failures.js";
-import { widgets } from "./widgets.js";
+import { failed, widgets } from "./widgets.js";
 
 declare function acquireVsCodeApi(): { postMessage(m: unknown): void; getState(): unknown; setState(s: unknown): void };
 const vscode = acquireVsCodeApi();
@@ -65,13 +65,14 @@ function draw(src: Source): void {
     packs: src.packs,
     compiler: builds,
     widgets,
+    failed,
     page: { theme },
     onError: (e: { kind: string; message?: string }) => {
       if (e.kind !== "compile") vscode.postMessage({ type: "log", text: `${e.kind}: ${e.message ?? ""}` });
     },
-    onMount: (m: { page: { onChange(f: () => void): () => void } }) => {
+    onPage: (page: { onChange(f: () => void): () => void }) => {
       unfollow?.();
-      unfollow = m.page.onChange(() => queueMicrotask(tellFailures));
+      unfollow = page.onChange(() => queueMicrotask(tellFailures));
       queueMicrotask(tellFailures);
     },
   };

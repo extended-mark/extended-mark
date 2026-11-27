@@ -1,0 +1,90 @@
+widget loud() {
+    slot body: view;
+    view {
+        @body;
+    }
+    markdown {
+        **\{body}**
+    }
+}
+
+widget name(who: text) {
+    view {
+        @label(value = who);
+    }
+    markdown {
+        \{who}
+    }
+}
+
+widget said(who: text) {
+    view {
+        @loud {
+            @name(who = who);
+        }
+    }
+    markdown {
+        @loud {
+            @name(who = who);
+        }
+    }
+}
+
+widget titled(title: rich_text) {
+    view {
+        @heading(level = 2, value = title);
+        @title;
+    }
+    markdown {
+        ## \{title}
+
+        \{title}
+    }
+}
+
+widget pile() {
+    slot rows: list<name>;
+    view {
+        for (r in rows) {
+            @r;
+        }
+    }
+    markdown {
+        \{rows.len()} rows, \{rows.map(fn(r) { return r.who; }).join(" and ")}
+
+        @for (r in rows) {
+            - \{r}
+        }
+    }
+}
+
+widget framed() {
+    slot head: name;
+    view {
+        @head;
+    }
+    markdown {
+        **\{head.who}**: \{head}
+    }
+}
+@@@
+@loud {
+    @name(who = "Ada");
+}
+
+In a sentence: \{@said(who = "Grace")}, and *\{@said(who = "Alan")}*.
+
+@titled(title = "so **far**, `so` good");
+
+@pile {
+    @name(who = "one");
+    @name(who = "two");
+}
+
+@framed {
+    @name(who = "Mary");
+}
+
+@bold {
+    plain, and *leaning*
+}

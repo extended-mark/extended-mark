@@ -3,7 +3,7 @@
     python3 devbench/takes/xtmd-cli/capture.py --work DIR [--xtmd PATH] [reel ...]
 
 Each scene is built afresh in DIR/scenes/<scene> from the repo's own fixtures (the consts of
-compiler/cli/tests/cli.rs, examples/graphs, schemas/examples/counter.xtmd). Each step's
+compiler/xtmd/tests/cli.rs, examples/graphs, schemas/examples/counter.xtmd). Each step's
 command then really runs there, as a terminal would run it, with a copy of the xtmd binary
 (DIR/bin/xtmd, copied from --xtmd, by default compiler/target/release/xtmd) first on PATH.
 What it printed, its exit code, how long it took, and the files the step names (before and
@@ -36,7 +36,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 sys.path.insert(0, HERE)
 import term  # noqa: E402
 
-CLI_RS = os.path.join(REPO, "compiler/cli/tests/cli.rs")
+CLI_RS = os.path.join(REPO, "compiler/xtmd/tests/cli.rs")
 
 
 # ------------------------------------------------------------------ fixtures
@@ -111,7 +111,8 @@ EXAMPLES = (C["MIGRATION"]
                      'why = "a stat names its unit");\n        example(before = stat { label = "Deploys", value = "42" }, '
                      'after = stat { title = "Deploys", value = "42", unit = "" });'))
 
-USES_KIT1 = 'packs = ["kit"]\n\n[uses]\nkit = 1\n'
+# written for this release: a tree whose xtmd.toml names none is read as written for the release before
+USES_KIT1 = 'xtmd = "0.4.0"\npacks = ["kit"]\n\n[uses]\nkit = 1\n'
 
 
 def kit_tree(migration=C["MIGRATION"], doc=C["OLD_DOC"], config=USES_KIT1):
@@ -122,8 +123,25 @@ def kit_tree(migration=C["MIGRATION"], doc=C["OLD_DOC"], config=USES_KIT1):
     return files
 
 
+# releases: a tree written for a release, not in fmt's layout, with a comment and a pack of its own
+SHELF = repo_text("compiler/xtmd/tests/migrate_pipeline.rs")
+SHELF = {k: codecs.decode(v, "unicode_escape") for k, v in
+         re.findall(r'const (SHELF|BOOKS|NOTES): &str = "((?:[^"\\]|\\.)*)";', SHELF)}
+SHELF_TREE = {"shelf/shelf.xtmdpack": SHELF["SHELF"], "books.xtmd": SHELF["BOOKS"], "notes.xtmd": SHELF["NOTES"],
+              "xtmd.toml": 'xtmd = "0.4.0"\npacks = ["shelf"]\n'}
+
+# releases: a tree written for 0.3.2, the migration guide's example (docs/guides/migration.md); one whose
+# code reads a rich_text's parts; and one written for a release further back
+GUIDE_032 = re.findall(r"```xtmd\n(.*?)```", repo_text("docs/guides/migration.md"), re.S)[0]
+PARTS_032 = ("fn first(a: rich_text): int {\n    return a.segments.len();\n}\n\n"
+             "fn same_words(a: rich_text, b: rich_text): bool {\n    return a == b;\n}\n@@@\nhi\n")
+
 # Each scene: (files, in git?). "repo" is the repository itself, read only.
 SCENES = {
+    "shelf": (SHELF_TREE, True),
+    "tree032": ({"doc.xtmd": GUIDE_032, "xtmd.toml": 'xtmd = "0.3.2"\n'}, True),
+    "parts032": ({"doc.xtmd": PARTS_032, "xtmd.toml": 'xtmd = "0.3.2"\n'}, True),
+    "older": ({"doc.xtmd": "# Hi\n", "xtmd.toml": 'xtmd = "0.2.9"\n'}, True),
     "pages": ({"counter.xtmd": COUNTER, "broken.xtmd": BROKEN, "messy.xtmd": MESSY}, False),
     "flow": ({"graphs/graphs.xtmdpack": repo_text("examples/graphs/graphs.xtmdpack"),
               "release-flow.xtmd": repo_text("examples/graphs/release-flow.xtmd")}, False),
@@ -134,13 +152,9 @@ SCENES = {
     "ci": (kit_tree(), True),
     "kit2": ({"kit/kit.xtmdpack": C["KIT2"], "kit/surfaces/kit@1.xtmdpack": C["KIT1_SURFACE"],
               "kit/migrations/kit@2.xtmdpack": EXAMPLES}, False),
-    "notes": ({"docs/counter.mkp.md": C["COUNTER_02"], "docs/runs.mkp.md": C["RUNS_02"],
-               "docs/plain.mkp.md": "# Notes\n\n```js\nlet x = 1;\n```\n",
-               "old/units/manifest.mkp": C["UNITS_02_MANIFEST"],
-               "old/units/distance.mkp": C["UNITS_02_DISTANCE"]}, False),
 }
 
-FROZEN = "~/project/markdown-markup/tools/migrate-0.2/frozen"
+
 
 
 def S(id, scene, cmd, show=(), answers=None):
@@ -172,7 +186,6 @@ REELS = {
             S("md", "pages", "xtmd md counter.xtmd"),
             S("md-json", "pages", "xtmd md --format json counter.xtmd"),
             S("flag-unknown", "pages", "xtmd check --strict counter.xtmd"),
-            S("flag-dropped", "pages", "xtmd fmt --write counter.xtmd"),
         ],
     },
     "packs": {
@@ -238,13 +251,31 @@ REELS = {
             S("json", "ci", "xtmd migrate docs --dry-run --format json"),
             S("report-md", "ci", "xtmd migrate docs --yes --report run.md", show=["run.md", "docs/report.xtmd"]),
             S("report-json", "ci", "xtmd migrate docs --check --report run.json", show=["run.json"]),
-            S("write-flag", "ci", "xtmd migrate docs --write"),
-            S("newer", "ci", "sed -i 's/^xtmd = \"0.3.0\"/xtmd = \"9.0.0\"/' xtmd.toml && xtmd migrate docs --check"),
+            S("newer", "ci", "sed -i 's/^xtmd = \"0.4.0\"/xtmd = \"9.0.0\"/' xtmd.toml && xtmd migrate docs --check"),
             S("examples", "kit2", "xtmd check --pack kit kit/migrations/kit@2.xtmdpack", show=["kit/migrations/kit@2.xtmdpack"]),
             S("bad-after", "kit2", "sed -i 's/size = size.S))/size = size.M))/' kit/migrations/kit@2.xtmdpack"
               " && xtmd check --pack kit kit/migrations/kit@2.xtmdpack", show=["kit/migrations/kit@2.xtmdpack"]),
             S("bad-before", "kit2", "sed -i 's/color = color.OK), after/colour = color.OK), after/' kit/migrations/kit@2.xtmdpack"
               " && xtmd check --pack kit kit/migrations/kit@2.xtmdpack", show=["kit/migrations/kit@2.xtmdpack"]),
+        ],
+    },
+    "releases": {
+        "part": 8, "title": "From one release to the next: compile, decompile, migrate from 0.3.2",
+        "chapters": ["compile --rir", "decompile", "migrate from 0.3.2", "what is left, and older trees"],
+        "steps": [
+            S("tree", "shelf", "find . -type f -not -path './.git/*' | sort", show=["books.xtmd"]),
+            S("rir", "shelf", "xtmd compile books.xtmd --rir | jq -c '{rir, xtmd, files: [.files[].kind]}'"),
+            S("comments", "shelf", "xtmd compile books.xtmd --rir | jq -c '.files[] | select(.kind == \"document\") | .declarations[0].let | {id, comments}'"),
+            S("back", "shelf", "xtmd compile books.xtmd --rir --out books.rir.json && xtmd decompile books.rir.json --stdout"),
+            S("from-ir", "shelf", "xtmd compile books.xtmd --out books.ir.json && xtmd decompile books.ir.json --stdout"),
+            S("old", "tree032", "cat xtmd.toml", show=["doc.xtmd"]),
+            S("dry", "tree032", "xtmd migrate . --dry-run"),
+            S("diff", "tree032", "xtmd migrate . --diff"),
+            S("json", "tree032", "xtmd migrate . --dry-run --format json"),
+            S("yes", "tree032", "xtmd migrate . --yes", show=["doc.xtmd"]),
+            S("check", "tree032", "xtmd migrate . --check && xtmd check doc.xtmd"),
+            S("todo", "parts032", "xtmd migrate . --yes; echo \"exit $?\"", show=["doc.xtmd"]),
+            S("older", "older", "xtmd migrate . --dry-run; echo \"exit $?\""),
         ],
     },
     "fixes": {
@@ -264,22 +295,6 @@ REELS = {
             S("bare-yes", "ask", "xtmd migrate docs --yes"),
             S("yes-all", "ask", "xtmd migrate docs --yes all", show=["docs/report.xtmd"]),
             S("defect", "repo", "xtmd target check test --defect no-undoo --expect-failures"),
-        ],
-    },
-    "from02": {
-        "part": 6, "title": "xtmd migrate: from MKP 0.2",
-        "chapters": ["a 0.2 tree", "look first", "write, with a stand-in", "check it"],
-        "steps": [
-            S("tree", "notes", "find . -type f | sort",
-              show=["docs/counter.mkp.md", "docs/runs.mkp.md", "old/units/manifest.mkp", "old/units/distance.mkp"]),
-            S("frozen", "notes", "ls " + FROZEN + " && node --version"),
-            S("dry", "notes", "xtmd migrate docs --pack old/units --dry-run"),
-            S("changed", "notes", "cp " + FROZEN + "/migrate-0.2.cjs changed.cjs && echo '// changed' >> changed.cjs"
-              " && XTMD_MIGRATE_02=changed.cjs xtmd migrate docs --pack old/units --dry-run"),
-            S("write", "notes", "xtmd migrate docs --pack old/units --yes --allow-todos",
-              show=["docs/counter.xtmd", "docs/runs.xtmd", "docs/plain.xtmd", "docs/stand-ins/units/units.xtmdpack"]),
-            S("check", "notes", "xtmd check --pack docs/stand-ins docs/counter.xtmd docs/runs.xtmd"),
-            S("again", "notes", "xtmd migrate docs --pack docs/stand-ins,old/units --check"),
         ],
     },
 }
@@ -336,7 +351,7 @@ def capture(work, name, reel, xtmd_sha, built_from):
                       "segments": r["segments"], "exit": r["exit"], "seconds": seconds,
                       "tty": bool(st["answers"]), "before": before, "after": after})
         print("  %-16s exit %-3s %6.2fs  %s" % (st["id"], r["exit"], seconds, st["cmd"]))
-    return {"reel": name, "part": reel["part"], "parts": len(REELS), "title": reel["title"],
+    return {"reel": name, "part": reel["part"], "parts": max(r["part"] for r in REELS.values()), "title": reel["title"],
             "chapters": reel["chapters"], "steps": steps, "xtmd_sha256": xtmd_sha,
             "built_from": built_from, "work": os.path.abspath(work),
             "captured": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}

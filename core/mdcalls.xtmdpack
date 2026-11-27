@@ -1,0 +1,207 @@
+package core;
+
+// What core's parser reads Markdown as, before it is calls. Private to core
+
+//@about One Markdown block. Private to core
+enum md_block {
+    PARAGRAPH(words: list<md_segment>),
+    HEADING(level: int 1..6, words: list<md_segment>),
+    BULLETS(ordered: bool, start: int 0..., items: list<md_item>[1...]),
+    QUOTE(body: list<md_block>),
+    CODE(src: text, lang: text),
+    MATH(tex: latex),
+    TABLE(head: list<list<md_segment>>[1...], rows: list<list<list<md_segment>>>, align: list<cell_align>),
+    FOOTNOTE(mark: text, body: list<md_block>),
+    DIVIDER,
+}
+
+//@about One item of a list. done is a task box: ticked, not ticked, or none for an ordinary item. Private to core
+record md_item {
+    done: opt<bool> = opt.NONE;
+    body: list<md_block>;
+}
+
+//@about A part of a sentence and how it is marked. Private to core
+record md_segment {
+    part: md_part;
+    marks: md_marks = md_marks { };
+}
+
+//@about What a segment holds. A hole's value is TEXT, or VIEW for a widget, so a value never becomes formatting. Private to core
+enum md_part {
+    TEXT(value: text),
+    CODE(value: text), // a code span
+    MATH(tex: latex), // $x^2$
+    IMAGE(src: text, alt: text), // ![alt](src)
+    NOTE(mark: text), // [^1], the mark of a footnote
+    BREAK, // a hard line break
+    VIEW(child: view), // \{@icon(…)} in a sentence
+}
+
+//@about How a segment is marked. A link is a mark, so bold words inside a link are one segment. Private to core
+record md_marks {
+    bold: bool = false;
+    italic: bool = false;
+    strike: bool = false;
+    link: opt<text> = opt.NONE;
+}
+
+fn md_part.words(self): text {
+    match (self) {
+        case md_part.TEXT(v) {
+            return v;
+        }
+        case md_part.CODE(v) {
+            return v;
+        }
+        case md_part.MATH(m) {
+            return m.show();
+        }
+        case md_part.IMAGE(src, alt) {
+            return alt;
+        }
+        case md_part.BREAK {
+            return " ";
+        }
+        case else {
+            return "";
+        }
+    }
+}
+
+// rich_texts one after another, and a view's blocks as a rich_text. Private to core
+extern fn md_parts(parts: list<rich_text>): rich_text;
+
+extern fn md_blocks(child: view): rich_text;
+
+//@about Markdown read while the page runs: one paragraph is a sentence, and anything else is blocks. opt.NONE when the TeX of a maths span fails latex's checks.
+fn rich_text.from(value: template): opt<rich_text> {
+    if (let blocks: list<md_block> = md_read(value)) {
+        if (let words: list<md_segment> = md_sentence(blocks)) {
+            return md_rich(words);
+        }
+        return md_parts(blocks.map(fn(b) { return md_blocks(md_view(b)); }));
+    }
+    return opt.NONE;
+}
+
+// the words of one paragraph, when that is all there is. Private to core
+fn md_sentence(blocks: list<md_block>): opt<list<md_segment>> {
+    if (blocks.len() == 0) {
+        return [];
+    }
+    if (blocks.len() == 1) {
+        if (let b: md_block = blocks[0]) {
+            match (b) {
+                case md_block.PARAGRAPH(words) {
+                    return words;
+                }
+                case else { }
+            }
+        }
+    }
+    return opt.NONE;
+}
+
+// a sentence's segments as calls. Private to core
+fn md_rich(words: list<md_segment>): rich_text {
+    return md_parts(words.map(fn(s) { return md_marked(s); }));
+}
+
+fn md_marked(s: md_segment): rich_text {
+    let plain: rich_text = md_words(s.part);
+    let struck: rich_text = s.marks.strike ? "~~\{plain}~~" : plain;
+    let leaning: rich_text = s.marks.italic ? "*\{struck}*" : struck;
+    let heavy: rich_text = s.marks.bold ? "**\{leaning}**" : leaning;
+    if (let to: text = s.marks.link) {
+        let linked: view = @link(to = to) {
+            @heavy;
+        };
+        return "\{linked}";
+    }
+    return heavy;
+}
+
+fn md_words(p: md_part): rich_text {
+    match (p) {
+        case md_part.TEXT(value) {
+            return "\{value}";
+        }
+        case md_part.CODE(value) {
+            let v: view = @code_span(src = value);
+            return "\{v}";
+        }
+        case md_part.MATH(tex) {
+            let v: view = @inline_math(tex = tex);
+            return "\{v}";
+        }
+        case md_part.IMAGE(src, alt) {
+            let v: view = @inline_image(src = src, alt = alt);
+            return "\{v}";
+        }
+        case md_part.NOTE(mark) {
+            let v: view = @note_mark(mark = mark);
+            return "\{v}";
+        }
+        case md_part.BREAK {
+            let v: view = @line_break;
+            return "\{v}";
+        }
+        case md_part.VIEW(child) {
+            return "\{child}";
+        }
+    }
+}
+
+// one block, as the extern block of its kind. Private to core
+fn md_view(b: md_block): view {
+    match (b) {
+        case md_block.PARAGRAPH(words) {
+            return @paragraph(value = md_rich(words));
+        }
+        case md_block.HEADING(level, words) {
+            return @heading(level = level, value = md_rich(words));
+        }
+        case md_block.BULLETS(ordered, start, items) {
+            return @bullets(ordered = ordered, start = start) {
+                for (it in items) {
+                    @item(done = it.done) {
+                        for (inner in it.body) {
+                            @md_view(inner);
+                        }
+                    }
+                }
+            };
+        }
+        case md_block.QUOTE(body) {
+            return @quote {
+                for (inner in body) {
+                    @md_view(inner);
+                }
+            };
+        }
+        case md_block.CODE(src, lang) {
+            return @code(src = src, lang = lang);
+        }
+        case md_block.MATH(tex) {
+            return @math(tex = tex);
+        }
+        case md_block.TABLE(head, rows, align) {
+            let cells: list<rich_text> = head.map(fn(c) { return md_rich(c); });
+            if (cells.len() in 1...) {
+                return @table(head = cells, rows = rows.map(fn(r) { return r.map(fn(c) { return md_rich(c); }); }), align = align);
+            }
+            return @divider;
+        }
+        case md_block.FOOTNOTE(mark, body) {
+            return @footnote(mark = mark) {
+                for (inner in body) {
+                    @md_view(inner);
+                }
+            };
+        }
+        case md_block.DIVIDER {
+            return @divider;
+        }
+    }
+}

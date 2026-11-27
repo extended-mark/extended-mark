@@ -1,0 +1,5 @@
+KEYWORDS
+46, listed in docs/specs/01-overview.md. One can never be a name, after a dot included.
+A new keyword goes in compiler/xtmd/src/syntax/lexer.rs, in the spec's list and count (held to the lexer by
+compiler/xtmd/tests/syntax_keywords.rs), in the grammars of ide/vscode/syntaxes and in
+apps/playground/src/language.ts.

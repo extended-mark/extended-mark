@@ -1,0 +1,3 @@
+let wide: bool = page.now > "1971-01-01T00:00+00:00";
+@@@
+Wide: \{wide}

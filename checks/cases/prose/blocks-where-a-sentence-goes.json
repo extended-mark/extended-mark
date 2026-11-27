@@ -1,0 +1,24 @@
+{
+  "id": "prose.blocks-where-a-sentence-goes",
+  "about": "a heading, a cell and a mark hold a sentence: a literal of blocks is an error there",
+  "source": "blocks-where-a-sentence-goes.xtmd",
+  "expect": {
+    "diagnostics": [
+      {
+        "code": "prose.sentence-wanted",
+        "line": 3,
+        "column": 37
+      },
+      {
+        "code": "prose.sentence-wanted",
+        "line": 4,
+        "column": 29
+      },
+      {
+        "code": "prose.sentence-wanted",
+        "line": 11,
+        "column": 2
+      }
+    ]
+  }
+}

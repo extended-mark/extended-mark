@@ -1,0 +1,20 @@
+{
+  "name": "@extended-mark/example-host",
+  "version": "0.4.0",
+  "private": true,
+  "description": "A host written from the spec alone (docs/specs/06, The host's side): it draws a page's tree itself, on a server and in a browser that takes it over, with no widgets of ours",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node server.mjs",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@extended-mark/runtime": "file:../../runtime/typescript"
+  },
+  "devDependencies": {
+    "extended-mark": "file:../../compiler/npm/extended-mark",
+    "esbuild": "0.28.2",
+    "playwright-core": "1.64.1"
+  }
+}

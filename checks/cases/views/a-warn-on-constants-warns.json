@@ -1,0 +1,19 @@
+{
+  "id": "views.a-warn-on-constants-warns",
+  "about": "a warn that constants break is a compile warning, in a widget, an extern, a record and $state's own values refuse nothing",
+  "source": "a-warn-on-constants-warns.xtmd",
+  "expect": {
+    "diagnostics": [
+      {
+        "code": "views.warn-false",
+        "line": 10,
+        "column": 5
+      },
+      {
+        "code": "views.warn-false",
+        "line": 29,
+        "column": 2
+      }
+    ]
+  }
+}

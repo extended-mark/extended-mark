@@ -28,7 +28,7 @@ export interface Diagnostic {
   fix?: string | null;
 }
 
-/** The IR file `xtmd build` writes: `{ "ir": { … } }`, as schemas/ir.schema.json defines it. */
+/** The IR file `xtmd compile` writes: `{ "ir": { … } }`, as schemas/ir.schema.json defines it. */
 export interface IrFile {
   ir: { version: number; module: string; levels: string[]; [key: string]: unknown };
 }
@@ -124,7 +124,7 @@ export async function build(file: string, options?: Options): Promise<IrFile> {
     }
     return b.ir as unknown as IrFile;
   }
-  const r = await run(["build", ...flags(options), file]);
+  const r = await run(["compile", ...flags(options), file]);
   if (r.code !== 0) throw new XtmdError(`${file} doesn't compile:\n${r.stderr.trim()}`, r.stderr);
   return JSON.parse(r.stdout) as IrFile;
 }

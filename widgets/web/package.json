@@ -1,0 +1,47 @@
+{
+  "name": "@extended-mark/widgets",
+  "version": "0.4.0",
+  "description": "Extended Mark's widget set for the web: every core extern widget as plain elements, for any renderer or engine to put on a page",
+  "license": "MIT",
+  "homepage": "https://github.com/extended-mark/extended-mark",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/extended-mark/extended-mark.git",
+    "directory": "widgets/web"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./style.css": "./dist/style.css",
+    "./each": {
+      "types": "./dist/each.d.ts",
+      "default": "./dist/each.js"
+    },
+    "./doc": {
+      "types": "./dist/doc.d.ts",
+      "default": "./dist/doc.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p . && node scripts/copy-css.mjs",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@extended-mark/runtime": "file:../../runtime/typescript"
+  },
+  "devDependencies": {
+    "extended-mark": "file:../../compiler/npm/extended-mark",
+    "typescript": "5.9.3"
+  },
+  "sideEffects": [
+    "./dist/style.css"
+  ]
+}

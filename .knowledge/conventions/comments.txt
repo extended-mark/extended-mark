@@ -1,0 +1,7 @@
+COMMENTS AND CODE
+- A file starts with what it is for, in full sentences. A comment says why, not what.
+- Plain words of the spec; no marketing, no history ("now", "new", "no longer") in code or spec.
+- "page 6" in a comment is the spec's page, docs/specs/06-hosts-packs-implementers.md.
+- "plan tab 15" is an old plan: don't add more.
+- Names are whole words. Match the file around: density, idiom, line length.
+- A TypeScript port keeps the Rust's names and order, and the other way round.

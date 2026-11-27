@@ -1,0 +1,19 @@
+{
+  "id": "widgets.a-piece-of-markdown-is-one-there-is",
+  "about": "markdown #name names one of Markdown's own pieces, and the extern has what the piece is made of",
+  "source": "a-piece-of-markdown-is-one-there-is.xtmdpack",
+  "expect": {
+    "diagnostics": [
+      {
+        "code": "widget.markdown-piece",
+        "line": 7,
+        "column": 15
+      },
+      {
+        "code": "widget.markdown-piece",
+        "line": 12,
+        "column": 15
+      }
+    ]
+  }
+}

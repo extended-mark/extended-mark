@@ -4,7 +4,7 @@ fn add_one(mut xs: list<number>) {
     xs.add(1);
 }
 
-fn uses() {
+fn user() {
     mut names: list<text> = [];
     add_one(names);
 }

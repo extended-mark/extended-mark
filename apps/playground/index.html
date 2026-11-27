@@ -31,7 +31,11 @@
           </div>
         </div>
         <span id="example-note" class="example-note"></span>
-        <a class="topbar-link" href="/targets" data-testid="targets-link" title="One page, drawn by the run-time and the real-time target">Targets</a>
+        <nav class="topbar-links" aria-label="Pages">
+          <a class="topbar-link" href="/built" data-testid="built-link" title="A page built ahead into HTML and a small script">Built ahead</a>
+          <a class="topbar-link" href="/embedded" data-testid="embedded-link" title="A page in a React app">Embedded</a>
+          <a class="topbar-link" href="/live" data-testid="live-link" title="A page compiled as you type">Live</a>
+        </nav>
         <button id="status" data-testid="status" class="status" type="button" data-state="loading" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><span class="status-text">Loading…</span></button>
       </header>
 
@@ -93,7 +97,7 @@
 
             <div role="tabpanel" id="panel-state" class="panel" data-testid="panel-state" aria-labelledby="tab-state" hidden>
               <div class="panel-bar">
-                <span class="panel-note">Change a value to write it, as an app would. A write that breaks a rule is refused.</span>
+                <span class="panel-note">Change a value to write it, as a host would. A write that breaks a rule is refused.</span>
                 <button type="button" class="btn small" id="state-reset" data-testid="state-reset">Reset</button>
               </div>
               <div id="state-body" class="state-body" data-testid="state-body"></div>

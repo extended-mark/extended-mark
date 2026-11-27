@@ -1,0 +1,38 @@
+package t;
+
+record pt {
+    x: int;
+    mut y: int;
+    mut tags: list<text> = [];
+    names: list<text> = [];
+    o: opt<int> = opt.NONE;
+    mut in_it: { a: int, mut b: int } = { a = 1, mut b = 2 };
+}
+
+fn up(mut n: int) {
+    n = n + 1;
+}
+
+fn pt.lift(mut self) {
+    self.y = 1;
+    self.x = 1;
+}
+
+fn change(mut p: pt, mut ps: list<pt>) {
+    up(p.y);
+    up(p.x);
+    p.tags.add("a");
+    p.names.add("a");
+    p.in_it.b = 1;
+    p.in_it.a = 1;
+    ps[0].y = 1;
+    ps[0].x = 1;
+    if (mut o: int = p.o) {
+        o = 2;
+    }
+    mut for (t in p.names) {
+        if (mut s: text = t) {
+            s = "b";
+        }
+    }
+}

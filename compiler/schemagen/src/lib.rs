@@ -10,28 +10,32 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 pub struct Schema {
-    /// `ir` or `check`: the Rust module and the TypeScript file.
+    /// `ir`, `tree`, …: the Rust module and the TypeScript file.
     pub module: &'static str,
+    /// A format's version, a whole number of its own. The IR's is in each IR; the cases have none.
+    pub version: Option<i64>,
     pub defs: Map<String, Value>,
 }
 
 impl Schema {
     pub fn load(path: &Path, module: &'static str) -> Schema {
         let v: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
-        Schema { module, defs: v["$defs"].as_object().unwrap().clone() }
+        Schema { module, version: v["x-version"].as_i64(), defs: v["$defs"].as_object().unwrap().clone() }
     }
 }
 
+/// Each schema whose types are written.
+pub const MODULES: [&str; 9] = ["ir", "tree", "state", "actions", "told", "blocks", "build", "web", "check"];
+
 /// The files to write, relative to the repository: (path, contents).
 pub fn generate(repo: &Path) -> Vec<(PathBuf, String)> {
-    let ir = Schema::load(&repo.join("schemas/ir.schema.json"), "ir");
-    let check = Schema::load(&repo.join("schemas/check.schema.json"), "check");
     let mut out = Vec::new();
-    for s in [&ir, &check] {
+    for module in MODULES {
+        let s = &Schema::load(&repo.join(format!("schemas/{}.schema.json", module)), module);
         let mut g = Gen::new(s);
         g.run();
-        out.push((PathBuf::from(format!("compiler/ir/src/{}.rs", s.module)), g.rust()));
-        out.push((PathBuf::from(format!("targets/published/runtime/src/generated/{}.ts", s.module)), g.ts()));
+        out.push((PathBuf::from(format!("compiler/xtmd/src/formats/{}.rs", s.module)), g.rust()));
+        out.push((PathBuf::from(format!("runtime/typescript/src/generated/{}.ts", s.module)), g.ts()));
     }
     out
 }
@@ -107,6 +111,8 @@ enum Item {
 }
 
 struct FieldOut {
+    /// `x-option`: left out is not the same as empty.
+    option: bool,
     key: String,
     ty: Ty,
     required: bool,
@@ -119,7 +125,8 @@ struct Gen<'a> {
     unions: BTreeSet<String>,
     /// Edges from a type to the types it holds directly (not through a list or a map).
     edges: BTreeMap<String, BTreeSet<String>>,
-    foreign: BTreeSet<String>,
+    /// Types of another schema, with its module.
+    foreign: BTreeMap<String, String>,
 }
 
 fn doc(v: &Value) -> Option<String> {
@@ -128,7 +135,7 @@ fn doc(v: &Value) -> Option<String> {
 
 impl<'a> Gen<'a> {
     fn new(s: &'a Schema) -> Gen<'a> {
-        Gen { s, items: Vec::new(), unions: BTreeSet::new(), edges: BTreeMap::new(), foreign: BTreeSet::new() }
+        Gen { s, items: Vec::new(), unions: BTreeSet::new(), edges: BTreeMap::new(), foreign: BTreeMap::new() }
     }
 
     fn run(&mut self) {
@@ -161,7 +168,7 @@ impl<'a> Gen<'a> {
             for (key, fv) in v["properties"].as_object().unwrap() {
                 let ty = self.ty(fv, &format!("{}{}", name, pascal(key)));
                 self.edge(name, &ty);
-                fields.push(FieldOut { key: key.clone(), ty, required: required.contains(key), doc: doc(fv) });
+                fields.push(FieldOut { key: key.clone(), ty, required: required.contains(key), doc: doc(fv), option: fv.get("x-option").is_some() });
             }
             self.items.push(Item::Struct { name: name.into(), doc: doc(v), fields });
         } else {
@@ -179,7 +186,7 @@ impl<'a> Gen<'a> {
         if let Some(r) = v.get("$ref").and_then(|r| r.as_str()) {
             let (file, def) = r.split_once("#/$defs/").unwrap();
             if !file.is_empty() {
-                self.foreign.insert(pascal(def));
+                self.foreign.insert(pascal(def), file.trim_end_matches(".schema.json").to_string());
             }
             return Ty::Named(pascal(def));
         }
@@ -244,7 +251,7 @@ impl<'a> Gen<'a> {
             Ty::Any => "serde_json::Value".into(),
             Ty::Empty => "Empty".into(),
             Ty::Named(n) => {
-                let path = if self.foreign.contains(n) && self.s.module == "check" { format!("crate::ir::{}", n) } else { n.clone() };
+                let path = self.foreign.get(n).map_or(n.clone(), |m| format!("crate::formats::{}::{}", m, n));
                 if self.cyclic(owner, n) {
                     format!("Box<{}>", path)
                 } else {
@@ -258,8 +265,7 @@ impl<'a> Gen<'a> {
 
     fn rust_inner(&self, ty: &Ty) -> String {
         match ty {
-            Ty::Named(n) if self.foreign.contains(n) && self.s.module == "check" => format!("crate::ir::{}", n),
-            Ty::Named(n) => n.clone(),
+            Ty::Named(n) => self.foreign.get(n).map_or(n.clone(), |m| format!("crate::formats::{}::{}", m, n)),
             other => self.rust_ty(other, ""),
         }
     }
@@ -267,15 +273,22 @@ impl<'a> Gen<'a> {
     fn rust(&self) -> String {
         let mut o = String::new();
         o.push_str(&format!(
-            "// Written by xtmd-schemagen from schemas/{}.schema.json. Don't edit: change the schema, then run\n// `cargo run -p xtmd-schemagen`.\n\n#![allow(clippy::all)]\n\nuse serde::{{Deserialize, Serialize}};\nuse std::collections::BTreeMap;\n",
+            "// Written by xtmd-schemagen from schemas/{}.schema.json. Don't edit: change the schema, then run\n// `cargo run -p xtmd-schemagen`.\n\n#![allow(clippy::all)]\n\nuse serde::{{Deserialize, Serialize}};\n",
             self.s.module
         ));
+        let map = o.len();
         if self.s.module == "ir" {
             o.push_str("\n/// An object with nothing in it: `{}`.\n#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]\n#[serde(deny_unknown_fields)]\npub struct Empty {}\n");
-        } else {
-            o.push_str("\nuse crate::ir::Empty;\n");
+        } else if self.items.iter().any(|i| matches!(i, Item::Union { variants, .. } if variants.iter().any(|(_, ty, _)| matches!(ty, Ty::Empty)))) {
+            o.push_str("\nuse crate::formats::ir::Empty;\n");
         }
-        o.push_str("\nfn is_false(b: &bool) -> bool {\n    !*b\n}\n");
+        if let Some(v) = self.s.version {
+            o.push_str(&format!("\n/// The format's version.\npub const VERSION: i64 = {};\n", v));
+        }
+        let optional_bool = self.items.iter().any(|i| matches!(i, Item::Struct { fields, .. } if fields.iter().any(|f| !f.required && matches!(f.ty, Ty::Bool))));
+        if optional_bool {
+            o.push_str("\nfn is_false(b: &bool) -> bool {\n    !*b\n}\n");
+        }
         for item in &self.items {
             o.push('\n');
             match item {
@@ -290,16 +303,20 @@ impl<'a> Gen<'a> {
                         if rname != f.key {
                             attrs.push(format!("rename = \"{}\"", f.key));
                         }
-                        let base = self.rust_ty(&f.ty, name);
+                        let mut base = self.rust_ty(&f.ty, name);
+                        // a rich_text's calls are shared by every value made from them
+                        if name == "Rich" && f.key == "nodes" {
+                            base = format!("std::sync::Arc<{}>", base);
+                        }
                         let ty = if f.required {
                             base
                         } else {
                             match &f.ty {
-                                Ty::Vec(_) => {
+                                Ty::Vec(_) if !f.option => {
                                     attrs.push("default, skip_serializing_if = \"Vec::is_empty\"".into());
                                     base
                                 }
-                                Ty::Map(_) => {
+                                Ty::Map(_) if !f.option => {
                                     attrs.push("default, skip_serializing_if = \"BTreeMap::is_empty\"".into());
                                     base
                                 }
@@ -342,6 +359,9 @@ impl<'a> Gen<'a> {
                 }
             }
         }
+        if o.contains("BTreeMap<") {
+            o.insert_str(map, "use std::collections::BTreeMap;\n");
+        }
         o
     }
 
@@ -363,9 +383,18 @@ impl<'a> Gen<'a> {
             "// Written by xtmd-schemagen from schemas/{}.schema.json. Don't edit: change the schema, then run\n// `cargo run -p xtmd-schemagen`.\n",
             self.s.module
         );
-        if !self.foreign.is_empty() && self.s.module == "check" {
-            let names: Vec<&String> = self.foreign.iter().collect();
-            o.push_str(&format!("\nimport type {{ {} }} from \"./ir.js\";\n", names.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")));
+        let mut of: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+        for (n, m) in &self.foreign {
+            of.entry(m).or_default().push(n);
+        }
+        if !of.is_empty() {
+            o.push('\n');
+        }
+        for (m, names) in of {
+            o.push_str(&format!("import type {{ {} }} from \"./{}.js\";\n", names.join(", "), m));
+        }
+        if let Some(v) = self.s.version {
+            o.push_str(&format!("\n/** The format's version. */\nexport const VERSION = {};\n", v));
         }
         for item in &self.items {
             o.push('\n');

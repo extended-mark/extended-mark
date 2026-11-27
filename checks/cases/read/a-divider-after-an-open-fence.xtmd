@@ -1,0 +1,9 @@
+let n: int = 1;
+@@@
+```text
+@@@
+```
+
+The count is \{n}.
+
+@@@

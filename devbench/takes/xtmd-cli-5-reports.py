@@ -1,5 +1,5 @@
 """xtmd CLI, part 5 of 6: xtmd migrate in CI (--check, no terminal, --format json, --yes with
---report, 0.2's --write), xtmd.toml's release, and xtmd check running a migration's
+--report), xtmd.toml's release, and xtmd check running a migration's
 example(before = …, after = …).
 
 Every command and every line of output is real: devbench/takes/xtmd-cli/capture.py ran them with
@@ -44,8 +44,6 @@ def take(t):
     r.run("report-json", "…or as one JSON document: here from --check, now that it passes.")
     r.file("report-json", "run.json", "after")
     t.beat(r.line('"result": "up to date"'), "Each file's result, and the run's summary: up to date, exit 0.", 3.4)
-    r.run("write-flag", "0.2's --write is gone.")
-    t.beat(r.out("write-flag", "dropped --write"), "xtmd migrate writes in place: in a terminal it asks, elsewhere --yes writes.", 3.6)
 
     r.chapter(3, clear=False)
     r.run("newer", "xtmd.toml's xtmd = line says the release the tree is written for. Made newer than this xtmd…")
@@ -63,4 +61,4 @@ def take(t):
     r.run("bad-before", "And a before kit@1 can't have: chart had no input colour.")
     t.beat(r.out("bad-before", "doesn't compile against kit@1"), "before doesn't compile against kit@1.", 3.0)
 
-    r.end("Next, part 6: documents written for MKP 0.2.", 2.8)
+    r.end("That is every report.", 2.8)

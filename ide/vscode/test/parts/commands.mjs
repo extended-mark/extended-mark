@@ -1,0 +1,91 @@
+// The commands that once ran the xtmd binary, with none installed: Show as Markdown, Check a Folder and Migrate, on a
+// page with errors and a tree written for kit@1.
+
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+
+// a page with two slips, and old/, written for kit@1 as the CLI's tests have it
+const BROKEN = 'import kit;\n@@@\n# Broken\n\n@taly(name = "Yes", count = 1);\n\n@press(lable = "Go");\n';
+const old = {
+  "xtmd.toml": 'packs = ["kit"]\n\n[uses]\nkit = 1\n',
+  "kit/kit.xtmdpack": "package kit;\n\npack kit@2 {\n    uses core@2;\n    provides plot, badge, stat, state, stats;\n}\n\nrecord stat {\n    title: text;\n    value: text;\n    unit: text;\n}\n\nenum state { DONE, OVERDUE }\n\nextern widget plot(values: list<number>, tone: color = color.ACCENT) {\n    markdown { }\n}\nextern widget badge(label: text, size: size = size.M) {\n    markdown { }\n}\nextern widget stats(items: list<stat>) {\n    markdown { }\n}\n",
+  "kit/surfaces/kit@1.xtmdpack": "package kit@1;\n\nrecord stat {\n    label: text;\n    value: text;\n}\n\nenum state { DONE, LATE }\n\nextern widget chart(values: list<number>, color: color = color.ACCENT);\nextern widget badge(label: text, shadow: bool = false);\nextern widget sparkline(values: list<number>);\nextern widget stats(items: list<stat>);\n",
+  "kit/migrations/kit@2.xtmdpack": 'package kit;\n\nmigration kit@1 to kit@2 {\n    widget chart {\n        rename(to = plot);\n        rename(input = color, to = tone);\n    }\n\n    widget badge {\n        drop(input = shadow, why = "badges have no shadow");\n        set(input = size, value = size.S, when = !given(size), why = "kit@1\'s badges were small");\n    }\n\n    widget sparkline {\n        drop(why = "use plot");\n    }\n\n    record stat {\n        rename(field = label, to = title);\n        add(field = unit, value = "", why = "a stat names its unit");\n    }\n\n    enum state {\n        split(from = state.LATE, to = [state.OVERDUE, state.DONE], why = "late is now overdue, or done");\n    }\n}\n',
+  "docs/report.xtmd": 'import kit;\n\n$state {\n    s: state = state.LATE;\n}\n@@@\n# Report\n\n@chart(values = [1, 2], color = color.OK);\n\n@badge(label = "Beta", shadow = true);\n\n@sparkline(values = [3]);\n\n@stats(items = [stat { label = "Deploys", value = "42" }]);\n',
+};
+const fail = (why) => {
+  throw new Error(why);
+};
+
+export default async function ({ win, workspace, pause, shot, palette, file }) {
+  writeFileSync(join(workspace, "docs", "broken.xtmd"), BROKEN);
+  for (const [f, t] of Object.entries(old)) {
+    mkdirSync(dirname(join(workspace, "old", f)), { recursive: true });
+    writeFileSync(join(workspace, "old", f), t);
+  }
+  /** A folder or file in the explorer, by its name. */
+  const row = (name) => win.getByRole("treeitem", { name, exact: true }).first();
+  async function fromExplorer(name, item) {
+    await row(name).click({ button: "right" });
+    const it = win.locator(".monaco-menu .action-item", { hasText: item }).first();
+    await it.waitFor();
+    await pause(400);
+    await it.hover();
+    await pause(200);
+    await it.click();
+    await pause(400);
+    if (await win.locator(".monaco-menu").count()) await win.keyboard.press("Enter");
+  }
+
+  await file("poll.xtmd", "@tally");
+
+  // 1. Show as Markdown: a page of its own, beside the document, nothing saved
+  await palette("Extended Mark: Show as Markdown");
+  await win.locator(".tab.active", { hasText: "Untitled" }).waitFor({ timeout: 30000 });
+  await win.locator(".view-line", { hasText: "# Should the team ship on Fridays?" }).first().waitFor({ timeout: 15000 });
+  await shot("sc-1-markdown", "Show as Markdown, with no xtmd binary: the page as xtmd md writes it, on an untitled Markdown page beside the document");
+  await palette("View: Close All Editors");
+  await pause(500);
+  // a "don't save" dialog for the untitled page
+  const dontSave = win.locator(".monaco-dialog-box .monaco-button", { hasText: "Don't Save" });
+  if (await dontSave.count()) await dontSave.first().click();
+  await pause(800);
+
+  // 2. Check a Folder, from the explorer: every file under it, into Problems
+  await palette("View: Show Explorer");
+  await pause(800);
+  await fromExplorer("docs", "Check a Folder");
+  await win.locator(".notifications-toasts", { hasText: "Checked 3 files" }).first().waitFor({ timeout: 60000 });
+  await win.locator(".markers-panel .monaco-list-row", { hasText: "did you mean" }).first().waitFor({ timeout: 15000 });
+  await shot("sc-2-check-folder", "Check a Folder on docs/: 3 files checked by the built-in language server, broken.xtmd's two slips in Problems with did you mean");
+  await win.keyboard.press("Control+Shift+M");
+  await pause(500);
+
+  // 3. Migrate a folder written for kit@1: its question first, then the edit to look over
+  await fromExplorer("old", "Migrate");
+  await win.locator(".quick-input-widget", { hasText: "migrate: question 1" }).first().waitFor({ timeout: 60000 });
+  await shot("sc-3-migrate-question", "Migrate on old/: kit@2 splits LATE, so it asks which this one is, as xtmd migrate asks in a terminal");
+  await win.locator(".quick-input-widget .monaco-list-row", { hasText: "DONE" }).first().click();
+  await win.locator(".notifications-toasts", { hasText: "Write the changes" }).first().waitFor({ timeout: 90000 });
+  await pause(2000);
+  await shot("sc-4-migrate-changes", "The plan side by side with each file before anything is written: report.xtmd to kit@2, xtmd.toml's [uses]");
+  await win.locator(".notifications-toasts .monaco-button", { hasText: "Write Them" }).first().click();
+  await win.locator(".notifications-toasts", { hasText: "Migrated" }).first().waitFor({ timeout: 60000 });
+  await pause(1500);
+  const report = readFileSync(join(workspace, "old", "docs", "report.xtmd"), "utf8");
+  if (!report.includes("s: state = state.DONE;") || !report.includes("@plot(values = [1, 2], tone = color.OK);")) fail(`report.xtmd isn't migrated:\n${report}`);
+  if (!readFileSync(join(workspace, "old", "xtmd.toml"), "utf8").includes("kit = 2")) fail("xtmd.toml's [uses] isn't kit = 2");
+  await win.keyboard.press("Control+P");
+  await win.keyboard.type("report.xtmd", { delay: 20 });
+  await pause(600);
+  await win.keyboard.press("Enter");
+  await pause(1500);
+  await shot("sc-5-migrated", "Applied: report.xtmd now uses plot, size and title, DONE as answered; the notification says how many moved");
+
+  // 4. Undo takes the whole migration back: Ctrl+Z in any file it wrote
+  await win.locator(".view-line", { hasText: "state.DONE" }).first().click();
+  await win.keyboard.press("Control+Z");
+  await win.locator(".view-line", { hasText: "state.LATE" }).first().waitFor({ timeout: 15000 });
+  await pause(1500);
+  await shot("sc-6-undone", "Ctrl+Z in report.xtmd: the whole migration undone, in every file it wrote (unsaved until saved)");
+}

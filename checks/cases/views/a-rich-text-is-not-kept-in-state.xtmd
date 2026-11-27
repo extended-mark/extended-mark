@@ -1,0 +1,17 @@
+record note {
+    body: rich_text;
+}
+
+$state {
+    title: rich_text = "a";
+    notes: list<note> = [];
+}
+
+widget pad() {
+    mut draft: opt<note> = opt.NONE;
+    view {
+        @label(value = "x");
+    }
+}
+@@@
+@pad;

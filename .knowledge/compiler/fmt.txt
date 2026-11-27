@@ -1,0 +1,9 @@
+XTMD FMT  (compiler/xtmd/src/syntax/printer.rs)
+One canonical layout. Inside a line spacing is always the same; across lines the printer keeps what
+the author chose (a bracketed list on one line or many), since the tree remembers it.
+A block in prose is indented four spaces past its opening line, and means what the flat one does.
+Comments: one space before `//`, never lined up; one under another is the next node's.
+A comment after a bracket stays with it (`{ // x`, `} // y`, close: Body/Group/Block); one
+before a `{` joins its line. One inside an expression is the node's `free` and stays where it is
+(parser frames, printer free_before). Only a comment in a prose call outside its arguments has
+no place, and fmt refuses it (fmt.comment-cannot-be-kept).
