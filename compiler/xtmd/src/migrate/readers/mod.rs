@@ -46,6 +46,8 @@ impl XtmdCommand {
 impl Reader for XtmdCommand {
     fn read(&self, files: &[String], args: &[String]) -> Result<Read, Vec<String>> {
         std::fs::create_dir_all(&self.scratch).map_err(|e| vec![format!("{}: {}", self.scratch.display(), e)])?;
+        // a command that can't be run is said once, not for every file
+        Command::new(&self.program).arg("--version").output().map_err(|e| vec![format!("{} can't be run: {}", self.program.display(), e)])?;
         let (mut all, mut markdown, mut errors) = (Vec::new(), BTreeMap::new(), Vec::new());
         let (mut version, mut release): (Option<u64>, Option<String>) = (None, None);
         // the first one's own parts, the packs it was built with among them; the files are every one's
