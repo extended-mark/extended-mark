@@ -13,19 +13,23 @@ struct Found {
     from: i64,
     /// The IR of this version, or why it can't be.
     new: Result<String, Vec<String>>,
+    /// What a person must look at before the page runs on it.
+    todos: Vec<String>,
 }
 
-/// One IR file's text, brought here.
-fn bring(text: &str) -> (i64, Result<String, Vec<String>>) {
+/// One IR file's text, brought here, and what is left for a person.
+fn bring(text: &str) -> (i64, Result<String, Vec<String>>, Vec<String>) {
     let from = serde_json::from_str(text).ok().as_ref().and_then(crate::migrate::ir::version).unwrap_or(0);
-    let new = crate::migrate::ir::migrate(text).and_then(|(v, _)| {
+    let mut todos = Vec::new();
+    let new = crate::migrate::ir::migrate_said(text).and_then(|(v, _, said)| {
+        todos = said;
         if from == crate::migrate::ir::VERSION {
             return Ok(text.to_string());
         }
         // over several lines when it was
         Ok(if text.trim_end().contains('\n') { serde_json::to_string_pretty(&v).unwrap() } else { v.to_string() } + if text.ends_with('\n') { "\n" } else { "" })
     });
-    (from, new)
+    (from, new, todos)
 }
 
 pub fn run(files: &[String], json: bool, dry: bool, check: bool, stdout: bool, yes: bool) -> ExitCode {
@@ -39,8 +43,8 @@ pub fn run(files: &[String], json: bool, dry: bool, check: bool, stdout: bool, y
             eprintln!("{}: can't be read", f);
             return ExitCode::from(2);
         };
-        let (from, new) = bring(&old);
-        found.push(Found { path: PathBuf::from(f), old, from, new });
+        let (from, new, todos) = bring(&old);
+        found.push(Found { path: PathBuf::from(f), old, from, new, todos });
     }
     let refused = found.iter().filter(|f| f.new.is_err()).count();
     let moves: Vec<&Found> = found.iter().filter(|f| f.new.as_ref().map_or(false, |n| *n != f.old)).collect();
@@ -72,6 +76,7 @@ pub fn run(files: &[String], json: bool, dry: bool, check: bool, stdout: bool, y
             Ok(n) if *n == f.old => say(format!("{}  IR {}, up to date", p, now)),
             Ok(_) => say(format!("{}  IR {} → IR {}", p, f.from, now)),
         }
+        f.todos.iter().for_each(|t| say(format!("  TODO {}", t)));
     }
     let mut wrote = 0;
     let mut code = if refused > 0 { 1 } else { 0 };
@@ -108,6 +113,12 @@ pub fn run(files: &[String], json: bool, dry: bool, check: bool, stdout: bool, y
             say(format!("Wrote {} file{}.", wrote, if wrote == 1 { "" } else { "s" }));
         }
     }
+    // what is moved, or would be, with something left for a person says so with its exit code
+    if code == 0 && moves.iter().any(|f| !f.todos.is_empty()) {
+        let n: usize = moves.iter().map(|f| f.todos.len()).sum();
+        say(format!("{} TODO{} left for a person: an IR file holds no comment, so each is said here", n, if n == 1 { "" } else { "s" }));
+        code = crate::cli::migrate_rir::FOR_A_PERSON;
+    }
     if json {
         for f in &found {
             let (result, why) = match &f.new {
@@ -116,7 +127,7 @@ pub fn run(files: &[String], json: bool, dry: bool, check: bool, stdout: bool, y
                 Ok(_) if wrote > 0 => ("written", Vec::new()),
                 Ok(_) => ("would change", Vec::new()),
             };
-            out::line(serde_json::json!({ "type": "file", "file": f.path.display().to_string(), "from": f.from, "to": now, "result": result, "why": why }));
+            out::line(serde_json::json!({ "type": "file", "file": f.path.display().to_string(), "from": f.from, "to": now, "result": result, "why": why, "todos": f.todos }));
         }
         out::line(serde_json::json!({ "type": "summary", "files": found.len(), "refused": refused, "written": wrote, "exit": code }));
     }

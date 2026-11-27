@@ -31,6 +31,12 @@ pub fn version(v: &Value) -> Option<i64> {
 
 /// The IR of this version, and the version it was: or why it can't be brought here.
 pub fn migrate(text: &str) -> Result<(Value, i64), Vec<String>> {
+    migrate_said(text).map(|(v, from, _)| (v, from))
+}
+
+/// The IR of this version, the version it was, and what a person must look at before the page runs
+/// on it: an IR file holds no comment, so what the step can't settle is said beside it.
+pub fn migrate_said(text: &str) -> Result<(Value, i64, Vec<String>), Vec<String>> {
     let mut v: Value = serde_json::from_str(text).map_err(|e| vec![format!("it isn't JSON: {}", e)])?;
     let Some(from) = version(&v) else { return Err(vec!["it isn't an IR: `xtmd compile` writes { \"ir\": { \"version\": … } }".into()]) };
     if from > VERSION {
@@ -59,12 +65,30 @@ pub fn migrate(text: &str) -> Result<(Value, i64), Vec<String>> {
         })?;
     }
     // what an earlier IR didn't tell: what is read, written and whole
+    let mut said = Vec::new();
     if from < VERSION {
+        said = drawn_by_packs(&v, from);
         crate::lower::tell(&mut file.ir);
         v = serde_json::to_value(&file).map_err(|e| vec![e.to_string()])?;
         fits(&v, NOW, VERSION)?;
     }
-    Ok((v, from))
+    Ok((v, from, said))
+}
+
+/// The extern widgets a pack's own renderer draws, which a step can't move: the renderer is the pack's,
+/// written for the runtime of the IR's time, and the pack may have a later version the IR doesn't know.
+fn drawn_by_packs(v: &Value, from: i64) -> Vec<String> {
+    let mut by: std::collections::BTreeMap<String, Vec<String>> = std::collections::BTreeMap::new();
+    for d in v["ir"]["declarations"].as_array().into_iter().flatten() {
+        let w = &d["declare"]["extern"]["widget"];
+        if w["supplier"] == "pack" {
+            let name = w["name"].as_str().unwrap_or("");
+            by.entry(name.split('/').next().unwrap_or(name).to_string()).or_default().push(format!("`{}`", name));
+        }
+    }
+    by.into_iter()
+        .map(|(pack, ws)| format!("{} {} drawn by pack {}'s own renderer, as it was when IR {} was written: the page runs only where {} has a renderer for this runtime, and {} may have a later version since; build the page again from its source, moved by `xtmd migrate`, to be sure", ws.join(", "), if ws.len() == 1 { "is" } else { "are" }, pack, from, pack, pack))
+        .collect()
 }
 
 fn fits(v: &Value, schema: &str, version: i64) -> Result<(), Vec<String>> {

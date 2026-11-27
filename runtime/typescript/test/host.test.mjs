@@ -357,6 +357,18 @@ test("data that doesn't fit: $state is refused whole, and own variables are left
   assert.equal(new Page(built).left, undefined);
 });
 
+// $state a host saved from a 0.3.2 page, put back on the page xtmd migrate moved: a field it renamed (B3, a
+// keyword now) or gave another type (B7, a rich_text kept as its text) is refused whole, naming the field
+test("state saved from 0.3.2 with a field renamed or retyped is refused whole, naming it", () => {
+  const p = page('$state {\n    warn_: bool = false;\n    note: text = "a";\n}\n@@@\n\\{$state.note}\n');
+  const before = JSON.stringify(p.data().state);
+  assert.equal(p.restore({ state: { warn: { bool: true } }, own: {} }), undefined);
+  assert.deepEqual(p.takeOutcome().refused.map((x) => x.site), ["$state.warn"]);
+  assert.equal(p.restore({ state: { note: { record: { type: "core/rich_text" } } }, own: {} }), undefined);
+  assert.deepEqual(p.takeOutcome().refused.map((x) => x.site), ["$state.note"]);
+  assert.equal(JSON.stringify(p.data().state), before, "nothing was put back");
+});
+
 test("a change works out only what reads it, whatever else is on the page", () => {
   const doc = (rows) => `$state {
     n: int = 0;

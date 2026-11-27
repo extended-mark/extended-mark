@@ -255,3 +255,20 @@ fn the_hosts_state_is_checked_before_the_page_is_drawn() {
     assert_eq!(start(&[("n", "40"), ("m", "2"), ("gone", "1")]), (is("3", "2"), vec!["$state.n".into(), "$state.gone".into()], 1));
     assert_eq!(start(&[("m", "5")]), (is("3", "0"), vec!["m is over n".into()], 1));
 }
+
+/// `$state` a host saved from a 0.3.2 page, put back on the page `xtmd migrate` moved: a field it renamed
+/// (B3, a keyword now) or gave another type (B7, a rich_text kept as its text) is refused whole, naming the
+/// field, and nothing is put back.
+#[test]
+fn state_saved_from_0_3_2_with_a_field_renamed_or_retyped_is_refused_whole_naming_it() {
+    let file = common::build_with("$state {\n    warn_: bool = false;\n    note: text = \"a\";\n}\n@@@\n\\{$state.note}\n", &[]);
+    let mut p = Page::new(ir::File { ir: file }, PageOptions::default()).unwrap();
+    let before = p.observe_state();
+    let renamed = PageData { state: vec![("warn".into(), ir::Expr::Bool(true))], own: Default::default() };
+    assert_eq!(p.restore(&renamed).unwrap(), None);
+    assert_eq!(p.take_outcome().refused.iter().map(|b| b.site.clone().unwrap_or_default()).collect::<Vec<_>>(), ["$state.warn"]);
+    let retyped = PageData { state: vec![("note".into(), ir::Expr::Record(ir::ExprRecord { fields: Default::default(), ty: "core/rich_text".into() }))], own: Default::default() };
+    assert_eq!(p.restore(&retyped).unwrap(), None);
+    assert_eq!(p.take_outcome().refused.iter().map(|b| b.site.clone().unwrap_or_default()).collect::<Vec<_>>(), ["$state.note"]);
+    assert_eq!(p.observe_state(), before, "nothing was put back");
+}
