@@ -8,6 +8,7 @@ tools/release/
   publish-npm.mjs, publish-crates.sh
   android-failures.py which Android tests failed, and whether they may be tried again
   preflight.mjs       could every registry take this release
+  previous.mjs        the release before's front end, from its tag, into compiler/xtmd/previous
   README.md           how a release happens; test/
 tools/llm/check.mjs   holds CLAUDE.md, .index/ and .knowledge/ to the repository; test/
 tools/cli-usability/  harness.py, the command tried as a person would

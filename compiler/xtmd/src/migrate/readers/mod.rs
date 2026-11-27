@@ -31,8 +31,14 @@ pub trait Reader {
     fn read(&self, files: &[Source], packs: &[Source]) -> Result<Read, Vec<String>>;
 }
 
-/// The previous release's front end, when this xtmd is built with it.
+#[cfg(feature = "cli")]
+pub mod previous;
+
+/// The previous release's front end, when this xtmd is built with it: the command line is.
 pub fn previous() -> Option<Box<dyn Reader>> {
+    #[cfg(feature = "cli")]
+    return Some(Box::new(previous::Previous::new()));
+    #[cfg(not(feature = "cli"))]
     None
 }
 

@@ -39,5 +39,11 @@ pub mod lower;
 pub mod lsp;
 #[cfg(feature = "compiler")]
 pub mod migrate;
+// the release before's front end, which reads a tree written for it: the command line's only, copied from
+// its tag by tools/release/previous.mjs and never edited by hand
+#[cfg(feature = "cli")]
+#[path = "../previous/mod.rs"]
+#[allow(warnings, clippy::all)]
+pub mod previous;
 #[cfg(feature = "compiler")]
 pub mod syntax;
