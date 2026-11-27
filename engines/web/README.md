@@ -10,7 +10,7 @@ web = ["xtmd-web"]
 ```
 
 ```sh
-xtmd build docs --out dist --engine web
+xtmd export docs --out dist --engine web
 ```
 
 A page is whole before any script runs, and one that never changes has none. A script takes over the HTML that was

@@ -2,5 +2,7 @@ THE COMMAND'S RULES
 One spelling a flag; --format json, --out and --help everywhere (lsp: --help only).
 An unknown flag warns, and a run that would write files then writes nothing.
 A dropped flag fails and says what replaced it.
+A moved command or flag runs nothing and says where it went, in the release that moved it only;
+the next release removes it: the list of what to remove when is "Pre Commit checks.md".
 Exit codes: 0 done, 1 something is wrong, 2 usage. Questions are all listed, then asked; --yes.
 Help is compiler/xtmd/src/cli/help.rs, flags compiler/xtmd/src/cli/flags.rs: change both with the command.

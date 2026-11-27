@@ -116,7 +116,7 @@ ${sizes}
 </section>
 <section class="card" aria-labelledby="how">
 <h2 id="how">How</h2>
-<p class="note"><code>xtmd build docs --out dist --engine web</code></p>
+<p class="note"><code>xtmd export docs --out dist --engine web</code></p>
 <p class="note">The article is <code>coffee.xtmd</code>. The bar and this column are the site's own: the engine is given the page around a page, and an accent colour of the site's.</p>
 </section>
 </aside>

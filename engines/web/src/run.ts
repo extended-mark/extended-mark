@@ -1,4 +1,4 @@
-// What `xtmd build --engine` runs: what is built on standard input, the files on standard output.
+// What `xtmd export --engine` runs: what is built on standard input, the files on standard output.
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -31,7 +31,7 @@ export async function command<O extends Options>(name: string, what: string, bui
     for (let k = 0; k < args.length; k++) {
       const [flag, given] = args[k].split(/=(.*)/s);
       if (flag === "--help") {
-        process.stdout.write(`${name}: ${what}. Run by \`xtmd build --engine\`.\n\n${Object.entries(all).map(([n, x]) => `  ${n} ${x.help}`.trimEnd()).join("\n")}\n`);
+        process.stdout.write(`${name}: ${what}. Run by \`xtmd export --engine\`.\n\n${Object.entries(all).map(([n, x]) => `  ${n} ${x.help}`.trimEnd()).join("\n")}\n`);
         return;
       }
       if (!Object.hasOwn(all, flag)) stop(`${name} has no ${flag}`);

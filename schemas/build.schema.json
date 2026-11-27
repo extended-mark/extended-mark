@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/build.schema.json",
   "title": "Extended Mark build 1",
-  "description": "What `xtmd build --engine` gives an engine on its standard input, and what the engine gives back on its standard output (docs/specs/06, Implementing Extended Mark).",
+  "description": "What `xtmd export --engine` gives an engine on its standard input, and what the engine gives back on its standard output (docs/specs/06, Implementing Extended Mark).",
   "x-version": 1,
   "$ref": "#/$defs/job",
   "$defs": {

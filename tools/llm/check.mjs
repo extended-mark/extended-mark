@@ -37,6 +37,11 @@ export function tracked(repo) {
 /** The words of a line that may be paths. */
 export function pathsIn(line) {
   const out = [];
+  // a name with spaces in it is named in double quotes: "Pre Commit checks.md"
+  line = line.replace(/"([\w.-]+(?: [\w.-]+)+\.\w+)"/g, (_, name) => {
+    out.push(name);
+    return " ";
+  });
   for (const raw of line.split(/[\s`"'()[\],;|=]+/)) {
     const word = raw.replace(/[.:]+$/, "");
     // a placeholder (<name>), an address, a package's name, a flag and an ending (.xtmdpack) are none

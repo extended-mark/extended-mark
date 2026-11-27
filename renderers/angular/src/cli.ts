@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// xtmd-angular: what `xtmd build --engine angular` runs.
+// xtmd-angular: what `xtmd export --engine angular` runs.
 
 import type { ComponentOptions } from "@extended-mark/web/components";
 import { command } from "@extended-mark/web/run";

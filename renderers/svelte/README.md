@@ -59,7 +59,7 @@ svelte = ["xtmd-svelte"]
 
 ```sh
 npm install -D @extended-mark/svelte @extended-mark/web
-xtmd build docs --out src/xtmd --engine svelte
+xtmd export docs --out src/xtmd --engine svelte
 ```
 
 ```svelte

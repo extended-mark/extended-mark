@@ -9,7 +9,7 @@ such as one with egui or Compose, has its runtime built in, once, for every page
 
 ## A program
 
-`xtmd build --engine` runs it:
+`xtmd export --engine` runs it:
 
 ```toml
 # xtmd.toml
@@ -18,7 +18,7 @@ web = ["node", "engine.mjs"]
 ```
 
 ```sh
-xtmd build docs --out dist --engine web --theme plain
+xtmd export docs --out dist --engine web --theme plain
 ```
 
 Every document's IR is on its standard input, all at once, and the files it makes go to its standard output

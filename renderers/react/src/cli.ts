@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// xtmd-react: what `xtmd build --engine react` runs.
+// xtmd-react: what `xtmd export --engine react` runs.
 
 import type { ComponentOptions } from "@extended-mark/web/components";
 import { command } from "@extended-mark/web/run";

@@ -58,7 +58,7 @@ solid = ["xtmd-solid"]
 
 ```sh
 npm install -D @extended-mark/solid @extended-mark/web
-xtmd build docs --out src/xtmd --engine solid
+xtmd export docs --out src/xtmd --engine solid
 ```
 
 ```tsx

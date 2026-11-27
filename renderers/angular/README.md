@@ -64,7 +64,7 @@ angular = ["xtmd-angular"]
 
 ```sh
 npm install -D @extended-mark/angular @extended-mark/web
-xtmd build docs --out src/xtmd --engine angular
+xtmd export docs --out src/xtmd --engine angular
 ```
 
 ```ts

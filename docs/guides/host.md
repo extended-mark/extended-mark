@@ -10,7 +10,7 @@ and for [the plain web](../../renderers/dom) are hosts, and each takes **your ow
 components** as widgets (`components`, or `widgets` on the plain web). Write a host to draw everything
 yourself, or to draw somewhere these don't: a terminal, a native toolkit, a canvas, a test.
 
-Nor do you need one for pages known when a site is built: `xtmd build docs --out dist --engine web` writes them as
+Nor do you need one for pages known when a site is built: `xtmd export docs --out dist --engine web` writes them as
 HTML, CSS and scripts ([@extended-mark/web](../../engines/web)), with no runtime in them.
 
 ## 1. Build the page

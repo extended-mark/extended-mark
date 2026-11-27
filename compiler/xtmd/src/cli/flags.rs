@@ -10,7 +10,7 @@ fn known(cmd: &str) -> &'static [&'static str] {
         "parse" => &["--format", "--out", "--help"],
         "check" => &["--pack", "--config", "--format", "--out", "--help"],
         "compile" => &["--rir", "--core", "--pretty", "--pack", "--config", "--format", "--out", "--help"],
-        "build" => &["--engine", "--pack", "--config", "--format", "--out", "--help"],
+        "export" => &["--engine", "--pack", "--config", "--format", "--out", "--help"],
         "decompile" => &["--stdout", "--diff", "--check", "--format", "--out", "--help"],
         "md" => &["--pack", "--config", "--format", "--out", "--help"],
         "surface" => &["--check", "--diff", "--stdout", "--force", "--pack", "--config", "--format", "--out", "--help"],
@@ -47,10 +47,10 @@ const ASKED_FOR: &[(&str, &str, &str)] = &[
     ("*", "-h", "use --help"),
     ("*", "--json", "use --format json"),
     ("migrate", "-y", "use --yes"),
-    // build runs an engine; the IR and the resolved IR are compile's
-    ("build", "--rir", "xtmd compile writes the resolved IR: xtmd compile page.xtmd --rir"),
-    ("build", "--core", "xtmd compile writes the resolved IR, core's files in it: xtmd compile page.xtmd --rir --core"),
-    ("build", "--pretty", "xtmd compile writes the IR: xtmd compile page.xtmd --pretty"),
+    // export runs an engine; the IR and the resolved IR are compile's
+    ("export", "--rir", "xtmd compile writes the resolved IR: xtmd compile page.xtmd --rir"),
+    ("export", "--core", "xtmd compile writes the resolved IR, core's files in it: xtmd compile page.xtmd --rir --core"),
+    ("export", "--pretty", "xtmd compile writes the IR: xtmd compile page.xtmd --pretty"),
 ];
 
 /// The command's flags looked over: each one it doesn't know, warned about, and whether it can run;
@@ -120,7 +120,7 @@ mod tests {
         assert!(!check("migrate", &args(&["docs", "--to", "0.3.0"])).1);
         assert_eq!(check("fmt", &args(&["a.xtmdpack", "--check", "-", "--format", "json", "--out", "x.txt"])), (vec![], true));
         assert!(!check("compile", &args(&["a.xtmd", "-o", "a.ir.json"])).1);
-        assert!(!check("build", &args(&["a.xtmd", "--rir"])).1);
+        assert!(!check("export", &args(&["a.xtmd", "--rir"])).1);
         assert!(!check("check", &args(&["a.xtmd", "-o", "report.txt"])).1);
     }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// xtmd-web: what `xtmd build --engine web` runs.
+// xtmd-web: what `xtmd export --engine web` runs.
 
 import { build, type Options } from "./index.js";
 import { command, defaultOf } from "./run.js";

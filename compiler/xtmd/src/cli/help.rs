@@ -11,7 +11,7 @@ usage: xtmd <command> [arguments] [flags]
   xtmd compile <file|folder>…    write each document's IR, for a runtime (--rir: the resolved IR, for tools)
   xtmd decompile <file.rir.json> write a resolved IR's files back as source, in the canonical layout
   xtmd md <file|folder>…         write each document's Markdown, as it reads when it first loads
-  xtmd build … --engine e        the files an engine makes of the documents: HTML, Rust, whatever it is for
+  xtmd export … --engine e       the files an engine makes of the documents: HTML, Rust, whatever it is for
   xtmd surface <pack>            the release step: record what this version of the pack provides
   xtmd migrate [<file|folder>…]  bring documents and packs up to the packs they are built with
   xtmd lsp                       the language server, for an editor: the protocol over stdin and stdout
@@ -23,15 +23,15 @@ Every command takes:
                  it as JSON, with its diagnostics as JSON lines on stderr. One that reports (check,
                  fmt, surface, migrate) prints JSON lines: one object a line, each with
                  its \"type\", and a \"summary\" last.
-  --out <file>   what it prints goes to the file, its folder made if need be (compile, build, md and
+  --out <file>   what it prints goes to the file, its folder made if need be (compile, export, md and
                  surface write their document there); a run that stops at a usage error leaves it alone.
   --help         its own usage.
-And check, compile, build, md, surface and migrate take:
+And check, compile, export, md, surface and migrate take:
   --pack a,b     the packs: folders and .xtmdpack files.
   --config f     an xtmd.toml; left out, xtmd looks for one in the file's folder and the folders above.
                  It says packs = [\"kit\", \"extra.xtmdpack\"] (as --pack does), xtmd = \"0.4.0\" (the release
                  of xtmd the tree is written for), under [uses], kit = 2 (each pack's version) and, under
-                 [engines], web = [\"node\", \"engine.mjs\"] (what xtmd build --engine web runs).
+                 [engines], web = [\"node\", \"engine.mjs\"] (what xtmd export --engine web runs).
 
 Exit codes: 0 done, nothing wrong; 1 something is wrong (an error, a file that would change, a
 check that failed); 2 a usage error, or a file that can't be read.
@@ -123,10 +123,10 @@ const DECOMPILE: &str = "usage: xtmd decompile <file.rir.json> [--out dir | --st
   e.g.  xtmd compile page.xtmd --rir --out page.rir.json && xtmd decompile page.rir.json --stdout
         xtmd decompile build.rir.json --out migrated";
 
-const BUILD: &str = "usage: xtmd build <files|folders>… [--pack a,b] [--config xtmd.toml] [--format json] --out dir --engine <name|path> [the engine's own arguments]
+const EXPORT: &str = "usage: xtmd export <files|folders>… [--pack a,b] [--config xtmd.toml] [--format json] --out dir --engine <name|path> [the engine's own arguments]
   Writes the files an engine makes of the documents, into --out's folder: HTML, Rust, whatever the
   engine is for. Each document is compiled as xtmd compile does, and its IR given to the engine.
-  Without --engine there is nothing to build: xtmd compile writes the IR.
+  Without --engine there is nothing to export: xtmd compile writes the IR.
   --engine name  one of xtmd.toml's [engines], a command run in xtmd.toml's folder:
                    [engines]
                    web = [\"node\", \"engine.mjs\"]
@@ -137,7 +137,7 @@ const BUILD: &str = "usage: xtmd build <files|folders>… [--pack a,b] [--config
   --format json  its errors as JSON lines on stderr, and what was written on stdout
   exit: 0 written; 1 one doesn't compile, or what the engine gave can't be written; 2 a usage error, a
         file that can't be read, or an engine that can't be run; the engine's own when that isn't 0
-  e.g.  xtmd build docs --out dist --engine web --theme plain";
+  e.g.  xtmd export docs --out dist --engine web --theme plain";
 
 const MD: &str = "usage: xtmd md <files|folders>… [--pack a,b] [--config xtmd.toml] [--out out] [--format json]
   Writes a document's Markdown, as the page reads when it first loads: each value at its start,
@@ -174,7 +174,7 @@ pub(crate) fn of(cmd: &str) -> Option<&'static str> {
         "parse" => PARSE,
         "compile" => COMPILE,
         "decompile" => DECOMPILE,
-        "build" => BUILD,
+        "export" => EXPORT,
         "md" => MD,
         "surface" => SURFACE,
         "migrate" => crate::cli::migrate::USAGE,

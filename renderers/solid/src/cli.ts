@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// xtmd-solid: what `xtmd build --engine solid` runs.
+// xtmd-solid: what `xtmd export --engine solid` runs.
 
 import type { ComponentOptions } from "@extended-mark/web/components";
 import { command } from "@extended-mark/web/run";

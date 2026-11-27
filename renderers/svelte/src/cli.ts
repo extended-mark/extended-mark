@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// xtmd-svelte: what `xtmd build --engine svelte` runs.
+// xtmd-svelte: what `xtmd export --engine svelte` runs.
 
 import type { ComponentOptions } from "@extended-mark/web/components";
 import { command } from "@extended-mark/web/run";

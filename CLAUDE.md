@@ -73,6 +73,8 @@ How to use them:
    exists moves to it. An IR version that hasn't shipped is changed in place.
 10. **Write like the code around you**: full sentences in comments, saying why, in the words of the
     spec (`.knowledge/conventions/words.txt`).
+11. **Before a commit, go through "Pre Commit checks.md"**: the checks, and what a release removes that
+    the one before moved.
 
 ## Keeping the notes true
 

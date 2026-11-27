@@ -71,7 +71,7 @@ struct Config {
     #[serde(default)]
     #[allow(dead_code)]
     uses: std::collections::BTreeMap<String, u32>,
-    /// The engines `xtmd build --engine` runs, each a command: `web = ["node", "engine.mjs"]`.
+    /// The engines `xtmd export --engine` runs, each a command: `web = ["node", "engine.mjs"]`.
     #[serde(default)]
     engines: std::collections::BTreeMap<String, Vec<String>>,
 }
@@ -327,20 +327,28 @@ fn write_one(made: Result<String, u8>, out: Option<String>, print: impl Fn(&str)
     }
 }
 
-/// `xtmd build <files|folders>… --out dir --engine e`: the files an engine makes of the documents. Without
-/// an engine there is nothing to build: the IR is `xtmd compile`'s.
-fn build(args: &[String], engine: Option<(String, Vec<String>)>) -> ExitCode {
+/// `xtmd export <files|folders>… --out dir --engine e`: the files an engine makes of the documents. Without
+/// an engine there is nothing to export: the IR is `xtmd compile`'s.
+fn export(args: &[String], engine: Option<(String, Vec<String>)>) -> ExitCode {
     if engine.is_none() {
         let named: Vec<&str> = positional(args).iter().map(|s| s.as_str()).collect();
-        eprintln!("xtmd build runs an engine: --engine <name>, after xtmd's own flags. The IR a runtime runs is xtmd compile's: xtmd compile {}", if named.is_empty() { "page.xtmd".to_string() } else { named.join(" ") });
+        eprintln!("xtmd export runs an engine: --engine <name>, after xtmd's own flags. The IR a runtime runs is xtmd compile's: xtmd compile {}", if named.is_empty() { "page.xtmd".to_string() } else { named.join(" ") });
         return ExitCode::from(2);
     }
     compile(args, engine)
 }
 
+/// A command a release moved: its name, the release that moved it, and where it went. It runs nothing and
+/// says where to go, for that release only; the next one removes it ("Pre Commit checks.md").
+pub(crate) const MOVED: &[(&str, &str, &str)] = &[(
+    "build",
+    "0.4.0",
+    "xtmd build moved in 0.4.0, and 0.5.0 removes it. The files an engine makes: xtmd export <files> --out dir --engine <name>. The IR a runtime runs: xtmd compile <files>",
+)];
+
 /// `xtmd compile <files|folders>… [--pack a,b] [--rir [--core]] [--pretty] [--out out]`: each document as
 /// one standalone IR, core and the packs in it; with `--rir`, the resolved IR of the document and its packs
-/// instead. `xtmd build` comes here with its engine, for the IR it gives that engine.
+/// instead. `xtmd export` comes here with its engine, for the IR it gives that engine.
 fn compile(args: &[String], engine: Option<(String, Vec<String>)>) -> ExitCode {
     let (files, _, _, out) = match given(args) {
         Ok(x) => x,
@@ -350,7 +358,7 @@ fn compile(args: &[String], engine: Option<(String, Vec<String>)>) -> ExitCode {
         }
     };
     if files.is_empty() {
-        eprintln!("{}", help::of(if engine.is_some() { "build" } else { "compile" }).unwrap());
+        eprintln!("{}", help::of(if engine.is_some() { "export" } else { "compile" }).unwrap());
         return ExitCode::from(2);
     }
     let rir = args.iter().any(|a| a == "--rir");
@@ -891,7 +899,7 @@ fn md(args: &[String]) -> ExitCode {
 }
 
 /// The commands, as `xtmd help` names them.
-const COMMANDS: &[&str] = &["fmt", "check", "parse", "compile", "decompile", "build", "md", "surface", "migrate", "lsp"];
+const COMMANDS: &[&str] = &["fmt", "check", "parse", "compile", "decompile", "export", "md", "surface", "migrate", "lsp"];
 
 /// Flags written before the command (`xtmd --format json check …`), moved to after it, where each
 /// command reads them.
@@ -943,9 +951,14 @@ fn run(args: &[String]) -> ExitCode {
         _ => {}
     }
     let (cmd, rest) = (args[0].as_str(), &args[1..]);
-    // build's: what follows the engine's name is the engine's, and nothing here reads it
-    let (own, engine) = if cmd == "build" { engine::split(rest) } else { (rest.to_vec(), None) };
+    // export's: what follows the engine's name is the engine's, and nothing here reads it
+    let (own, engine) = if cmd == "export" { engine::split(rest) } else { (rest.to_vec(), None) };
     let rest = &own[..];
+    // a command this release moved says where it went, --help too, and runs nothing
+    if let Some((_, _, went)) = MOVED.iter().find(|(c, _, _)| *c == cmd) {
+        eprintln!("{}", went);
+        return ExitCode::from(2);
+    }
     if !COMMANDS.contains(&cmd) {
         if flags::is_flag(cmd) {
             eprintln!("xtmd: {} isn't a command; a flag goes with one: xtmd <command> {} …", cmd, cmd);
@@ -984,8 +997,8 @@ fn run(args: &[String]) -> ExitCode {
         eprintln!("Nothing written: xtmd {} doesn't know {}, so it stops before writing any file. Correct it and run it again.", cmd, unknown.join(", "));
         return ExitCode::from(2);
     }
-    // --out: build, md and surface write their document there; the rest, what they print
-    if !matches!(cmd, "compile" | "decompile" | "build" | "md" | "surface") {
+    // --out: compile, export, md and surface write their document there; the rest, what they print
+    if !matches!(cmd, "compile" | "decompile" | "export" | "md" | "surface") {
         if let Some(p) = out::out_path(rest) {
             out::to_file(&p);
         }
@@ -996,7 +1009,7 @@ fn run(args: &[String]) -> ExitCode {
         "check" => check(rest),
         "compile" => compile(rest, None),
         "decompile" => decompile(rest),
-        "build" => build(rest, engine),
+        "export" => export(rest, engine),
         "md" => md(rest),
         "surface" => surface::surface_cmd(rest),
         "migrate" => migrate::migrate_cmd(rest),

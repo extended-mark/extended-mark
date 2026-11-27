@@ -15,7 +15,7 @@ engines/web    npm @extended-mark/web, bin xtmd-web: pages built ahead into HTML
   test/side.mjs, harness.mjs    a page two ways in Chromium, side by side
   test/engine.test.mjs  every document and random runs, against the runtime
   test/held.test.mjs    the same in Node, as a framework's component holds a page; changes.mjs
-  test/places.test.mjs  widget set, tokens, shell, fns, and xtmd build --engine
+  test/places.test.mjs  widget set, tokens, shell, fns, and xtmd export --engine
 renderers: react, next, vue, svelte, solid, angular, each with an engine
   renderers/*/src/engine.ts    what is the framework's: a Framework; cli.ts: xtmd-react, ...
   renderers/*/src/built.ts     a component of a built page

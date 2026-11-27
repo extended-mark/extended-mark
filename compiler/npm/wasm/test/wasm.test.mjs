@@ -98,7 +98,7 @@ test("every case's resolved IR is the binary's (xtmd compile --rir), and only wh
   for (const c of cases) {
     const text = readFileSync(c.source, "utf8");
     const got = compiler.build(c.source, text, c.files, { rir: true });
-    const run = await cli.run(["build", "--rir", c.source, ...c.packs.flatMap((p) => ["--pack", p])]);
+    const run = await cli.run(["compile", "--rir", c.source, ...c.packs.flatMap((p) => ["--pack", p])]);
     if (run.code !== 0) continue;
     assert.deepEqual(got.rir, JSON.parse(run.stdout), c.id);
     // the IR beside it is the one a build without it gives

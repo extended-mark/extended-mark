@@ -62,7 +62,7 @@ vue = ["xtmd-vue"]
 
 ```sh
 npm install -D @extended-mark/vue @extended-mark/web
-xtmd build docs --out src/xtmd --engine vue
+xtmd export docs --out src/xtmd --engine vue
 ```
 
 ```vue

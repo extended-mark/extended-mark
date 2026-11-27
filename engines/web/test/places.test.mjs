@@ -1,5 +1,5 @@
 // The places to plug in: a widget set, token values, the page around a page, and the host's fns; and the engine as
-// `xtmd build --engine` runs it.
+// `xtmd export --engine` runs it.
 
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
@@ -77,15 +77,15 @@ test("pages built together share what is the same in them, and each has its own 
   for (const f of files.filter((f) => f.path.endsWith(".js"))) for (const [, from] of f.text.matchAll(/from"(\.[^"]+)"/g)) assert.ok(files.some((g) => g.path === join(dirname(f.path), from)), `${f.path} takes ${from}`);
 });
 
-test("xtmd build --engine runs it", () => {
+test("xtmd export --engine runs it", () => {
   const dir = mkdtempSync(join(tmpdir(), "xtmd-web-cli-"));
   writeFileSync(join(dir, "xtmd.toml"), `[engines]\nweb = ["node", ${JSON.stringify(join(here, "../dist/cli.js"))}]\n`);
   writeFileSync(join(dir, "page.xtmd"), COUNT);
   const bin = ["release", "debug"].map((k) => join(repo, "compiler/target", k, "xtmd")).find(existsSync);
-  execFileSync(bin, ["build", "page.xtmd", "--out", "dist", "--engine", "web", "--shell", place("shell.mjs"), "--widgets", place("widgets.mjs")], { cwd: dir, stdio: "pipe" });
+  execFileSync(bin, ["export", "page.xtmd", "--out", "dist", "--engine", "web", "--shell", place("shell.mjs"), "--widgets", place("widgets.mjs")], { cwd: dir, stdio: "pipe" });
   assert.match(readFileSync(join(dir, "dist/page.html"), "utf8"), /at ours.*data-part="mine"/s);
   assert.ok(readdirSync(join(dir, "dist/assets")).some((f) => f.endsWith(".js")));
-  const bad = spawnSync(bin, ["build", "page.xtmd", "--out", "dist2", "--engine", "web", "--nothing"], { cwd: dir, encoding: "utf8" });
+  const bad = spawnSync(bin, ["export", "page.xtmd", "--out", "dist2", "--engine", "web", "--nothing"], { cwd: dir, encoding: "utf8" });
   assert.notEqual(bad.status, 0);
   assert.match(bad.stderr, /xtmd-web has no --nothing/);
   assert.ok(!existsSync(join(dir, "dist2")));

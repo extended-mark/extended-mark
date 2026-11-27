@@ -83,7 +83,7 @@ react = ["xtmd-react"]
 
 ```sh
 npm install -D @extended-mark/react @extended-mark/web
-xtmd build docs --out src/xtmd --engine react
+xtmd export docs --out src/xtmd --engine react
 ```
 
 ```tsx

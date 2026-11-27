@@ -1,4 +1,4 @@
-//! `xtmd build --engine`: documents built into files by an engine. The engine is a program: what is built on
+//! `xtmd export --engine`: documents made into files by an engine. The engine is a program: what is built on
 //! its standard input, the files it makes on its standard output (schemas/build.schema.json), its errors on
 //! standard error. Everything after its name is its own. It writes no file itself: xtmd does, into `--out`,
 //! once it has ended well.
@@ -151,7 +151,7 @@ pub(crate) fn build(files: &[String], args: &[String], (name, given): (String, V
         ExitCode::from(2)
     };
     let Some(to) = out_dir else {
-        return usage("xtmd build --engine needs --out and the folder to build into, before --engine");
+        return usage("xtmd export --engine needs --out and the folder to write into, before --engine");
     };
     if Path::new(&to).is_file() {
         return usage(&format!("--out {}: a file, and an engine builds into a folder", to));
@@ -162,7 +162,7 @@ pub(crate) fn build(files: &[String], args: &[String], (name, given): (String, V
         Err(e) => return usage(&e),
     };
     // each document's place, as `--out` would have it
-    let jobs = match crate::cli::batch::jobs("build", files, Some("."), "") {
+    let jobs = match crate::cli::batch::jobs("export", files, Some("."), "") {
         Ok(j) => j,
         Err(e) => return usage(&e),
     };

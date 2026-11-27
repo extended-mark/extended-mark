@@ -11,7 +11,7 @@ The contracts between the modules, as JSON Schema (draft 2020-12). They are the 
 | `actions.schema.json` | What a reader, a widget or a host does to a page, each one change. |
 | `told.schema.json` | What a page tells its host: the fns it called, what was refused or failed, its warnings. |
 | `blocks.schema.json` | A page's Markdown as blocks, before it is text, as `xtmd md --format json` writes them. |
-| `build.schema.json` | What `xtmd compile --engine` gives an engine, and the files it gives back. |
+| `build.schema.json` | What `xtmd export --engine` gives an engine, and the files it gives back. |
 | `web.schema.json` | What a web widget set gives for a widget: plain elements, for any renderer or engine. |
 | `check.schema.json` | A compiler case: a source, its diagnostics and its Markdown; and what a case's steps observe. |
 | `rir-history/<version>/` | An earlier resolved IR's schema, kept as it was shipped: what a migration reads from the release that wrote it. |

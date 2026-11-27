@@ -1,4 +1,4 @@
-//! `xtmd build` and `xtmd md` over several files and folders, and `xtmd build --engine`.
+//! `xtmd compile` and `xtmd md` over several files and folders, and `xtmd export --engine`.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -104,14 +104,14 @@ fn a_flag_takes_its_value_after_an_equals_sign_too() {
 fn an_engine_that_cant_be_run_is_said() {
     let dir = scratch("engine-usage", &[("page.xtmd", "# Hi\n"), ("taken", "a file"), ("has/xtmd.toml", "[engines]\nweb = [\"node\", \"engine.mjs\"]\nnone = []\nlost = [\"no-such-program-xtmd\"]\n"), ("has/page.xtmd", "# Hi\n")]);
     for (args, why) in [
-        (&["build", "page.xtmd", "--engine", "web"][..], "needs --out"),
-        (&["build", "page.xtmd", "--out", "taken", "--engine", "web"], "builds into a folder"),
-        (&["build", "page.xtmd", "--out", "d", "--engine", "web"], "no engine `web`: there is no xtmd.toml"),
-        (&["build", "has/page.xtmd", "--out", "d", "--engine", "egui"], "has lost, none, web"),
-        (&["build", "has/page.xtmd", "--out", "d", "--engine", "none"], "an empty list"),
-        (&["build", "has/page.xtmd", "--out", "d", "--engine", "lost"], "no-such-program-xtmd can't be run"),
-        (&["build", "page.xtmd", "--out", "d", "--engine", "./nowhere"], "no such file"),
-        (&["build", "page.xtmd", "--rir", "--out", "d", "--engine", "./nowhere"], "xtmd compile writes the resolved IR"),
+        (&["export", "page.xtmd", "--engine", "web"][..], "needs --out"),
+        (&["export", "page.xtmd", "--out", "taken", "--engine", "web"], "builds into a folder"),
+        (&["export", "page.xtmd", "--out", "d", "--engine", "web"], "no engine `web`: there is no xtmd.toml"),
+        (&["export", "has/page.xtmd", "--out", "d", "--engine", "egui"], "has lost, none, web"),
+        (&["export", "has/page.xtmd", "--out", "d", "--engine", "none"], "an empty list"),
+        (&["export", "has/page.xtmd", "--out", "d", "--engine", "lost"], "no-such-program-xtmd can't be run"),
+        (&["export", "page.xtmd", "--out", "d", "--engine", "./nowhere"], "no such file"),
+        (&["export", "page.xtmd", "--rir", "--out", "d", "--engine", "./nowhere"], "xtmd compile writes the resolved IR"),
     ] {
         let (got, _, err) = xtmd_in(&dir, args);
         assert!(got == 2 && err.contains(why), "{:?}: {} {}", args, got, err);
@@ -148,7 +148,7 @@ mod engines {
         std::fs::write(dir.join("xtmd.toml"), "[engines]\nweb = [\"sh\", \"tools/web.sh\", \"first\"]\n").unwrap();
         std::fs::create_dir_all(dir.join("tools")).unwrap();
         std::fs::write(dir.join("tools/web.sh"), keeping(r#"{"path":"one.html","text":"1"},{"path":"deep/two.html","text":"2"},{"path":"assets/shared.css","text":"c"}"#)).unwrap();
-        let (code, out, err) = xtmd_in(&dir, &["build", "docs", "loose.xtmd", "--out=dist", "--engine", "web", "--out", "theirs", "--pack", "x y", "--help", "--engine=again", "--", ""]);
+        let (code, out, err) = xtmd_in(&dir, &["export", "docs", "loose.xtmd", "--out=dist", "--engine", "web", "--out", "theirs", "--pack", "x y", "--help", "--engine=again", "--", ""]);
         assert!(code == 0 && out.is_empty(), "{}", err);
         assert_eq!(read(dir.join("args.txt")), "<first><--out><theirs><--pack><x y><--help><--engine=again><--><>");
         let job: serde_json::Value = serde_json::from_str(&read(dir.join("job.json"))).unwrap();
@@ -164,7 +164,7 @@ mod engines {
         assert!(err.contains("3 documents: 3 built into 3 files"), "{}", err);
         // it runs in xtmd.toml's folder, wherever xtmd is
         std::fs::remove_file(dir.join("job.json")).unwrap();
-        let (code, _, err) = xtmd_in(&dir.join("docs"), &["build", "../loose.xtmd", "--out", "here", "--engine=web"]);
+        let (code, _, err) = xtmd_in(&dir.join("docs"), &["export", "../loose.xtmd", "--out", "here", "--engine=web"]);
         assert!(code == 0 && dir.join("job.json").is_file() && dir.join("docs/here/one.html").is_file(), "{}", err);
     }
 
@@ -172,7 +172,7 @@ mod engines {
     fn a_file_may_be_bytes_and_json_says_what_was_written() {
         let dir = scratch("engine-bytes", &[("page.xtmd", "# Hi\n")]);
         program(&dir, "png", &keeping(r#"{"path":"page.png","base64":"iVBORwD/"}"#));
-        let (code, out, err) = xtmd_in(&dir, &["build", "page.xtmd", "--format", "json", "--out", "dist", "--engine", "./png"]);
+        let (code, out, err) = xtmd_in(&dir, &["export", "page.xtmd", "--format", "json", "--out", "dist", "--engine", "./png"]);
         assert_eq!((code, std::fs::read(dir.join("dist/page.png")).unwrap()), (0, b"\x89PNG\x00\xff".to_vec()), "{}", err);
         let lines: Vec<serde_json::Value> = String::from_utf8(out).unwrap().lines().map(|l| serde_json::from_str(l).unwrap()).collect();
         assert_eq!((lines[0]["type"].as_str(), lines[0]["bytes"].as_i64()), (Some("file"), Some(6)));
@@ -183,18 +183,18 @@ mod engines {
     fn one_that_fails_or_gives_what_cant_be_written_changes_nothing() {
         let dir = scratch("engine-fails", &[("page.xtmd", "# Hi\n"), ("bad.xtmd", "@nothing;\n"), ("dist/page.html", "as it was")]);
         program(&dir, "fails", "#!/bin/sh\necho half\necho 'no canvas' >&2\nexit 7\n");
-        let (code, _, err) = xtmd_in(&dir, &["build", "page.xtmd", "--out", "dist", "--engine", "./fails"]);
+        let (code, _, err) = xtmd_in(&dir, &["export", "page.xtmd", "--out", "dist", "--engine", "./fails"]);
         assert!(code == 7 && err.starts_with("no canvas\n"), "{} {}", code, err);
         program(&dir, "out", &keeping(r#"{"path":"page.html","text":"new"},{"path":"../up.html","text":"x"}"#));
-        let (code, _, err) = xtmd_in(&dir, &["build", "page.xtmd", "--out", "dist", "--engine", "./out"]);
+        let (code, _, err) = xtmd_in(&dir, &["export", "page.xtmd", "--out", "dist", "--engine", "./out"]);
         assert!(code == 1 && err.contains("no path under") && err.contains("nothing is written") && !dir.join("up.html").exists(), "{} {}", code, err);
         assert_eq!(read(dir.join("dist/page.html")), "as it was");
         std::fs::remove_file(dir.join("job.json")).unwrap();
         // a document that doesn't compile never reaches it; the others do, and the run fails
         program(&dir, "ok", &keeping(r#"{"path":"page.html","text":"new"}"#));
-        let (code, _, err) = xtmd_in(&dir, &["build", "bad.xtmd", "--out", "dist", "--engine", "./ok"]);
+        let (code, _, err) = xtmd_in(&dir, &["export", "bad.xtmd", "--out", "dist", "--engine", "./ok"]);
         assert!(code == 1 && err.contains("names.unknown-widget") && !dir.join("job.json").exists(), "{} {}", code, err);
-        let (code, _, err) = xtmd_in(&dir, &["build", "bad.xtmd", "page.xtmd", "--out", "dist", "--engine", "./ok"]);
+        let (code, _, err) = xtmd_in(&dir, &["export", "bad.xtmd", "page.xtmd", "--out", "dist", "--engine", "./ok"]);
         assert!(code == 1 && err.contains("2 documents: 1 built into 1 file, 1 with errors"), "{} {}", code, err);
         assert_eq!(read(dir.join("dist/page.html")), "new");
     }

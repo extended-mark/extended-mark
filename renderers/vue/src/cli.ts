@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// xtmd-vue: what `xtmd build --engine vue` runs.
+// xtmd-vue: what `xtmd export --engine vue` runs.
 
 import type { ComponentOptions } from "@extended-mark/web/components";
 import { command } from "@extended-mark/web/run";

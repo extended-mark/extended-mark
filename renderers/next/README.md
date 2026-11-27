@@ -47,7 +47,7 @@ next = ["xtmd-next"]
 
 ```sh
 npm install -D @extended-mark/next @extended-mark/web
-xtmd build docs --out src/xtmd --engine next
+xtmd export docs --out src/xtmd --engine next
 ```
 
 ```tsx

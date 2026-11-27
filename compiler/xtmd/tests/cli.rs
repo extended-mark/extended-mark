@@ -578,7 +578,7 @@ fn every_command_has_its_own_help_and_xtmd_says_its_version() {
     assert!(out.contains("usage: xtmd <command>") && out.contains("Exit codes: 0 done"), "{}", out);
     let (code, out, _) = xtmd(&["--version"]);
     assert_eq!((code, out.trim().to_string()), (0, format!("xtmd {} (Extended Mark 0.4; IR 4, resolved IR {})", env!("CARGO_PKG_VERSION"), xtmd::check::RIR_VERSION)));
-    for cmd in ["fmt", "check", "parse", "compile", "build", "md", "surface", "migrate"] {
+    for cmd in ["fmt", "check", "parse", "compile", "decompile", "export", "md", "surface", "migrate"] {
         let args: Vec<&str> = cmd.split(' ').chain(["--help"]).collect();
         let (code, out, err) = xtmd(&args);
         assert_eq!(code, 0, "{}: {}", cmd, err);
@@ -1007,8 +1007,8 @@ fn a_fix_with_edits_applies_and_the_file_then_compiles() {
 }
 
 #[test]
-fn compile_writes_the_ir_and_build_runs_an_engine() {
-    let dir = scratch("compile-and-build", &[("page.xtmd", "# Hi\n")]);
+fn compile_writes_the_ir_and_export_runs_an_engine() {
+    let dir = scratch("compile-and-export", &[("page.xtmd", "# Hi\n")]);
     let page = dir.join("page.xtmd");
     let page = page.to_str().unwrap();
     let (code, out, err) = xtmd(&["compile", page]);
@@ -1017,16 +1017,24 @@ fn compile_writes_the_ir_and_build_runs_an_engine() {
     let (code, out, _) = xtmd(&["compile", page, "--rir"]);
     assert_eq!(code, 0);
     assert!(out.contains("\"rir\":2"), "{}", out);
-    // build with no engine has nothing to build, and says what writes the IR
-    let (code, _, err) = xtmd(&["build", page]);
+    // export with no engine has nothing to export, and says what writes the IR
+    let (code, _, err) = xtmd(&["export", page]);
     assert_eq!(code, 2);
-    assert!(err.contains("xtmd build runs an engine") && err.contains(&format!("xtmd compile {}", page)), "{}", err);
-    // and its old flags for the IR say where they went
+    assert!(err.contains("xtmd export runs an engine") && err.contains(&format!("xtmd compile {}", page)), "{}", err);
+    // and the IR's flags say where they are
     for flag in ["--rir", "--pretty", "--core"] {
-        let (code, _, err) = xtmd(&["build", page, flag]);
+        let (code, _, err) = xtmd(&["export", page, flag]);
         assert_eq!(code, 2, "{}", flag);
         assert!(err.contains("xtmd compile"), "{}: {}", flag, err);
     }
+    // build moved in 0.4.0: it runs nothing, --help or an engine given, and says where each part went
+    for args in [vec!["build", page], vec!["build", page, "--out", "d", "--engine", "web"], vec!["build", "--help"]] {
+        let (code, out, err) = xtmd(&args);
+        assert_eq!((code, out.as_str()), (2, ""), "{:?}", args);
+        assert!(err.contains("xtmd build moved in 0.4.0") && err.contains("xtmd export <files> --out dir --engine") && err.contains("xtmd compile <files>"), "{}", err);
+    }
+    assert!(!dir.join("d").exists());
     // the version names the resolved IR's
     assert!(xtmd(&["--version"]).1.contains("resolved IR 2"));
 }
+

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// xtmd-next: what `xtmd build --engine next` runs.
+// xtmd-next: what `xtmd export --engine next` runs.
 
 import type { ComponentOptions } from "@extended-mark/web/components";
 import { command } from "@extended-mark/web/run";
