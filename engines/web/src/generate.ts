@@ -402,7 +402,9 @@ class Generator {
     if ("cond" in c) return this.test(c.cond, at);
     const d = at.locals.length;
     const o = c.open;
-    const code = o.mut ? `${this.k("openMut")}(m,b,${d},${this.placeOf(o.opt, at)})` : `${this.k("open")}(b,${d},${this.x(o.opt, at)})`;
+    // the open's type only when it can refuse a value: its contract makes the opening a proof
+    const t = this.narrowed(o.type) ? `,${this.type(o.type)}` : "";
+    const code = o.mut ? `${this.k("openMut")}(m,b,${d},${this.placeOf(o.opt, at)}${t})` : `${this.k("open")}(m,b,${d},${this.x(o.opt, at)}${t})`;
     at.locals = [...at.locals, { name: o.name, ref: o.mut }];
     return code;
   }

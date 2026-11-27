@@ -99,17 +99,18 @@ export const isBool = (v: Value, b: boolean): boolean => v.kind === "bool" && v.
 export const sentence = (v: Value): Value => bool(!(v.kind === "content" && v.blocks));
 
 /** `if (let x = …)`: what an opt holds, bound. */
-export function open(b: Bound[], at: number, v: Value): boolean {
+export function open(m: Kit, b: Bound[], at: number, v: Value, t?: T): boolean {
   const x = opened(v);
-  if (x === undefined) return false;
+  // with a contract it is a proof as well: it opens only when the value fits
+  if (x === undefined || (t && !m.fits(x, t))) return false;
   b[at] = x;
   return true;
 }
 
 /** `if (mut x = …)`: the place inside an opt, bound. */
-export function openMut(m: Kit, b: Bound[], at: number, p: Place): boolean {
+export function openMut(m: Kit, b: Bound[], at: number, p: Place, t?: T): boolean {
   const x = inside(m, p);
-  if (x === undefined) return false;
+  if (x === undefined || (t && !m.fits(m.readPlace(x), t))) return false;
   b[at] = ref(x);
   return true;
 }
