@@ -1,0 +1,67 @@
+I WANT TO...    the places to touch, in order
+
+add or change a rule of the language
+  docs/specs (its text) -> compiler/xtmd/src/syntax (a code in compiler/xtmd/src/syntax/diag.rs)
+  or compiler/xtmd/src/check (a code in compiler/xtmd/src/check/mod.rs) -> a case in checks/cases
+  -> a row in checks/rules.json -> notes/<version>.md
+
+add syntax
+  docs/specs/09-grammar.md -> compiler/xtmd/src/syntax (lexer.rs, ast.rs, parser.rs or
+  prose.rs, printer.rs) -> compiler/xtmd/src/check (and its rir.rs) -> ide/vscode/syntaxes,
+  apps/playground/src/language.ts -> checks/cases/read
+
+change the IR
+  schemas/ir.schema.json -> xtmd-schemagen -> compiler/xtmd/src/check,
+  compiler/xtmd/src/lower (walk.rs, reach.rs) -> both evaluators and runtimes
+  -> compiler/xtmd/src/migrate/ir (if the version shipped)
+  -> docs/specs/06-hosts-packs-implementers.md
+
+add a fn to core
+  in Extended Mark: core/*.xtmdpack, core/pack.xtmdpack, docs/specs/05-standard-library.md, checks/core
+  extern: also compiler/xtmd/src/eval/natives.rs and runtime/typescript/src/eval/natives.ts
+
+add or change an extern widget of core
+  core/*.xtmdpack -> docs/specs/05-standard-library.md -> widgets/web/src/widgets
+  -> widgets/egui/src/widgets -> widgets/compose
+  -> ide/vscode/src/webview/widgets.ts -> runtime/typescript/test/cases
+
+change what a page does as it runs
+  runtime/typescript/src/page.ts AND runtime/rust/src/page.rs, a test in each
+  -> engines/web/src/kit/kit.ts, parts.ts
+
+change the evaluator
+  compiler/xtmd/src/eval/interp.rs AND runtime/typescript/src/eval/{ops,interp}.ts;
+  runtime/typescript/test/differential.test.mjs compares them
+  -> engines/web/src/generate.ts, when an expression or a statement is new
+
+change inline Markdown
+  core/markdown.xtmdpack AND compiler/xtmd/src/eval/md.rs;
+  compiler/xtmd/tests/check_md_inline.rs compares them
+
+change how Markdown is written
+  compiler/xtmd/src/markdown/mod.rs (text) and render.rs (starting blocks);
+  runtime/typescript/src/write.ts (text) and markdown.ts (blocks);
+  runtime/rust/src/markdown.rs
+
+change the host's calls (tree, write, data, ...)
+  docs/specs/06-hosts-packs-implementers.md -> schemas/tree.schema.json
+  -> runtime/typescript/src/host.ts AND runtime/rust/src/host.rs
+  -> docs/guides/host.md, apps/example-host
+
+change what an engine is given or gives
+  schemas/build.schema.json -> xtmd-schemagen -> compiler/xtmd/src/cli/engine.rs -> engines/web/src/run.ts
+  -> docs/guides/engine.md
+
+add a framework
+  renderers/<name> -> live/<name> -> its tests by renderers/testing
+  -> tools/release/README.md, .index/06-web-bindings.txt
+
+add a command or flag to xtmd
+  compiler/xtmd/src/cli/mod.rs, flags.rs, help.rs -> compiler/xtmd/tests/cli.rs
+
+change what editors show
+  compiler/xtmd/src/lsp/analysis.rs, server.rs -> compiler/xtmd/tests/lsp_server.rs;
+  rebuild xtmd.wasm for VS Code
+
+raise the version
+  node tools/release/bump.mjs <version>, then notes/<version>.md

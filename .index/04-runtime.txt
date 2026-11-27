@@ -1,0 +1,29 @@
+RUNTIME (TypeScript)  runtime/typescript    npm @extended-mark/runtime
+
+  src/index.ts          what a host imports: Page, apply, Num, lay, writeMarkdown
+  src/host.ts           Page: the host's side, values as JSON in the IR's form; the tree and changes
+  src/page.ts           Core: the page running
+                          redraw, drawNodes, drawNode, drawExtern, drawUse    drawing
+                          Frame, hold, enter, exit, unchanged, reuse          what is kept from last time
+                          event, write, set, expose, setExtern, transaction   changes
+                          refusal, given, takesArgs, stateRefusal      what comes from outside
+                          restoreData, restoreOwn                             page data put back
+                          contains, failed, checkRules                        failures
+  src/eval/ops.ts       Ops: equality, contracts, records, places, limits; no IR walked
+  src/eval/text.ts      texts by code points; durations shown
+  src/eval/interp.ts    Machine on Ops: statements and expressions (port of compiler/xtmd/src/eval/interp.rs)
+  src/eval/natives.ts   extern fns of core with no body
+  src/eval/num.ts       decimal128, on bigint
+  src/eval/maths.ts     roots, powers, logarithms, angles (decimal.js)
+  src/eval/value.ts     values, and to and from the IR's form
+  src/layout.ts         where boxes on a plane go: sizes in, places out; knows no page
+  src/markdown.ts       the live page as Markdown blocks
+  src/write.ts          blocks as text; knows no page
+  src/internal.ts       insides, for its tests
+  src/generated/        types from schemas/
+
+Tests  runtime/typescript/test/
+  cases.test.mjs and run-case.mjs (test/cases/*), page, host, memo, outside, machine, num, core, externs,
+  differential.test.mjs (the Rust evaluator against this one)
+
+The same in Rust: 07-rust.txt.

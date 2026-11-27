@@ -1,0 +1,5 @@
+package t;
+
+extern widget w(execute: text) {
+    markdown { }
+}

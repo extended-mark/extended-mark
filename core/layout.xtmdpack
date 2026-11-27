@@ -79,25 +79,37 @@ extern widget sizing(
 //@about Widgets placed anywhere on a plane with coordinates of its own: x from left to right, y from bottom to top.
 //@about It draws the part of the plane around center, as big as the widget is on the page.
 extern widget plane(
-    label: text,                                    // what it shows, for screen readers and Markdown
-    bounds: opt<region> = opt.NONE,                 // the whole plane; left out, the region around every spot's box
-    mut center: point = point { x = 0, y = 0 },     // the middle of what is drawn, kept inside bounds; the caller may keep it
-    mut zoom: number 0.1..10 = 1,                   // at 1, one unit is one of the page's own lengths; the caller may keep it
-    zoom_range: range<number> = 1..1,               // how far the reader may zoom; 1..1 means not at all
-    fit: bool = false,                              // start zoomed so the whole of bounds fits; zoom_range counts from there
-    mut drawn: opt<region> = opt.NONE,              // written by the target: the part of the plane being drawn
-    width: opt<size> = opt.NONE,                    // left out, the width it is given, like a column
-    aspect: number 0.1..10 = 1.5,                   // the drawn area's width over its height
+    label: text, // what it shows, for screen readers and Markdown
+    bounds: opt<region> = opt.NONE, // the whole plane; left out, the region around every spot's box
+    mut center: point = point { x = 0, y = 0 }, // the middle of what is drawn, kept inside bounds; the caller may keep it
+    mut zoom: number 0.1..10 = 1, // at 1, one unit is one of the page's own lengths; the caller may keep it
+    zoom_range: range<number> = 1..1, // how far the reader may zoom; 1..1 means not at all
+    fit: bool = false, // start zoomed so the whole of bounds fits; zoom_range counts from there
+    mut drawn: opt<region> = opt.NONE, // written by the renderer: the part of the plane being drawn
+    width: opt<size> = opt.NONE, // left out, the width it is given, like a column
+    aspect: number 0.1..10 = 1.5, // the drawn area's width over its height
 ) {
-    slot background: list<layer>;                   // core.gfx: drawn under the spots, in the plane's units
-    slot items: list<spot>;
-    event click(at: point);                         // a click on empty space, in the plane's units
+    slot background: opt<list<layer>>; // drawn under the spots, in the plane's units
+    slot items: opt<list<spot>>;
+    event click(at: point); // a click on empty space, in the plane's units
+    tokens color.LINE, color.SURFACE, radius.CARD;
+
+    warn "a spot is outside the plane's bounds: it is clipped, and the reader can't pan to it" {
+        if (let b: region = bounds) {
+            if (let spots: list<spot> = items) {
+                return spots.all(fn(s) { return b.overlaps(region { from = s.at, to = s.at }); });
+            }
+        }
+        return true;
+    }
 
     markdown {
         \{label}
 
-        @for (p in items) {
-            \{p}
+        @if (let spots: list<spot> = items) {
+            @for (p in spots) {
+                \{p}
+            }
         }
     }
 }
@@ -107,8 +119,8 @@ extern widget plane(
 extern widget spot(
     at: point,
     anchor: anchor = anchor.CENTER,
-    nudge: point = point { x = 0, y = 0 },          // by the page's own lengths, y up
-    mut box: opt<region> = opt.NONE,                // written by the target: from the bottom-left corner to the top-right one
+    nudge: point = point { x = 0, y = 0 }, // by the page's own lengths, y up
+    mut box: opt<region> = opt.NONE, // written by the renderer: from the bottom-left corner to the top-right one
 ) {
     slot child: view;
 

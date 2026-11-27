@@ -1,0 +1,10 @@
+{
+  "id": "read.a-pack-blocks-word-as-a-widget",
+  "about": "a word of a pack block as a widget's name",
+  "source": "a-pack-blocks-word-as-a-widget.xtmdpack",
+  "expect": {
+    "diagnostics": [
+      {"code": "syntax.keyword-as-name", "line": 3, "column": 15}
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+widget link(to: text) {
+    view {
+        @label(value = to);
+    }
+    markdown {
+        \{to}
+    }
+}
+
+widget bold(a: text) {
+    view {
+        @label(value = a);
+    }
+    markdown {
+        \{a}
+    }
+}
+@@@
+Some **bold** and [a link](https://x.y).
+
+@link(to = "x");
+
+@bold(a = "y");

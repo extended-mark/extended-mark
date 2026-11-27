@@ -1,0 +1,8 @@
+A REDRAW  (runtime/typescript/src/page.ts: redraw; the Rust port follows it line for line)
+After every change the whole page is drawn again from `doc`, and nearly all of it is reused:
+1. each part (a widget, an extern, a loop, a branch, a place, a local) is drawn inside a Frame that
+   notes what it read: outside values by key, and parts of values by place
+2. next time, a part whose frame is `unchanged`, with the same arguments and locals, is put back
+   whole (`replay`), with everything inside it seen again
+3. widgets not seen this redraw leave, with their variables
+Steps are counted anew for each redraw and each event.

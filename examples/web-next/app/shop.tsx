@@ -1,5 +1,5 @@
 "use client";
-// The shop page in Next.js: <XtmdDoc> draws it, rendered on the server and hydrated, and the app
+// The shop page in Next.js: <XtmdDoc> draws it, rendered on the server and hydrated, and the host
 // hears each checkout through onCalls.
 import { useState } from "react";
 import { XtmdDoc, type Call, type XtmdDocHandle } from "@extended-mark/next";
@@ -15,7 +15,7 @@ function seen(h: XtmdDocHandle | null) {
 export function Shop() {
   const [orders, setOrders] = useState<string[]>([]);
 
-  /** The app's side of `extern shop`: each checkout the page asks for, listed under it. */
+  /** The host's side of `extern shop`: each checkout the page asks for, listed under it. */
   function heard(calls: Call[]) {
     window.__calls.push(...calls);
     const placed = calls.filter((c) => c.call.name === "doc/shop.checkout").map((c) => c.call.args as { num: string }[]);
@@ -26,7 +26,7 @@ export function Shop() {
     <main>
       <p className="from">Next.js</p>
       <XtmdDoc id="shop" ir={shop} onCalls={heard} ref={seen} />
-      <h2>Orders sent to the app</h2>
+      <h2>Orders sent to the host</h2>
       <ul id="orders">
         {orders.map((o) => (
           <li key={o}>{o}</li>

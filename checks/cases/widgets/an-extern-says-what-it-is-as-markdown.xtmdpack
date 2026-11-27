@@ -1,0 +1,9 @@
+package t;
+
+//@about A mark.
+extern widget mark(value: text);
+
+//@about A box.
+extern widget box() {
+    slot body: view;
+}

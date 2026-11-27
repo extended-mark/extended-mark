@@ -2,7 +2,9 @@
 // xtmd.wasm in a worker, so there is no compiler here.
 //
 //   GET  /                 the playground (index.html, and dist/: app.js, app.css, the workers, xtmd.wasm)
-//   GET  /targets          one page drawn by the plain web's two kinds of target (targets.html, dist/targets.js)
+//   GET  /built            a page the web engine built ahead (dist/built.html, dist/built/)
+//   GET  /embedded         a page in a React app (dist/embedded.html)
+//   GET  /live             a page compiled as its text changes (dist/live.html)
 //   GET  /api/examples     the example pages, and the packs a page may import with their files' text
 //   POST /api/report       {kind, message, bytes?, agent?}: a failure in the browser (the compiler
 //                          couldn't load, or stopped on a page), logged and told to the team
@@ -36,7 +38,9 @@ const SERVICE = "xtmd-playground";
 export const PACKS = { graphs: join(repo, "examples/graphs") };
 
 /** The page itself; everything else the UI loads is a file in dist/ (build.mjs). */
-const PAGES = { "/": "index.html", "/index.html": "index.html", "/targets": "targets.html" };
+const PAGES = { "/": "index.html", "/index.html": "index.html" };
+/** The pages beside it, which build.mjs writes. */
+const BUILT = { "/built": "built.html", "/embedded": "embedded.html", "/live": "live.html" };
 
 const TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -49,8 +53,9 @@ const TYPES = {
   ".wasm": "application/wasm",
 };
 
-/** A file in dist/ is named by one path segment: no slashes, so nothing outside it is reachable. */
-const DIST_NAME = /^\/([A-Za-z0-9][A-Za-z0-9._-]*)$/;
+/** A file in dist/ is named by one path segment, or by one in built/assets/, where the engine's are: nothing outside
+ * them is reachable. */
+const DIST_NAME = /^\/((?:built\/assets\/)?[A-Za-z0-9][A-Za-z0-9._-]*)$/;
 /** esbuild's `[name]-[hash]` assets (the font) never change under their name. */
 const HASHED = /-[A-Z0-9]{8}\.[a-z0-9]+$/;
 
@@ -322,7 +327,7 @@ export async function startServer(options = {}) {
         return;
       }
       const page = PAGES[path];
-      const name = page ? undefined : DIST_NAME.exec(path)?.[1];
+      const name = page ? undefined : (BUILT[path] ?? DIST_NAME.exec(path)?.[1]);
       if (page || name) {
         const file = page ? join(here, page) : join(distDir, name);
         const found = await files.get(file);

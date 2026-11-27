@@ -3,9 +3,9 @@
   <img src="brand/logo.svg" alt="Extended Mark" height="52">
 </picture>
 
-# Extended Mark 0.3
+# Extended Mark 0.4
 
-Extended Mark (called MKP, Markdown Markup, up to 0.2) is a statically typed language for widgets in Markdown documents. A document is its definitions, a line that holds only `@@@`, and Markdown with `@widget` calls in it. Extended Mark lowers a page onto extern widgets, and whoever supplies those widgets decides how the page looks.
+Extended Mark is a statically typed language for widgets in Markdown documents. A document is its definitions, a line that holds only `@@@`, and Markdown with `@widget` calls in it. Extended Mark lowers a page onto extern widgets, and whoever supplies those widgets decides how the page looks.
 
 ## Install
 
@@ -27,17 +27,21 @@ download: `xtmd-<version>-<platform>.tar.gz` for `linux-x64`, `linux-arm64`, `da
 `%LOCALAPPDATA%\xtmd\bin`, added to your PATH); `XTMD_VERSION` picks a release and `XTMD_INSTALL_DIR`
 another folder.
 
-0.3 is a new version of the language: `xtmd migrate` moves a 0.2 document to it. MKP 0.2 is in the
-branch [`legacy-0.2.x`](https://github.com/extended-mark/extended-mark/tree/legacy-0.2.x), with its releases.
+`xtmd migrate` moves a tree written for the release before to this one, by what that release
+understands of it, and documents to the versions of the packs they use
+([docs/guides/migration.md](docs/guides/migration.md)).
 
 ## In this repository
 
-- `docs/specs`: the language, below. Every rule in it is held to a conformance case in `checks/`.
+- `docs/specs`: the language, below. Every rule in it is held to a case in `checks/`.
 - `compiler/`: `xtmd`, the compiler, in Rust, and its npm packages (`extended-mark`, with the `xtmd` command, and `@extended-mark/wasm`).
-- `targets/published`: the targets on npm, for the web, React, Vue, Svelte, Solid and Angular. Each comes in two kinds: run time, which draws an IR built ahead, and real time, which compiles in place.
-- `targets/examples`: targets that show how one is made (egui, Android's Compose, a native runtime). They are checked like the others and are never published. Any target that passes the conformance cases is an Extended Mark target.
+- `runtime/`: runs a page from its IR, in TypeScript and in Rust.
+- `widgets/`: a widget set for each platform: the web, egui, Compose.
+- `renderers/`: draw a running page with a widget set: the plain web, React, Next, Vue, Svelte, Solid, Angular, egui, Compose.
+- `engines/`: turn a page into files ahead of time. The web's is here; a framework's is in its renderer's package.
+- `live/`: the compiler, a runtime and a renderer in one, for a document that is compiled where it is read.
 - `ide/`: `xtmd lsp`, the language server, and the VS Code extension.
-- `apps/playground`: the playground. `brand/`: the logo and icons.
+- `apps/playground`: the playground. `apps/example-host`: a host written from the spec alone. `brand/`: the logo and icons.
 
 ## The syntax
 
@@ -48,9 +52,37 @@ branch [`legacy-0.2.x`](https://github.com/extended-mark/extended-mark/tree/lega
 | [3 Widgets](docs/specs/03-widgets.md) | Declaring and calling widgets, slots, events, views, loops and where variables live |
 | [4 Interfaces](docs/specs/04-interfaces.md) | Structural interfaces, the standard ones, literals for your own types, and generics |
 | [5 Standard library](docs/specs/05-standard-library.md) | What is built in, and all of `core`: types, text, dates, maths, Markdown, tokens and widgets |
-| [6 Apps, packs and implementers](docs/specs/06-apps-packs-implementers.md) | Packs and imports, tokens, talking to the app, levels, failures and limits |
+| [6 Hosts, packs and implementers](docs/specs/06-hosts-packs-implementers.md) | Packs and imports, tokens, talking to the host, levels, failures and limits |
 | [7 Examples](docs/specs/07-examples.md) | Whole widgets and a whole document |
 | [8 Open questions](docs/specs/08-open-questions.md) | What this version decided, and what was left for later |
 | [9 Grammar](docs/specs/09-grammar.md) | The grammar of files, documents and prose |
+
+## Guides
+
+- [Writing a host](docs/guides/host.md): drawing a page with code of your own, from its tree.
+- [Writing a runtime](docs/guides/runtime.md): running the IR on another platform.
+- [Writing an engine](docs/guides/engine.md): building pages into files ahead of time.
+- [Moving a tree to a new release](docs/guides/migration.md): `xtmd migrate`, `tools/migrate/chain.py`, and a release's step.
+
+## Releasing a new version of a pack
+
+A pack's version is a promise: what compiles against one release of `kit@1` compiles against every later one.
+A change that could break a document makes `kit@2`, which ships a **migration**, checked by the compiler.
+
+```sh
+xtmd surface kit              # at each release: writes surfaces/kit@1.xtmdpack. Commit it
+# … change the pack, write `pack kit@2`, and migrations/kit@2.xtmdpack:
+#     migration kit@1 to kit@2 {
+#         widget meter {
+#             rename(to = gauge);
+#             rename(input = colour, to = tone);
+#         }
+#     }
+xtmd check kit                # the migration type-checks from kit@1's surface to kit@2, and leaves nothing out
+xtmd surface kit              # kit@2's surface
+xtmd migrate docs --dry-run   # whoever uses it: each change and why, then --yes
+```
+
+[examples/pack-migration](examples/pack-migration) is one worked through, with a document before and after.
 
 `notes/` has what each release changed.

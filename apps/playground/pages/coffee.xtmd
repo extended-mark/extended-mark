@@ -1,0 +1,137 @@
+//@about One pour of the brew: when it starts, and how much of the water it takes.
+record pour {
+    name: text[1...];
+    start: int 0..240;
+    share: number 0..1;
+    note: text;
+}
+
+$state {
+    cups: int 1..6 = 2;
+    strength: int 14..18 = 16;
+    at: int 0..240 = 0;
+}
+
+fn pours(): list<pour>[1...] {
+    return [
+        pour { name = "Bloom", start = 0, share = 0.15, note = "Wet every ground, then leave it to rise." },
+        pour { name = "First pour", start = 45, share = 0.35, note = "Slow circles, from the middle out." },
+        pour { name = "Second pour", start = 100, share = 0.3, note = "Keep the water level steady." },
+        pour { name = "Last pour", start = 150, share = 0.2, note = "Straight into the middle, then let it drain." },
+    ];
+}
+
+//@about The water for the cups, in millilitres.
+fn water(): number 0... {
+    return ($state.cups * 250).clamp(0, 1500);
+}
+
+//@about The coffee for that water, in grams.
+fn dose(): number {
+    return (water() / $state.strength).round();
+}
+
+//@about The water in the dripper at a time of the brew.
+fn poured(at: number): number 0... {
+    let share: number = pours().filter(fn(p) { return p.start <= at; }).map(fn(p) { return p.share; }).sum().or(0);
+    return (water() * share).round().clamp(0, 1500);
+}
+
+fn clock(at: number): text {
+    let s: number = at % 60;
+    let m: number = (at - s) / 60;
+    return s < 10 ? "\{m}:0\{s}" : "\{m}:\{s}";
+}
+
+//@about A number and what it counts.
+widget figure(value: text, what: text) {
+    view {
+        @column(gap = space.XS) {
+            @label(value = value, size = text_size.LARGE, weight = weight.BOLD);
+            @label(value = what, size = text_size.SMALL, tone = color.MUTED);
+        }
+    }
+
+    markdown {
+        **\{value}** \{what}
+    }
+}
+
+//@about How much coffee and water, from how many cups and how strong.
+widget recipe() {
+    view {
+        @column(gap = space.L, pad = space.L, stroke = color.LINE, radius = radius.CARD) {
+            @row(gap = space.XL) {
+                @figure(value = "\{dose()} g", what = "coffee, ground like coarse sand");
+                @figure(value = "\{water()} ml", what = "water, just off the boil");
+            }
+            @slider(value = $state.cups, label = "Cups");
+            @slider(value = $state.strength, label = "Millilitres of water for a gram of coffee");
+            @label(
+                value = $state.strength <= 15 ? "A strong cup." : $state.strength == 16 ? "A balanced cup." : "A light cup.",
+                size = text_size.SMALL,
+                tone = color.MUTED,
+            );
+        }
+    }
+
+    markdown {
+        \{dose()} g of coffee and \{water()} ml of water, for \{$state.cups} cups.
+    }
+}
+
+//@about The four pours, the one under way marked, with a time to move through.
+widget brew() {
+    view {
+        @column(gap = space.L, pad = space.L, stroke = color.LINE, radius = radius.CARD) {
+            @row(justify = justify.BETWEEN, align = align.CENTER) {
+                @label(value = clock($state.at), size = text_size.LARGE, weight = weight.BOLD, font = font.MONO);
+                @label(value = "\{poured($state.at)} of \{water()} ml poured", tone = color.MUTED);
+            }
+            @meter(value = poured($state.at), max = water(), label = "Water poured");
+            @slider(value = $state.at, label = "Time, in seconds");
+            for (p in pours()) {
+                let now: bool = p.start <= $state.at;
+                @row(gap = space.M, align = align.CENTER, wrap = false) {
+                    @icon(name = now ? glyph.CHECK : glyph.DOT, tone = now ? color.OK : color.MUTED, label = now ? "Begun" : "To come");
+                    @grow {
+                        @column(gap = space.XS) {
+                            @label(value = "\{clock(p.start)}  \{p.name}, \{(water() * p.share).round()} ml", weight = now ? weight.BOLD : weight.REGULAR);
+                            @label(value = p.note, size = text_size.SMALL, tone = color.MUTED);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    markdown {
+        @for (p in pours()) {
+            - \{clock(p.start)}: \{p.name}, \{(water() * p.share).round()} ml. \{p.note}
+        }
+    }
+}
+@@@
+# Pour-over coffee
+
+A clean, bright cup needs little more than fresh coffee, hot water and a few minutes of calm. Say how many cups you
+want, and the amounts follow.
+
+@recipe;
+
+## Four pours
+
+Move the time along to see what is in the dripper at each moment. Each pour is there for a reason: the first lets the
+gas out, the next two carry most of the flavour, and the last rinses the sides.
+
+@brew;
+
+## If it tastes wrong
+
+| It is | Then |
+|---|---|
+| Sour or thin | Grind finer, or use more coffee |
+| Bitter or dry | Grind coarser, or pour faster |
+| Weak, but not sour | Use less water for each gram |
+
+The strength is the water divided by the coffee: $\{water()} / \{dose()}$ here. Most people settle near 16.

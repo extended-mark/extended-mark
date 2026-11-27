@@ -1,0 +1,17 @@
+[package]
+name = "xtmd-planes"
+workspace = "../../compiler"
+description = "The planes of a page laid out, for the renderers that draw them: what is on each measured, placed by the native runtime's layout, and written back."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# built and checked by CI, never published
+publish = false
+
+[dependencies]
+xtmd-runtime = { path = "../rust", version = "0.4.0" }
+xtmd = { path = "../../compiler/xtmd", version = "0.4.0", default-features = false }
+
+[dev-dependencies]
+xtmd = { path = "../../compiler/xtmd", default-features = false, features = ["compiler"] }

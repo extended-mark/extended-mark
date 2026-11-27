@@ -1,0 +1,10 @@
+{
+  "id": "read.a-divider-after-an-open-fence",
+  "about": "a @@@ line in a fence below the divider is code, and one outside it is still a second divider",
+  "source": "a-divider-after-an-open-fence.xtmd",
+  "expect": {
+    "diagnostics": [
+      {"code": "prose.second-divider", "line": 9, "column": 1}
+    ]
+  }
+}

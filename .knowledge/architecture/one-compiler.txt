@@ -1,0 +1,8 @@
+ONE COMPILER, AND MODULES AROUND IT
+(docs/specs/01-overview.md, "One compiler, and modules around it")
+
+- There is one compiler, in Rust. The browser has the same one as WebAssembly, editors too.
+- The IR decides: defaults filled in, names resolved, calls chosen, no Markdown left. A module that
+  has to work out the language's meaning is a second compiler, and the two would drift.
+- Every other part has a set input and output and can be replaced.
+- None of ours is special: no API is only for our modules, no case is for a name of ours.

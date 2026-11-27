@@ -1,0 +1,40 @@
+$state {
+    a: point = point { x = -3, y = -2 };
+    b: point = point { x = 4, y = -1 };
+    c: point = point { x = 0, y = 3 };
+}
+
+//@about The area of the triangle between three points.
+fn area(a: point, b: point, c: point): number {
+    let twice: number = (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y);
+    return (twice / 2).abs();
+}
+
+//@about A triangle whose corners the reader drags.
+widget triangle() {
+    view {
+        @canvas(label = "A triangle with corners to drag", x = -5..5, y = -4..4, width = size.L) {
+            @layer {
+                @path(points = [$state.a, $state.b, $state.c], closed = true, fill = color.ACCENT, stroke = color.ACCENT, opacity = 0.2);
+                @path(points = [$state.a, $state.b, $state.c], closed = true, stroke = color.ACCENT, width = stroke.BOLD);
+                @handle(at = $state.a, label = "Corner A", tone = color.C1);
+                @handle(at = $state.b, label = "Corner B", tone = color.C2);
+                @handle(at = $state.c, label = "Corner C", tone = color.C3);
+            }
+        }
+    }
+
+    markdown {
+        A triangle with the corners \{$state.a}, \{$state.b} and \{$state.c}.
+    }
+}
+@@@
+# A triangle
+
+Drag a corner. The area is half of what the corners span, and the sentence below always has it.
+
+@triangle;
+
+The area is **\{area($state.a, $state.b, $state.c).round()}** squares.
+
+Now edit this text: change a colour above, or write another sentence here.

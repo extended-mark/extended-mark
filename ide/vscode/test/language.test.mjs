@@ -11,6 +11,10 @@ test("a document with @@@ is code then prose; one without, prose; a pack's file,
   assert.equal(languageFor("a.xtmd", "let a: int = 1;\n@@@\n# Hi\n"), "xtmd");
   assert.equal(languageFor("a.xtmd", "# Hi\n\n@press(label = \"Go\");\n"), "xtmd-prose");
   assert.equal(languageFor("a.xtmd", "---\ntitle: x\n---\n# Hi\n"), "xtmd-prose");
+  // a @@@ in a fence is code; one after a fence that is never closed still divides
+  assert.equal(languageFor("a.xtmd", "# Hi\n\n```xtmd\nlet a: int = 1;\n@@@\n```\n"), "xtmd-prose");
+  assert.equal(languageFor("a.xtmd", "# Hi\n\n~~~~\n@@@\n~~~\n@@@\n~~~~\n"), "xtmd-prose");
+  assert.equal(languageFor("a.xtmd", "let a: int = 1;\n@@@\n```\n@@@\n```\n"), "xtmd");
   // only code, with no @@@: a document that draws nothing yet
   assert.equal(languageFor("a.xtmd", "// a note\nwidget w() {\n}\n"), "xtmd");
   assert.equal(languageFor("kit.xtmdpack", "# not prose\n"), "xtmd-pack");

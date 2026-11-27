@@ -1,0 +1,8 @@
+AN EARLIER IR
+Plain steps from one version's JSON to the next's, one way. Each version's schema and pages are kept
+in schemas/ir-history; a migrated page keeps its Markdown, or is refused with the reason. An IR file
+holds no comment, so what a person must look at is said beside it (ir::migrate_said; a kept page's
+<page>.todo.txt) and the run exits 3: such as a pack's own extern widgets, whose renderer a step can't move.
+Saved page data isn't migrated: `$state` put back with a field renamed or retyped is refused whole,
+naming it (runtime/rust/tests/host.rs, runtime/typescript/test/host.test.mjs).
+A step is written when a version has shipped. IR 4 hasn't: change it, and the step from 3 with it.

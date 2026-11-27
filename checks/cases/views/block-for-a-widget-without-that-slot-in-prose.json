@@ -1,0 +1,11 @@
+{
+  "id": "views.block-for-a-widget-without-that-slot-in-prose",
+  "about": "a plain block for a widget with several slots or none is an error, never dropped or put in the first, in prose",
+  "source": "block-for-a-widget-without-that-slot-in-prose.xtmd",
+  "expect": {
+    "diagnostics": [
+      {"code": "views.children-need-one-slot", "line": 62, "column": 2},
+      {"code": "views.children-need-one-slot", "line": 66, "column": 2}
+    ]
+  }
+}

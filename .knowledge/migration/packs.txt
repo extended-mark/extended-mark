@@ -1,0 +1,13 @@
+A PACK'S VERSIONS  (compiler/xtmd/src/check/versions.rs, migrations.rs)
+A surface (surfaces/kit@1.xtmdpack, written by `xtmd surface`) is what a release provided. What
+compiled against one release of kit@1 compiles against every later one, or it is an error.
+kit@2 ships migrations/kit@2.xtmdpack, which must account for every difference from kit@1's surface.
+Worked through: examples/pack-migration. core too: core@1 is 0.3.2's core (core/surfaces), core@2's
+migration (core/migrations, embedded by build.rs as CORE_HISTORY) runs in 0.3.2's step, after the language.
+Applied (migrate/packs/) to the file's resolved IR, compiled against kit@1's surface; printed back in
+fmt's layout and compiled against kit@2, which must give the IR the statements made.
+A value is worked out by eval where the use gives constants; else it is the statement's code, each of
+the use's values a stand-in call (`xtmd_probe_<n>()`) compiled in a probe fn, then put back as its IR.
+A document's own `let` stays its name, unless only a migration-only fn could use it.
+A dropped case, an execute that can't decide, a slot that isn't plain text: refused, or a TODO with
+--allow-todos (exit 3). Tests: compiler/xtmd/tests/migrate_packs.rs, and compiler/xtmd/tests/cli.rs migrate_*.

@@ -1,0 +1,10 @@
+{
+  "id": "views.left-out-input-in-prose",
+  "about": "an input without a default is given, in prose",
+  "source": "left-out-input-in-prose.xtmd",
+  "expect": {
+    "diagnostics": [
+      {"code": "views.missing-input", "line": 62, "column": 2}
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+let limit: int = 3;
+let abc: label = @label(value = "up to \{limit}");
+let pair: list<view> = [@label(value = "a"), @label(value = "b")];
+let note: rich_text = "so **far**";
+let plain: text = "x";
+
+widget held(shown: view) {
+    view {
+        @shown;
+        @abc;
+    }
+}
+@@@
+@abc;
+
+@pair;
+
+@note;
+
+@held(shown = abc);
+
+@plain;

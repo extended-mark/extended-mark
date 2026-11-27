@@ -1,0 +1,102 @@
+import pick;
+
+enum shape {
+    DOT,
+    SQUARE(side: int 1..5),
+}
+
+record pt {
+    mut x: int 0..10;
+    y: number 0..1 = 0.5;
+}
+
+record box<T> {
+    inside: T;
+}
+
+record span {
+    mut low: int;
+    mut high: int;
+
+    require "low is over high" {
+        return low <= high;
+    }
+}
+
+extern host {
+    n: int 0..10 = 3;
+    s: text = "a";
+    p: pt = pt {
+        x = 1,
+    };
+}
+
+expose host {
+    fn put(k: int 0..10, w: text) {
+        $state.n = k;
+        $state.t = w;
+    }
+}
+
+fn bump(mut n: int) {
+    n = n + 10;
+}
+
+widget adder(mut n: int) {
+    view {
+        @press(label = "Add", click = fn() { n = n + 10; });
+    }
+    markdown {
+        \{n}
+    }
+}
+
+$state {
+    n: int 0..10 = 3;
+    t: text = "a";
+    p: pt = pt {
+        x = 1,
+    };
+    e: shape = shape.DOT;
+    b: box<int> = box {
+        inside = 1,
+    };
+    xs: list<pt> = [];
+    o: opt<int 0..5> = opt.NONE;
+    s: span = span {
+        low = 1,
+        high = 2,
+    };
+    c: color = color.INK;
+}
+@@@
+@slider(value = $state.p.x, label = "X");
+
+@field(value = $state.t, label = "T");
+
+@pick(value = $state.e, options = [shape.DOT], moved = fn(by: int 0..3) { $state.n = by.round().clamp(0, 10); });
+
+@overlay(label = "More") {
+    @slot anchor {
+        @label(value = "Open");
+    }
+    @slot body {
+        In it.
+    }
+}
+
+@press(label = "Low", click = fn() { $state.s.low = 99; });
+
+@press(label = "Both", click = fn() { $state.s = $state.s with { low = 5, high = 9 }; });
+
+@press(label = "Local", click = fn() {
+    mut a: int 0..5 = 3;
+    bump(a);
+    $state.n = a;
+});
+
+@adder(n = $state.p.x);
+
+@adder(n = $state.s.low);
+
+\{host.n} \{host.s} \{host.p.x} \{$state.b.inside} \{$state.xs.len()} \{dial(1)}

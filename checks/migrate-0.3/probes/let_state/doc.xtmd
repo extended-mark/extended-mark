@@ -1,0 +1,7 @@
+$state {
+    n: int = 2;
+}
+
+let twice: int = $state.n * 2;
+@@@
+Twice is \{twice}.

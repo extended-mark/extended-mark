@@ -1,0 +1,32 @@
+widget tab(t: text) {
+    view {
+        @label(value = t);
+    }
+    markdown {
+        \{t}
+    }
+}
+
+widget one() {
+    slot body: tab;
+    view {
+        @body;
+    }
+    markdown {
+        \{body}
+    }
+}
+
+widget u() {
+    view {
+        @one {
+            @tab(t = "a");
+            @tab(t = "b");
+        }
+    }
+    markdown {
+        x
+    }
+}
+@@@
+@u;

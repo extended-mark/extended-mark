@@ -1,0 +1,15 @@
+widget page_of() {
+    view {
+        @heading(level = 1, value = "- one\n- two");
+        @table(head = ["a", "# b"], rows = []);
+        @paragraph(value = "fine **so**");
+    }
+}
+@@@
+@page_of;
+
+@bold {
+    one
+
+    two
+}

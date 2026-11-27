@@ -1,0 +1,65 @@
+package core;
+
+//@about core@1, 0.3's core, to core@2, 0.4.0's. A rich_text is Markdown now, blocks too: the language has it built in, and it is placed where it stands, so md is a rich_text and @blocks places its value. What 0.3's rich_text and md were made of is gone, and code that read it is left for a person.
+migration core@1 to core@2 {
+    record md {
+        rename(to = rich_text);
+        drop(field = blocks, why = "a rich_text holds Markdown's blocks itself, and nothing reads them: it is placed");
+    }
+
+    fn md.from {
+        rename(to = rich_text.from);
+    }
+
+    widget blocks {
+        execute {
+            return @value;
+        }
+    }
+
+    record rich_text {
+        rename(to = rich_text);
+        drop(field = segments, why = "a rich_text is Markdown placed where it stands, and nothing reads its parts: keep the text it is made from, and read that");
+    }
+
+    fn rich_text.read {
+        drop(why = "a rich_text is made from Markdown with rich_text.from(template.of(…)), which gives an opt, or from words with rich_text.plain(…)");
+    }
+
+    fn rich_text.show {
+        drop(why = "a rich_text has no words to read: keep the text it is made from, and read that");
+    }
+
+    enum block {
+        drop(why = "a rich_text holds Markdown's blocks itself, and nothing reads them");
+    }
+
+    record list_item {
+        drop(why = "a rich_text holds Markdown's lists itself, and nothing reads them");
+    }
+
+    record segment {
+        drop(why = "a rich_text is calls, a sentence's or blocks', and nothing reads its parts");
+    }
+
+    enum part {
+        drop(why = "a rich_text is calls, a sentence's or blocks', and nothing reads its parts");
+    }
+
+    fn part.words {
+        drop(why = "a rich_text has no words to read: keep the text it is made from, and read that");
+    }
+
+    record marks {
+        drop(why = "bold, italic, strike and link are widgets now, which hold a sentence: @bold { … }");
+    }
+
+    record md_piece {
+        notify(field = part, why = "core's own Markdown reader's, which no page writes");
+        notify(field = marks, why = "core's own Markdown reader's, which no page writes");
+    }
+
+    record mb_out {
+        notify(field = blocks, why = "core's own Markdown reader's, which no page writes");
+    }
+}

@@ -8,10 +8,10 @@
 // package.json of ours (its version, and the `@extended-mark/…` and `extended-mark` pins that aren't a
 // `file:` path); each package-lock.json's own entries (the package, and its neighbours in this
 // repository; never a registry's); the Android example's Gradle versions; the schemas' examples'
-// `"xtmd"`; the runtime snapshots' release (`RELEASE`) in @extended-mark/embed and the Android
+// `"xtmd"`; the runtime snapshots' release (`RELEASE`) in @extended-mark/widgets and the Android
 // example (egui takes its crate's version); and the version the docs show (the release README, the VS
 // Code extension's README, the Android example's README). A 0.3.0 that means the language's first
-// release (`xtmd migrate`, a flag dropped "in 0.3.0") or the frozen 0.2 tool is none of these.
+// release (`xtmd migrate`) is none of these.
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -54,7 +54,7 @@ function places(repo) {
   add(join(repo, "VERSION"), (t) => [t.trim()], (_, v) => `${v}\n`);
 
   // the crates: the workspace's version, a member's own, and each path dependency's
-  for (const f of files(join(repo, "compiler"), (n) => n === "Cargo.toml").concat(files(join(repo, "ide"), (n) => n === "Cargo.toml"), files(join(repo, "targets"), (n) => n === "Cargo.toml"))) {
+  for (const f of files(join(repo, "compiler"), (n) => n === "Cargo.toml").concat(...["runtime", "widgets", "renderers", "live"].map((d) => files(join(repo, d), (n) => n === "Cargo.toml")))) {
     pattern(f, /^(version = ")([^"]+)(")/gm);
     pattern(f, /(\bpath = "[^"]+", version = ")([^"]+)(")/g);
   }
@@ -64,14 +64,14 @@ function places(repo) {
   pattern(join(repo, "compiler", "Cargo.lock"), crate);
 
   // the package.json files and their lock files
-  for (const root of ["compiler", "targets", "apps", "ide", "examples"]) {
+  for (const root of ["compiler", "runtime", "widgets", "renderers", "engines", "live", "apps", "ide", "examples"]) {
     for (const f of files(join(repo, root), (n) => n === "package.json")) {
       const pkg = JSON.parse(readFileSync(f, "utf8"));
       if (!ours(pkg.name ?? "") && !f.startsWith(join(repo, "examples")) && !f.startsWith(join(repo, "ide"))) continue;
       pattern(f, /^(  "version": ")([^"]+)(")/gm);
       for (const s of SECTIONS)
         for (const [dep, spec] of Object.entries(pkg[s] ?? {}))
-          if (ours(dep) && !String(spec).startsWith("file:")) pattern(f, new RegExp(`("${dep.replace("/", "\\/")}": ")([^"]+)(")`, "g"));
+          if (ours(dep) && !String(spec).startsWith("file:")) pattern(f, new RegExp(`("${dep.replace("/", "\\/")}": ")((?!file:)[^"]+)(")`, "g"));
     }
     for (const f of files(join(repo, root), (n) => n === "package-lock.json")) {
       // the package and its neighbours here, by folder; a registry's packages are left as they are
@@ -94,14 +94,13 @@ function places(repo) {
   }
 
   // the Android example, the schemas' examples, the snapshots' release and the docs that show the version
-  const android = join(repo, "targets", "examples", "misc", "android", "compose");
-  pattern(join(android, "xtmd-android", "build.gradle.kts"), /(\bversion = ")([^"]+)(")/g);
-  pattern(join(android, "xtmd-android-live", "build.gradle.kts"), /(\bversion = ")([^"]+)(")/g);
+  const android = join(repo, "renderers", "compose");
+  for (const m of ["runtime/kotlin", "widgets/compose", "renderers/compose/xtmd-android", "live/compose"]) pattern(join(repo, m, "build.gradle.kts"), /(\bversion = ")([^"]+)(")/g);
   pattern(join(android, "sample", "build.gradle.kts"), /(\bversionName = ")([^"]+)(")/g);
   pattern(join(android, "README.md"), /(xtmd:xtmd-android:)(\d+\.\d+\.\d+)()/g);
   pattern(join(android, "xtmd-android", "src", "main", "kotlin", "xtmd", "android", "XtmdDoc.kt"), /(const val RELEASE = ")([^"]+)(")/g);
   for (const f of files(join(repo, "schemas", "examples"), (n) => n.endsWith(".json"))) pattern(f, /("xtmd": ")([^"]+)(")/g);
-  pattern(join(repo, "targets", "published", "bindings", "embed", "src", "snapshot.ts"), /(export const RELEASE = ")([^"]+)(")/g);
+  pattern(join(repo, "widgets", "web", "src", "snapshot.ts"), /(export const RELEASE = ")([^"]+)(")/g);
   pattern(join(repo, "tools", "release", "README.md"), /(carries the release's version \()(\d+\.\d+\.\d+)(\))/g);
   pattern(join(repo, "ide", "vscode", "README.md"), /(# xtmd-)(\d+\.\d+\.\d+)(\.vsix)/g);
   return out.filter((p) => existsSync(p.file));

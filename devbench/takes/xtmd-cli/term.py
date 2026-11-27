@@ -16,7 +16,6 @@ def env():
     e = dict(os.environ)
     e["PATH"] = (BIN + os.pathsep if BIN else "") + e.get("PATH", "")
     e["COLUMNS"] = "200"
-    e.pop("XTMD_MIGRATE_02", None)
     return e
 
 

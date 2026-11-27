@@ -13,7 +13,7 @@ Markdown's mark is by Dustin Curtis and is in the public domain (CC0), so it can
 | `mark.svg`, `mark-dark.svg` | The mark: ink and coral on a light background; paper and light coral on a dark one | Anywhere the name is already written beside it |
 | `mark-black.svg`, `mark-white.svg` | The mark in one colour | Print, embossing, a background the colours fight |
 | `logo.svg`, `logo-dark.svg` | The mark and "Extended Mark" | The README's header, a site's header, slides |
-| `icon.svg` | The mark in white on a coral tile | The app icon: the VS Code extension, an app |
+| `icon.svg` | The mark in white on a coral tile | The host icon: the VS Code extension, a host |
 | `favicon-16.svg` | The call sign alone on the tile, as the whole mark is too small to read at 16 px | A site's icon, and the 16 px image in `favicon.ico` |
 | `github/avatar.svg` | The tile without its corners, which GitHub rounds itself | The GitHub organisation's picture |
 | `github/social-preview.svg` | 1280 × 640: the logo, what Extended Mark is, a document and the page it draws | The repository's social preview, which a shared link shows |

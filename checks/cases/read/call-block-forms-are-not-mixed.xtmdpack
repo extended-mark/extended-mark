@@ -12,7 +12,7 @@ widget pair() {
     }
 }
 
-widget uses() {
+widget user() {
     view {
         @pair {
             left {

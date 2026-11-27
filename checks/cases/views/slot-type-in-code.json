@@ -1,0 +1,10 @@
+{
+  "id": "views.slot-type-in-code",
+  "about": "a slot takes only its own widget, in code",
+  "source": "slot-type-in-code.xtmd",
+  "expect": {
+    "diagnostics": [
+      {"code": "views.slot-takes-its-type", "line": 64, "column": 14}
+    ]
+  }
+}

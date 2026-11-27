@@ -1,0 +1,12 @@
+record todo {
+    name: text;
+    done: bool = false;
+}
+
+$state {
+    todos: list<todo> = [todo { name = "a" }];
+}
+@@@
+@mut for (t in $state.todos) {
+    @check(label = t.name, value = t.done);
+}

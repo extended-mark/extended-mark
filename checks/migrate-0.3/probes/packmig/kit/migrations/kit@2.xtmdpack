@@ -1,0 +1,7 @@
+package kit;
+
+migration kit@1 to kit@2 {
+    widget note {
+        rename(input = content, to = body);
+    }
+}

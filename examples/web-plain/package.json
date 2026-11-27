@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/example-web-plain",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "private": true,
   "description": "The shop page from plain TypeScript: compiled by xtmd/vite, run by @extended-mark/runtime, drawn by @extended-mark/dom",
   "type": "module",
@@ -10,8 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@extended-mark/dom": "file:../../targets/published/dom",
-    "@extended-mark/runtime": "file:../../targets/published/runtime"
+    "@extended-mark/dom": "file:../../renderers/dom",
+    "@extended-mark/runtime": "file:../../runtime/typescript"
   },
   "devDependencies": {
     "extended-mark": "file:../../compiler/npm/extended-mark",

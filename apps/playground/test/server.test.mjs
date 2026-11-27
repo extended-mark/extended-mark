@@ -143,7 +143,7 @@ describe("the server", () => {
     assert.equal(font.headers.get("content-type"), "font/ttf");
     assert.match(font.headers.get("cache-control"), /immutable/, "a hashed name never changes");
 
-    for (const path of ["/../server.mjs", "/%2e%2e/server.mjs", "/%2e%2e%2fserver.mjs", "/sub/app.js", "/.hidden", "/server.mjs"]) {
+    for (const path of ["/built/assets/../../server.mjs", "/built/assets/%2e%2e/app.js", "/built/app.js", "/../server.mjs", "/%2e%2e/server.mjs", "/%2e%2e%2fserver.mjs", "/sub/app.js", "/.hidden", "/server.mjs"]) {
       assert.equal((await fetch(`${s.url}${path}`)).status, 404, `${path} is not served`);
     }
     assert.equal((await fetch(`${s.url}/app.css`)).status, 503, "a missing bundle says so");

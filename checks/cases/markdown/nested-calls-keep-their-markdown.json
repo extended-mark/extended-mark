@@ -1,0 +1,11 @@
+{
+  "id": "markdown.nested-calls-keep-their-markdown",
+  "about": "a widget in another keeps its Markdown and its marks, in a block and in a sentence, and a list slot's calls are counted and read in a widget's own Markdown",
+  "source": "nested-calls-keep-their-markdown.xtmd",
+  "expect": {
+    "diagnostics": [],
+    "markdown": {
+      "file": "nested-calls-keep-their-markdown.expected.md"
+    }
+  }
+}

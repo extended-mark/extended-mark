@@ -1,0 +1,7 @@
+let a: rich_text = "so **far**";
+
+let b: text = "\{a}";
+
+let c: bool = a == a;
+@@@
+\{b}

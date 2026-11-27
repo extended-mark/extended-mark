@@ -1,7 +1,7 @@
 // The same page from plain TypeScript, React and Next.js: each example is built and served, opened
 // in Chromium, and driven through the same steps. After each step the three must agree on the
 // page's Markdown, its `$state`, the text and widgets in the page's element, the extern fn calls
-// the app heard and what the app showed for them.
+// the host heard and what the host showed for them.
 //
 // Run it with `npm test` in this folder (see run.mjs). Chromium is XTMD_CHROMIUM or
 // /usr/bin/chromium; it is never downloaded.
@@ -21,7 +21,7 @@ const skipBuild = process.env.XTMD_SKIP_BUILD === "1";
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".json": "application/json" };
 
-/** A folder served over HTTP on a free port: a built Vite app. */
+/** A folder served over HTTP on a free port: a built Vite host. */
 function serve(dir) {
   const server = createServer((req, res) => {
     const path = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname));
@@ -87,7 +87,7 @@ after(async () => {
 /** Two frames: the DOM drawn and the plane's layout written. */
 const settle = (page) => page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
 
-/** What the three must agree on, read from one app. */
+/** What the three must agree on, read from one host. */
 function observe(page) {
   return page.evaluate(() => {
     const shop = document.getElementById("shop");
@@ -96,7 +96,7 @@ function observe(page) {
     const markdown = window.__xtmd.page.markdown();
     return {
       markdown,
-      state: window.__xtmd.page.observeState(),
+      state: window.__xtmd.page.state(),
       // what the page shows: a stylesheet in it (XtmdDoc's) isn't text the reader sees
       text: [...shop.childNodes].filter((n) => n.nodeName !== "STYLE").map((n) => n.textContent).join("").replace(/\s+/g, " ").trim(),
       widgets: [...shop.querySelectorAll("[data-xtmd-site]")].map((e) => `${e.getAttribute("data-xtmd-site")} ${e.getAttribute("data-xtmd-widget")}`),
@@ -107,7 +107,7 @@ function observe(page) {
   });
 }
 
-/** Waits until the page's $state passes a test, then for the DOM and the app to catch up. */
+/** Waits until the page's $state passes a test, then for the DOM and the host to catch up. */
 async function until(page, what, fn, arg) {
   try {
     await page.waitForFunction(fn, arg, { timeout: 15000 });
@@ -129,9 +129,9 @@ const slide = (page, value) =>
   }, String(value));
 
 /** Whether a `$state` field holds a number now. */
-const holds = ([field, n]) => window.__xtmd?.page.observeState()[field]?.num === n;
+const holds = ([field, n]) => window.__xtmd?.page.state()[field]?.num === n;
 
-/** The steps, the same in each app; what each step should leave, to check they agree on it. */
+/** The steps, the same in each host; what each step should leave, to check they agree on it. */
 const STEPS = [
   {
     name: "loaded",
@@ -147,7 +147,7 @@ const STEPS = [
     act: (page) => press(page, "Check out"),
     wait: async (page) => {
       await until(page, "the order", holds, ["orders", "1"]);
-      await until(page, "the app to list it", () => document.querySelectorAll("#orders li").length === 1);
+      await until(page, "the host to list it", () => document.querySelectorAll("#orders li").length === 1);
     },
     check: (o) => {
       assert.deepEqual(o.calls, [{ call: { name: "doc/shop.checkout", args: [{ num: "36" }, { num: "3" }] } }]);
@@ -170,7 +170,7 @@ const STEPS = [
       await page.evaluate(() => window.__xtmd.page.takeOutcome());
       await slide(page, 20);
     },
-    wait: (page) => until(page, "the refusal", () => window.__xtmd.page.observeState().budget.num === "45" && document.querySelector('#shop [data-xtmd-widget="core/slider"] input[type="range"]')?.value === "45"),
+    wait: (page) => until(page, "the refusal", () => window.__xtmd.page.state().budget.num === "45" && document.querySelector('#shop [data-xtmd-widget="core/slider"] input[type="range"]')?.value === "45"),
     check: (o) => {
       assert.deepEqual(o.state.budget, { num: "45" });
       assert.match(o.markdown, /of a 45 € budget\./);
@@ -179,7 +179,7 @@ const STEPS = [
   {
     name: "removed Honey",
     act: (page) => press(page, "Remove Honey"),
-    wait: (page) => until(page, "the row to go", () => window.__xtmd.page.observeState().items.list.length === 2),
+    wait: (page) => until(page, "the row to go", () => window.__xtmd.page.state().items.list.length === 2),
     check: (o) => {
       assert.match(o.markdown, /The basket holds 2 items for 18 € of a 45 € budget\.\n\n- Tea: 12 €\n- Bread: 6 €\n/);
       assert.ok(!o.text.includes("Honey"));
@@ -190,7 +190,7 @@ const STEPS = [
     act: (page) => press(page, "Check out"),
     wait: async (page) => {
       await until(page, "the second order", holds, ["orders", "2"]);
-      await until(page, "the app to list it", () => document.querySelectorAll("#orders li").length === 2);
+      await until(page, "the host to list it", () => document.querySelectorAll("#orders li").length === 2);
     },
     check: (o) => {
       assert.deepEqual(o.calls.at(-1), { call: { name: "doc/shop.checkout", args: [{ num: "18" }, { num: "2" }] } });

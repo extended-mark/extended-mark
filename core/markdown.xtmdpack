@@ -1,15 +1,10 @@
 package core;
 
-//@about Inline Markdown as segments: CommonMark's emphasis, GitHub's strikethrough, links and bare links, code spans, maths, pictures, footnote marks, hard breaks and escapes. Each hole is a segment of its own, with its marks. opt.NONE when the TeX of a maths span fails latex's checks.
-fn rich_text.from(value: template): opt<rich_text> {
-    return rich_text.read(value, map { entries = [] });
-}
-
 //@about The character with this Unicode number, or opt.NONE when the number isn't one.
 extern fn text.of_code(code: number): opt<text>;
 
-//@about Inline Markdown as segments, with the link reference definitions of the page or the md value around it, by their labels as CommonMark matches them.
-fn rich_text.read(value: template, links: map<text>): opt<rich_text> {
+// Inline Markdown as segments: CommonMark's emphasis, GitHub's strikethrough, links and bare links, code spans, maths, pictures, footnote marks, hard breaks and escapes, with the link reference definitions around it, by their labels as CommonMark matches them. Each hole is a segment of its own, with its marks. opt.NONE when the TeX of a maths span fails latex's checks. Private to core
+fn md_inline(value: template, links: map<text>): opt<list<md_segment>> {
     let cs: list<text> = md_chars(value);
     let n: number = cs.len();
     mut pieces: list<md_piece> = [];
@@ -27,10 +22,10 @@ fn rich_text.read(value: template, links: map<text>): opt<rich_text> {
                 if (let h: hole = value.holes[holes]) {
                     match (h) {
                         case hole.TEXT(v) {
-                            pieces.add(md_piece { part = part.TEXT(v), hole = true });
+                            pieces.add(md_piece { part = md_part.TEXT(v), hole = true });
                         }
                         case hole.VIEW(child) {
-                            pieces.add(md_piece { part = part.VIEW(child), hole = true });
+                            pieces.add(md_piece { part = md_part.VIEW(child), hole = true });
                         }
                     }
                 }
@@ -39,7 +34,7 @@ fn rich_text.read(value: template, links: map<text>): opt<rich_text> {
                 if (next == "\n") {
                     md_flush(pieces, buf);
                     buf = "";
-                    pieces.add(md_piece { part = part.BREAK });
+                    pieces.add(md_piece { part = md_part.BREAK });
                     skip = md_after_spaces(cs, i + 2);
                 } else if (md_is_ascii_punct(next)) {
                     buf = "\{buf}\{next}";
@@ -53,7 +48,7 @@ fn rich_text.read(value: template, links: map<text>): opt<rich_text> {
                 if (close >= 0) {
                     md_flush(pieces, buf);
                     buf = "";
-                    pieces.add(md_piece { part = part.CODE(md_code_text(cs, i + run, close)) });
+                    pieces.add(md_piece { part = md_part.CODE(md_code_text(cs, i + run, close)) });
                     skip = close + run;
                 } else {
                     buf = "\{buf}\{md_join(cs, i, i + run)}";
@@ -66,7 +61,7 @@ fn rich_text.read(value: template, links: map<text>): opt<rich_text> {
                     if (let m: latex = latex.from(tex)) {
                         md_flush(pieces, buf);
                         buf = "";
-                        pieces.add(md_piece { part = part.MATH(m) });
+                        pieces.add(md_piece { part = md_part.MATH(m) });
                         holes = holes + tex.holes.len();
                         skip = close + 1;
                     } else {
@@ -98,21 +93,21 @@ fn rich_text.read(value: template, links: map<text>): opt<rich_text> {
                 } else {
                     md_flush(pieces, buf);
                     buf = "";
-                    pieces.add(md_piece { part = part.TEXT(md_join(cs, i, i + run)), run = c, left = run, size = run, opens = opens, closes = closes, live = opens || closes });
+                    pieces.add(md_piece { part = md_part.TEXT(md_join(cs, i, i + run)), run = c, left = run, size = run, opens = opens, closes = closes, live = opens || closes });
                     skip = i + run;
                 }
             } else if (c == "[" && next == "^" && md_note_end(cs, i) > 0) {
                 let end: number = md_note_end(cs, i);
                 md_flush(pieces, buf);
                 buf = "";
-                pieces.add(md_piece { part = part.NOTE(md_join(cs, i + 2, end)) });
+                pieces.add(md_piece { part = md_part.NOTE(md_join(cs, i + 2, end)) });
                 skip = end + 1;
             } else if (c == "[" || (c == "!" && next == "[")) {
                 md_flush(pieces, buf);
                 buf = "";
                 let image: bool = c == "!";
                 brackets.add(md_bracket { at = pieces.len(), image = image, start = image ? i + 2 : i + 1 });
-                pieces.add(md_piece { part = part.TEXT(image ? "![" : "[") });
+                pieces.add(md_piece { part = md_part.TEXT(image ? "![" : "[") });
                 skip = image ? i + 2 : i + 1;
             } else if (c == "]") {
                 md_flush(pieces, buf);
@@ -126,7 +121,7 @@ fn rich_text.read(value: template, links: map<text>): opt<rich_text> {
                     skip = found.end;
                 } else {
                     md_drop_bracket(brackets, false);
-                    pieces.add(md_piece { part = part.TEXT("]") });
+                    pieces.add(md_piece { part = md_part.TEXT("]") });
                 }
             } else if (c == "<") {
                 let auto: md_link = md_autolink(cs, i);
@@ -134,7 +129,7 @@ fn rich_text.read(value: template, links: map<text>): opt<rich_text> {
                 if (auto.end > 0) {
                     md_flush(pieces, buf);
                     buf = "";
-                    pieces.add(md_piece { part = part.TEXT(auto.label), marks = marks { link = auto.dest } });
+                    pieces.add(md_piece { part = md_part.TEXT(auto.label), marks = md_marks { link = auto.dest } });
                     skip = auto.end;
                 } else if (html > 0) {
                     // raw HTML is shown as text, never run
@@ -155,7 +150,7 @@ fn rich_text.read(value: template, links: map<text>): opt<rich_text> {
                 if (buf.ends("  ")) {
                     md_flush(pieces, md_trim_end(buf));
                     buf = "";
-                    pieces.add(md_piece { part = part.BREAK });
+                    pieces.add(md_piece { part = md_part.BREAK });
                 } else {
                     buf = "\{md_trim_end(buf)}\n";
                 }
@@ -165,7 +160,7 @@ fn rich_text.read(value: template, links: map<text>): opt<rich_text> {
                 if (bare.end > 0) {
                     md_flush(pieces, buf);
                     buf = "";
-                    pieces.add(md_piece { part = part.TEXT(bare.label), marks = marks { link = bare.dest } });
+                    pieces.add(md_piece { part = md_part.TEXT(bare.label), marks = md_marks { link = bare.dest } });
                     skip = bare.end;
                 } else {
                     buf = "\{buf}\{c}";
@@ -177,7 +172,7 @@ fn rich_text.read(value: template, links: map<text>): opt<rich_text> {
                     let address: text = "\{buf.slice(md_pos(buf.len() - local), md_pos(local))}@\{md_join(cs, i + 1, end)}";
                     md_flush(pieces, buf.slice(0, md_pos(buf.len() - local)));
                     buf = "";
-                    pieces.add(md_piece { part = part.TEXT(address), marks = marks { link = "mailto:\{address}" } });
+                    pieces.add(md_piece { part = md_part.TEXT(address), marks = md_marks { link = "mailto:\{address}" } });
                     skip = end;
                 } else {
                     buf = "\{buf}@";
@@ -189,13 +184,13 @@ fn rich_text.read(value: template, links: map<text>): opt<rich_text> {
     }
     md_flush(pieces, md_trim_end(buf));
     md_emphasis(pieces, 0);
-    return rich_text { segments = md_segments(pieces) };
+    return md_segments(pieces);
 }
 
 //@about A piece of inline Markdown while it is read: text, or a run of `*`, `_` or `~` that may open or close emphasis. Private to core
 record md_piece {
-    mut part: part;
-    mut marks: marks = marks { };
+    mut part: md_part;
+    mut marks: md_marks = md_marks { };
     mut run: text = "";
     mut left: number = 0;
     mut size: number = 0;
@@ -706,7 +701,7 @@ fn md_entity(cs: list<text>, at: number): md_link {
 // Adds the text read so far as a piece. Private to core
 fn md_flush(mut pieces: list<md_piece>, buf: text) {
     if (buf != "") {
-        pieces.add(md_piece { part = part.TEXT(buf) });
+        pieces.add(md_piece { part = md_part.TEXT(buf) });
     }
 }
 
@@ -940,7 +935,7 @@ fn md_make_link(mut pieces: list<md_piece>, b: md_bracket, found: md_link) {
             }
         }
         if (mut x: md_piece = pieces[b.at]) {
-            x.part = part.IMAGE(found.dest, alt);
+            x.part = md_part.IMAGE(found.dest, alt);
             x.live = false;
         }
         return;
@@ -966,13 +961,13 @@ fn md_emphasis(mut pieces: list<md_piece>, bottom: number) {
     for (c in bottom..(n - 1)) {
         // only a run that can close starts a search; it may close several openers, two
         // characters at a time
-        let first: md_piece = pieces[c].or(md_piece { part = part.BREAK });
+        let first: md_piece = pieces[c].or(md_piece { part = md_part.BREAK });
         for (round in 0..(first.run != "" && first.closes ? 32 : -1)) {
-            let closer: md_piece = pieces[c].or(md_piece { part = part.BREAK });
+            let closer: md_piece = pieces[c].or(md_piece { part = md_part.BREAK });
             if (closer.live && closer.closes && closer.left > 0) {
                 let o: number = md_opener(pieces, bottom, c);
                 if (o >= 0) {
-                    let opener: md_piece = pieces[o].or(md_piece { part = part.BREAK });
+                    let opener: md_piece = pieces[o].or(md_piece { part = md_part.BREAK });
                     mut used: number = closer.left >= 2 && opener.left >= 2 ? 2 : 1;
                     if (closer.run == "~") {
                         used = closer.left;
@@ -1041,28 +1036,28 @@ fn md_opener(pieces: list<md_piece>, bottom: number, c: number): number {
 }
 
 // The pieces as segments: a run's characters that nothing used are text, and neighbours with the same marks join. Private to core
-fn md_segments(pieces: list<md_piece>): list<segment> {
-    mut out: list<segment> = [];
+fn md_segments(pieces: list<md_piece>): list<md_segment> {
+    mut out: list<md_segment> = [];
     mut after_hole: bool = true;
     for (p in pieces) {
         if (!p.gone) {
-            mut part: part = p.part;
+            mut part: md_part = p.part;
             if (p.run != "") {
                 mut chars: text = "";
                 for (k in 1..(p.left)) {
                     chars = "\{chars}\{p.run}";
                 }
-                part = part.TEXT(chars);
+                part = md_part.TEXT(chars);
             }
             let words: text = part.words();
             mut joined: bool = false;
-            if (let last: segment = out.last()) {
+            if (let last: md_segment = out.last()) {
                 match (part) {
-                    case part.TEXT(v) {
+                    case md_part.TEXT(v) {
                         match (last.part) {
-                            case part.TEXT(w) {
+                            case md_part.TEXT(w) {
                                 if (last.marks == p.marks && !p.hole && !after_hole) {
-                                    out[out.len() - 1] = segment { part = part.TEXT("\{w}\{v}"), marks = p.marks };
+                                    out[out.len() - 1] = md_segment { part = md_part.TEXT("\{w}\{v}"), marks = p.marks };
                                     joined = true;
                                 }
                             }
@@ -1073,7 +1068,7 @@ fn md_segments(pieces: list<md_piece>): list<segment> {
                 }
             }
             if (!joined && !(p.run != "" && words == "")) {
-                out.add(segment { part = part, marks = p.marks });
+                out.add(md_segment { part = part, marks = p.marks });
                 after_hole = p.hole;
             }
         }

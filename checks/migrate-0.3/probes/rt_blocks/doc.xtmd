@@ -1,0 +1,14 @@
+widget a(t: rich_text) {
+    view {
+        @paragraph(value = t);
+    }
+    markdown {
+        \{t}
+    }
+}
+
+$state {
+    d: text = "# head";
+}
+@@@
+@a(t = rich_text.from(template.of($state.d)).or("bad"));

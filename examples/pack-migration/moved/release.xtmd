@@ -1,0 +1,22 @@
+import kit;
+
+let tests: number 0..1 = 0.75;
+
+widget week() {
+    view {
+        @gauge(part = tests, label = "Tests", tone = color.OK);
+        @gauge(part = 0.4, label = "Docs", tone = color.ACCENT);
+    }
+}
+@@@
+# The release
+
+@week;
+
+@note(state = status.OVERDUE) {
+    Two days late.
+}
+
+@note {
+    The build is green.
+}

@@ -1,55 +1,36 @@
 {
   "ir": {
-    "version": 3,
-    "xtmd": "0.3.2",
-    "module": "doc",
-    "needs": {
-      "core": [
-        "core/flex",
-        "core/heading",
-        "core/label",
-        "core/paragraph",
-        "core/press",
-        "core/slider",
-        "core/table"
-      ],
-      "packs": [],
-      "app": [
-        "doc/tracker.saved"
-      ]
-    },
     "declarations": [
       {
         "declare": {
           "type": {
-            "name": "core/int",
             "is": {
-              "name": "core/number",
               "contract": {
                 "step": {
                   "num": "1"
                 }
-              }
-            }
+              },
+              "name": "core/number"
+            },
+            "name": "core/int"
           }
         }
       },
       {
         "declare": {
           "record": {
-            "name": "doc/task",
             "fields": [
               {
                 "name": "title",
                 "type": {
-                  "name": "core/text",
                   "contract": {
                     "length": {
                       "low": {
                         "num": "1"
                       }
                     }
-                  }
+                  },
+                  "name": "core/text"
                 }
               },
               {
@@ -59,16 +40,16 @@
                 }
               },
               {
+                "default": {
+                  "bool": false
+                },
                 "name": "done",
                 "type": {
                   "name": "core/bool"
-                },
-                "default": {
-                  "bool": false
                 }
               }
             ],
-            "requires": []
+            "name": "doc/task"
           }
         }
       },
@@ -76,8 +57,6 @@
         "declare": {
           "extern": {
             "channel": {
-              "name": "doc/tracker",
-              "values": [],
               "fns": [
                 {
                   "name": "saved",
@@ -91,7 +70,8 @@
                   ]
                 }
               ],
-              "supplier": "app"
+              "name": "doc/tracker",
+              "supplier": "host"
             }
           }
         }
@@ -101,130 +81,124 @@
           "$state": {
             "fields": [
               {
-                "name": "tasks",
-                "type": {
-                  "name": "core/list",
-                  "args": [
-                    {
-                      "name": "doc/task"
-                    }
-                  ]
-                },
                 "default": {
                   "list": [
                     {
                       "record": {
-                        "type": "doc/task",
                         "fields": {
-                          "title": {
-                            "text": "Write the spec"
+                          "done": {
+                            "bool": false
                           },
                           "due": {
                             "record": {
-                              "type": "core/date",
                               "fields": {
-                                "year": {
-                                  "num": "2026"
+                                "day": {
+                                  "num": "20"
                                 },
                                 "month": {
                                   "num": "11"
                                 },
-                                "day": {
-                                  "num": "20"
+                                "year": {
+                                  "num": "2026"
                                 }
-                              }
+                              },
+                              "type": "core/date"
                             }
                           },
-                          "done": {
-                            "bool": false
+                          "title": {
+                            "text": "Write the spec"
                           }
-                        }
+                        },
+                        "type": "doc/task"
                       }
                     },
                     {
                       "record": {
-                        "type": "doc/task",
                         "fields": {
-                          "title": {
-                            "text": "Ship 0.3"
+                          "done": {
+                            "bool": false
                           },
                           "due": {
                             "record": {
-                              "type": "core/date",
                               "fields": {
-                                "year": {
-                                  "num": "2026"
+                                "day": {
+                                  "num": "1"
                                 },
                                 "month": {
                                   "num": "12"
                                 },
-                                "day": {
-                                  "num": "1"
+                                "year": {
+                                  "num": "2026"
                                 }
-                              }
+                              },
+                              "type": "core/date"
                             }
                           },
-                          "done": {
-                            "bool": false
+                          "title": {
+                            "text": "Ship 0.3"
                           }
-                        }
+                        },
+                        "type": "doc/task"
                       }
                     }
                   ]
+                },
+                "name": "tasks",
+                "type": {
+                  "args": [
+                    {
+                      "name": "doc/task"
+                    }
+                  ],
+                  "name": "core/list"
                 }
               },
               {
-                "name": "budget",
-                "type": {
-                  "name": "core/int",
-                  "contract": {
-                    "range": {
-                      "low": {
-                        "num": "0"
-                      },
-                      "high": {
-                        "num": "100"
-                      }
-                    }
-                  }
-                },
                 "default": {
                   "num": "40"
+                },
+                "name": "budget",
+                "type": {
+                  "contract": {
+                    "range": {
+                      "high": {
+                        "num": "100"
+                      },
+                      "low": {
+                        "num": "0"
+                      }
+                    }
+                  },
+                  "name": "core/int"
                 }
               },
               {
-                "name": "spent",
-                "type": {
-                  "name": "core/int",
-                  "contract": {
-                    "range": {
-                      "low": {
-                        "num": "0"
-                      },
-                      "high": {
-                        "num": "100"
-                      }
-                    }
-                  }
-                },
                 "default": {
                   "num": "10"
+                },
+                "name": "spent",
+                "type": {
+                  "contract": {
+                    "range": {
+                      "high": {
+                        "num": "100"
+                      },
+                      "low": {
+                        "num": "0"
+                      }
+                    }
+                  },
+                  "name": "core/int"
                 }
               }
             ],
             "requires": [
               {
-                "message": "the spent part stays within the budget",
-                "reads": [
-                  "spent",
-                  "budget"
-                ],
                 "body": [
                   {
                     "return": {
                       "value": {
                         "op": {
-                          "name": "<=",
                           "args": [
                             {
                               "get": {
@@ -237,6 +211,7 @@
                               }
                             }
                           ],
+                          "name": "<=",
                           "type": {
                             "name": "core/bool"
                           }
@@ -244,7 +219,8 @@
                       }
                     }
                   }
-                ]
+                ],
+                "message": "the spent part stays within the budget"
               }
             ]
           }
@@ -256,23 +232,35 @@
             "channel": "doc/tracker",
             "fns": [
               {
-                "name": "clear_done",
-                "params": [],
                 "body": [
                   {
                     "call": {
-                      "name": "core/list.remove_where",
                       "args": [
                         {
                           "place": {
                             "root": {
                               "$state": "tasks"
-                            },
-                            "path": []
+                            }
                           }
                         },
                         {
                           "fn": {
+                            "body": [
+                              {
+                                "return": {
+                                  "value": {
+                                    "field": {
+                                      "name": "done",
+                                      "value": {
+                                        "get": {
+                                          "local": "t"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
                             "params": [
                               {
                                 "name": "t",
@@ -283,35 +271,18 @@
                             ],
                             "returns": {
                               "name": "core/bool"
-                            },
-                            "body": [
-                              {
-                                "return": {
-                                  "value": {
-                                    "field": {
-                                      "value": {
-                                        "get": {
-                                          "local": "t"
-                                        }
-                                      },
-                                      "name": "done"
-                                    }
-                                  }
-                                }
-                              }
-                            ]
+                            }
                           }
                         }
-                      ]
+                      ],
+                      "name": "core/list.remove_where"
                     }
                   },
                   {
                     "call": {
-                      "name": "doc/tracker.saved",
                       "args": [
                         {
                           "call": {
-                            "name": "core/list.len",
                             "args": [
                               {
                                 "get": {
@@ -319,15 +290,19 @@
                                 }
                               }
                             ],
+                            "name": "core/list.len",
                             "type": {
                               "name": "core/int"
                             }
                           }
                         }
-                      ]
+                      ],
+                      "name": "doc/tracker.saved"
                     }
                   }
-                ]
+                ],
+                "name": "clear_done",
+                "params": []
               }
             ]
           }
@@ -342,7 +317,6 @@
             },
             "value": {
               "call": {
-                "name": "core/list.count",
                 "args": [
                   {
                     "get": {
@@ -351,6 +325,32 @@
                   },
                   {
                     "fn": {
+                      "body": [
+                        {
+                          "return": {
+                            "value": {
+                              "op": {
+                                "args": [
+                                  {
+                                    "field": {
+                                      "name": "done",
+                                      "value": {
+                                        "get": {
+                                          "local": "t"
+                                        }
+                                      }
+                                    }
+                                  }
+                                ],
+                                "name": "!",
+                                "type": {
+                                  "name": "core/bool"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ],
                       "params": [
                         {
                           "name": "t",
@@ -361,66 +361,135 @@
                       ],
                       "returns": {
                         "name": "core/bool"
-                      },
-                      "body": [
-                        {
-                          "return": {
-                            "value": {
-                              "op": {
-                                "name": "!",
-                                "args": [
-                                  {
-                                    "field": {
-                                      "value": {
-                                        "get": {
-                                          "local": "t"
-                                        }
-                                      },
-                                      "name": "done"
-                                    }
-                                  }
-                                ],
-                                "type": {
-                                  "name": "core/bool"
-                                }
-                              }
-                            }
-                          }
-                        }
-                      ]
+                      }
                     }
                   }
                 ],
+                "name": "core/list.count",
                 "type": {
                   "name": "core/int"
                 }
               }
-            },
-            "reads": [
-              "$state:tasks"
-            ]
+            }
           }
         }
       },
       {
         "declare": {
           "fn": {
-            "name": "core/list.count",
+            "body": [
+              {
+                "declare": {
+                  "mut": {
+                    "name": "n",
+                    "type": {
+                      "name": "core/int"
+                    },
+                    "value": {
+                      "num": "0"
+                    }
+                  }
+                }
+              },
+              {
+                "for": {
+                  "body": [
+                    {
+                      "if": {
+                        "branches": [
+                          {
+                            "then": [
+                              {
+                                "set": {
+                                  "place": {
+                                    "root": {
+                                      "local": "n"
+                                    }
+                                  },
+                                  "value": {
+                                    "op": {
+                                      "args": [
+                                        {
+                                          "get": {
+                                            "local": "n"
+                                          }
+                                        },
+                                        {
+                                          "num": "1"
+                                        }
+                                      ],
+                                      "name": "+",
+                                      "type": {
+                                        "name": "core/int"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "when": {
+                              "cond": {
+                                "apply": {
+                                  "args": [
+                                    {
+                                      "get": {
+                                        "local": "x"
+                                      }
+                                    }
+                                  ],
+                                  "fn": {
+                                    "get": {
+                                      "local": "test"
+                                    }
+                                  },
+                                  "type": {
+                                    "name": "core/bool"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "name": "x",
+                  "over": {
+                    "get": {
+                      "local": "self"
+                    }
+                  },
+                  "type": {
+                    "name": "T"
+                  }
+                }
+              },
+              {
+                "return": {
+                  "value": {
+                    "get": {
+                      "local": "n"
+                    }
+                  }
+                }
+              }
+            ],
             "generics": [
               {
                 "name": "T"
               }
             ],
+            "name": "core/list.count",
             "params": [
               {
                 "name": "self",
                 "type": {
-                  "name": "core/list",
                   "args": [
                     {
                       "name": "T"
                     }
-                  ]
+                  ],
+                  "name": "core/list"
                 }
               },
               {
@@ -443,107 +512,7 @@
             ],
             "returns": {
               "name": "core/int"
-            },
-            "body": [
-              {
-                "declare": {
-                  "mut": {
-                    "name": "n",
-                    "type": {
-                      "name": "core/int"
-                    },
-                    "value": {
-                      "num": "0"
-                    }
-                  }
-                }
-              },
-              {
-                "for": {
-                  "mut": false,
-                  "name": "x",
-                  "type": {
-                    "name": "T"
-                  },
-                  "over": {
-                    "get": {
-                      "local": "self"
-                    }
-                  },
-                  "body": [
-                    {
-                      "if": {
-                        "branches": [
-                          {
-                            "when": {
-                              "cond": {
-                                "apply": {
-                                  "fn": {
-                                    "get": {
-                                      "local": "test"
-                                    }
-                                  },
-                                  "args": [
-                                    {
-                                      "get": {
-                                        "local": "x"
-                                      }
-                                    }
-                                  ],
-                                  "type": {
-                                    "name": "core/bool"
-                                  }
-                                }
-                              }
-                            },
-                            "then": [
-                              {
-                                "set": {
-                                  "place": {
-                                    "root": {
-                                      "local": "n"
-                                    },
-                                    "path": []
-                                  },
-                                  "value": {
-                                    "op": {
-                                      "name": "+",
-                                      "args": [
-                                        {
-                                          "get": {
-                                            "local": "n"
-                                          }
-                                        },
-                                        {
-                                          "num": "1"
-                                        }
-                                      ],
-                                      "type": {
-                                        "name": "core/int"
-                                      }
-                                    }
-                                  }
-                                }
-                              }
-                            ]
-                          }
-                        ],
-                        "else": []
-                      }
-                    }
-                  ]
-                }
-              },
-              {
-                "return": {
-                  "value": {
-                    "get": {
-                      "local": "n"
-                    }
-                  }
-                }
-              }
-            ]
+            }
           }
         }
       },
@@ -551,7 +520,6 @@
         "declare": {
           "extern": {
             "widget": {
-              "name": "core/paragraph",
               "inputs": [
                 {
                   "name": "value",
@@ -560,39 +528,186 @@
                   }
                 }
               ],
-              "slots": [],
-              "events": [],
-              "supplier": "core",
-              "levels": [
-                "core.draw"
-              ]
+              "name": "core/paragraph",
+              "supplier": "core"
             }
           }
         }
       }
     ],
+    "handlers": [
+      {
+        "body": [
+          {
+            "set": {
+              "place": {
+                "path": [
+                  {
+                    "field": {
+                      "name": "done"
+                    }
+                  }
+                ],
+                "root": {
+                  "input": "t"
+                }
+              },
+              "value": {
+                "op": {
+                  "args": [
+                    {
+                      "field": {
+                        "name": "done",
+                        "value": {
+                          "get": {
+                            "input": "t"
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "name": "!",
+                  "type": {
+                    "name": "core/bool"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "id": "r_h1"
+      }
+    ],
+    "levels": [
+      "core.draw",
+      "core.live"
+    ],
+    "module": "doc",
+    "needs": {
+      "core": [
+        "core/bold",
+        "core/flex",
+        "core/heading",
+        "core/inline_math",
+        "core/label",
+        "core/paragraph",
+        "core/press",
+        "core/slider",
+        "core/table",
+        "core/words"
+      ],
+      "host": [
+        "doc/tracker.saved"
+      ],
+      "packs": []
+    },
     "templates": [
       {
-        "name": "doc/task_row",
         "inputs": [
           {
+            "mut": true,
             "name": "t",
             "type": {
               "name": "doc/task"
-            },
-            "mut": true
+            }
           }
         ],
-        "slots": [],
-        "events": [],
-        "cells": [],
-        "requires": [],
-        "fns": [],
+        "levels": [
+          "core.live"
+        ],
+        "markdown": [
+          {
+            "if": {
+              "branches": [
+                {
+                  "then": [
+                    {
+                      "extern": {
+                        "name": "core/bullets",
+                        "site": "m1",
+                        "slots": {
+                          "items": [
+                            {
+                              "extern": {
+                                "name": "core/item",
+                                "props": {
+                                  "done": {
+                                    "some": {
+                                      "bool": true
+                                    }
+                                  }
+                                },
+                                "site": "m2",
+                                "slots": {
+                                  "body": [
+                                    {
+                                      "extern": {
+                                        "name": "core/paragraph",
+                                        "props": {
+                                          "value": {
+                                            "rich": {
+                                              "nodes": [
+                                                {
+                                                  "extern": {
+                                                    "name": "core/words",
+                                                    "props": {
+                                                      "value": {
+                                                        "show": {
+                                                          "value": {
+                                                            "field": {
+                                                              "name": "title",
+                                                              "value": {
+                                                                "get": {
+                                                                  "input": "t"
+                                                                }
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    },
+                                                    "site": "t0"
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          }
+                                        },
+                                        "site": "m3"
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ],
+                  "when": {
+                    "cond": {
+                      "field": {
+                        "name": "done",
+                        "value": {
+                          "get": {
+                            "input": "t"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "site": "m0"
+            }
+          }
+        ],
+        "name": "doc/task_row",
         "view": [
           {
             "extern": {
               "name": "core/flex",
-              "site": "r0",
               "props": {
                 "axis": {
                   "case": {
@@ -604,552 +719,415 @@
                   "token": "core/space.S"
                 }
               },
+              "site": "r0",
               "slots": {
                 "children": [
                   {
                     "extern": {
+                      "events": {
+                        "click": "r_h1"
+                      },
                       "name": "core/press",
-                      "site": "r1",
                       "props": {
-                        "label": {
-                          "bind": "r_b1"
-                        },
                         "kind": {
                           "case": {
                             "enum": "core/press_kind",
                             "name": "CHECK"
                           }
                         },
+                        "label": {
+                          "field": {
+                            "name": "title",
+                            "value": {
+                              "get": {
+                                "input": "t"
+                              }
+                            }
+                          }
+                        },
                         "selected": {
-                          "bind": "r_b2"
+                          "field": {
+                            "name": "done",
+                            "value": {
+                              "get": {
+                                "input": "t"
+                              }
+                            }
+                          }
                         }
                       },
-                      "events": {
-                        "click": "r_h1"
-                      }
+                      "site": "r1"
                     }
                   },
                   {
                     "extern": {
                       "name": "core/label",
-                      "site": "r2",
                       "props": {
-                        "value": {
-                          "bind": "r_b3"
-                        },
                         "tone": {
                           "token": "core/color.MUTED"
+                        },
+                        "value": {
+                          "template": {
+                            "holes": [
+                              {
+                                "show": {
+                                  "value": {
+                                    "field": {
+                                      "name": "due",
+                                      "value": {
+                                        "get": {
+                                          "input": "t"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "pieces": [
+                              "due ",
+                              ""
+                            ],
+                            "type": {
+                              "name": "core/text"
+                            }
+                          }
                         }
-                      }
+                      },
+                      "site": "r2"
                     }
                   }
                 ]
               }
             }
           }
-        ],
-        "markdown": [
-          {
-            "if": {
-              "site": "m0",
-              "branches": [
-                {
-                  "when": {
-                    "cond": {
-                      "field": {
-                        "value": {
-                          "get": {
-                            "input": "t"
-                          }
-                        },
-                        "name": "done"
-                      }
-                    }
-                  },
-                  "then": [
-                    {
-                      "extern": {
-                        "name": "core/bullets",
-                        "site": "m1",
-                        "props": {},
-                        "slots": {
-                          "items": [
-                            {
-                              "extern": {
-                                "name": "core/item",
-                                "site": "m2",
-                                "props": {
-                                  "done": {
-                                    "some": {
-                                      "bool": true
-                                    }
-                                  }
-                                },
-                                "slots": {
-                                  "body": [
-                                    {
-                                      "extern": {
-                                        "name": "core/paragraph",
-                                        "site": "m3",
-                                        "props": {
-                                          "value": {
-                                            "rich": {
-                                              "segments": [
-                                                {
-                                                  "segment": {
-                                                    "part": "TEXT",
-                                                    "value": {
-                                                      "show": {
-                                                        "value": {
-                                                          "field": {
-                                                            "value": {
-                                                              "get": {
-                                                                "input": "t"
-                                                              }
-                                                            },
-                                                            "name": "title"
-                                                          }
-                                                        }
-                                                      }
-                                                    }
-                                                  }
-                                                }
-                                              ]
-                                            }
-                                          }
-                                        }
-                                      }
-                                    }
-                                  ]
-                                }
-                              }
-                            }
-                          ]
-                        }
-                      }
-                    }
-                  ]
-                }
-              ],
-              "else": []
-            }
-          }
-        ],
-        "levels": [
-          "core.draw",
-          "core.live"
         ]
       },
       {
-        "name": "doc",
-        "inputs": [],
-        "slots": [],
-        "events": [],
-        "cells": [],
-        "requires": [],
-        "fns": [],
-        "view": [
+        "levels": [
+          "core.live"
+        ],
+        "markdown": [
           {
             "extern": {
               "name": "core/heading",
-              "site": "s0",
               "props": {
                 "level": {
                   "num": "1"
                 },
                 "value": {
-                  "bind": "b1"
+                  "rich": {
+                    "nodes": [
+                      {
+                        "extern": {
+                          "name": "core/words",
+                          "props": {
+                            "value": {
+                              "text": "Sprint: "
+                            }
+                          },
+                          "site": "t1"
+                        }
+                      },
+                      {
+                        "extern": {
+                          "name": "core/words",
+                          "props": {
+                            "value": {
+                              "show": {
+                                "value": {
+                                  "get": {
+                                    "let": "doc/open"
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "site": "t2"
+                        }
+                      },
+                      {
+                        "extern": {
+                          "name": "core/words",
+                          "props": {
+                            "value": {
+                              "text": " open"
+                            }
+                          },
+                          "site": "t3"
+                        }
+                      }
+                    ]
+                  }
                 }
-              }
+              },
+              "site": "s0"
+            }
+          }
+        ],
+        "name": "doc",
+        "view": [
+          {
+            "extern": {
+              "name": "core/heading",
+              "props": {
+                "level": {
+                  "num": "1"
+                },
+                "value": {
+                  "rich": {
+                    "nodes": [
+                      {
+                        "extern": {
+                          "name": "core/words",
+                          "props": {
+                            "value": {
+                              "text": "Sprint: "
+                            }
+                          },
+                          "site": "t1"
+                        }
+                      },
+                      {
+                        "extern": {
+                          "name": "core/words",
+                          "props": {
+                            "value": {
+                              "show": {
+                                "value": {
+                                  "get": {
+                                    "let": "doc/open"
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "site": "t2"
+                        }
+                      },
+                      {
+                        "extern": {
+                          "name": "core/words",
+                          "props": {
+                            "value": {
+                              "text": " open"
+                            }
+                          },
+                          "site": "t3"
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "site": "s0"
             }
           },
           {
             "extern": {
               "name": "core/paragraph",
-              "site": "s1",
               "props": {
                 "value": {
-                  "bind": "b2"
+                  "rich": {
+                    "nodes": [
+                      {
+                        "extern": {
+                          "name": "core/words",
+                          "props": {
+                            "value": {
+                              "text": "Spent "
+                            }
+                          },
+                          "site": "t4"
+                        }
+                      },
+                      {
+                        "extern": {
+                          "name": "core/inline_math",
+                          "props": {
+                            "tex": {
+                              "record": {
+                                "fields": {
+                                  "tex": {
+                                    "template": {
+                                      "holes": [
+                                        {
+                                          "show": {
+                                            "value": {
+                                              "get": {
+                                                "$state": "spent"
+                                              }
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "show": {
+                                            "value": {
+                                              "get": {
+                                                "$state": "budget"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      ],
+                                      "pieces": [
+                                        "\\frac{",
+                                        "}{",
+                                        "}"
+                                      ],
+                                      "type": {
+                                        "name": "core/template"
+                                      }
+                                    }
+                                  }
+                                },
+                                "type": "core/latex"
+                              }
+                            }
+                          },
+                          "site": "t5"
+                        }
+                      },
+                      {
+                        "extern": {
+                          "name": "core/words",
+                          "props": {
+                            "value": {
+                              "text": " of the budget, in "
+                            }
+                          },
+                          "site": "t6"
+                        }
+                      },
+                      {
+                        "extern": {
+                          "name": "core/bold",
+                          "site": "t7",
+                          "slots": {
+                            "body": [
+                              {
+                                "extern": {
+                                  "name": "core/words",
+                                  "props": {
+                                    "value": {
+                                      "text": "points"
+                                    }
+                                  },
+                                  "site": "t8"
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "extern": {
+                          "name": "core/words",
+                          "props": {
+                            "value": {
+                              "text": "."
+                            }
+                          },
+                          "site": "t9"
+                        }
+                      }
+                    ]
+                  }
                 }
-              }
+              },
+              "site": "s1"
             }
           },
           {
             "for": {
-              "mut": true,
-              "name": "t",
-              "type": {
-                "name": "doc/task"
-              },
-              "over": {
-                "place": {
-                  "root": {
-                    "$state": "tasks"
-                  },
-                  "path": []
-                }
-              },
-              "key": "item",
-              "site": "s2",
               "body": [
                 {
                   "if": {
-                    "site": "s3",
                     "branches": [
                       {
-                        "when": {
-                          "open": {
-                            "mut": true,
-                            "name": "x",
-                            "type": {
-                              "name": "doc/task"
-                            },
-                            "opt": {
-                              "get": {
-                                "local": "t"
-                              }
-                            }
-                          }
-                        },
                         "then": [
                           {
                             "use": {
-                              "name": "doc/task_row",
-                              "site": "s4",
                               "args": {
                                 "t": {
                                   "place": {
                                     "root": {
                                       "local": "x"
-                                    },
-                                    "path": []
+                                    }
                                   }
                                 }
-                              }
+                              },
+                              "name": "doc/task_row",
+                              "site": "s4"
                             }
                           }
-                        ]
+                        ],
+                        "when": {
+                          "open": {
+                            "mut": true,
+                            "name": "x",
+                            "opt": {
+                              "get": {
+                                "local": "t"
+                              }
+                            },
+                            "type": {
+                              "name": "doc/task"
+                            }
+                          }
+                        }
                       }
                     ],
-                    "else": []
+                    "site": "s3"
                   }
                 }
-              ]
+              ],
+              "key": "item",
+              "mut": true,
+              "name": "t",
+              "over": {
+                "place": {
+                  "root": {
+                    "$state": "tasks"
+                  }
+                }
+              },
+              "site": "s2",
+              "type": {
+                "name": "doc/task"
+              }
             }
           },
           {
             "extern": {
               "name": "core/slider",
-              "site": "s5",
               "props": {
-                "value": {
-                  "bind": "b3"
-                },
                 "label": {
                   "text": "Spent"
                 },
                 "range": {
-                  "bind": "b4"
+                  "range": {
+                    "high": {
+                      "get": {
+                        "$state": "budget"
+                      }
+                    },
+                    "low": {
+                      "num": "0"
+                    }
+                  }
+                },
+                "value": {
+                  "get": {
+                    "$state": "spent"
+                  }
                 }
               },
+              "site": "s5",
               "writes": {
                 "value": {
                   "root": {
                     "$state": "spent"
-                  },
-                  "path": []
-                }
-              }
-            }
-          }
-        ],
-        "markdown": [
-          {
-            "extern": {
-              "name": "core/heading",
-              "site": "s0",
-              "props": {
-                "level": {
-                  "num": "1"
-                },
-                "value": {
-                  "bind": "b1"
-                }
-              }
-            }
-          }
-        ],
-        "levels": [
-          "core.draw",
-          "core.live"
-        ]
-      }
-    ],
-    "bindings": [
-      {
-        "id": "b1",
-        "value": {
-          "rich": {
-            "segments": [
-              {
-                "segment": {
-                  "part": "TEXT",
-                  "value": {
-                    "text": "Sprint: "
-                  }
-                }
-              },
-              {
-                "segment": {
-                  "part": "TEXT",
-                  "value": {
-                    "show": {
-                      "value": {
-                        "get": {
-                          "let": "doc/open"
-                        }
-                      }
-                    }
-                  }
-                }
-              },
-              {
-                "segment": {
-                  "part": "TEXT",
-                  "value": {
-                    "text": " open"
-                  }
-                }
-              }
-            ]
-          }
-        },
-        "reads": [
-          "let:doc/open"
-        ]
-      },
-      {
-        "id": "b2",
-        "value": {
-          "rich": {
-            "segments": [
-              {
-                "segment": {
-                  "part": "TEXT",
-                  "value": {
-                    "text": "Spent "
-                  }
-                }
-              },
-              {
-                "segment": {
-                  "part": "MATH",
-                  "value": {
-                    "record": {
-                      "type": "core/latex",
-                      "fields": {
-                        "tex": {
-                          "template": {
-                            "pieces": [
-                              "\\frac{",
-                              "}{",
-                              "}"
-                            ],
-                            "holes": [
-                              {
-                                "show": {
-                                  "value": {
-                                    "get": {
-                                      "$state": "spent"
-                                    }
-                                  }
-                                }
-                              },
-                              {
-                                "show": {
-                                  "value": {
-                                    "get": {
-                                      "$state": "budget"
-                                    }
-                                  }
-                                }
-                              }
-                            ],
-                            "type": {
-                              "name": "core/template"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              },
-              {
-                "segment": {
-                  "part": "TEXT",
-                  "value": {
-                    "text": " of the budget, in "
-                  }
-                }
-              },
-              {
-                "segment": {
-                  "part": "TEXT",
-                  "value": {
-                    "text": "points"
-                  },
-                  "marks": {
-                    "bold": true
-                  }
-                }
-              },
-              {
-                "segment": {
-                  "part": "TEXT",
-                  "value": {
-                    "text": "."
-                  }
-                }
-              }
-            ]
-          }
-        },
-        "reads": [
-          "$state:spent",
-          "$state:budget"
-        ]
-      },
-      {
-        "id": "b3",
-        "value": {
-          "get": {
-            "$state": "spent"
-          }
-        },
-        "reads": [
-          "$state:spent"
-        ]
-      },
-      {
-        "id": "b4",
-        "value": {
-          "range": {
-            "low": {
-              "num": "0"
-            },
-            "high": {
-              "get": {
-                "$state": "budget"
-              }
-            }
-          }
-        },
-        "reads": [
-          "$state:budget"
-        ]
-      },
-      {
-        "id": "r_b1",
-        "value": {
-          "field": {
-            "value": {
-              "get": {
-                "input": "t"
-              }
-            },
-            "name": "title"
-          }
-        },
-        "reads": [
-          "input:t.title"
-        ]
-      },
-      {
-        "id": "r_b2",
-        "value": {
-          "field": {
-            "value": {
-              "get": {
-                "input": "t"
-              }
-            },
-            "name": "done"
-          }
-        },
-        "reads": [
-          "input:t.done"
-        ]
-      },
-      {
-        "id": "r_b3",
-        "value": {
-          "template": {
-            "pieces": [
-              "due ",
-              ""
-            ],
-            "holes": [
-              {
-                "show": {
-                  "value": {
-                    "field": {
-                      "value": {
-                        "get": {
-                          "input": "t"
-                        }
-                      },
-                      "name": "due"
-                    }
-                  }
-                }
-              }
-            ],
-            "type": {
-              "name": "core/text"
-            }
-          }
-        },
-        "reads": [
-          "input:t.due"
-        ]
-      }
-    ],
-    "handlers": [
-      {
-        "id": "r_h1",
-        "body": [
-          {
-            "set": {
-              "place": {
-                "root": {
-                  "input": "t"
-                },
-                "path": [
-                  {
-                    "field": {
-                      "name": "done"
-                    }
-                  }
-                ]
-              },
-              "value": {
-                "op": {
-                  "name": "!",
-                  "args": [
-                    {
-                      "field": {
-                        "value": {
-                          "get": {
-                            "input": "t"
-                          }
-                        },
-                        "name": "done"
-                      }
-                    }
-                  ],
-                  "type": {
-                    "name": "core/bool"
                   }
                 }
               }
@@ -1158,9 +1136,7 @@
         ]
       }
     ],
-    "levels": [
-      "core.draw",
-      "core.live"
-    ]
+    "version": 4,
+    "xtmd": "0.4.0"
   }
 }

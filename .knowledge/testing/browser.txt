@@ -1,0 +1,6 @@
+BROWSER TESTS
+playwright-core drives the Chromium at XTMD_CHROMIUM; none is downloaded. jsdom can't lay pages out.
+renderers/dom/test/harness.mjs, browser.mjs for dom; every framework's package runs the same steps,
+docSteps and liveSteps in renderers/testing/browser.mjs. A new behaviour of every
+XtmdDoc is a step there, and then each framework is held to it.
+Real VS Code: ide/vscode/test/drive.mjs, every part in one instance (SIZE and STEP to watch it on a screen).

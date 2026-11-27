@@ -1,4 +1,4 @@
-// Extended Mark's npm packages (the compiler's in compiler/npm, the targets' in targets/), each after the ones
+// Extended Mark's npm packages (the compiler's in compiler/npm, the rest in runtime, widgets, renderers, engines and live), each after the ones
 // it depends on: @extended-mark/runtime first, the framework bindings last. Shared by the release's build and its publish.
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -7,16 +7,16 @@ import { fileURLToPath } from "node:url";
 
 export const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-/** Every package of Extended Mark's under compiler/npm, targets and apps (`extended-mark`, the compiler and
+/** Every package of Extended Mark's under compiler/npm, the modules' folders and hosts (`extended-mark`, the compiler and
  * its `xtmd` command, and the @extended-mark ones), not a test's or a showcase's;
- * `published` leaves out the private ones (targets/examples' web and test targets, the playground). */
+ * `published` leaves out the private ones (the playground). */
 export function packages({ published = true } = {}) {
   const out = [];
   const walk = (dir) => {
-    // a package's own tests and fixtures are no package; targets/examples/misc/test (the test target) is one
+    // a package's own tests and fixtures are no package
     const inPackage = existsSync(join(dir, "package.json"));
     for (const name of readdirSync(dir)) {
-      // and a Gradle or Cargo build (targets/examples/misc/android) holds none
+      // and a Gradle or Cargo build (renderers/compose) holds none
       if (["node_modules", "dist", "build", "target", ".gradle"].includes(name) || (inPackage && ["test", "testing"].includes(name))) continue;
       const path = join(dir, name);
       if (!statSync(path).isDirectory()) continue;
@@ -30,7 +30,7 @@ export function packages({ published = true } = {}) {
     }
   };
   walk(join(repo, "compiler", "npm"));
-  walk(join(repo, "targets"));
+  for (const d of ["runtime", "widgets", "renderers", "engines", "live"]) walk(join(repo, d));
   walk(join(repo, "apps"));
   return ordered(out);
 }

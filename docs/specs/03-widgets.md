@@ -2,7 +2,7 @@
 
 Page 3 of 9. Writing and calling widgets, events, blocks, loops, variables, slots, pointing at a widget, and Markdown.
 
-A widget body is, in this order: `param` inputs, `slot`s, `event`s, `require` blocks, its own `mut` and `let` variables, its fns, `view`, and `markdown` last. Only `view` and `markdown` are required. Inputs can be declared in the parentheses, in the body with `param`, or some in each.
+A widget body is, in this order: `param` inputs, `slot`s, `event`s, `require` and `warn` blocks, its own `mut` and `let` variables, its fns, `view`, and `markdown` last. Only `view` and `markdown` are required. Inputs can be declared in the parentheses, in the body with `param`, or some in each.
 
 ```java
 package quiz;
@@ -13,7 +13,7 @@ enum check {
     WRONG,
 }
 
-//@about What the quiz widgets tell the app.
+//@about What the quiz widgets tell the host.
 extern quizzes {
     fn answered(correct: bool, value: text);
 }
@@ -224,19 +224,19 @@ widget todo_list(mut todos: list<todo>) {
 ```java
 // ranges step by 1 unless they say otherwise
 for (i in 0..10) {
-    @label(value = "\{i}");               // 0 to 10
+    @label(value = "\{i}"); // 0 to 10
 }
 for (i in 0..(limit - 1)) {
-    @label(value = "\{i}");               // 0 to limit - 1
+    @label(value = "\{i}"); // 0 to limit - 1
 }
 for (i in 0..100 step 5) {
     @label(value = "\{i}");
 }
 for (i in 10..1 step -1) {
-    @label(value = "\{i}");               // 10 down to 1
+    @label(value = "\{i}"); // 10 down to 1
 }
 for (k, t in todos) {
-    @label(value = "\{k + 1}. \{t.title}");   // position and item: k is an int 0...
+    @label(value = "\{k + 1}. \{t.title}"); // position and item: k is an int 0...
 }
 ```
 
@@ -250,12 +250,12 @@ for (k, t in todos) {
 
 #### Where variables live
 
-- **The document's `$state`**: A document's shared variables are the fields of its one `$state` block, written above its `@@@` line. Every widget and fn in the document uses them as `$state.name`, and only actions assign them. They last while the page is open, and the app can read and write them (page 6). There are no other shared variables: a `mut` at the top of a file is a compile error that points to `$state`.
+- **The document's `$state`**: A document's shared variables are the fields of its one `$state` block, written above its `@@@` line. Every widget and fn in the document uses them as `$state.name`, and only actions assign them. They last while the page is open, and the host can read and write them (page 6). There are no other shared variables: a `mut` at the top of a file is a compile error that points to `$state`.
 - **No state in packs**: A pack's widgets share what the document passes to their `mut` inputs, such as `@tally(points = $state.points);`, so every shared value is in the document's `$state`.
 - **A widget's own variables**: A `mut` in a widget body, or a `mut` input with a default that the caller didn't give. There is one per use of the widget, so two tab sets on a page each remember their own open tab.
 - **Starting values run once.** `mut ticked: list<number> = ticked_first(items);` is worked out when the widget is made, with the inputs as they are then. A later change to `items` does not run it again. A value that should follow an input is a `let`.
 - **A widget is the same widget while its call is the same call.** A widget on the page is identified by where its call is written: the chain of calls, loop items and branches that leads to it. Its own variables last as long as that call keeps being reached. When an `if` or `match` takes another branch, the widgets in the old branch are gone, and coming back makes new ones.
-- **Rows follow their items.** The runtime knows which item of a list is which, as `mut for` does, and a widget in a loop keeps its own variables with its item: delete the first item, and the second item's row keeps its own open tab. An item it doesn't know gets a new widget, starting from its defaults. That is every item of a list built anew, by `filter`, `sorted` or `reversed`, or replaced by the app, so its rows are made again. A row's memory can be lost that way, but it never moves to another item. Focus, the caret and scrolling are the implementer's, and stay with their rows.
+- **Rows follow their items.** The runtime knows which item of a list is which, as `mut for` does, and a widget in a loop keeps its own variables with its item: delete the first item, and the second item's row keeps its own open tab. An item it doesn't know gets a new widget, starting from its defaults. That is every item of a list built anew by `filter`, `sorted` or `reversed`, so its rows are made again. A list the host replaces, in `$state` or a channel's value, keeps the items that are in it as they were, wherever they are in it now, and the rest are new. The host gives values and no identities, so such an item is known by its whole value, and one whose value is in either list more than once is a new item, unless the whole list is as it was. A row's memory can be lost that way, but it never moves to another item. Focus, the caret and scrolling are the implementer's, and stay with their rows.
 - **Where a view is placed does not matter.** Children are made by the caller, so they keep their variables however the widget that receives them shows, hides or reorders them. A view value placed twice is two widgets with separate variables.
 - **One redraw per event.** When an event handler ends, everything that reads what it changed is worked out again, once.
 
@@ -295,7 +295,7 @@ widget notes(mut items: list<note>) {
 
 ### Slots
 
-A slot is where a caller puts content of its own. It's declared in the widget's body with `slot`, and filled only by a block, never with `=`.
+A slot is an input whose value is content of the caller's own. It's declared in the widget's body with `slot`, and filled only by a block, never with `=`. As with any input, every call gives it, in code and in prose alike: only an `opt` slot may be left out. A block that gives no children fills a slot that may hold none.
 
 | Declared | Holds | Used in the widget |
 |---|---|---|
@@ -303,9 +303,12 @@ A slot is where a caller puts content of its own. It's declared in the widget's 
 | `slot footer: opt<view>;` | The same, and may be left out | `if (let f: view = footer) { @f; }` |
 | `slot header: tab;` | Exactly one `tab` | `@header;`, `header.title` |
 | `slot panels: list<tab>[1...];` | Only `tab` widgets, one or more | `for (p in panels) { @p; }`, `panels.len()`, `panels[i]` |
+| `slot notes: opt<list<tab>>;` | Any number of `tab` widgets, and may be left out | `if (let ns: list<tab> = notes) { … }` |
 | `slot charts: list<any chart>;` | Any mix of widgets that fit `chart` | The same |
 
-A slot with a widget type takes only calls of that type, with `for`, `if` and `match` around them. Text, other widgets and helpers that return `view` are compile errors there. A length contract on a slot is checked by the compiler when the children are written out one by one, and when the widget is made otherwise.
+A slot with a widget type takes only calls of that type, with `for`, `if` and `match` around them. Text, other widgets and helpers that return `view` are compile errors there. A length contract on a slot, and the one call that a slot with a widget type holds, are checked by the compiler when the children are written out one by one, and when the widget is made otherwise. A block given to a value after `@`, which has no slots, is a compile error.
+
+A slot's content is the caller's: it reads the caller's values, and whatever draws it is drawn anew when they change, as it is for any input.
 
 A widget fits a widget interface by its inputs and events (page 4), so an interface that a slot takes asks for something only its own kind of widget has. Core's `layer` takes `list<any shape>`, and `shape` asks for `opacity` as well as `label`, which keeps a `press` or an `icon` out of a layer (page 5).
 
@@ -398,7 +401,7 @@ let orders_box: label = @label(value = "Orders");
 ```
 
 - **A held widget is a description until it is placed.** Placed twice, it is two widgets. What `jump` does with a view that is placed twice, or isn't on the page at all (a branch that wasn't taken, or a `find` that found nothing), is up to whoever supplies `jump`. The compiler checks neither: it knows nothing about what a widget does with a view it is given.
-- **Any pack can do the same.** A pack may declare an extern widget that takes a view, and the pack supplies it for each target it supports. One that nobody supplies shows its Markdown (page 6).
+- **Any pack can do the same.** A pack may declare an extern widget that takes a view, and the pack supplies it for each platform it supports. One that nobody supplies shows its Markdown (page 6).
 - **For data**, keep the widgets in a list, place them in a loop, and find them with list fns. The `opt` that `find` gives goes straight into an input such as `to: opt<view>`.
 
 ### Markdown
@@ -407,7 +410,7 @@ Every widget ends with a `markdown` block: what the widget is when there is noth
 
 - **Holes**: A hole that holds a slot or a widget value puts that view's own Markdown there, which is how `\{body}` in `box` works. A hole that holds a value that fits `shown` puts in its text, as plain text that is never read as Markdown. So a hole can't write a task box: `todo_row` writes `[x]` and `[ ]` itself, with `@if`.
 - **An `opt` in a hole**: A paragraph with a hole that holds an `opt` is a compile error that names the hole, because a literal with an `opt` hole is an `opt` (page 4) and `paragraph` takes a `rich_text`. For a `stat` called `s` (page 2), give the hole a fallback, as in `\{s.note.or("none")}`, or open the value first with `@if (let n: text = s.note) {`.
-- **Markdown values**: An `md` holds blocks, so it goes in no hole. `@blocks(value = note);` places them, in a view or in a `markdown` block (page 5).
+- **A `rich_text` in a hole** puts its own Markdown there. Alone in its paragraph it is placed on its own: a sentence is a paragraph, and blocks are themselves. Among words it has to be a sentence: blocks there are a failure of the widget, as they are in anything else that holds a sentence (page 5).
 - **Lists**: List items that follow one another make one list, across a loop's turns too. Any other block ends the list, and the next item starts a new one. A list that ends up with no items, such as one from a loop over an empty list, writes nothing.
 - **Quotes and list items**: A call, a control line or a closing `}` can't start inside a Markdown quote or list item, as in prose: it is a compile error that says to use `@quote`, or `@bullets` and `@item`.
 - **Writing nothing**: An empty block, `markdown { }`, says the widget writes nothing, for parts whose meaning the widget around them writes, such as a canvas's shapes. The compiler warns where such a widget is declared, so the warning shows whenever that file is compiled, a pack's included. A warning never stops a page from compiling.

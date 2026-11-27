@@ -1,0 +1,6 @@
+ADDING A COMPILER CASE
+checks/cases/<pass>/<a-rule-in-words>.xtmd (or .xtmdpack) and .json beside it:
+  { "id": "types.a-field-written-is-mut", "about": "...", "source": "<file>", "packs": [...],
+    "expect": { "diagnostics": [ { "code", "line", "column" } ], "markdown": ... } }
+Every diagnostic, exactly. A case with none expected has to compile. Put its id in its rule's
+`cases` in checks/rules.json (schemas/check.schema.json says what else a case may hold).

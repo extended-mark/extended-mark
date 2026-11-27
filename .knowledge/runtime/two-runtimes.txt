@@ -1,0 +1,7 @@
+TWO RUNTIMES, AND WHAT A BUILT PAGE HOLDS
+runtime/typescript/src/page.ts and runtime/rust/src/page.rs do the same, in
+the same order, with the same failures and messages. Names match, so find the other by grep.
+A change is made in both, and a test is added in both, with the same page where one can be shared
+(checks/pages). Rust borrows need a different shape here and there; behaviour never differs.
+The web engine's kit (engines/web/src/kit/kit.ts, parts.ts) does the same for a built page: the change goes
+there too, and engines/web/test/engine.test.mjs compares it with the runtime.

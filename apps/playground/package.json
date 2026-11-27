@@ -1,6 +1,6 @@
 {
   "name": "@extended-mark/playground",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "private": true,
   "description": "The Extended Mark playground: edit a page and see it drawn, with its Markdown, its diagnostics and its $state, live, compiled in the browser",
   "license": "MIT",
@@ -15,15 +15,13 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@extended-mark/dom": "file:../../targets/published/dom",
-    "@extended-mark/embed": "file:../../targets/published/bindings/embed",
-    "@extended-mark/embed-live": "file:../../targets/published/bindings/embed-live",
-    "@extended-mark/live": "file:../../targets/published/bindings/live",
-    "@extended-mark/react": "file:../../targets/published/bindings/react",
-    "@extended-mark/react-live": "file:../../targets/published/bindings/react-live",
-    "@extended-mark/runtime": "file:../../targets/published/runtime",
-    "@extended-mark/view": "file:../../targets/published/bindings/view",
+    "@extended-mark/dom": "file:../../renderers/dom",
+    "@extended-mark/live": "file:../../live/web",
+    "@extended-mark/react": "file:../../renderers/react",
+    "@extended-mark/runtime": "file:../../runtime/typescript",
     "@extended-mark/wasm": "file:../../compiler/npm/wasm",
+    "@extended-mark/web": "file:../../engines/web",
+    "@extended-mark/widgets": "file:../../widgets/web",
     "monaco-editor": "0.57.0",
     "react": "19.3.1",
     "react-dom": "19.3.1"

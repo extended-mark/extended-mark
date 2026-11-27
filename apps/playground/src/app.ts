@@ -3,11 +3,13 @@
 // xtmd.wasm in a worker (compiler.worker.ts).
 
 import "./style.css";
-import { Num, Page, type Broken, type Outcome, type ir } from "@extended-mark/runtime";
+import { Num, type Broken, type Input, type Outcome, type Page, type ir } from "@extended-mark/runtime";
 import { mount } from "@extended-mark/dom";
+import { webFns } from "@extended-mark/widgets";
+import { makePage } from "@extended-mark/runtime";
 import { Editor, type Diagnostic } from "./editor.js";
 import { escapeHtml, proseLines } from "./highlight.js";
-import { clockExterns, targetFns, themeNow, widthOf } from "./host.js";
+import { clockExterns, themeNow, widthOf } from "./host.js";
 import { plainCases, shapeError, stateDecl, typeSignature, typeText, valueHtml, valueText } from "./values.js";
 import type { Built, PackFile } from "@extended-mark/wasm";
 import type { Answer, Request } from "./compiler.worker.js";
@@ -283,7 +285,7 @@ function applyResult(result: CompileResult, source: string, fresh: boolean): voi
   }
   // `xtmd md`'s Markdown: the page as it starts, with its starting values
   try {
-    compiledMarkdown = makePage(result.ir, {}).markdown();
+    compiledMarkdown = newPage(result.ir, {}).page.markdown();
   } catch {
     compiledMarkdown = null;
   }
@@ -302,25 +304,19 @@ function applyResult(result: CompileResult, source: string, fresh: boolean): voi
 
 // ---- the page
 
-function makePage(file: ir.File, state: Record<string, ir.Expr>): Page {
-  let page: Page | undefined;
-  page = new Page(file, {
-    state,
-    page: { width, theme },
-    externs: clockExterns(),
-    fns: targetFns(() => page!),
-  });
-  return page;
+/** The page, with the `$state` that fits it: the fields refused keep their starting values. */
+function newPage(file: ir.File, state: Record<string, Input>): { page: Page; outcome: Outcome } {
+  return makePage(file, { page: { width, theme }, externs: clockExterns(), fns: webFns() }, state, false);
 }
 
 /** The old page's `$state` values whose fields the new page still has, with the same type. */
-function carriedState(file: ir.File): Record<string, ir.Expr> {
+function carriedState(file: ir.File): Record<string, Input> {
   if (!mounted || !currentIr) return {};
   const before = stateDecl(currentIr);
   const after = stateDecl(file);
   if (!before || !after) return {};
-  const values = mounted.page.observeState();
-  const out: Record<string, ir.Expr> = {};
+  const values = mounted.page.state();
+  const out: Record<string, Input> = {};
   for (const f of after.fields) {
     const was = before.fields.find((o) => o.name === f.name);
     if (!was || !(f.name in values)) continue;
@@ -333,31 +329,13 @@ function carriedState(file: ir.File): Record<string, ir.Expr> {
 /** The new page, with the old `$state` where it still fits; its first outcome kept to show. */
 function startPage(file: ir.File, fresh: boolean): { page: Page; outcome: Outcome; kept: string[] } {
   const carried = fresh ? {} : carriedState(file);
-  const fields = stateDecl(file)?.fields ?? [];
-  if (Object.keys(carried).length) {
-    try {
-      let page = makePage(file, carried);
-      // a value outside the field's new contract goes back to its default
-      const outside = Object.keys(carried).filter((k) => {
-        const f = fields.find((x) => x.name === k);
-        const v = page.stateValue(k);
-        return !f || !v || !page.machine.fits(v, f.type);
-      });
-      if (outside.length) {
-        for (const k of outside) delete carried[k];
-        page = makePage(file, carried);
-      }
-      const outcome = page.takeOutcome();
-      // ... and so do all of them when together they break one of $state's rules
-      page.set({});
-      const check = page.takeOutcome();
-      if (!check.refused.length) return { page, outcome, kept: Object.keys(carried) };
-    } catch (e) {
-      console.warn("[playground] the kept $state did not fit the new page; starting from its defaults", e);
-    }
-  }
-  const page = makePage(file, {});
-  return { page, outcome: page.takeOutcome(), kept: [] };
+  const { page, outcome } = newPage(file, carried);
+  // a value the new page doesn't take is its own again, and no refusal of the reader's
+  const refused = new Set(outcome.refused.map((r) => r.site?.replace("$state.", "")));
+  const rules = outcome.refused.some((r) => r.rule);
+  const now = page.state();
+  const kept = Object.keys(carried).filter((k) => !refused.has(k) && (!rules || JSON.stringify(now[k]) === JSON.stringify(carried[k])));
+  return { page, outcome: page.takeOutcome(), kept };
 }
 
 function showEmpty(title: string, text: string): void {
@@ -407,7 +385,7 @@ function showPage(file: ir.File, fresh: boolean): { ok: true } | { ok: false; er
   return { ok: true };
 }
 
-// every change to the page, from the reader or the app, redraws these once
+// every change to the page, from the reader or the host, redraws these once
 
 let liveQueued = false;
 function liveChanged(): void {
@@ -424,7 +402,7 @@ function renderLive(): void {
   if (!mounted) return;
   const page = mounted.page;
   if (markdownView === "live") renderMarkdown();
-  stateView.update(page.observeState());
+  stateView.update(page.state());
   // a widget that failed is marked where its call is written, while that text is the editor's
   if (currentIr) editor.setFailures(failedCalls(page, currentIr, shownFrom.sites), shownFrom.source);
   for (; errorsLogged < page.errors.length; errorsLogged++) console.warn("[playground] the page caught", page.errors[errorsLogged]);
@@ -545,7 +523,7 @@ class StateView {
       stateBody.innerHTML = `<div class="empty small"><div class="empty-title">No <code>$state</code></div><div class="empty-text">Declare it above the <code>@@@</code> line, for example <code>$state { count: int = 0; }</code>, and it shows here.</div></div>`;
       return;
     }
-    const rules = decl.requires.map((r) => `<li>${escapeHtml(r.message)}</li>`).join("");
+    const rules = (decl.requires ?? []).map((r) => `<li>${escapeHtml(r.message)}</li>`).join("");
     stateBody.innerHTML =
       decl.fields.map((f) => this.rowHtml(f)).join("") + (rules ? `<div class="state-rules"><div class="state-rules-title">Rules</div><ul>${rules}</ul></div>` : "");
     for (const row of stateBody.querySelectorAll<HTMLElement>(".state-row")) this.wire(row, decl.fields.find((f) => f.name === row.dataset.field)!);
@@ -600,17 +578,17 @@ class StateView {
   private wire(row: HTMLElement, f: ir.Field): void {
     const kind = row.dataset.kind;
     const msg = row.querySelector<HTMLElement>(".state-msg")!;
-    const commit = (x: ir.Expr | string): boolean => {
+    const commit = (x: Input | string): boolean => {
       const refusal = typeof x === "string" ? x : this.apply(f, x);
       msg.hidden = !refusal;
       msg.innerHTML = refusal ?? "";
       row.classList.toggle("refused", Boolean(refusal));
-      if (refusal) this.update(mounted?.page.observeState() ?? {}, true);
+      if (refusal) this.update(mounted?.page.state() ?? {}, true);
       return !refusal;
     };
     if (kind === "int" || kind === "number") {
       const input = row.querySelector<HTMLInputElement>("input")!;
-      const parse = (s: string): ir.Expr | string => {
+      const parse = (s: string): Input | string => {
         const t = s.trim().replace(/_/g, "");
         const n = Num.parse(t);
         if (!n) return `<strong>Not a number:</strong> <code>${escapeHtml(s)}</code>`;
@@ -626,7 +604,7 @@ class StateView {
       });
       for (const b of row.querySelectorAll<HTMLButtonElement>("button.step")) {
         b.addEventListener("click", () => {
-          const now = mounted?.page.observeState()[f.name];
+          const now = mounted?.page.state()[f.name];
           const n = now && "num" in now ? Num.parse(now.num) : null;
           if (!n) return;
           commit({ num: n.add(Num.int(Number(b.dataset.step))).show() });
@@ -651,7 +629,7 @@ class StateView {
         row.classList.remove("editing");
       };
       open.addEventListener("click", () => {
-        const now = mounted?.page.observeState()[f.name];
+        const now = mounted?.page.state()[f.name];
         area.value = JSON.stringify(now ?? null, null, 2);
         box.hidden = false;
         open.hidden = true;
@@ -663,7 +641,7 @@ class StateView {
         msg.hidden = true;
       });
       row.querySelector(".json-apply")!.addEventListener("click", () => {
-        let x: ir.Expr;
+        let x: Input;
         try {
           x = JSON.parse(area.value);
         } catch (e) {
@@ -675,20 +653,18 @@ class StateView {
     }
   }
 
-  /** An app write to `$state`: checked by the page, and refused with the rule it would break. */
-  private apply(f: ir.Field, x: ir.Expr): string | undefined {
+  /** A host write to `$state`: checked by the page, and refused with the rule it would break. */
+  private apply(f: ir.Field, x: Input): string | undefined {
     const page = mounted?.page;
     if (!page || !this.file) return "There is no page running.";
     // Page.set checks contracts, not shapes: a list given a number would break the page
     const wrong = shapeError(x, f.type, this.file);
     if (wrong) return `<strong>Refused:</strong> ${messageHtml(wrong)}`;
-    let value;
     try {
-      value = page.value(x);
+      page.set({ [f.name]: x });
     } catch (e) {
       return `<strong>Not a value:</strong> ${escapeHtml((e as Error).message)}`;
     }
-    page.set({ [f.name]: value });
     const o = page.takeOutcome();
     if (o.refused.length) {
       drainOutcome(o);
@@ -700,7 +676,7 @@ class StateView {
   }
 
   /** The values now; the ones that changed since the last time flash. */
-  update(values: Record<string, ir.Expr>, force = false): void {
+  update(values: Record<string, Input>, force = false): void {
     for (const row of stateBody.querySelectorAll<HTMLElement>(".state-row")) {
       const name = row.dataset.field!;
       const x = values[name];

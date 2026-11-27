@@ -1,0 +1,45 @@
+fn read(s: text): rich_text {
+    return rich_text.from(template.of(s)).or(rich_text.plain("<none>"));
+}
+
+fn both(words: text): rich_text {
+    return rich_text.from(template { pieces = ["*a ", " b*"], holes = [hole.TEXT(words)] }).or(rich_text.plain(""));
+}
+@@@
+\{read("hello")}
+
+\{read("a **b** c")}
+
+\{read("*a* and snake_case_name and ***x***")}
+
+\{read("use `x + 1` here")}
+
+\{read("[docs](/docs), <https://x.org>, see www.x.org. and at ftp://x.org.")}
+
+\{read("\\*not\\*, &copy; &amp; a <b>c</b>, ~~gone~~")}
+
+\{read("a\\\nb, and c\nd")}
+
+\{read("![a cat](cat.png) and x[^1]")}
+
+\{read("$x^2$ costs $5 and $6")}
+
+\{read("$x^$")}
+
+\{both("x, *plain*")}
+
+Among words: \{read("so **far**")}, *\{read("so good")}*, \{read("`so`")}.
+
+\{read("# T\n\n- a\n- b\n")}
+
+\{read("```xtmd\nx\n```\n\n    y\n")}
+
+\{read("> a\nb\n\n---\n")}
+
+\{read("- [x] done\n- [ ] not\n")}
+
+\{read("| a | b |\n|:--|--:|\n| **1** | 2 |\n")}
+
+\{read("[x][d]\n\n[d]: /u\n")}
+
+\{read("\n\n")}

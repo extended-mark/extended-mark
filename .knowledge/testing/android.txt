@@ -1,0 +1,8 @@
+ANDROID'S TESTS
+ANDROID_HOME set; Java 21. Build the host's libraries first:
+  runtime/kotlin/rust/build.sh host
+  live/compose/rust/build.sh host
+then in renderers/compose: ./gradlew testDebugUnitTest --continue
+Add --rerun after rebuilding a library: Gradle doesn't see that it changed.
+They run on the JVM (Robolectric). Compose is not idle while work runs off the main thread:
+wait with Idling.kt, in the tests' check folder.

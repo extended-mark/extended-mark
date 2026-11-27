@@ -13,3 +13,6 @@ widget box_of() {
 fn press(): view {
     return @label(value = "x");
 }
+
+let icon: view = @label(value = "x");
+let image: text = "x";

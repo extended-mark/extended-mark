@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/build.schema.json",
+  "title": "Extended Mark build 1",
+  "description": "What `xtmd export --engine` gives an engine on its standard input, and what the engine gives back on its standard output (docs/specs/06, Implementing Extended Mark).",
+  "x-version": 1,
+  "$ref": "#/$defs/job",
+  "$defs": {
+    "job": {
+      "type": "object",
+      "description": "What is built, all of it at once, so an engine can share between documents what is the same in them.",
+      "properties": {
+        "version": {
+          "const": 1,
+          "description": "The format's version."
+        },
+        "documents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/document"
+          }
+        }
+      },
+      "required": [
+        "version",
+        "documents"
+      ],
+      "additionalProperties": false
+    },
+    "document": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Its place among what is built, with no ending: `sprint`, `docs/sprint`."
+        },
+        "ir": {
+          "$ref": "ir.schema.json#/$defs/module"
+        }
+      },
+      "required": [
+        "name",
+        "ir"
+      ],
+      "additionalProperties": false
+    },
+    "built": {
+      "type": "object",
+      "description": "What an engine built.",
+      "properties": {
+        "version": {
+          "const": 1,
+          "description": "The format's version."
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file"
+          }
+        }
+      },
+      "required": [
+        "version",
+        "files"
+      ],
+      "additionalProperties": false
+    },
+    "file": {
+      "type": "object",
+      "description": "A file to write: its text, or its bytes.",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Where, under the folder built into: `sprint.html`, `assets/page.js`. Parts between slashes, none of them `.` or `..`."
+        },
+        "text": {
+          "type": "string"
+        },
+        "base64": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

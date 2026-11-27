@@ -1,4 +1,4 @@
-// Installs and builds Extended Mark's npm packages (compiler/npm, targets/, then the playground) in order, each after
+// Installs and builds Extended Mark's npm packages (compiler/npm, engines/, then the playground) in order, each after
 // what it uses: npm links a neighbour named by `file:`, so it is built first. A framework a
 // neighbour expects of its user (its peerDependencies: React, Vue, Solid, Svelte, Angular) is then
 // one copy for both, the neighbour's, so a binding and its live twin run one React. --test then
@@ -17,8 +17,7 @@ import { packages, repo } from "./packages.mjs";
 const only = process.argv.includes("--test-only");
 const test = only || process.argv.includes("--test");
 const run = (cwd, args) => execFileSync("npm", args, { cwd, stdio: ["ignore", "inherit", "inherit"] });
-// every package with something to install, build or test: the web target's check adapter has only
-// its dependencies
+// every package with something to install, build or test
 const all = packages({ published: false }).filter((p) => p.pkg.scripts?.build || p.pkg.scripts?.test || Object.keys({ ...p.pkg.dependencies, ...p.pkg.devDependencies }).length);
 const byName = new Map(packages({ published: false }).map((p) => [p.pkg.name, p]));
 

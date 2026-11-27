@@ -1,0 +1,5 @@
+xtmd = "0.4.0"
+packs = ["kit"]
+
+[uses]
+kit = 1

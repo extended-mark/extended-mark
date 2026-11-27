@@ -1,0 +1,14 @@
+---
+title: Every place
+tags: [comments]
+---
+// above the state: its leading
+$state {
+    n: number = 0; // n's trailing
+}
+@@@
+# Every place
+
+@// a comment in prose
+
+The count is \{$state.n}.

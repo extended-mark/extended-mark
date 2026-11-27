@@ -4,7 +4,7 @@ record item {
     price: int 0...;
 }
 
-//@about What the page tells the app.
+//@about What the page tells the host.
 extern shop {
     fn checkout(total: number, count: number);
 }
@@ -24,7 +24,9 @@ $state {
     }
 }
 
-let total: number = $state.items.map(fn(i) { return i.price; }).sum().or(0);
+fn total(): number {
+    return $state.items.map(fn(i) { return i.price; }).sum().or(0);
+}
 
 //@about One row of the basket, with a button that takes it out.
 widget basket_row(name: text, price: number) {
@@ -44,7 +46,7 @@ widget basket_row(name: text, price: number) {
 @@@
 # Shop
 
-The basket holds \{$state.items.len()} items for \{total} € of a \{$state.budget} € budget.
+The basket holds \{$state.items.len()} items for \{total()} € of a \{$state.budget} € budget.
 
 @mut for (i in $state.items) {
     @if (let x: item = i) {
@@ -56,7 +58,7 @@ The basket holds \{$state.items.len()} items for \{total} € of a \{$state.budg
 
 @press(label = "Check out", click = fn() {
     $state.orders = $state.orders + 1;
-    shop.checkout(total, $state.items.len());
+    shop.checkout(total(), $state.items.len());
 });
 
 Orders placed: \{$state.orders}.

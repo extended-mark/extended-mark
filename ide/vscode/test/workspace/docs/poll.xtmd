@@ -6,18 +6,22 @@ $state {
     agree: bool = false;
 }
 
+fn votes(): int 0... {
+    return ($state.yes + $state.no).clamp(0, 2000);
+}
+
 fn share(a: int 0..., b: int 0...): int 0..100 {
     return a + b == 0 ? 0 : (a * 100 / (a + b)).round().clamp(0, 100);
 }
 @@@
 # Should the team ship on Fridays?
 
-\{share($state.yes, $state.no)}% say yes so far.
-
-@tally(name = "Yes", count = $state.yes);
-
-@tally(name = "No", count = $state.no, by = 1);
+**\{share($state.yes, $state.no)}%** say yes so far, of \{votes()} who voted.
 
 @press(label = "I have read the rules", kind = press_kind.CHECK, selected = $state.agree, click = fn() {
     $state.agree = !$state.agree;
 });
+
+@tally(name = "Yes", count = $state.yes, of = votes(), tone = color.OK, closed = !$state.agree);
+
+@tally(name = "No", count = $state.no, of = votes(), tone = color.WARN, closed = !$state.agree);

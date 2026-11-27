@@ -1,0 +1,172 @@
+record task {
+    mut title: text[0..40];
+    mut done: bool = false;
+
+    require "a title" {
+        return title.trim() != "";
+    }
+}
+
+enum stage { DRAFT, REVIEW(by: text), DONE }
+
+extern host {
+    unit: text = "items";
+    fn saved(n: number);
+}
+
+expose host {
+    fn reset(to: int 0..10) {
+        $state.n = to;
+    }
+}
+
+$state {
+    n: int 0..10 = 2;
+    price: number 0..1000 = 9.99;
+    tasks: list<task> = [task { title = "write" }, task { title = "test", done = true }];
+    at: stage = stage.REVIEW("Ada");
+    note: opt<text> = opt.NONE;
+
+    require "few when cheap" {
+        return price > 1 || n < 9;
+    }
+}
+
+fn total(xs: list<number>): number {
+    mut sum: number = 0;
+    for (x in xs) {
+        sum = sum + x;
+    }
+    return sum;
+}
+
+widget frame_of(title: text, open: bool = true) {
+    slot body: view;
+    slot foot: opt<view>;
+    event toggled(now: bool);
+
+    require "a title to show" {
+        return title != "boom";
+    }
+
+    mut times: int 0..100 = 0;
+
+    view {
+        @column(gap = space.S) {
+            @press(label = "\{title} \{times}", click = fn() {
+                times = (times + 1).clamp(0, 100);
+                invoke toggled(!open);
+            });
+            if (open) {
+                @body;
+            }
+            if (let f: view = foot) {
+                @f;
+            }
+        }
+    }
+
+    markdown {
+        \{body}
+    }
+}
+
+widget row_of(t: task) {
+    event gone();
+    mut votes: int 0..9 = 0;
+
+    view {
+        @row {
+            @press(label = "\{t.title}: \{votes}", click = fn() { votes = (votes + 1).clamp(0, 9); });
+            @press(label = "Drop", click = fn() { invoke gone(); });
+        }
+    }
+
+    markdown {
+        \{t.title}
+    }
+}
+
+widget board() {
+    mut shown: bool = true;
+    mut word: text = "";
+
+    view {
+        let count: int = $state.tasks.len();
+        @frame_of(title = count > 4 ? "boom" : "Tasks (\{count})", open = shown, toggled = fn(now: bool) { shown = now; }) {
+            body {
+                mut for (k, t in $state.tasks) {
+                    if (mut x: task = t) {
+                        @row_of(t = x, gone = fn() { $state.tasks.remove(x); });
+                        @press(label = x.done ? "Undo \{k}" : "Do \{k}", click = fn() { x.done = !x.done; });
+                    }
+                }
+                @field(value = word, label = "New", submit = fn() {
+                    if (let made: task = try task { title = word }) {
+                        $state.tasks.add(made);
+                        word = "";
+                        host.saved(count);
+                    }
+                });
+            }
+            foot {
+                @label(value = "\{count} \{host.unit}");
+            }
+        }
+        match ($state.at) {
+            case stage.DRAFT {
+                @label(value = "draft");
+            }
+            case stage.REVIEW(by) {
+                @label(value = "with \{by}");
+            }
+            case else {
+                @label(value = "done");
+            }
+        }
+        @press(label = "Next stage", click = fn() {
+            match ($state.at) {
+                case stage.DRAFT {
+                    $state.at = stage.REVIEW("Grace");
+                }
+                case stage.REVIEW(by) {
+                    $state.at = stage.DONE;
+                }
+                case else {
+                    $state.at = stage.DRAFT;
+                }
+            }
+        });
+        if (let s: text = $state.note) {
+            @label(value = "note: \{s}");
+        } else {
+            @press(label = "Add a note", click = fn() { $state.note = "here"; });
+        }
+        for (i in 1..($state.n)) {
+            @label(value = "\{i}: \{($state.price * i).fmt(2)}");
+        }
+        @label(value = "sum \{total([1, 2.5, $state.price])}, share \{100 / $state.n}");
+    }
+
+    markdown {
+    }
+}
+@@@
+# Everything
+
+Nothing here changes, **not a word**.
+
+@board;
+
+There are \{$state.n} of them, at \{$state.price}, *\{$state.n * 2}* twice.
+
+@slider(value = $state.n, label = "How many");
+
+@if ($state.n > 3) {
+    Many, in a paragraph.
+
+    - one
+    - \{$state.n}
+}
+
+The end.

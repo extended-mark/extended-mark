@@ -1,0 +1,9 @@
+let a: int = 1;
+@@@
+Some text.
+
+```
+@@@
+```
+
+More.

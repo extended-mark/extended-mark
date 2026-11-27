@@ -1,0 +1,18 @@
+let a: md = "# Hi";
+
+record r {
+    body: md;
+}
+
+widget w(body: md) {
+    view {
+        for (b in body.blocks) {
+            @label(value = "x");
+        }
+    }
+    markdown {
+        x
+    }
+}
+@@@
+@w(body = a);

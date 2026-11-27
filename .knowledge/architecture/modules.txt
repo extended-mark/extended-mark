@@ -1,0 +1,18 @@
+MODULES, AND WHICH PLATFORM HAS WHICH
+compiler    text -> IR, or errors                      one, in Rust, for all
+runtime     IR, state, actions -> the drawn tree       TypeScript (web), Rust (egui, Android)
+widget set  a widget's inputs -> how it looks          web, egui, Compose
+renderer    tree and widget set -> the screen          dom, react, next, vue, svelte, solid, angular,
+                                                       egui, compose
+engine      IR and widget set -> files, built ahead    web, react, next, vue, svelte, solid, angular
+live        compiler, runtime and renderer together    the same platforms as renderer, but next
+
+A page reaches a reader three ways:
+  built ahead    text, compiler, IR, engine, files; no runtime of ours is in them
+  embedded       IR, runtime, renderer: what comes while a program runs
+  live           text, compiler, IR, runtime, renderer: editors and previews
+
+egui and Compose have no engine, by design. An engine keeps the runtime out of what a reader downloads
+again and again. A native program has the runtime built in, once, for every page.
+
+A framework's engine is in its renderer's package (renderers/react), and uses engines/web.

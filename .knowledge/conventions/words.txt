@@ -1,0 +1,6 @@
+WORDS
+host (not app), runtime, renderer, widget set, engine (roles.txt; never "target"), pack,
+document, widget, extern, page, reader (who uses a page), author (who writes it), $state, channel (an
+extern block's values and fns).
+"implement" in the language means an interface. Extended Mark is the language, xtmd the command and
+the file ending, .xtmdpack a pack's file.

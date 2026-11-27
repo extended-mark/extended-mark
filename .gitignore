@@ -5,5 +5,9 @@ dist/
 !checks/**/*.ir.json
 .DS_Store
 !schemas/examples/*.ir.json
+!schemas/ir-history/**/*.ir.json
 core.[0-9]*
 compiler/npm/wasm/xtmd.wasm
+
+# Python
+__pycache__/

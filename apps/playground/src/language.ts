@@ -14,15 +14,15 @@ export const XTMD_PROSE = "xtmd-prose";
 
 const keywords = [
   "package", "import", "enum", "record", "type", "interface", "implements", "widget", "extern", "expose", "fn",
-  "pack", "tokens", "mut", "let", "event", "invoke", "view", "markdown", "require", "if", "else", "for", "in",
+  "pack", "tokens", "mut", "let", "event", "invoke", "view", "markdown", "require", "warn", "if", "else", "for", "in",
   "match", "case", "return", "only", "step", "void", "any", "param", "slot", "try", "with", "self", "true",
-  "false", "as", "token",
+  "false", "as", "token", "provides", "uses", "migration", "execute",
 ];
 
 // core's own types, coloured as types wherever they are named
 const coreTypes = [
   "int", "number", "text", "bool", "list", "opt", "map", "date", "moment", "duration", "range", "view", "point",
-  "region", "size", "space", "color", "radius", "font", "shadow", "stroke", "template", "md", "rich_text", "latex",
+  "region", "size", "space", "color", "radius", "font", "shadow", "stroke", "template", "rich_text", "latex",
 ];
 
 const ident = /[a-z_][a-z0-9_]*/;

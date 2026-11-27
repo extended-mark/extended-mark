@@ -1,0 +1,379 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/blocks.schema.json",
+  "title": "Extended Mark Markdown blocks 1",
+  "description": "A page's Markdown before it is text: what a runtime gives a Markdown writer, which has one spelling for each (docs/specs/01, Markdown out).",
+  "x-version": 1,
+  "$ref": "#/$defs/blocks",
+  "$defs": {
+    "blocks": {
+      "type": "object",
+      "description": "A page as Markdown blocks.",
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/block"
+          }
+        }
+      },
+      "required": [
+        "blocks"
+      ],
+      "additionalProperties": false
+    },
+    "block": {
+      "description": "A Markdown block.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "paragraph": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/inline"
+              }
+            }
+          },
+          "required": [
+            "paragraph"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "heading": {
+              "type": "object",
+              "properties": {
+                "level": {
+                  "type": "integer"
+                },
+                "inline": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/inline"
+                  }
+                }
+              },
+              "required": [
+                "level",
+                "inline"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "heading"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "bullets": {
+              "type": "object",
+              "properties": {
+                "ordered": {
+                  "type": "boolean"
+                },
+                "start": {
+                  "type": "integer"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "done": {
+                        "type": "boolean"
+                      },
+                      "blocks": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/block"
+                        }
+                      }
+                    },
+                    "required": [
+                      "blocks"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "ordered",
+                "items"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "bullets"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "quote": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/block"
+              }
+            }
+          },
+          "required": [
+            "quote"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "object",
+              "properties": {
+                "lang": {
+                  "type": "string"
+                },
+                "src": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "lang",
+                "src"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "code"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "math": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "math"
+          ],
+          "additionalProperties": false,
+          "description": "A maths block's TeX."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "table": {
+              "type": "object",
+              "properties": {
+                "align": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "START",
+                      "CENTER",
+                      "END"
+                    ]
+                  }
+                },
+                "head": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/inline"
+                    }
+                  }
+                },
+                "rows": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/inline"
+                      }
+                    }
+                  }
+                }
+              },
+              "required": [
+                "align",
+                "head",
+                "rows"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "table"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "footnote": {
+              "type": "object",
+              "properties": {
+                "mark": {
+                  "type": "string"
+                },
+                "blocks": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/block"
+                  }
+                }
+              },
+              "required": [
+                "mark",
+                "blocks"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "footnote"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "divider": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "divider"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "inline": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string"
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "strike": {
+                  "type": "boolean"
+                },
+                "link": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "math": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "math"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "image": {
+              "type": "object",
+              "properties": {
+                "src": {
+                  "type": "string"
+                },
+                "alt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "src",
+                "alt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "image"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "note": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "note"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "break": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "break"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

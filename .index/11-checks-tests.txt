@@ -1,0 +1,36 @@
+CHECKS AND TESTS
+
+checks/cases/<pass>/<name>.json + .xtmd or .xtmdpack    compiler cases: expected diagnostics, Markdown
+  contracts effects graphs markdown names packs prose read types versions views widgets
+checks/rules.json             every error and warning: spec line, pass, codes, cases
+checks/spec-examples.json     how each code block of the spec is read
+checks/spec-markdown/         what the spec's documents write as Markdown, by hand
+checks/commonmark/            CommonMark's and GitHub's examples; xtmd-readings.json (ours)
+checks/core/                  core's own tests, in Extended Mark
+checks/pages/                 pages both runtimes are held to: outside (values from outside), parts
+checks/packs/badge/           a pack whose externs each platform supplies
+checks/migrate-0.3/           every 0.3.2 file of tag v0.3.2 and the probes, what 0.3.2 made of each
+                              (units.json, by make.py) and what migrate makes of each (expected.tsv)
+
+Who runs what
+  compiler/xtmd/tests, each file named by the part it tests (<part>_<name>.rs):
+    cli_checks.rs       checks/cases           cli_rules.rs        checks/rules.json
+    cli_markdown.rs     Markdown of cases      cli.rs              the binary
+    check_commonmark.rs, check_md_inline.rs, check_prune.rs, check_schema.rs, check_levels.rs
+    syntax_fmt.rs, syntax_keywords.rs, syntax_spec_examples.rs (docs/specs)
+    migrate_ir_history.rs, cli_migrate_040.rs, cli_pack_migration.rs
+    migrate_packs.rs    a pack's migration on the resolved IR: values, conditions, fns, imports, slots
+    migrate_core.rs     core@1's surface is 0.3.2's core; core@2's migration accounts for every change
+    migrate_pipeline.rs a made-up release before's tree through the pipeline and xtmd migrate
+    migrate_032.rs      checks/migrate-0.3 migrated; migrate_previous.rs 0.3.2's front end read it
+    migrate_032_format.rs  0.3.2's files in rir 2's shape: what 0.4.0 gives the same text, comments too
+    migrate_032_language.rs  the step's language part, a row of plan #2443 a test
+    decompile.rs        every file to its resolved IR, printed back, to the same resolved IR, IR, Markdown;
+                        every page from its IR, printed back, to the same IR
+    formats_schemas.rs  schemas, examples, generated types
+    live.rs, lsp_server.rs                     order.rs            which part uses which
+  runtime, widgets, renderers, engines, live    */test: node --test, some in Chromium
+                                                */tests: cargo
+  renderers/compose                             Gradle, testDebugUnitTest, every module
+  ide/vscode/test     apps/*/test     tools/release/test, tools/llm/test
+How to run them: .knowledge/testing/.

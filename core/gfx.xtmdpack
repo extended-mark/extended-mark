@@ -2,14 +2,15 @@ package core;
 
 //@about A drawing surface with coordinates of its own: x from left to right, y from bottom to top.
 extern widget canvas(
-    label: text,                                // what it shows, for screen readers and Markdown
+    label: text, // what it shows, for screen readers and Markdown
     x: range<number> = -1..1,
     y: range<number> = -1..1,
     width: size = size.M,
-    aspect: opt<number 0.1..10> = opt.NONE,     // width over height; left out, from the two ranges
+    aspect: opt<number 0.1..10> = opt.NONE, // width over height; left out, from the two ranges
 ) {
     slot layers: list<layer>[1...];
-    event click(at: point);                     // a click on empty space, in the canvas's units
+    event click(at: point); // a click on empty space, in the canvas's units
+    uses core.gfx;
 
     markdown {
         \{label}
@@ -19,6 +20,7 @@ extern widget canvas(
 //@about Shapes drawn together, in the order written. Later layers are drawn on top.
 extern widget layer(opacity: number 0..1 = 1, clip: opt<region> = opt.NONE) {
     slot shapes: list<any shape>;
+    uses core.gfx;
 
     // writes nothing: the canvas or plane around it writes what the picture shows
     markdown { }
@@ -36,13 +38,14 @@ extern widget circle(
     r: number 0...,
     fill: opt<color> = opt.NONE,
     stroke: opt<color> = opt.NONE,
-    width: stroke = stroke.THIN,                // the stroke's width: a stroke token, or a plain number of pixels
+    width: stroke = stroke.THIN, // the stroke's width: a stroke token, or a plain number of pixels
     opacity: number 0..1 = 1,
     label: text = "",
 ) implements shape {
     event click();
     event enter();
     event leave();
+    uses core.gfx;
 
     markdown { }
 }
@@ -55,13 +58,14 @@ extern widget path(
     stroke: opt<color> = color.INK,
     width: stroke = stroke.THIN,
     dash: bool = false,
-    head: head = head.NONE,                     // an arrow or a dot at the last point
+    head: head = head.NONE, // an arrow or a dot at the last point
     opacity: number 0..1 = 1,
     label: text = "",
 ) implements shape {
     event click();
     event enter();
     event leave();
+    uses core.gfx;
 
     markdown { }
 }
@@ -75,12 +79,16 @@ extern widget place(
     label: text = "",
 ) implements shape {
     slot child: view;
+    uses core.gfx;
 
     markdown { }
 }
 
 //@about A point the reader drags. It writes where it is to the variable it is given.
 extern widget handle(mut at: point, tone: opt<color> = opt.NONE, opacity: number 0..1 = 1, label: text) implements shape {
+    tokens color.ACCENT, color.SURFACE;
+    uses core.gfx;
+
     markdown { }
 }
 
@@ -101,6 +109,8 @@ extern widget shade<A>(
     opacity: number 0..1 = 1,
     label: text,
 ) implements shape {
+    uses core.gfx;
+
     markdown { }
 }
 

@@ -79,7 +79,7 @@ record moment implements literal<text>, same, ordered, shown {
     day: date;
     hour: int 0..23;
     minute: int 0..59;
-    east: bool;                                 // + in the text: the offset is east of UTC
+    east: bool; // + in the text: the offset is east of UTC
     offset_hour: int 0..14;
     offset_minute: int 0..59;
 
@@ -183,7 +183,7 @@ fn day_number(count: int): date {
 fn moment_at(utc: int, source: moment): moment {
     let local: int = utc + source.offset();
     let days: int = (local / 1440).floor();
-    let minutes: int = local - days * 1440;     // 0 to 1439, so clamp only proves the hour and the minute
+    let minutes: int = local - days * 1440; // 0 to 1439, so clamp only proves the hour and the minute
     return moment {
         day = day_number(days),
         hour = (minutes / 60).floor().clamp(0, 23),
@@ -196,14 +196,14 @@ fn moment_at(utc: int, source: moment): moment {
 
 //@about A literal with holes: the text between them, and their values. A hole is never part of a piece.
 record template {
-    pieces: list<text>[1...];                   // one more piece than holes
+    pieces: list<text>[1...]; // one more piece than holes
     holes: list<hole>;
 }
 
 //@about One hole of a template, which from places as a value and never reads.
 enum hole {
-    TEXT(value: text),                          // a value that fits shown, already shown
-    VIEW(child: view),                          // \{@icon(…)} in a sentence
+    TEXT(value: text), // a value that fits shown, already shown
+    VIEW(child: view), // \{@icon(…)} in a sentence
 }
 
 //@about A template from a plain text, with no holes.
@@ -222,7 +222,7 @@ fn hole.words(self): text {
     }
 }
 
-//@about Maths, written in TeX. Core checks how it is written; the target may also refuse what it can't draw.
+//@about Maths, written in TeX. Core checks how it is written; a renderer may also refuse what it can't draw.
 //@about Its holes stay values: each counts as one token in the checks, and show escapes it for TeX.
 record latex implements literal<template>, shown {
     tex: template;
@@ -255,7 +255,7 @@ record latex implements literal<template>, shown {
         return tex_values(tex);
     }
 
-    require "the target can draw this TeX" {
+    require "the renderer can draw this TeX" {
         return can_draw_tex(tex);
     }
 }
@@ -264,7 +264,7 @@ fn latex.from(value: template): opt<latex> {
     return try latex { tex = value };
 }
 
-//@about The TeX, with each hole's characters escaped so that TeX reads them as themselves. A target draws this.
+//@about The TeX, with each hole's characters escaped so that TeX reads them as themselves. A renderer draws this.
 fn latex.show(self): text {
     mut out: text = "";
     for (k, piece in self.tex.pieces) {
@@ -276,96 +276,14 @@ fn latex.show(self): text {
     return out;
 }
 
-//@about Whether the target can draw this TeX, for example whether it knows every command in it. A target may supply its own; without one, all TeX that core accepts is drawn.
+//@about Whether the renderer can draw this TeX, for example whether it knows every command in it. A renderer may supply its own; without one, all TeX that core accepts is drawn.
 extern fn can_draw_tex(tex: template): bool {
     return true;
 }
 
-//@about Markdown blocks, parsed by core when the value is made. @blocks draws them.
-record md implements literal<template> {
-    blocks: list<block>;
-}
-
-//@about One Markdown block, as md holds it. Each case is drawn by the extern block of its kind.
-enum block {
-    PARAGRAPH(value: rich_text),
-    HEADING(level: int 1..6, value: rich_text),
-    BULLETS(ordered: bool, start: int 0..., items: list<list_item>[1...]),
-    QUOTE(body: list<block>),
-    CODE(src: text, lang: text),
-    MATH(tex: latex),
-    TABLE(head: list<rich_text>[1...], rows: list<list<rich_text>>, align: list<cell_align>),
-    FOOTNOTE(mark: text, body: list<block>),
-    DIVIDER,
-}
-
-//@about One item of a list in md. done is a task box: ticked, not ticked, or none for an ordinary item.
-record list_item {
-    done: opt<bool> = opt.NONE;
-    body: list<block>;
-}
-
-//@about Inline Markdown as segments, parsed by core's rich_text.from: from prose, or from a text literal where rich_text is wanted.
-record rich_text implements literal<template>, shown {
-    segments: list<segment>;
-}
-
-//@about A part of a sentence and how it is marked.
-record segment {
-    part: part;
-    marks: marks = marks { };
-}
-
-//@about What a segment holds. A hole's value is TEXT, or VIEW for a widget, so a value never becomes formatting.
-enum part {
-    TEXT(value: text),
-    CODE(value: text),                          // a code span
-    MATH(tex: latex),                           // $x^2$
-    IMAGE(src: text, alt: text),                // ![alt](src)
-    NOTE(mark: text),                           // [^1], the mark of a footnote
-    BREAK,                                      // a hard line break
-    VIEW(child: view),                          // \{@icon(…)} in a sentence
-}
-
-//@about How a segment is marked. A link is a mark, so bold words inside a link are one segment.
-record marks {
-    bold: bool = false;
-    italic: bool = false;
-    strike: bool = false;
-    link: opt<text> = opt.NONE;
-}
-
-//@about Text from a value, as one plain segment: nothing in it is read as Markdown.
+//@about Text from a value, as one plain sentence: nothing in it is read as Markdown.
 fn rich_text.plain(value: text): rich_text {
-    return rich_text { segments = [segment { part = part.TEXT(value) }] };
-}
-
-//@about The words, without their marks.
-fn rich_text.show(self): text {
-    return self.segments.map(fn(s) { return s.part.words(); }).join("");
-}
-
-fn part.words(self): text {
-    match (self) {
-        case part.TEXT(v) {
-            return v;
-        }
-        case part.CODE(v) {
-            return v;
-        }
-        case part.MATH(m) {
-            return m.show();
-        }
-        case part.IMAGE(src, alt) {
-            return alt;
-        }
-        case part.BREAK {
-            return " ";
-        }
-        case else {
-            return "";
-        }
-    }
+    return "\{value}";
 }
 
 // TeX as tokens: a command (\frac, \{, \\), one character, or a hole, which is the one token "hole".
@@ -374,7 +292,7 @@ fn tex_tokens(tex: template): list<text> {
     mut out: list<text> = [];
     for (k, piece in tex.pieces) {
         if (k > 0) {
-            out.add("hole");                    // TeX's own tokens are one character or a command, never this
+            out.add("hole"); // TeX's own tokens are one character or a command, never this
         }
         for (x in tex_piece(piece)) {
             out.add(x);
@@ -387,13 +305,13 @@ fn tex_tokens(tex: template): list<text> {
 fn tex_piece(tex: text): list<text> {
     let letters: text = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     mut out: list<text> = [];
-    mut cmd: text = "";                         // a command being read, from its backslash
+    mut cmd: text = ""; // a command being read, from its backslash
     for (c in tex.chars()) {
         if (cmd == "\\") {
             if (letters.has(c)) {
                 cmd = "\\\{c}";
             } else {
-                out.add("\\\{c}");              // \{, \\ and the like are whole commands
+                out.add("\\\{c}"); // \{, \\ and the like are whole commands
                 cmd = "";
             }
         } else if (cmd != "" && letters.has(c)) {
@@ -411,7 +329,7 @@ fn tex_piece(tex: text): list<text> {
         }
     }
     if (cmd != "") {
-        out.add(cmd);                           // a backslash at the very end stays a lone \
+        out.add(cmd); // a backslash at the very end stays a lone \
     }
     return out;
 }
@@ -436,7 +354,7 @@ fn tex_pairs(t: list<text>, open: text, close: text): bool {
 
 // \begin{name} and \end{name} pair up by name, innermost first. Private to core
 fn tex_environments(t: list<text>): bool {
-    mut open: list<text> = [];                  // names begun; the first depth of them are still open
+    mut open: list<text> = []; // names begun; the first depth of them are still open
     mut depth: int = 0;
     mut ok: bool = true;
     for (k, x in t) {

@@ -1,0 +1,11 @@
+{
+  "id": "views.one-widget-slot-holds-one-in-prose",
+  "about": "a slot that holds one widget takes exactly one, and a list keeps its length, optional or not, in prose",
+  "source": "one-widget-slot-holds-one-in-prose.xtmd",
+  "expect": {
+    "diagnostics": [
+      {"code": "views.slot-length", "line": 62, "column": 2},
+      {"code": "views.slot-length", "line": 71, "column": 7}
+    ]
+  }
+}

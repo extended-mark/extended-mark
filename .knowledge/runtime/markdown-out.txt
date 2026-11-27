@@ -1,0 +1,8 @@
+MARKDOWN OUT
+Each widget's `markdown` with the values it has, one spelling for each block and mark.
+Page to blocks needs values:  compiler/xtmd/src/markdown/render.rs (starting values, for xtmd md)
+                              runtime/typescript/src/markdown.ts (a page running)
+                              runtime/rust/src/markdown.rs (a page running)
+Blocks to text needs nothing: compiler/xtmd/src/markdown/mod.rs (all of Rust) and
+                              runtime/typescript/src/write.ts, which gives the same text.
+What is written, read back, gives the same blocks (compiler/xtmd/tests/cli_markdown.rs).

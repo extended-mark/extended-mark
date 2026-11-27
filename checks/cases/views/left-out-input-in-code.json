@@ -1,0 +1,10 @@
+{
+  "id": "views.left-out-input-in-code",
+  "about": "an input without a default is given, in code",
+  "source": "left-out-input-in-code.xtmd",
+  "expect": {
+    "diagnostics": [
+      {"code": "views.missing-input", "line": 64, "column": 10}
+    ]
+  }
+}

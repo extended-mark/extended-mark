@@ -1,0 +1,67 @@
+// A file's first comment, with a blank line after it: a comment item.
+
+// The package line's leading.
+package kit; // the package line's trailing
+
+import core; // an import's trailing
+
+//@about A state's colour.
+// enum's leading, under its doc
+enum tone { // enum's block_start
+    // OK's leading
+    OK, // OK's trailing
+    BAD(why: text), // BAD's trailing
+
+    // a comment item: a blank line after it
+
+    // a comment item: at the list's end
+} // enum's block_end
+
+record stat {
+    //@about What it shows.
+    label: text; // label's trailing
+    value: number = 1 + // free: before 2
+        2;
+}
+
+//@about Adds.
+//@param a The first.
+fn add(a: number, b: number): number { // add's block_start at 1: it was between the signature and the brace
+    let xs: list<number> = [ // let's block_start at 0
+        a, // a's trailing
+        // b's leading
+        b,
+        // a comment item at the list's end
+    ];
+    if (a > b) { // if's block_start at 0
+        return a; // return's trailing
+    } else if (b > a) { // if's block_start at 1
+        return b;
+    } // if's block_end at 1
+    else { // if's block_start at 2
+        return b;
+    } // if's block_end at 2
+    let total: number = a + // before tax
+        b * // and again
+        a;
+    return xs.len(); // return's trailing
+} // add's block_end at 1
+
+let one: number = 1; // one space before the comment, not four
+// not lined up: the next node's leading
+let two: number = 2;
+
+widget w(
+    // a's leading
+    a: text, // a's trailing
+) { // w's block_start at 1
+    view {
+        @label(value = a); // a use's trailing
+    }
+
+    markdown {
+        \{a}
+    }
+}
+
+// the file's end: a comment item

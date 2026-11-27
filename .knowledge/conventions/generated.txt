@@ -1,0 +1,5 @@
+GENERATED, COPIED AND BUILT FILES
+Generated: compiler/xtmd/src/formats, all but mod.rs; runtime/typescript/src/generated.
+Copied: widgets/web style.ts holds style.css; Android's glyphs from its icons.ts.
+Built, never committed: target, dist, *.ir.json (but in checks and schemas), xtmd.wasm.
+Versions are raised by tools/release/bump.mjs, never by hand.

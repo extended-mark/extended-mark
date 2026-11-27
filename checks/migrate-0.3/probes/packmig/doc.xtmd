@@ -1,0 +1,9 @@
+import kit;
+
+let a: md = "# Hi";
+@@@
+@note(content = a);
+
+@note(content = "Some **words**");
+
+@panel(title = "t");

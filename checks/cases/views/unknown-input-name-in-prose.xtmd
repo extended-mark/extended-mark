@@ -1,0 +1,62 @@
+widget about(t: text) {
+    view {
+        @label(value = t);
+    }
+    markdown {
+        \{t}
+    }
+}
+
+widget one() {
+    slot head: about;
+    view {
+        @head;
+    }
+    markdown {
+        x
+    }
+}
+
+widget some() {
+    slot items: list<about>;
+    slot least: opt<list<about>[2...]>;
+    view {
+        @label(value = "\{items.len()}");
+    }
+    markdown {
+        x
+    }
+}
+
+widget any_view() {
+    slot body: view;
+    view {
+        @body;
+    }
+    markdown {
+        x
+    }
+}
+
+widget maybe() {
+    slot body: opt<view>;
+    view {
+        if (let b: view = body) {
+            @b;
+        }
+    }
+    markdown {
+        x
+    }
+}
+
+widget bare() {
+    view {
+        @label(value = "x");
+    }
+    markdown {
+        x
+    }
+}
+@@@
+@about(t = "a", u = 1);

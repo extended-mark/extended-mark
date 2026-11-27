@@ -1,7 +1,6 @@
-// The extension, on the desktop and in a browser: the language client (its server is ide/lsp, built
+// The extension, on the desktop and in a browser: the language client (its server is compiler/xtmd/src/lsp, built
 // into xtmd.wasm), the packs each document is built with, core's own source, the language a document
-// is read in, the preview, the status bar and the commands. It needs no xtmd binary. What only the
-// desktop can do (run MKP 0.2's frozen step, with Node) comes in as `Host`.
+// is read in, the preview, the status bar and the commands. It needs no xtmd binary.
 
 import * as vscode from "vscode";
 import type { BaseLanguageClient, LanguageClientOptions } from "vscode-languageclient";
@@ -11,19 +10,11 @@ import { Log } from "./log.js";
 import { packsFor } from "./packs.js";
 import { Previews } from "./preview.js";
 
-/** What the desktop gives the extension that a browser can't. */
-export interface Host {
-  /** Runs the frozen 0.2 → 0.3 step (tools/migrate-0.2/frozen) on an MKP 0.2 document, with the 0.2
-   * packs it is built with: what it prints, or `{ notRun: why }`. None in a browser, which has no
-   * Node, or in a build that doesn't carry the step. */
-  run02?(doc: string, packs: string[]): Promise<unknown>;
-}
-
 export type ClientMaker = (options: LanguageClientOptions, log: Log) => Promise<{ client: BaseLanguageClient; server: string }>;
 
 const XTMD = [{ language: "xtmd" }, { language: "xtmd-prose" }, { language: "xtmd-pack" }];
 
-export async function activate(context: vscode.ExtensionContext, makeClient: ClientMaker, host: Host): Promise<void> {
+export async function activate(context: vscode.ExtensionContext, makeClient: ClientMaker): Promise<void> {
   const log = new Log();
   context.subscriptions.push(log.channel);
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -110,5 +101,5 @@ export async function activate(context: vscode.ExtensionContext, makeClient: Cli
   showStatus();
 
   const previews = new Previews(context, log);
-  commands(context, { log, host, previews, client: () => client });
+  commands(context, { log, previews, client: () => client });
 }

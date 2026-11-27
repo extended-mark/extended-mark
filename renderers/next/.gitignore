@@ -1,0 +1,3 @@
+test/app/built/
+test/app/.next/
+test/app/next-env.d.ts

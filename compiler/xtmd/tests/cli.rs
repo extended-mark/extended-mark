@@ -1,0 +1,1086 @@
+//! The `xtmd` binary itself: `check` runs the whole checker, and `--pack` takes folders and files.
+
+use std::path::PathBuf;
+use std::process::Command;
+
+fn xtmd(args: &[&str]) -> (i32, String, String) {
+    let out = Command::new(env!("CARGO_BIN_EXE_xtmd")).args(args).output().unwrap();
+    (out.status.code().unwrap_or(-1), String::from_utf8_lossy(&out.stdout).into_owned(), String::from_utf8_lossy(&out.stderr).into_owned())
+}
+
+/// A tree of these files. Its trees are written for this release: an xtmd.toml that names none is given
+/// this release's `xtmd =` line, since xtmd migrate reads a tree whose xtmd.toml names none as written for
+/// the release before.
+fn scratch(name: &str, files: &[(&str, &str)]) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("xtmd-cli-{}-{}", name, std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    for (path, text) in files {
+        let p = dir.join(path);
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        let text = if path.ends_with("xtmd.toml") && !text.lines().any(|l| l.starts_with("xtmd =")) { format!("xtmd = \"{}\"\n{}", env!("CARGO_PKG_VERSION"), text) } else { text.to_string() };
+        std::fs::write(p, text).unwrap();
+    }
+    dir
+}
+
+const SHELF: &str = "package shelf;\n\npack shelf@1 {\n    provides row_of_books;\n}\n\nwidget row_of_books(title: text) {\n    view {\n        @label(value = title);\n    }\n    markdown {\n        \\{title}\n    }\n}\n";
+const DOC: &str = "import shelf;\n@@@\n# Books\n\n@row_of_books(title = \"Read\");\n";
+
+#[test]
+fn check_reports_the_checker_s_errors() {
+    let dir = scratch("check", &[("bad.xtmdpack", "package t;\n\nlet x: number = y;\n")]);
+    let (code, _, err) = xtmd(&["check", dir.join("bad.xtmdpack").to_str().unwrap()]);
+    assert_eq!(code, 1);
+    assert!(err.contains("bad.xtmdpack:3:17: error[names.unknown-name]"), "{}", err);
+    let (code, out, _) = xtmd(&["check", "--format", "json", dir.join("bad.xtmdpack").to_str().unwrap()]);
+    assert_eq!(code, 1);
+    // a JSON object a line: the diagnostic, the file, then the summary
+    let found: Vec<serde_json::Value> = out.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+    assert_eq!((found[0]["type"].as_str(), found[0]["code"].as_str()), (Some("diagnostic"), Some("names.unknown-name")));
+    assert_eq!((found[0]["line"].as_u64(), found[0]["column"].as_u64()), (Some(3), Some(17)));
+    assert_eq!((found[1]["type"].as_str(), found[1]["errors"].as_u64()), (Some("file"), Some(1)));
+    assert_eq!((found[2]["type"].as_str(), found[2]["exit"].as_u64()), (Some("summary"), Some(1)));
+}
+
+#[test]
+fn packs_from_folders_and_files() {
+    let dir = scratch("packs", &[("packs/shelf/shelf.xtmdpack", SHELF), ("extra.xtmdpack", "package extra;\n\nlet answer: number = 42;\n"), ("doc.xtmd", DOC)]);
+    let doc = dir.join("doc.xtmd");
+    let (code, _, err) = xtmd(&["check", doc.to_str().unwrap()]);
+    assert_eq!(code, 1, "no pack given: {}", err);
+    assert!(err.contains("names.unknown-pack"), "{}", err);
+    let packs = format!("{},{}", dir.join("packs").display(), dir.join("extra.xtmdpack").display());
+    let (code, _, err) = xtmd(&["check", "--pack", &packs, doc.to_str().unwrap()]);
+    assert_eq!(code, 0, "{}", err);
+    let out = dir.join("doc.ir.json");
+    let (code, _, err) = xtmd(&["compile", doc.to_str().unwrap(), "--pack", &packs, "--out", out.to_str().unwrap()]);
+    assert_eq!(code, 0, "{}", err);
+    let ir: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&out).unwrap()).unwrap();
+    assert!(ir.to_string().contains("shelf/row_of_books"), "the pack's widget is in the IR");
+    let (code, _, err) = xtmd(&["compile", doc.to_str().unwrap(), "--pack", "nowhere.txt"]);
+    assert_eq!(code, 2);
+    assert!(err.contains("not a folder or a .xtmdpack file"), "{}", err);
+}
+
+#[test]
+fn an_xtmd_toml_names_the_packs() {
+    // beside the document
+    let dir = scratch("config", &[("packs/shelf/shelf.xtmdpack", SHELF), ("xtmd.toml", "packs = [\"packs\"]\n"), ("doc.xtmd", DOC)]);
+    let doc = dir.join("doc.xtmd");
+    let (code, _, err) = xtmd(&["check", doc.to_str().unwrap()]);
+    assert_eq!(code, 0, "{}", err);
+    // in a folder above, and named with -c
+    let dir = scratch("config-above", &[("site/packs/shelf/shelf.xtmdpack", SHELF), ("site/xtmd.toml", "packs = [\"packs\"]\n"), ("site/pages/doc.xtmd", DOC), ("other.toml", "packs = [\"site/packs\"]\n")]);
+    let doc = dir.join("site/pages/doc.xtmd");
+    let (code, _, err) = xtmd(&["check", doc.to_str().unwrap()]);
+    assert_eq!(code, 0, "{}", err);
+    let (code, _, err) = xtmd(&["compile", doc.to_str().unwrap(), "--config", dir.join("other.toml").to_str().unwrap(), "--out", dir.join("doc.ir.json").to_str().unwrap()]);
+    assert_eq!(code, 0, "{}", err);
+    // a key xtmd.toml doesn't have
+    let dir = scratch("config-bad", &[("xtmd.toml", "pack = [\"packs\"]\n"), ("doc.xtmd", "# Hi\n")]);
+    let (code, _, err) = xtmd(&["check", dir.join("doc.xtmd").to_str().unwrap()]);
+    assert_eq!(code, 2, "{}", err);
+    assert!(err.contains("unknown field `pack`"), "{}", err);
+}
+
+#[test]
+fn surface_writes_what_a_version_provides_and_then_holds_the_pack_to_it() {
+    let pack = "package kit;\n\npack kit@1 {\n    provides chart, stat;\n}\n\nrecord stat {\n    label: text;\n    require \"a label\" {\n        return label != \"\";\n    }\n}\n\nrecord inner {\n    n: number;\n}\n\n//@about A chart.\nwidget chart(values: list<number>, color: color = color.ACCENT) {\n    view {\n        @label(value = \"chart\");\n    }\n    markdown {\n        A chart.\n    }\n}\n\nfn stat.first(self): inner {\n    return inner { n = 1 };\n}\n";
+    let dir = scratch("surface", &[("kit/kit.xtmdpack", pack)]);
+    let kit = dir.join("kit");
+    let (code, out, err) = xtmd(&["surface", kit.to_str().unwrap()]);
+    assert_eq!(code, 0, "{}", err);
+    assert!(out.contains("wrote kit@1's surface"), "{}", out);
+    let written = std::fs::read_to_string(kit.join("surfaces/kit@1.xtmdpack")).unwrap();
+    assert_eq!(written, "package kit@1;\n\nrecord stat {\n    label: text;\n}\n\nrecord inner {\n    n: number;\n}\n\n//@about A chart.\nextern widget chart(values: list<number>, color: color = color.ACCENT);\n\nextern fn stat.first(self): inner;\n");
+    // a second run changes nothing, and --check agrees
+    assert_eq!(xtmd(&["surface", kit.to_str().unwrap()]).0, 0);
+    assert_eq!(xtmd(&["surface", kit.to_str().unwrap(), "--check"]).0, 0);
+    // the pack compiles beside it, and a break at the same version doesn't
+    assert_eq!(xtmd(&["check", "--pack", kit.to_str().unwrap(), kit.join("kit.xtmdpack").to_str().unwrap()]).0, 0);
+    std::fs::write(kit.join("kit.xtmdpack"), pack.replace("color: color = color.ACCENT", "tone: color = color.ACCENT")).unwrap();
+    let (code, _, err) = xtmd(&["check", "--pack", kit.to_str().unwrap(), kit.join("kit.xtmdpack").to_str().unwrap()]);
+    assert_eq!(code, 1);
+    assert!(err.contains("error[pack.version-break]") && err.contains("`chart` has no input `color` now"), "{}", err);
+    // and a changed surface isn't written over without --force
+    let (code, _, err) = xtmd(&["surface", kit.to_str().unwrap()]);
+    assert_eq!(code, 1);
+    assert!(err.contains("doesn't compile") || err.contains("already written"), "{}", err);
+}
+
+const KIT1_SURFACE: &str = "package kit@1;\n\nrecord stat {\n    label: text;\n    value: text;\n}\n\nenum state { DONE, LATE }\n\nextern widget chart(values: list<number>, color: color = color.ACCENT);\nextern widget badge(label: text, shadow: bool = false);\nextern widget sparkline(values: list<number>);\nextern widget stats(items: list<stat>);\n";
+const KIT2: &str = "package kit;\n\npack kit@2 {\n    uses core@2;\n    provides plot, badge, stat, state, stats;\n}\n\nrecord stat {\n    title: text;\n    value: text;\n    unit: text;\n}\n\nenum state { DONE, OVERDUE }\n\nextern widget plot(values: list<number>, tone: color = color.ACCENT) {\n    markdown { }\n}\nextern widget badge(label: text, size: size = size.M) {\n    markdown { }\n}\nextern widget stats(items: list<stat>) {\n    markdown { }\n}\n";
+const MIGRATION: &str = "package kit;\n\nmigration kit@1 to kit@2 {\n    widget chart {\n        rename(to = plot);\n        rename(input = color, to = tone);\n    }\n\n    widget badge {\n        drop(input = shadow, why = \"badges have no shadow\");\n        set(input = size, value = size.S, when = !given(size), why = \"kit@1's badges were small\");\n    }\n\n    widget sparkline {\n        drop(why = \"use plot\");\n    }\n\n    record stat {\n        rename(field = label, to = title);\n        add(field = unit, value = \"\", why = \"a stat names its unit\");\n    }\n\n    enum state {\n        rename(from = state.LATE, to = state.OVERDUE);\n    }\n}\n";
+const OLD_DOC: &str = "import kit;\n\n$state {\n    s: state = state.LATE;\n}\n@@@\n# Report\n\n@chart(values = [1, 2], color = color.OK);\n\n@badge(label = \"Beta\", shadow = true);\n\n@sparkline(values = [3]);\n\n@stats(items = [stat { label = \"Deploys\", value = \"42\" }]);\n";
+
+fn kit_tree(name: &str, config: &str) -> PathBuf {
+    scratch(name, &[("kit/kit.xtmdpack", KIT2), ("kit/surfaces/kit@1.xtmdpack", KIT1_SURFACE), ("kit/migrations/kit@2.xtmdpack", MIGRATION), ("xtmd.toml", config), ("docs/report.xtmd", OLD_DOC)])
+}
+
+#[test]
+fn migrate_moves_a_document_to_the_packs_version_and_then_leaves_it_alone() {
+    let dir = kit_tree("migrate", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n");
+    let docs = dir.join("docs");
+    let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run"]);
+    assert_eq!(code, 0, "{}", out);
+    assert!(out.contains("kit@1 → kit@2") && out.contains("2 deletions"), "{}", out);
+    assert!(out.contains("shadow = true: badges have no shadow") && out.contains("@sparkline(values = [3]) (kept as a comment): use plot"), "{}", out);
+    // no terminal and no --yes: nothing is written
+    let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap()]);
+    assert_eq!(code, 1);
+    assert!(out.contains("Nothing written: without a terminal to ask in, xtmd migrate writes only with --yes"), "{}", out);
+    assert_eq!(std::fs::read_to_string(docs.join("report.xtmd")).unwrap(), OLD_DOC);
+    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    assert_eq!(
+        std::fs::read_to_string(docs.join("report.xtmd")).unwrap(),
+        "import kit;\n\n$state {\n    s: state = state.OVERDUE;\n}\n@@@\n# Report\n\n@plot(values = [1, 2], tone = color.OK);\n\n@badge(label = \"Beta\", size = size.S);\n@// kit@2 dropped sparkline: use plot\n@// @sparkline(values = [3]);\n@stats(items = [stat { title = \"Deploys\", value = \"42\", unit = \"\" }]);\n"
+    );
+    assert!(std::fs::read_to_string(dir.join("xtmd.toml")).unwrap().contains("[uses]\nkit = 2\n"));
+    assert_eq!(xtmd(&["check", docs.join("report.xtmd").to_str().unwrap()]).0, 0);
+    let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--check"]);
+    assert_eq!(code, 0, "{}", out);
+    assert!(out.contains("up to date"), "{}", out);
+}
+
+#[test]
+fn migrate_finds_the_version_a_document_compiles_against_and_writes_nothing_broken() {
+    // no [uses]: the document compiles against kit@1's surface, so it is written for kit@1
+    let dir = kit_tree("migrate-infer", "packs = [\"kit\"]\n");
+    let docs = dir.join("docs");
+    let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run"]);
+    assert_eq!(code, 0, "{}", out);
+    assert!(out.contains("written for kit@1, as it compiles against that surface"), "{}", out);
+    // a decision only a person can make, and no terminal to ask in: reported, left as it was
+    std::fs::write(dir.join("kit/migrations/kit@2.xtmdpack"), MIGRATION.replace("rename(from = state.LATE, to = state.OVERDUE);", "split(from = state.LATE, to = [state.OVERDUE, state.DONE], why = \"late is now overdue, or done\");")).unwrap();
+    let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
+    assert_eq!(code, 1);
+    assert!(out.contains("1 question no one has answered, so nothing is migrated:") && out.contains("in --answers: [split]"), "{}", out);
+    assert_eq!(std::fs::read_to_string(docs.join("report.xtmd")).unwrap(), OLD_DOC);
+    // answered in a file, as CI would: the run writes it
+    let key = format!("{}:4 LATE", docs.join("report.xtmd").display());
+    std::fs::write(dir.join("answers.toml"), format!("[split]\n\"{}\" = \"DONE\"\n", key)).unwrap();
+    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty", "--answers", dir.join("answers.toml").to_str().unwrap()]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    assert!(std::fs::read_to_string(docs.join("report.xtmd")).unwrap().contains("s: state = state.DONE;"));
+}
+
+#[test]
+fn migrate_runs_execute_move_wrap_and_migration_fns_over_each_use() {
+    let surface = "package kit@1;\n\nextern widget status(label: text, kind: text = \"info\");\nextern widget callout(text: text);\nextern widget card(title: text) {\n    slot body: view;\n}\nextern widget chart(values: list<number>, color: color = color.ACCENT, width: number = 2);\n";
+    let pack = "package kit;\n\npack kit@2 {\n    uses core@2;\n    provides status, tone, callout, card, holder, chart, chart_style;\n}\n\nenum tone { INFO, WARN }\n\nrecord chart_style {\n    color: color = color.ACCENT;\n    width: number = 2;\n}\n\nextern widget status(label: text, tone: tone = tone.INFO) {\n    markdown { }\n}\nextern widget callout() {\n    slot body: view;\n\n    markdown { }\n}\nextern widget holder(title: text) {\n    slot body: view;\n\n    markdown { }\n}\nextern widget card() {\n    slot body: view;\n\n    markdown { }\n}\nextern widget chart(values: list<number>, style: chart_style = chart_style {}) {\n    markdown { }\n}\n";
+    let migration = "package kit;\n\nmigration fn into_style(inputs: list<input>) {\n    nest(inputs = inputs, into = style, why = \"a chart's look is one record now\");\n}\n\nmigration kit@1 to kit@2 {\n    widget status {\n        execute {\n            match (kind) {\n                case \"warn\" {\n                    return @status(label = label, tone = tone.WARN);\n                }\n                case else {\n                    return @status(label = label);\n                }\n            }\n        }\n    }\n\n    widget callout {\n        move(from = text, to = body, why = \"the text is the callout's children now\");\n    }\n\n    widget card {\n        wrap(parent = holder, why = \"a holder keeps the title now\");\n        move(from = title, to = holder.title, why = \"the title is the holder's\");\n    }\n\n    widget chart {\n        into_style(inputs = [color, width]);\n    }\n}\n";
+    let doc = "import kit;\n@@@\n# Ops\n\n@status(label = \"Deploys\", kind = \"warn\");\n@status(label = \"Builds\");\n\n@callout(text = \"Deploys pause on Friday.\");\n\n@card(title = \"Q3\") {\nRevenue grew.\n}\n\n@chart(values = [1, 2], color = color.OK);\n";
+    let dir = scratch("migrate-execute", &[("kit/kit.xtmdpack", pack), ("kit/surfaces/kit@1.xtmdpack", surface), ("kit/migrations/kit@2.xtmdpack", migration), ("xtmd.toml", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n"), ("docs/ops.xtmd", doc)]);
+    let docs = dir.join("docs");
+    assert_eq!(xtmd(&["check", "--pack", dir.join("kit").to_str().unwrap(), dir.join("kit/migrations/kit@2.xtmdpack").to_str().unwrap()]).0, 0, "the migration itself checks");
+    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    assert_eq!(
+        std::fs::read_to_string(docs.join("ops.xtmd")).unwrap(),
+        "import kit;\n@@@\n# Ops\n\n@status(label = \"Deploys\", tone = tone.WARN);\n\n@status(label = \"Builds\");\n\n@callout {\n    Deploys pause on Friday.\n}\n\n@holder(title = \"Q3\") {\n    @card {\n        Revenue grew.\n    }\n}\n\n@chart(values = [1, 2], style = chart_style { color = color.OK });\n"
+    );
+}
+
+#[test]
+fn migrate_renames_fn_calls_and_changes_handlers_for_an_events_new_arguments() {
+    let surface = "package kit@1;\n\nextern fn text.slug(self): text;\n\nextern widget button(label: text) {\n    event click();\n}\n";
+    let pack = "package kit;\n\npack kit@2 {\n    uses core@2;\n    provides button;\n}\n\nextern fn text.slugify(self, sep: text): text;\n\nextern widget button(label: text) {\n    event press(at: point);\n\n    markdown { }\n}\n";
+    let migration = "package kit;\n\nmigration kit@1 to kit@2 {\n    fn text.slug {\n        rename(to = slugify);\n        add(arg = sep, value = \"-\");\n    }\n\n    widget button {\n        event click {\n            rename(to = press);\n            add(arg = at);\n        }\n    }\n}\n";
+    let doc = "import kit;\n\n$state {\n    n: number = 0;\n}\n\nfn id_of(t: text): text {\n    return t.slug();\n}\n@@@\n@button(label = \"Add\", click = fn() { $state.n = $state.n + 1; });\n";
+    let dir = scratch("migrate-fns", &[("kit/kit.xtmdpack", pack), ("kit/surfaces/kit@1.xtmdpack", surface), ("kit/migrations/kit@2.xtmdpack", migration), ("xtmd.toml", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n"), ("docs/a.xtmd", doc)]);
+    let docs = dir.join("docs");
+    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    assert_eq!(
+        std::fs::read_to_string(docs.join("a.xtmd")).unwrap(),
+        "import kit;\n\n$state {\n    n: number = 0;\n}\n\nfn id_of(t: text): text {\n    return t.slugify(\"-\");\n}\n@@@\n@button(label = \"Add\", press = fn(at: point) { $state.n = $state.n + 1; });\n"
+    );
+}
+
+#[test]
+fn migrate_moves_a_pack_that_uses_a_migrated_pack_and_its_uses_line() {
+    let report = "package report;\n\nimport kit;\n\npack report@1 {\n    uses core@2, kit@1;\n    provides summary;\n}\n\nwidget summary(n: number) {\n    view {\n        @chart(values = [n], color = color.OK);\n    }\n    markdown {\n        A summary.\n    }\n}\n";
+    let doc = "import report;\n@@@\n@summary(n = 3);\n";
+    let dir = scratch("migrate-pack", &[("kit/kit.xtmdpack", KIT2), ("kit/surfaces/kit@1.xtmdpack", KIT1_SURFACE), ("kit/migrations/kit@2.xtmdpack", MIGRATION), ("report/report.xtmdpack", report), ("xtmd.toml", "packs = [\"kit\", \"report\"]\n"), ("docs/a.xtmd", doc)]);
+    let (code, out, err) = xtmd(&["migrate", dir.join("docs").to_str().unwrap(), "--yes", "--allow-dirty"]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    assert!(out.contains("report.xtmdpack  kit@1 → kit@2"), "{}", out);
+    let moved = std::fs::read_to_string(dir.join("report/report.xtmdpack")).unwrap();
+    assert!(moved.contains("    uses core@2, kit@2;\n") && moved.contains("        @plot(values = [n], tone = color.OK);\n"), "{}", moved);
+    assert_eq!(xtmd(&["check", "--pack", &format!("{},{}", dir.join("kit").display(), dir.join("report").display()), dir.join("docs/a.xtmd").to_str().unwrap()]).0, 0);
+}
+
+#[test]
+fn migrate_keeps_a_change_inside_a_use_it_also_changes() {
+    // the outer widget's block comes first in the migration, the inner record's after it
+    let surface = "package kit@1;\n\nrecord stat {\n    label: text;\n    value: text;\n}\n\nextern widget stats(items: list<stat>);\n";
+    let pack = "package kit;\n\npack kit@2 {\n    uses core@2;\n    provides board, stat;\n}\n\nrecord stat {\n    title: text;\n    value: text;\n}\n\nextern widget board(rows: list<stat>) {\n    markdown { }\n}\n";
+    let migration = "package kit;\n\nmigration kit@1 to kit@2 {\n    widget stats {\n        rename(to = board);\n        rename(input = items, to = rows);\n    }\n\n    record stat {\n        rename(field = label, to = title);\n    }\n}\n";
+    let doc = "import kit;\n@@@\n@stats(items = [stat { label = \"A\", value = \"1\" }, stat { label = \"B\", value = \"2\" }]);\n";
+    let dir = scratch("migrate-nested", &[("kit/kit.xtmdpack", pack), ("kit/surfaces/kit@1.xtmdpack", surface), ("kit/migrations/kit@2.xtmdpack", migration), ("xtmd.toml", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n"), ("docs/a.xtmd", doc)]);
+    let docs = dir.join("docs");
+    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    assert_eq!(std::fs::read_to_string(docs.join("a.xtmd")).unwrap(), "import kit;\n@@@\n@board(rows = [stat { title = \"A\", value = \"1\" }, stat { title = \"B\", value = \"2\" }]);\n");
+}
+
+#[test]
+fn a_hole_shows_the_theme_in_words() {
+    let dir = scratch("theme", &[("t.xtmd", "$state {\n    t: theme = theme.DARK;\n}\n@@@\nThis page is drawn in the \\{$state.t} theme.\n")]);
+    let (code, out, err) = xtmd(&["md", dir.join("t.xtmd").to_str().unwrap()]);
+    assert_eq!(code, 0, "{}", err);
+    assert_eq!(out.trim(), "This page is drawn in the dark theme.");
+}
+
+#[test]
+fn a_long_line_of_inline_markdown_reads_within_the_step_limit() {
+    // a list item of 3,189 characters of code spans; emphasis is as costly a case
+    let code: Vec<String> = (0..400).map(|k| format!("`name{}`", k)).collect();
+    let em: Vec<String> = (0..300).map(|k| format!("*w{}*", k)).collect();
+    let doc = format!("@@@\n# Changes\n\n- {}\n- {}\n", code.join(", "), em.join(", "));
+    assert!(doc.len() > 5000);
+    let dir = scratch("long-inline", &[("t.xtmd", &doc)]);
+    let (code, out, err) = xtmd(&["md", dir.join("t.xtmd").to_str().unwrap()]);
+    assert_eq!(code, 0, "{}", err);
+    assert!(out.contains("`name399`") && out.contains("*w299*"), "{}", &out[..200.min(out.len())]);
+}
+
+#[test]
+fn migrate_keeps_a_rewritten_uses_lines_and_comments() {
+    let surface = "package kit@1;\n\nextern widget chart(values: list<number>, color: color = color.ACCENT, title: text = \"\");\n";
+    let pack = "package kit;\n\npack kit@2 {\n    uses core@2;\n    provides plot;\n}\n\nextern widget plot(values: list<number>, tone: color = color.ACCENT, title: text = \"\") {\n    markdown { }\n}\n";
+    let migration = "package kit;\n\nmigration kit@1 to kit@2 {\n    widget chart {\n        rename(to = plot);\n        rename(input = color, to = tone);\n    }\n}\n";
+    let doc = "import kit;\n\nwidget panel() {\n    view {\n        @chart(\n            // the week's numbers\n            values = [1, 2, 3],\n            color = color.OK, // green for good\n            title = \"Sales\",\n        );\n    }\n}\n@@@\n@panel;\n\n@chart(values = [4], color = color.BAD);\n";
+    let dir = scratch("migrate-comments", &[("kit/kit.xtmdpack", pack), ("kit/surfaces/kit@1.xtmdpack", surface), ("kit/migrations/kit@2.xtmdpack", migration), ("xtmd.toml", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n"), ("docs/a.xtmd", doc)]);
+    let docs = dir.join("docs");
+    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    let moved = std::fs::read_to_string(docs.join("a.xtmd")).unwrap();
+    assert_eq!(moved, "import kit;\n\nwidget panel() {\n    view {\n        @plot(\n            // the week's numbers\n            values = [1, 2, 3],\n            tone = color.OK, // green for good\n            title = \"Sales\",\n        );\n    }\n}\n@@@\n@panel;\n\n@plot(values = [4], tone = color.BAD);\n");
+    // what it wrote is canonical
+    assert_eq!(xtmd(&["fmt", "--check", docs.join("a.xtmd").to_str().unwrap()]).0, 0);
+}
+
+#[test]
+fn migrate_numbers_its_questions_and_yes_answers_the_ones_named() {
+    let dir = kit_tree("migrate-yes", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n");
+    let migration = MIGRATION
+        .replace("when = !given(size)", "when = confirm(why = \"Make kit@1's badges small?\")")
+        .replace("rename(input = color, to = tone);", "rename(input = color, to = tone);\n        set(input = tone, value = color.ACCENT, when = confirm(why = \"Reset every chart's tone?\"), why = \"one tone for charts\");");
+    std::fs::write(dir.join("kit/migrations/kit@2.xtmdpack"), migration).unwrap();
+    let docs = dir.join("docs");
+    // no terminal and no answers: nothing is planned; each question is listed with how to answer it
+    let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run"]);
+    assert_eq!(code, 1, "{}", out);
+    // numbered as they come up, in the file's order: the chart is above the badge
+    assert!(out.contains("2 questions no one has answered, so nothing is migrated:\n  1. Reset every chart's tone?\n     --yes 1, or in --answers: [confirm] \"Reset every chart's tone?\" = true\n  2. Make kit@1's badges small?\n     --yes 2,"), "{}", out);
+    // --yes 1: yes to the first only, and the files are written
+    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "1", "--allow-dirty"]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    assert!(out.contains("1. Reset every chart's tone?  yes: --yes") && out.contains("2. Make kit@1's badges small?  no: --yes"), "{}", out);
+    let text = std::fs::read_to_string(docs.join("report.xtmd")).unwrap();
+    assert!(text.contains("@plot(values = [1, 2], tone = color.ACCENT);") && text.contains("@badge(label = \"Beta\");"), "{}", text);
+    // and a number that isn't one is a usage error, as is --yes= with nothing
+    assert_eq!(xtmd(&["migrate", docs.to_str().unwrap(), "--yes=", "--dry-run"]).0, 2);
+}
+
+#[test]
+fn migrate_leaves_a_todo_with_todo_and_writes_errors_only_with_allow_errors() {
+    let doc = format!("{}\n@badge(label = $state.s == state.LATE ? \"Late\" : \"On time\");\n", OLD_DOC);
+    let dir = scratch("migrate-todo", &[("kit/kit.xtmdpack", KIT2), ("kit/surfaces/kit@1.xtmdpack", KIT1_SURFACE), ("kit/migrations/kit@2.xtmdpack", &MIGRATION.replace("rename(from = state.LATE, to = state.OVERDUE);", "split(from = state.LATE, to = [state.OVERDUE, state.DONE], why = \"late is now overdue, or done\");")), ("xtmd.toml", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n"), ("docs/report.xtmd", &doc)]);
+    let docs = dir.join("docs");
+    let file = docs.join("report.xtmd");
+    // without --allow-todos, the question stops the run; the dry run says how to answer it
+    let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run"]);
+    assert_eq!(code, 1);
+    assert!(out.contains("question") && out.contains("[split]"), "{}", out);
+    // --allow-todos leaves both cases as they were, with a TODO; the file doesn't compile at those two
+    // places only, so it is written, the run says what is left, and exits 3: a person must look
+    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty", "--allow-todos"]);
+    assert_eq!(code, 3, "{}{}", out, err);
+    assert!(out.contains("left for a person, each with a TODO above it:") && out.contains("written though it doesn't compile:") && out.contains("at the TODOs"), "{}", out);
+    assert!(out.contains("Left for a person, as asked: 2 TODOs, 1 file that doesn't compile"), "{}", out);
+    let text = std::fs::read_to_string(&file).unwrap();
+    // in code, `//`; on a line of prose, `@//`; the rest of the migration is done around them
+    assert!(text.contains("$state {\n    // TODO(xtmd migrate): kit@2 splits LATE into OVERDUE or DONE: write the one this is (late is now overdue, or done)\n"), "{}", text);
+    assert!(text.contains("\n    s: state = state.LATE;\n"), "{}", text);
+    assert!(text.contains("\n@// TODO(xtmd migrate): kit@2 splits LATE into OVERDUE or DONE: write the one this is (late is now overdue, or done)\n@badge(") && text.contains("\n@badge(label = $state.s == state.LATE ? \"Late\" : \"On time\", size = size.S);\n"), "{}", text);
+    assert!(text.contains("@plot(values = [1, 2], tone = color.OK);"), "{}", text);
+}
+
+#[test]
+fn migrate_takes_a_prose_calls_block_from_the_parser_fences_and_all() {
+    let surface = "package kit@1;\n\nextern widget card(title: text) {\n    slot body: view;\n}\n";
+    let pack = "package kit;\n\npack kit@2 {\n    uses core@2;\n    provides card, holder;\n}\n\nextern widget holder(title: text) {\n    slot body: view;\n\n    markdown { }\n}\nextern widget card() {\n    slot body: view;\n\n    markdown { }\n}\n";
+    let migration = "package kit;\n\nmigration kit@1 to kit@2 {\n    widget card {\n        wrap(parent = holder, why = \"a holder keeps the title now\");\n        move(from = title, to = holder.title, why = \"the title is the holder's\");\n    }\n}\n";
+    // a fence in the block holds a line that is only `}`: the block doesn't end there
+    let doc = "import kit;\n@@@\n# Code\n\n@card(title = \"Q3\") {\n```js\nif (x) {\n}\n```\n}\n\nAfter.\n";
+    let dir = scratch("migrate-fence", &[("kit/kit.xtmdpack", pack), ("kit/surfaces/kit@1.xtmdpack", surface), ("kit/migrations/kit@2.xtmdpack", migration), ("xtmd.toml", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n"), ("docs/code.xtmd", doc)]);
+    let docs = dir.join("docs");
+    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    assert_eq!(std::fs::read_to_string(docs.join("code.xtmd")).unwrap(), "import kit;\n@@@\n# Code\n\n@holder(title = \"Q3\") {\n    @card {\n        ```js\n        if (x) {\n        }\n        ```\n    }\n}\n\nAfter.\n");
+}
+
+#[test]
+fn migrate_keeps_the_release_a_tree_is_written_for_in_xtmd_toml() {
+    let release = env!("CARGO_PKG_VERSION");
+    // written for this release, with kit@1: the run that moves it keeps the release and records kit@2 (a
+    // tree whose xtmd.toml names no release is read as written for the release before: migrate_pipeline.rs)
+    let dir = kit_tree("migrate-release", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n");
+    let docs = dir.join("docs");
+    let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run"]);
+    assert_eq!(code, 0, "{}", out);
+    assert!(out.contains(&format!("xtmd.toml: written for xtmd {}; migrating writes [uses] kit = 2.", release)), "{}", out);
+    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    let toml = std::fs::read_to_string(dir.join("xtmd.toml")).unwrap();
+    assert!(toml.starts_with(&format!("xtmd = \"{}\"\npacks = [\"kit\"]\n", release)) && toml.contains("[uses]\nkit = 2\n"), "{}", toml);
+    let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--check"]);
+    assert_eq!(code, 0, "{}", out);
+    assert!(out.contains(&format!("written for xtmd {}.", release)), "{}", out);
+    // a record of a release before the one before this xtmd: refused by name, and nothing is written, as
+    // each release in between moves it in turn (tools/migrate/chain.py)
+    std::fs::write(dir.join("xtmd.toml"), toml.replace(&format!("xtmd = \"{}\"", release), "xtmd = \"0.0.1\"")).unwrap();
+    let (code, _, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
+    assert_eq!(code, 1, "{}", err);
+    assert!(err.contains("the tree is written for xtmd 0.0.1, and this xtmd") && err.contains("tools/migrate/chain.py"), "{}", err);
+    assert!(std::fs::read_to_string(dir.join("xtmd.toml")).unwrap().contains("xtmd = \"0.0.1\""));
+    // a newer release than this xtmd, or no release at all, stops it
+    std::fs::write(dir.join("xtmd.toml"), toml.replace(&format!("xtmd = \"{}\"", release), "xtmd = \"9.0.0\"")).unwrap();
+    let (code, _, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run"]);
+    assert_eq!(code, 2);
+    assert!(err.contains("written for xtmd 9.0.0, which is newer than this xtmd"), "{}", err);
+    std::fs::write(dir.join("xtmd.toml"), toml.replace(&format!("xtmd = \"{}\"", release), "xtmd = \"soon\"")).unwrap();
+    assert_eq!(xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run"]).0, 2);
+}
+
+#[test]
+fn migrate_writes_json_lines_and_a_report() {
+    let dir = kit_tree("migrate-report", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n");
+    let docs = dir.join("docs");
+    let report = |out: &str| -> Vec<serde_json::Value> { out.lines().map(|l| serde_json::from_str(l).unwrap_or_else(|e| panic!("{}: {}", l, e))).collect() };
+    // --format json: a line per file, per note and per question, then the summary; nothing else
+    let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run", "--format", "json"]);
+    assert_eq!(code, 0, "{}", out);
+    let lines = report(&out);
+    let file = lines.iter().find(|l| l["type"] == "file").unwrap();
+    assert_eq!((file["kind"].as_str(), file["result"].as_str(), file["moved"][0].as_str()), (Some("document"), Some("to migrate"), Some("kit@1 → kit@2")));
+    assert_eq!(lines.iter().filter(|l| l["type"] == "note" && l["kind"] == "deletion").count(), 2);
+    let summary = lines.last().unwrap();
+    assert_eq!((summary["type"].as_str(), summary["to_migrate"].as_u64(), summary["exit"].as_u64()), (Some("summary"), Some(1), Some(0)));
+    // --report: the run as Markdown, or as one JSON document
+    let md = dir.join("report.md");
+    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty", "--report", md.to_str().unwrap()]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    let text = std::fs::read_to_string(&md).unwrap();
+    assert!(text.starts_with("# xtmd migrate\n\n") && text.contains(": 1 file, 1 migrated") && text.contains("report.xtmd\n\nmigrated: kit@1 → kit@2.\n") && text.contains("\nDeleted:\n\n- "), "{}", text);
+    let js = dir.join("report.json");
+    let (code, _, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--check", "--report", js.to_str().unwrap()]);
+    assert_eq!(code, 0);
+    let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&js).unwrap()).unwrap();
+    assert_eq!((v["files"][0]["result"].as_str(), v["summary"]["up_to_date"].as_u64()), (Some("up to date"), Some(1)));
+    assert_eq!(xtmd(&["migrate", docs.to_str().unwrap(), "--report", "report.txt"]).0, 2);
+}
+
+#[test]
+fn check_runs_each_example_of_a_migration_through_its_block() {
+    let examples = MIGRATION
+        .replace("rename(input = color, to = tone);", "rename(input = color, to = tone);\n        example(before = @chart(values = [1, 2], color = color.OK), after = @plot(values = [1, 2], tone = color.OK));")
+        .replace("why = \"kit@1's badges were small\");", "why = \"kit@1's badges were small\");\n        example(before = @badge(label = \"Beta\", shadow = true), after = @badge(label = \"Beta\", size = size.S));")
+        .replace("why = \"a stat names its unit\");", "why = \"a stat names its unit\");\n        example(before = stat { label = \"Deploys\", value = \"42\" }, after = stat { title = \"Deploys\", value = \"42\", unit = \"\" });");
+    let dir = kit_tree("migrate-examples", "packs = [\"kit\"]\n");
+    let (kit, file) = (dir.join("kit"), dir.join("kit/migrations/kit@2.xtmdpack"));
+    let check = |text: &str| {
+        std::fs::write(&file, text).unwrap();
+        xtmd(&["check", "--pack", kit.to_str().unwrap(), file.to_str().unwrap()])
+    };
+    let (code, _, err) = check(&examples);
+    assert_eq!(code, 0, "{}", err);
+    // an after the block doesn't come to, and a before that isn't kit@1's
+    let (code, _, err) = check(&examples.replace("after = @badge(label = \"Beta\", size = size.S)", "after = @badge(label = \"Beta\", size = size.M)"));
+    assert_eq!(code, 1);
+    assert!(err.contains("error[pack.migration-example]: `before` becomes `@badge(label = \"Beta\", size = size.S)`, not `after`"), "{}", err);
+    let (code, _, err) = check(&examples.replace("before = @chart(values = [1, 2], color = color.OK)", "before = @chart(values = [1, 2], colour = color.OK)"));
+    assert_eq!(code, 1);
+    assert!(err.contains("`before` doesn't compile against kit@1"), "{}", err);
+}
+
+#[test]
+fn migrate_leaves_a_statements_semicolon_after_a_record_it_rewrites() {
+    let doc = "import kit;\n\nlet s: stat = stat { label = \"Deploys\", value = \"42\" };\n@@@\n# Report\n";
+    let dir = scratch("migrate-record-semi", &[("kit/kit.xtmdpack", KIT2), ("kit/surfaces/kit@1.xtmdpack", KIT1_SURFACE), ("kit/migrations/kit@2.xtmdpack", MIGRATION), ("xtmd.toml", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n"), ("docs/r.xtmd", doc)]);
+    let docs = dir.join("docs");
+    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    assert_eq!(std::fs::read_to_string(docs.join("r.xtmd")).unwrap(), "import kit;\n\nlet s: stat = stat { title = \"Deploys\", value = \"42\", unit = \"\" };\n@@@\n# Report\n");
+}
+
+#[test]
+fn an_unknown_flag_is_a_warning_and_one_asked_for_says_what_there_is() {
+    let dir = kit_tree("migrate-flags", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n");
+    let docs = dir.join("docs");
+    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run", "--quiet"]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    assert!(err.contains("warning: xtmd migrate has no flag --quiet, so it is ignored") && out.contains("kit@1 → kit@2"), "{}", err);
+    let (code, _, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--to", "0.3.0"]);
+    assert_eq!(code, 2);
+    assert!(err.contains("error: xtmd migrate has no --to: a migration goes one way"), "{}", err);
+    let (code, _, err) = xtmd(&["check", "--json", docs.join("report.xtmd").to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(err.contains("error: xtmd check has no --json: use --format json"), "{}", err);
+    let (code, _, err) = xtmd(&["compile", docs.join("report.xtmd").to_str().unwrap(), "-o", "x.json"]);
+    assert_eq!(code, 2);
+    assert!(err.contains("error: xtmd compile has no -o: use --out"), "{}", err);
+    assert_eq!(std::fs::read_to_string(docs.join("report.xtmd")).unwrap(), OLD_DOC);
+}
+
+#[test]
+fn fmt_surface_and_migrate_each_check_show_the_change_or_print_one_file() {
+    let dir = kit_tree("counterparts", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n");
+    let docs = dir.join("docs");
+    let doc = docs.join("report.xtmd");
+    // migrate --stdout: the document's result printed, nothing written, what it says on stderr
+    let (code, out, err) = xtmd(&["migrate", doc.to_str().unwrap(), "--stdout"]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    assert!(out.starts_with("import kit;") && out.contains("@plot(values = [1, 2], tone = color.OK);") && err.contains("kit@1 → kit@2"), "{}\n{}", out, err);
+    assert_eq!(std::fs::read_to_string(&doc).unwrap(), OLD_DOC);
+    assert_eq!(xtmd(&["migrate", docs.to_str().unwrap(), "--stdout"]).0, 2, "a folder isn't one document");
+    // fmt: --diff shows, --stdout prints, --check fails, and none of them writes
+    let messy = dir.join("messy.xtmdpack");
+    std::fs::write(&messy, "package messy;\nlet   x: number = 1;\n").unwrap();
+    let (code, out, _) = xtmd(&["fmt", "--diff", messy.to_str().unwrap()]);
+    assert_eq!(code, 0);
+    assert!(out.contains("-let   x: number = 1;") && out.contains("+let x: number = 1;"), "{}", out);
+    let (code, out, _) = xtmd(&["fmt", "--stdout", messy.to_str().unwrap()]);
+    assert_eq!((code, out.contains("let x: number = 1;")), (0, true), "{}", out);
+    assert_eq!(xtmd(&["fmt", "--check", messy.to_str().unwrap()]).0, 1);
+    assert_eq!(std::fs::read_to_string(&messy).unwrap(), "package messy;\nlet   x: number = 1;\n");
+    // surface: --stdout prints kit@2's, --diff shows it against what isn't written yet
+    let kit = dir.join("kit");
+    let (code, out, _) = xtmd(&["surface", kit.to_str().unwrap(), "--stdout"]);
+    assert_eq!(code, 0, "{}", out);
+    assert!(out.starts_with("package kit@2;") && out.contains("extern widget plot("), "{}", out);
+    let (code, out, _) = xtmd(&["surface", kit.to_str().unwrap(), "--diff"]);
+    assert_eq!(code, 0);
+    assert!(out.contains("+package kit@2;"), "{}", out);
+    assert!(!kit.join("surfaces/kit@2.xtmdpack").exists());
+}
+
+#[test]
+fn the_walkthroughs_bugs_stay_fixed() {
+    // every file refused: nothing to write, so no git notice, no "rewrites 0 files", no "Wrote 0 files"
+    let dir = scratch("bugs-refused", &[("kit/kit.xtmdpack", KIT2), ("kit/surfaces/kit@1.xtmdpack", KIT1_SURFACE), ("kit/migrations/kit@2.xtmdpack", &MIGRATION.replace("rename(from = state.LATE, to = state.OVERDUE);", "")), ("xtmd.toml", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n"), ("docs/report.xtmd", OLD_DOC)]);
+    let (code, out, _) = xtmd(&["migrate", dir.join("docs").to_str().unwrap(), "--yes", "--allow-dirty"]);
+    assert_eq!(code, 1);
+    assert!(out.contains("not written") && !out.contains("rewrites") && !out.contains("Wrote") && !out.contains("not in git"), "{}", out);
+    // one error, reported once, however many passes read the name
+    let graphs = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/graphs/release-flow.xtmd");
+    let (_, _, err) = xtmd(&["check", graphs.to_str().unwrap()]);
+    assert_eq!(err.matches("error[names.unknown-pack]").count(), 1, "{}", err);
+    // a pack's file named by a relative path, under an xtmd.toml that lists its pack, is one file
+    let dir = kit_tree("bugs-relative", "packs = [\"kit\"]\n");
+    let out = Command::new(env!("CARGO_BIN_EXE_xtmd")).current_dir(&dir).args(["check", "kit/kit.xtmdpack"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stderr));
+    // xtmd md --format json ends its output with a line break
+    let counter = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../schemas/examples/counter.xtmd");
+    let (code, out, err) = xtmd(&["md", "--format", "json", counter.to_str().unwrap()]);
+    assert_eq!(code, 0, "{}", err);
+    assert!(out.ends_with("]\n") || out.ends_with("}\n"), "{:?}", out.chars().rev().take(5).collect::<String>());
+}
+
+#[test]
+fn in_a_terminal_every_question_is_listed_then_asked_in_turn() {
+    // a terminal of its own: script(1) gives xtmd one, and the answers are typed into it. util-linux's
+    // takes the command with -c (and says its version); BSD's and macOS's take it after the file
+    let Ok(version) = Command::new("script").arg("--version").output() else {
+        eprintln!("not run: there is no script(1) to give xtmd a terminal");
+        return;
+    };
+    let gnu = version.status.success();
+    let dir = kit_tree("migrate-asked", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n");
+    let migration = MIGRATION
+        .replace("when = !given(size)", "when = confirm(why = \"Make kit@1's badges small?\")")
+        .replace("rename(input = color, to = tone);", "rename(input = color, to = tone);\n        set(input = tone, value = color.ACCENT, when = confirm(why = \"Reset every chart's tone?\"), why = \"one tone for charts\");")
+        .replace("rename(from = state.LATE, to = state.OVERDUE);", "split(from = state.LATE, to = [state.OVERDUE, state.DONE], why = \"late is now overdue, or done\");");
+    std::fs::write(dir.join("kit/migrations/kit@2.xtmdpack"), migration).unwrap();
+    let run = |input: &str| {
+        let cmd = format!("{} migrate docs --allow-dirty --answers answers.toml", env!("CARGO_BIN_EXE_xtmd"));
+        let args: Vec<&str> = if gnu { vec!["-qec", &cmd, "/dev/null"] } else { vec!["-q", "/dev/null", "sh", "-c", &cmd] };
+        let mut child = Command::new("script")
+            .args(&args)
+            .current_dir(&dir)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        // each answer typed once xtmd waits for it, as a person types: what is typed ahead of a prompt
+        // isn't kept by every terminal (macOS's script(1) loses it). xtmd waits when it says nothing for
+        // a while.
+        use std::io::{Read, Write};
+        let mut stdout = child.stdout.take().unwrap();
+        let (tx, rx) = std::sync::mpsc::channel::<Vec<u8>>();
+        let reader = std::thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            while let Ok(n) = stdout.read(&mut buf) {
+                if n == 0 || tx.send(buf[..n].to_vec()).is_err() {
+                    break;
+                }
+            }
+        });
+        let mut out = Vec::new();
+        let quiet = |out: &mut Vec<u8>| {
+            let start = std::time::Instant::now();
+            while let Ok(chunk) = rx.recv_timeout(std::time::Duration::from_millis(400)) {
+                out.extend(chunk);
+                if start.elapsed() > std::time::Duration::from_secs(30) {
+                    break;
+                }
+            }
+        };
+        let mut stdin = child.stdin.take().unwrap();
+        for line in input.split_inclusive('\n') {
+            quiet(&mut out);
+            if stdin.write_all(line.as_bytes()).and_then(|_| stdin.flush()).is_err() {
+                break;
+            }
+        }
+        quiet(&mut out);
+        drop(stdin);
+        child.wait().unwrap();
+        reader.join().unwrap();
+        out.extend(rx.try_iter().flatten());
+        String::from_utf8_lossy(&out).replace('\r', "")
+    };
+    // a terminal that closes before every question is answered writes nothing
+    let out = run("2\n");
+    assert!(out.contains("3 questions to answer before anything is written:\n  1. docs/report.xtmd:4 uses LATE"), "{}", out);
+    assert!(out.contains("Nothing written: not every question was answered."), "{}", out);
+    assert_eq!(std::fs::read_to_string(dir.join("docs/report.xtmd")).unwrap(), OLD_DOC);
+    // an answer that isn't one is asked for again; then the plan, and Continue?
+    let out = run("3\n2\ny\nmaybe\nn\ny\n");
+    assert!(out.contains("a number from 1 to 2:") && out.contains("y or n:") && out.contains("Wrote 1 file."), "{}", out);
+    let text = std::fs::read_to_string(dir.join("docs/report.xtmd")).unwrap();
+    assert!(text.contains("s: state = state.DONE;") && text.contains("@plot(values = [1, 2], tone = color.ACCENT);") && text.contains("@badge(label = \"Beta\");"), "{}", text);
+    assert!(std::fs::read_to_string(dir.join("answers.toml")).unwrap().contains("\"Reset every chart's tone?\" = true"));
+}
+
+#[test]
+fn every_command_takes_format_json_and_out() {
+    let dir = kit_tree("format-out", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n");
+    let counter = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../schemas/examples/counter.xtmd");
+    let c = counter.to_str().unwrap();
+    let lines = |text: &str| -> Vec<serde_json::Value> { text.lines().map(|l| serde_json::from_str(l).unwrap_or_else(|e| panic!("{}: {}", l, e))).collect() };
+    // a command that reports: a JSON object a line, its type on each, the summary last
+    for args in [vec!["fmt", "--check", c], vec!["check", c]] {
+        let mut a = args.clone();
+        a.extend(["--format", "json"]);
+        let (_, out, err) = xtmd(&a);
+        let l = lines(&out);
+        assert!(l.iter().all(|x| x["type"].is_string()) && l.last().unwrap()["type"] == "summary", "{:?}: {}{}", args, out, err);
+    }
+    let (_, out, _) = xtmd(&["surface", dir.join("kit").to_str().unwrap(), "--check", "--format", "json"]);
+    let l = lines(&out);
+    assert_eq!((l[0]["type"].as_str(), l[0]["pack"].as_str(), l[0]["result"].as_str()), (Some("surface"), Some("kit"), Some("missing")), "{}", out);
+    // a command that writes a document: the document, as JSON, and diagnostics as JSON on stderr
+    let (code, out, _) = xtmd(&["md", c, "--format", "json"]);
+    assert_eq!(code, 0);
+    assert!(serde_json::from_str::<serde_json::Value>(&out).is_ok(), "{}", out);
+    let broken = dir.join("broken.xtmd");
+    std::fs::write(&broken, "@@@\nThe count is \\{$state.m}.\n").unwrap();
+    let (code, _, err) = xtmd(&["compile", broken.to_str().unwrap(), "--format", "json"]);
+    assert_eq!(code, 1);
+    assert_eq!(lines(&err)[0]["type"], "diagnostic", "{}", err);
+    // --out: what the command prints goes to the file
+    let report = dir.join("check.txt");
+    let (code, out, err) = xtmd(&["check", broken.to_str().unwrap(), "--out", report.to_str().unwrap()]);
+    assert_eq!((code, out.as_str(), err.as_str()), (1, "", ""));
+    assert!(std::fs::read_to_string(&report).unwrap().contains("error[names.unknown-field]"));
+    let ir = dir.join("counter.ir.json");
+    assert_eq!(xtmd(&["compile", c, "--out", ir.to_str().unwrap()]).0, 0);
+    assert!(std::fs::read_to_string(&ir).unwrap().contains("\"version\":4"));
+    let (code, out, _) = xtmd(&["migrate", dir.join("docs").to_str().unwrap(), "--dry-run", "--format", "json", "--out", dir.join("plan.jsonl").to_str().unwrap()]);
+    assert_eq!((code, out.as_str()), (0, ""));
+    assert_eq!(lines(&std::fs::read_to_string(dir.join("plan.jsonl")).unwrap()).last().unwrap()["type"], "summary");
+}
+
+#[test]
+fn surface_reads_a_pack_once_when_its_xtmd_toml_lists_it_too() {
+    let dir = kit_tree("surface-toml", "packs = [\"kit\"]\n");
+    let out = Command::new(env!("CARGO_BIN_EXE_xtmd")).current_dir(&dir).args(["surface", "kit", "--stdout"]).output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(out.status.code(), Some(0), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(text.starts_with("package kit@2;"), "{}", text);
+}
+
+// The issues the CLI usability test found (#12394–#12431), each kept fixed.
+
+#[test]
+fn every_command_has_its_own_help_and_xtmd_says_its_version() {
+    let (code, out, _) = xtmd(&[]);
+    assert_eq!(code, 0, "xtmd alone is its usage, not an error");
+    assert!(out.contains("usage: xtmd <command>") && out.contains("Exit codes: 0 done"), "{}", out);
+    let (code, out, _) = xtmd(&["--version"]);
+    assert_eq!((code, out.trim().to_string()), (0, format!("xtmd {} (Extended Mark 0.4; IR 4, resolved IR {})", env!("CARGO_PKG_VERSION"), xtmd::check::RIR_VERSION)));
+    for cmd in ["fmt", "check", "parse", "compile", "decompile", "export", "md", "surface", "migrate"] {
+        let args: Vec<&str> = cmd.split(' ').chain(["--help"]).collect();
+        let (code, out, err) = xtmd(&args);
+        assert_eq!(code, 0, "{}: {}", cmd, err);
+        assert!(out.starts_with(&format!("usage: xtmd {}", cmd)) && out.contains("exit: 0") && out.contains("e.g."), "{}: {}", cmd, out);
+        let help: Vec<&str> = ["help"].into_iter().chain(cmd.split(' ')).collect();
+        assert_eq!(xtmd(&help).1, out, "xtmd help {} is xtmd {} --help", cmd, cmd);
+    }
+    // --help runs nothing: fmt writes no file, surface records no surface
+    let dir = scratch("help-runs-nothing", &[("messy.xtmdpack", "package messy;\nlet   x: number = 1;\n"), ("shelf/shelf.xtmdpack", SHELF)]);
+    assert_eq!(xtmd(&["fmt", "--help", dir.join("messy.xtmdpack").to_str().unwrap()]).0, 0);
+    assert_eq!(std::fs::read_to_string(dir.join("messy.xtmdpack")).unwrap(), "package messy;\nlet   x: number = 1;\n");
+    assert_eq!(xtmd(&["surface", dir.join("shelf").to_str().unwrap(), "--help"]).0, 0);
+    assert!(!dir.join("shelf/surfaces").exists());
+    let (code, _, err) = xtmd(&["frobnicate"]);
+    assert_eq!(code, 2);
+    assert!(err.contains("xtmd has no command frobnicate: the commands are fmt, check"), "{}", err);
+}
+
+#[test]
+fn flags_are_read_before_the_command_and_a_short_one_is_never_a_file() {
+    let dir = scratch("flags-first", &[("packs/shelf/shelf.xtmdpack", SHELF), ("doc.xtmd", DOC)]);
+    let doc = dir.join("doc.xtmd");
+    let packs = dir.join("packs");
+    // `xtmd --format json check …` is `xtmd check --format json …`
+    let (code, out, err) = xtmd(&["--format", "json", "check", "--pack", packs.to_str().unwrap(), doc.to_str().unwrap()]);
+    assert_eq!(code, 0, "{}", err);
+    assert!(out.lines().last().map_or(false, |l| l.contains("\"type\":\"summary\"")), "{}", out);
+    // -o is --out's old spelling, and stops the command; nothing is read as a file named -o
+    let report = dir.join("report.txt");
+    let (code, _, err) = xtmd(&["check", doc.to_str().unwrap(), "-o", report.to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(err.contains("error: xtmd check has no -o: use --out") && !err.contains("-o: not an Extended Mark file"), "{}", err);
+    assert!(!report.exists());
+    // a command that takes one file says so when given two
+    let (code, _, err) = xtmd(&["parse", doc.to_str().unwrap(), doc.to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(err.contains("xtmd parse takes one file, and was given 2"), "{}", err);
+    // with --format json, the warning about a flag is a JSON line too
+    let (_, _, err) = xtmd(&["check", "--format", "json", "--pakc", packs.to_str().unwrap(), "--pack", packs.to_str().unwrap(), doc.to_str().unwrap()]);
+    let first: serde_json::Value = serde_json::from_str(err.lines().next().unwrap()).unwrap();
+    assert_eq!((first["type"].as_str(), first["flag"].as_str()), (Some("warning"), Some("--pakc")));
+    assert!(first["message"].as_str().unwrap().contains("did you mean --pack?"), "{}", err);
+}
+
+#[test]
+fn a_flag_xtmd_doesnt_know_stops_a_run_that_would_write() {
+    let messy = "package messy;\nlet   x: number = 1;\n";
+    let dir = scratch("unknown-writes", &[("messy.xtmdpack", messy)]);
+    let file = dir.join("messy.xtmdpack");
+    let (code, _, err) = xtmd(&["fmt", "--chek", file.to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(err.contains("warning: xtmd fmt has no flag --chek, so it is ignored (did you mean --check?)") && err.contains("Nothing written"), "{}", err);
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), messy);
+    // a run that only looks goes on, with the warning
+    let (code, _, err) = xtmd(&["fmt", "--check", "--quiet", file.to_str().unwrap()]);
+    assert_eq!(code, 1, "{}", err);
+    assert!(err.contains("has no flag --quiet") && !err.contains("Nothing written"), "{}", err);
+    let dir = kit_tree("unknown-migrate", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n");
+    let (code, _, _) = xtmd(&["migrate", dir.join("docs").to_str().unwrap(), "--yes", "--allow-dirty", "--quiet"]);
+    assert_eq!(code, 2);
+    assert_eq!(std::fs::read_to_string(dir.join("docs/report.xtmd")).unwrap(), OLD_DOC);
+}
+
+#[test]
+fn fmt_says_what_it_did_and_out_writes_a_copy() {
+    let messy = "package messy;\nlet   x: number = 1;\n";
+    let dir = scratch("fmt-copy", &[("src/messy.xtmdpack", messy), ("src/tidy.xtmdpack", "package tidy;\n\nlet x: number = 1;\n")]);
+    let (file, copy) = (dir.join("src/messy.xtmdpack"), dir.join("out/clean.xtmdpack"));
+    // --out alone: the canonical text in the copy, its folder made, the file left as it was
+    let (code, _, err) = xtmd(&["fmt", file.to_str().unwrap(), "--out", copy.to_str().unwrap()]);
+    assert_eq!(code, 0, "{}", err);
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), messy);
+    assert_eq!(std::fs::read_to_string(&copy).unwrap(), xtmd(&["fmt", "--stdout", file.to_str().unwrap()]).1);
+    // a folder: every file in it, each verdict said, and a summary
+    let src = dir.join("src");
+    let (code, _, err) = xtmd(&["fmt", "--check", src.to_str().unwrap()]);
+    assert_eq!(code, 1);
+    assert!(err.contains("messy.xtmdpack: not in the canonical layout") && err.contains("2 files: 1 already canonical, 1 would change"), "{}", err);
+    // --diff previews; with --check it gates too
+    assert_eq!(xtmd(&["fmt", "--diff", file.to_str().unwrap()]).0, 0);
+    assert_eq!(xtmd(&["fmt", "--diff", "--check", file.to_str().unwrap()]).0, 1);
+    let (code, _, err) = xtmd(&["fmt", src.to_str().unwrap()]);
+    assert_eq!(code, 0);
+    assert!(err.contains("messy.xtmdpack: formatted") && err.contains("2 files: 1 already canonical, 1 formatted"), "{}", err);
+}
+
+#[test]
+fn fmt_indents_each_block_in_prose_and_the_page_reads_the_same() {
+    let flat = "let names: list<text> = [\"api\", \"worker\"];\n@@@\n@for (n in names) {\n@if (n == \"api\") {\n- **\\{n}**\n} else {\n- \\{n}\n}\n}\n";
+    let indented = "let names: list<text> = [\"api\", \"worker\"];\n@@@\n@for (n in names) {\n    @if (n == \"api\") {\n        - **\\{n}**\n    } else {\n        - \\{n}\n    }\n}\n";
+    let dir = scratch("fmt-prose-indent", &[("flat.xtmd", flat), ("indented.xtmd", indented)]);
+    let (file, done) = (dir.join("flat.xtmd"), dir.join("indented.xtmd"));
+    assert_eq!(xtmd(&["fmt", "--check", file.to_str().unwrap()]).0, 1);
+    assert_eq!(xtmd(&["fmt", "--check", done.to_str().unwrap()]).0, 0, "an indented page is canonical");
+    let md = xtmd(&["md", file.to_str().unwrap()]).1;
+    assert_eq!(md, "- **api**\n- worker\n");
+    let (code, _, err) = xtmd(&["fmt", file.to_str().unwrap()]);
+    assert_eq!(code, 0, "{}", err);
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), indented);
+    assert_eq!(xtmd(&["md", file.to_str().unwrap()]).1, md, "the indented page writes the same Markdown");
+}
+
+#[test]
+fn out_is_written_at_the_end_in_a_folder_it_makes_and_a_closed_pipe_is_quiet() {
+    let dir = scratch("out-end", &[("packs/shelf/shelf.xtmdpack", SHELF), ("doc.xtmd", DOC)]);
+    let doc = dir.join("doc.xtmd");
+    // a usage error leaves --out's file as it was
+    let kept = dir.join("kept.txt");
+    std::fs::write(&kept, "keep\n").unwrap();
+    assert_eq!(xtmd(&["parse", "--out", kept.to_str().unwrap()]).0, 2);
+    assert_eq!(std::fs::read_to_string(&kept).unwrap(), "keep\n");
+    // its folder is made
+    let ir = dir.join("dist/ir/doc.ir.json");
+    let (code, _, err) = xtmd(&["compile", doc.to_str().unwrap(), "--pack", dir.join("packs").to_str().unwrap(), "--out", ir.to_str().unwrap()]);
+    assert_eq!(code, 0, "{}", err);
+    assert!(ir.is_file());
+    // a file that can't be read is exit 2, not 1 (what a file with errors is)
+    let (code, out, _) = xtmd(&["check", "--format", "json", dir.join("nowhere.xtmd").to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(out.contains("\"unreadable\":1"), "{}", out);
+    // `xtmd compile … | head` ends quietly
+    let sh = format!("{} build {} --pack {} | head -c 10 >/dev/null", env!("CARGO_BIN_EXE_xtmd"), doc.display(), dir.join("packs").display());
+    let run = Command::new("sh").args(["-c", &sh]).output().unwrap();
+    assert!(!String::from_utf8_lossy(&run.stderr).contains("panicked"), "{}", String::from_utf8_lossy(&run.stderr));
+}
+
+#[test]
+fn check_takes_folders_and_says_what_each_file_needs_and_what_is_wrong() {
+    let broken = SHELF.replace("widget row_of_books(title: text)", "widget row_of_books(name: text)").replace("\\{title}", "\\{name}").replace("value = title", "value = name");
+    let dir = scratch("check-folders", &[("shelf/shelf.xtmdpack", SHELF), ("docs/doc.xtmd", DOC), ("docs/notes.md", "# Notes\n"), ("xtmd.toml", "packs = [\"shelf\"]\n")]);
+    // a folder: each file, a line for each, the levels a document needs, a total
+    let (code, _, err) = xtmd(&["check", dir.join("docs").to_str().unwrap()]);
+    assert_eq!(code, 0, "{}", err);
+    assert!(err.contains("doc.xtmd: clean; needs core.draw"), "{}", err);
+    assert!(!err.contains("notes.md"), "{}", err);
+    let (code, _, err) = xtmd(&["check", dir.join("docs/notes.md").to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(err.contains("not an Extended Mark file (.xtmdpack or .xtmd)"), "{}", err);
+    let (_, out, _) = xtmd(&["check", "--format", "json", dir.join("docs/doc.xtmd").to_str().unwrap()]);
+    assert!(out.contains("\"levels\":[\"core.draw\"]"), "{}", out);
+    // a pack that is missing: one error, saying how to add it, and none of what follows from it
+    let graphs = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/graphs/release-flow.xtmd");
+    let (code, _, err) = xtmd(&["check", graphs.to_str().unwrap()]);
+    assert_eq!(code, 1);
+    assert!(err.contains("error[names.unknown-pack]") && err.contains("fix: pass its folder with --pack") && !err.contains("names.unknown-type") && !err.contains("names.unknown-widget"), "{}", err);
+    // a pack's file is held to the surfaces it has released, without naming them
+    assert_eq!(xtmd(&["surface", dir.join("shelf").to_str().unwrap()]).0, 0);
+    std::fs::write(dir.join("shelf/shelf.xtmdpack"), broken).unwrap();
+    let (code, _, err) = xtmd(&["check", dir.join("shelf/shelf.xtmdpack").to_str().unwrap()]);
+    assert_eq!(code, 1);
+    assert!(err.contains("error[pack.version-break]"), "{}", err);
+    // xtmd surface names the pack it was given, not a flag
+    let (code, _, err) = xtmd(&["surface", dir.join("nokit").to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(err.contains("nokit: not a pack's folder or a .xtmdpack file") && !err.contains("--pack"), "{}", err);
+}
+
+#[test]
+fn migrate_from_the_tree_reads_its_xtmd_toml_and_refuses_a_pack_it_doesnt_have() {
+    let dir = kit_tree("migrate-root", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n");
+    let run = |args: &[&str]| {
+        let out = Command::new(env!("CARGO_BIN_EXE_xtmd")).args(args).current_dir(&dir).output().unwrap();
+        (out.status.code().unwrap_or(-1), String::from_utf8_lossy(&out.stdout).into_owned())
+    };
+    // no folder named: this one, with its own xtmd.toml's packs
+    let (code, out) = run(&["migrate", "--dry-run"]);
+    assert_eq!(code, 0, "{}", out);
+    assert!(out.contains("kit@1 → kit@2"), "{}", out);
+    // once xtmd.toml records the release, --check still fails while a document needs migrating
+    std::fs::write(dir.join("xtmd.toml"), format!("xtmd = \"{}\"\npacks = [\"kit\"]\n\n[uses]\nkit = 1\n", env!("CARGO_PKG_VERSION"))).unwrap();
+    assert_eq!(run(&["migrate", "--check"]).0, 1);
+    assert_eq!(run(&["migrate", ".", "--check"]).0, 1);
+    // a pack the document imports that isn't in the build: refused, saying how to add it
+    let lone = scratch("migrate-no-pack", &[("docs/report.xtmd", OLD_DOC), ("xtmd.toml", "")]);
+    let (code, out, _) = xtmd(&["migrate", lone.join("docs").to_str().unwrap(), "--dry-run"]);
+    assert_eq!(code, 1);
+    assert!(out.contains("not written: it imports kit, which isn't in the build: pass its folder with --pack"), "{}", out);
+}
+
+#[test]
+fn migrate_says_each_change_with_its_why_and_its_diff_is_a_patch() {
+    let dir = kit_tree("migrate-why", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n");
+    let docs = dir.join("docs");
+    let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run"]);
+    assert_eq!(code, 0, "{}", out);
+    assert!(out.contains("changed, each by a statement of the migration (with its why):"), "{}", out);
+    assert!(out.contains("badge: size = size.S, added: kit@1's badges were small") && out.contains("stat: unit = \"\", added: a stat names its unit") && out.contains("LATE → OVERDUE, renamed by kit@2"), "{}", out);
+    // --diff: on stdout only the patch, xtmd.toml's [uses] hunk too; what it says on stderr
+    let out = Command::new(env!("CARGO_BIN_EXE_xtmd")).args(["migrate", "docs", "--diff"]).current_dir(&dir).output().unwrap();
+    let (patch, said) = (String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert!(patch.starts_with("--- a/docs/report.xtmd\n+++ b/docs/report.xtmd\n@@") && patch.contains("--- a/xtmd.toml\n+++ b/xtmd.toml\n") && patch.contains("+kit = 2"), "{}", patch);
+    assert!(said.contains("1 file: 1 to migrate"), "{}", said);
+    // JSON says what xtmd.toml says, what the run would write into it (no release: it says this one), and
+    // the changes as notes
+    let (_, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run", "--format", "json"]);
+    let lines: Vec<serde_json::Value> = out.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
+    let summary = lines.last().unwrap();
+    assert_eq!((summary["xtmd_toml"]["says"].as_str(), summary["xtmd_toml"]["records"].as_str(), summary["xtmd_toml"]["uses"]["kit"].as_u64()), (Some(env!("CARGO_PKG_VERSION")), None, Some(2)));
+    assert!(lines.iter().any(|l| l["kind"] == "changed" && l["text"].as_str().map_or(false, |t| t.contains("size = size.S"))), "{}", out);
+    // and the warning before writing says what it rewrites
+    let (_, out, _) = xtmd(&["migrate", docs.to_str().unwrap()]);
+    assert!(out.contains("warning: this rewrites 1 file in place, and xtmd.toml's [uses]."), "{}", out);
+}
+
+#[test]
+fn yes_all_answers_every_question_and_a_bare_yes_lists_them() {
+    let dir = kit_tree("migrate-yes-all", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n");
+    let migration = MIGRATION
+        .replace("when = !given(size)", "when = confirm(why = \"Make kit@1's badges small?\")")
+        .replace("rename(input = color, to = tone);", "rename(input = color, to = tone);\n        set(input = tone, value = color.ACCENT, when = confirm(why = \"Reset every chart's tone?\"), why = \"one tone for charts\");");
+    std::fs::write(dir.join("kit/migrations/kit@2.xtmdpack"), migration).unwrap();
+    let docs = dir.join("docs");
+    let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
+    assert_eq!(code, 1);
+    assert!(out.contains("2 questions no one has answered") && out.contains("A bare --yes answers none of them: --yes all answers every one yes"), "{}", out);
+    assert_eq!(std::fs::read_to_string(docs.join("report.xtmd")).unwrap(), OLD_DOC);
+    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "all", "--allow-dirty"]);
+    assert_eq!(code, 0, "{}{}", out, err);
+    assert!(out.contains("1. Reset every chart's tone?  yes: --yes all") && out.contains("2. Make kit@1's badges small?  yes: --yes all"), "{}", out);
+    let text = std::fs::read_to_string(docs.join("report.xtmd")).unwrap();
+    assert!(text.contains("tone = color.ACCENT") && text.contains("size = size.S"), "{}", text);
+}
+
+#[test]
+fn migrate_says_what_stops_it_and_how_to_go_on() {
+    let dir = kit_tree("migrate-stops", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n");
+    let docs = dir.join("docs");
+    // an --answers file that isn't there, with no terminal to write it from
+    let (code, _, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--answers", dir.join("nope.toml").to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(err.contains("nope.toml: no such file"), "{}", err);
+    // edits of a person's own: named in the dry run, with the flag that writes them anyway
+    let git = |args: &[&str]| Command::new("git").args(args).current_dir(&dir).output().unwrap();
+    git(&["init", "-q"]);
+    git(&["add", "-A"]);
+    git(&["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "base"]);
+    std::fs::write(docs.join("report.xtmd"), format!("{}\n", OLD_DOC)).unwrap();
+    let (_, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run"]);
+    assert!(out.contains("report.xtmd has uncommitted changes, which a run without a terminal skips unless --allow-dirty is given too"), "{}", out);
+    let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap()]);
+    assert_eq!(code, 1);
+    assert!(out.contains("writes only with --yes (and --allow-dirty, as") && !out.contains("There is no terminal"), "{}", out);
+}
+
+#[test]
+fn a_pages_ir_holds_only_what_the_page_uses() {
+    let dir = scratch("page-only-ir", &[("page.xtmd", "$state { n: number = 0; when: moment = \"2026-07-01T12:00+00:00\"; }\n@@@\n# Hi\n\nAt \\{$state.when}.\n\n@press(label = \"Add\", click = fn() { $state.n = $state.n + 1; });\n"), ("pack.xtmdpack", "package t;\n"), ("local.xtmd", "let when: moment = \"2026-07-01T12:00+00:00\";\n@@@\nHere: \\{when.local()}\n")]);
+    let ir_of = |f: &str| -> serde_json::Value {
+        let (code, out, err) = xtmd(&["compile", dir.join(f).to_str().unwrap()]);
+        assert_eq!(code, 0, "{}", err);
+        serde_json::from_str::<serde_json::Value>(&out).unwrap()["ir"].clone()
+    };
+    let names = |ir: &serde_json::Value| -> Vec<String> {
+        ir["declarations"].as_array().unwrap().iter().filter_map(|d| {
+            let mut v = &d["declare"];
+            for _ in 0..3 {
+                if let Some(n) = v.get("name").and_then(|n| n.as_str()) {
+                    return Some(n.to_string());
+                }
+                v = v.as_object()?.values().next()?;
+            }
+            None
+        }).collect()
+    };
+    let page = ir_of("page.xtmd");
+    let kept = names(&page);
+    // what it calls, and what a runtime finds by a value's type (a moment in a hole is shown by moment.show)
+    assert!(kept.contains(&"core/press".to_string()) && kept.contains(&"core/moment.show".to_string()), "{:?}", kept);
+    // not core's Markdown reader, nor widgets it never draws
+    assert!(!kept.iter().any(|n| n == "core/entities" || n == "core/slider" || n == "core/canvas"), "{:?}", kept);
+    let needs: Vec<&str> = page["needs"]["core"].as_array().unwrap().iter().filter_map(|n| n.as_str()).collect();
+    assert!(needs.contains(&"core/press") && !needs.contains(&"core/slider"), "{:?}", needs);
+    // core's token types stay: a renderer styles a page from them by name
+    assert!(kept.iter().any(|n| n == "core/color"), "{:?}", kept);
+    // an implementer builds moment.local on moment.utc and moment_at, so they come with it
+    assert!(!kept.iter().any(|n| n == "core/moment_at"), "{:?}", kept);
+    let local = names(&ir_of("local.xtmd"));
+    assert!(local.iter().any(|n| n == "core/moment_at") && local.iter().any(|n| n == "core/moment.utc"), "{:?}", local);
+    // a pack's IR keeps all it builds on
+    let pack = names(&ir_of("pack.xtmdpack"));
+    assert!(pack.len() > kept.len() * 3 && pack.contains(&"core/entities".to_string()), "{} vs {}", pack.len(), kept.len());
+}
+
+/// `xtmd` with `input` on stdin.
+fn xtmd_stdin(args: &[&str], input: &str) -> (i32, String, String) {
+    use std::io::Write;
+    let mut child = Command::new(env!("CARGO_BIN_EXE_xtmd")).args(args).stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped()).spawn().unwrap();
+    // a run that stops at a usage error reads none of it: a closed pipe is no failure
+    let _ = child.stdin.take().unwrap().write_all(input.as_bytes());
+    let out = child.wait_with_output().unwrap();
+    (out.status.code().unwrap_or(-1), String::from_utf8_lossy(&out.stdout).into_owned(), String::from_utf8_lossy(&out.stderr).into_owned())
+}
+
+#[test]
+fn fmt_stdin_formats_an_unsaved_text_and_never_touches_the_file() {
+    let messy = "$state {\n  n: int = 0;\n}\n@@@\n# Hi\n";
+    let tidy = "$state {\n    n: int = 0;\n}\n@@@\n# Hi\n";
+    // the file named needn't exist: it only says the text is a document
+    let dir = scratch("fmt-stdin", &[("page.xtmd", "# On disk\n")]);
+    let page = dir.join("page.xtmd");
+    let (code, out, _) = xtmd_stdin(&["fmt", "--stdin", page.to_str().unwrap()], messy);
+    assert_eq!((code, out.as_str()), (0, tidy));
+    assert_eq!(std::fs::read_to_string(&page).unwrap(), "# On disk\n");
+    let (code, out, _) = xtmd_stdin(&["fmt", "--stdin", "nowhere/draft.xtmd"], messy);
+    assert_eq!((code, out.as_str()), (0, tidy));
+    // --check fails when it would change, and --diff shows how
+    assert_eq!(xtmd_stdin(&["fmt", "--stdin", "--check", "draft.xtmd"], messy).0, 1);
+    assert_eq!(xtmd_stdin(&["fmt", "--stdin", "--check", "draft.xtmd"], tidy).0, 0);
+    let (_, diff, _) = xtmd_stdin(&["fmt", "--stdin", "--diff", "draft.xtmd"], messy);
+    assert!(diff.contains("-  n: int = 0;") && diff.contains("+    n: int = 0;"), "{}", diff);
+    // --format json: the text in the line
+    let (code, out, _) = xtmd_stdin(&["fmt", "--stdin", "--format", "json", "draft.xtmd"], messy);
+    assert_eq!(code, 0);
+    assert!(out.contains("\"result\":\"printed\"") && out.contains("\"text\":\"$state {\\n    n: int = 0;"), "{}", out);
+    // a text that doesn't read: its syntax error, exit 1
+    let (code, out, err) = xtmd_stdin(&["fmt", "--stdin", "draft.xtmdpack"], "package t;\nlet = ;\n");
+    assert_eq!((code, out.as_str()), (1, ""), "{}", err);
+    assert!(err.contains("draft.xtmdpack:2:"), "{}", err);
+    // usage: one path, of an Extended Mark file
+    assert_eq!(xtmd_stdin(&["fmt", "--stdin"], messy).0, 2);
+    assert_eq!(xtmd_stdin(&["fmt", "--stdin", "a.xtmd", "b.xtmd"], messy).0, 2);
+    let (code, _, err) = xtmd_stdin(&["fmt", "--stdin", "notes.md"], messy);
+    assert_eq!(code, 2);
+    assert!(err.contains("not an Extended Mark file"), "{}", err);
+}
+
+#[test]
+fn build_rir_core_writes_cores_files_resolved_before_the_document() {
+    let dir = scratch("rir-core", &[("page.xtmd", "@@@\n@press(label = \"Go\");\n")]);
+    let page = dir.join("page.xtmd");
+    let (code, out, err) = xtmd(&["compile", "--rir", "--core", page.to_str().unwrap()]);
+    assert_eq!(code, 0, "{}", err);
+    let rir: serde_json::Value = serde_json::from_str(&out).unwrap();
+    let files = rir["files"].as_array().unwrap();
+    assert!(files.len() > 10 && files[0]["path"].as_str().unwrap().starts_with("core/"), "{}", files.len());
+    assert_eq!(files.last().unwrap()["path"], page.to_str().unwrap());
+    let controls = files.iter().find(|f| f["path"] == "core/controls.xtmdpack").unwrap();
+    assert!(controls.to_string().contains("\"id\":\"core/press.label\""));
+    // without --core, only the document
+    let (_, out, _) = xtmd(&["compile", "--rir", page.to_str().unwrap()]);
+    let rir: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(rir["files"].as_array().unwrap().len(), 1);
+    // --core goes with --rir
+    let (code, _, err) = xtmd(&["compile", "--core", page.to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(err.contains("it goes with --rir"), "{}", err);
+}
+
+#[test]
+fn lsp_serves_the_protocol_over_stdio() {
+    let dir = scratch("lsp", &[("xtmd.toml", "packs = [\"shelf\"]\n"), ("shelf/shelf.xtmdpack", SHELF), ("docs/doc.xtmd", DOC)]);
+    let doc = dir.join("docs/doc.xtmd");
+    let uri = format!("file://{}", doc.display());
+    let msgs = [
+        serde_json::json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "capabilities": {} } }),
+        serde_json::json!({ "jsonrpc": "2.0", "method": "textDocument/didOpen", "params": { "textDocument": { "uri": uri, "languageId": "xtmd", "version": 1, "text": DOC } } }),
+        serde_json::json!({ "jsonrpc": "2.0", "id": 2, "method": "textDocument/hover", "params": { "textDocument": { "uri": uri }, "position": { "line": 4, "character": 3 } } }),
+        serde_json::json!({ "jsonrpc": "2.0", "id": 3, "method": "shutdown" }),
+        serde_json::json!({ "jsonrpc": "2.0", "method": "exit" }),
+    ];
+    let input: String = msgs.iter().map(|m| format!("Content-Length: {}\r\n\r\n{}", m.to_string().len(), m)).collect();
+    let (code, out, err) = xtmd_stdin(&["lsp"], &input);
+    assert_eq!(code, 0, "{}", err);
+    assert!(out.contains("\"name\":\"xtmd lsp\""), "{}", out);
+    // the document's pack, from its xtmd.toml on disk: no errors, and hover knows the pack's widget
+    assert!(out.contains("\"diagnostics\":[]"), "{}", out);
+    assert!(out.contains("widget row_of_books(title: text)"), "{}", out);
+    // input that ends without shutdown and exit is exit 1
+    assert_eq!(xtmd_stdin(&["lsp"], "").0, 1);
+    assert!(xtmd(&["lsp", "--help"]).1.contains("usage: xtmd lsp"));
+}
+
+/// A diagnostic's edits applied to a text: each is a line and a column from 1 (in characters) to an
+/// end, and the text to write there; the last first, so the earlier places stay where they were.
+fn apply_edits(text: &str, edits: &[serde_json::Value]) -> String {
+    let offset = |line: u64, column: u64| -> usize {
+        let start: usize = text.split_inclusive('\n').take((line - 1) as usize).map(str::len).sum();
+        start + text[start..].chars().take((column - 1) as usize).map(char::len_utf8).sum::<usize>()
+    };
+    let mut spans: Vec<(usize, usize, String)> = edits
+        .iter()
+        .map(|e| (offset(e["line"].as_u64().unwrap(), e["column"].as_u64().unwrap()), offset(e["end"]["line"].as_u64().unwrap(), e["end"]["column"].as_u64().unwrap()), e["text"].as_str().unwrap().to_string()))
+        .collect();
+    spans.sort_by_key(|s| std::cmp::Reverse(s.0));
+    let mut out = text.to_string();
+    for (a, b, t) in spans {
+        out.replace_range(a..b, &t);
+    }
+    out
+}
+
+#[test]
+fn a_fix_with_edits_applies_and_the_file_then_compiles() {
+    // each a slip, the code it is reported with, and the name the fix writes
+    let slips = [
+        ("@@@\n@prss(label = \"Go\");\n", "names.unknown-widget", "press"),
+        ("@@@\n@press(lable = \"Go\");\n", "views.unknown-input", "label"),
+        ("let n: numbr = 1;\n@@@\n\\{n}\n", "names.unknown-type", "number"),
+        ("fn share(a: number): number {\n    return a;\n}\n\nlet n: number = shar(1);\n@@@\n\\{n}\n", "names.unknown-fn", "share"),
+        ("let k: press_kind = press_kind.CHEK;\n@@@\n", "names.unknown-case", "CHECK"),
+        ("$state {\n    count: int = 0;\n}\n@@@\n\\{$state.cuont}\n", "names.unknown-field", "count"),
+        ("let total: int = 1;\n@@@\n\\{totl}\n", "names.unknown-name", "total"),
+        ("record pair {\n    left: number;\n}\n\nlet p: pair = pair { lefft = 1 };\n@@@\n", "names.unknown-field", "left"),
+        ("let Total: int = 1;\n@@@\n", "syntax.mixed-case-name", "total"),
+    ];
+    let dir = scratch("fixes", &[]);
+    std::fs::create_dir_all(&dir).unwrap();
+    for (k, (text, code, meant)) in slips.iter().enumerate() {
+        let file = dir.join(format!("slip{}.xtmd", k));
+        std::fs::write(&file, text).unwrap();
+        let (code_was, out, _) = xtmd(&["check", "--format", "json", file.to_str().unwrap()]);
+        assert_eq!(code_was, 1, "{}: {}", code, out);
+        let d: serde_json::Value = out.lines().filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok()).find(|v| v["type"] == "diagnostic" && v["code"] == *code).unwrap_or_else(|| panic!("no {} in {}", code, out));
+        let edits = d["edits"].as_array().unwrap_or_else(|| panic!("{} has no edits: {}", code, d));
+        assert_eq!(edits[0]["text"], *meant, "{}", d);
+        assert!(d["message"].as_str().unwrap().ends_with(&format!("did you mean `{}`?", meant)) || *code == "syntax.mixed-case-name", "{}", d);
+        // applied, the file reads clean
+        std::fs::write(&file, apply_edits(text, edits)).unwrap();
+        let (after, out, err) = xtmd(&["check", file.to_str().unwrap()]);
+        assert_eq!(after, 0, "{} fixed is still wrong:\n{}{}", code, out, err);
+    }
+    // a name nowhere near anything, or as near two names as each other, gets no guess
+    let file = dir.join("far.xtmd");
+    std::fs::write(&file, "record pair {\n    x: number;\n    y: number;\n}\n\nlet p: pair = pair { x = 1, y = 2, z = 3 };\n@@@\n@zebra();\n").unwrap();
+    let (_, out, _) = xtmd(&["check", "--format", "json", file.to_str().unwrap()]);
+    assert!(!out.contains("\"edits\"") && !out.contains("did you mean"), "{}", out);
+}
+
+#[test]
+fn compile_writes_the_ir_and_export_runs_an_engine() {
+    let dir = scratch("compile-and-export", &[("page.xtmd", "# Hi\n")]);
+    let page = dir.join("page.xtmd");
+    let page = page.to_str().unwrap();
+    let (code, out, err) = xtmd(&["compile", page]);
+    assert_eq!(code, 0, "{}", err);
+    assert!(out.starts_with("{\"ir\":"), "{}", out);
+    let (code, out, _) = xtmd(&["compile", page, "--rir"]);
+    assert_eq!(code, 0);
+    assert!(out.contains("\"rir\":2"), "{}", out);
+    // export with no engine has nothing to export, and says what writes the IR
+    let (code, _, err) = xtmd(&["export", page]);
+    assert_eq!(code, 2);
+    assert!(err.contains("xtmd export runs an engine") && err.contains(&format!("xtmd compile {}", page)), "{}", err);
+    // and the IR's flags say where they are
+    for flag in ["--rir", "--pretty", "--core"] {
+        let (code, _, err) = xtmd(&["export", page, flag]);
+        assert_eq!(code, 2, "{}", flag);
+        assert!(err.contains("xtmd compile"), "{}: {}", flag, err);
+    }
+    // build moved in 0.4.0: it runs nothing, --help or an engine given, and says where each part went
+    for args in [vec!["build", page], vec!["build", page, "--out", "d", "--engine", "web"], vec!["build", "--help"]] {
+        let (code, out, err) = xtmd(&args);
+        assert_eq!((code, out.as_str()), (2, ""), "{:?}", args);
+        assert!(err.contains("xtmd build moved in 0.4.0") && err.contains("xtmd export <files> --out dir --engine") && err.contains("xtmd compile <files>"), "{}", err);
+    }
+    assert!(!dir.join("d").exists());
+    // the version names the resolved IR's
+    assert!(xtmd(&["--version"]).1.contains("resolved IR 2"));
+}
+

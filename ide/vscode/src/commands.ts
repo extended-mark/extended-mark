@@ -6,14 +6,12 @@
 import { Compiler, type MigrateRequest, type Migration, type PackFile } from "@extended-mark/wasm";
 import * as vscode from "vscode";
 import type { BaseLanguageClient } from "vscode-languageclient";
-import type { Host } from "./common.js";
 import type { Log } from "./log.js";
 import { configFrom, findConfig, packsFor, packsOf, type Packs } from "./packs.js";
 import type { Previews } from "./preview.js";
 
 interface Parts {
   log: Log;
-  host: Host;
   previews: Previews;
   /** The language client, once it has started. */
   client: () => BaseLanguageClient | undefined;
@@ -34,7 +32,6 @@ async function untitled(content: string, language: string): Promise<void> {
 }
 
 const decoder = new TextDecoder();
-const encoder = new TextEncoder();
 
 /** A file's text as the editor has it: an open document's, unsaved edits and all, else the disk's. */
 async function textOf(uri: vscode.Uri): Promise<string | undefined> {
@@ -82,7 +79,7 @@ function whole(text: string): vscode.Range {
   return new vscode.Range(0, 0, lines.length - 1, lines[lines.length - 1].length);
 }
 
-export function commands(context: vscode.ExtensionContext, { log, host, previews, client }: Parts): void {
+export function commands(context: vscode.ExtensionContext, { log, previews, client }: Parts): void {
   let loaded: Promise<Compiler> | undefined;
   const compiler = () => (loaded ??= previews.wasmBytes().then((b) => Compiler.load(b)));
 
@@ -90,7 +87,6 @@ export function commands(context: vscode.ExtensionContext, { log, host, previews
   // what a migration would write, shown beside each file before anything is written
   const shown = new Map<string, string>();
   let drafts = 0;
-  let migrating = false;
   context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider("xtmd-migrate", { provideTextDocumentContent: (u) => shown.get(u.toString()) ?? "" }));
 
   // from the editor, its tab's menu or the explorer's, which give the file
@@ -137,9 +133,8 @@ export function commands(context: vscode.ExtensionContext, { log, host, previews
     const c = client();
     if (!c) return void vscode.window.showErrorMessage("Extended Mark's language server isn't running, so nothing can be checked.", "Show the Log").then((a) => a && log.channel.show());
     const files = await filesUnder(folder, (n) => n.endsWith(".xtmd") || n.endsWith(".xtmdpack"));
-    const named02 = (await filesUnder(folder, (n) => n.endsWith(".mkp.md"))).length;
     if (!files.length) {
-      vscode.window.showInformationMessage(`No Extended Mark files (.xtmd or .xtmdpack) in ${folder.path.split("/").pop()}${named02 ? `, but ${plural(named02, "document")} by MKP's name (.mkp.md): Migrate brings them to Extended Mark` : ""}.`);
+      vscode.window.showInformationMessage(`No Extended Mark files (.xtmd or .xtmdpack) in ${folder.path.split("/").pop()}.`);
       return;
     }
     // each xtmd.toml's packs, read once
@@ -176,8 +171,7 @@ export function commands(context: vscode.ExtensionContext, { log, host, previews
     if (!done) return;
     const summary = `${plural(files.length, "file")}: ${withErrors} with errors, ${files.length - withErrors - unread} without${unread ? `, ${unread} not read` : ""}; ${plural(errors, "error")}, ${plural(warnings, "warning")}`;
     log.info(`checked ${folder.toString(true)}: ${summary}`);
-    const by02 = named02 ? ` ${plural(named02, "document")} by MKP's name (.mkp.md) left out: Migrate brings them to Extended Mark.` : "";
-    vscode.window.showInformationMessage(`Checked ${summary}.${by02}`);
+    vscode.window.showInformationMessage(`Checked ${summary}.`);
     if (errors + warnings) await vscode.commands.executeCommand("workbench.actions.view.problems");
   });
 
@@ -199,10 +193,10 @@ export function commands(context: vscode.ExtensionContext, { log, host, previews
    * as one edit, shown first in the refactor preview. */
   const migrate = async (target: vscode.Uri, allow: { todos?: boolean; errors?: boolean } = {}) => {
     const folder = await isFolder(target);
-    const docs = folder ? await filesUnder(target, (n) => n.endsWith(".xtmd") || n.endsWith(".mkp.md")) : [target];
-    if (!folder && !/\.(xtmd|mkp\.md)$/.test(target.path)) return void vscode.window.showWarningMessage(`${target.path.split("/").pop()}: not a document (.xtmd) or a folder.`);
+    const docs = folder ? await filesUnder(target, (n) => n.endsWith(".xtmd")) : [target];
+    if (!folder && !target.path.endsWith(".xtmd")) return void vscode.window.showWarningMessage(`${target.path.split("/").pop()}: not a document (.xtmd) or a folder.`);
     const at = folder ? target : vscode.Uri.joinPath(target, "..");
-    const { root, name, uri } = naming(target);
+    const { name, uri } = naming(target);
     const config = await configFrom(at);
     const found = await packsOf(config);
     for (const p of found.problems) log.warn(p);
@@ -215,7 +209,6 @@ export function commands(context: vscode.ExtensionContext, { log, host, previews
       sources,
       docs: [],
       config: null,
-      standIns: name(vscode.Uri.joinPath(at, "stand-ins")),
       answers: { confirm: {}, split: {} },
       allowTodos: allow.todos,
       allowErrors: allow.errors,
@@ -229,23 +222,6 @@ export function commands(context: vscode.ExtensionContext, { log, host, previews
     const c = await compiler();
     let plan: Migration = c.migrate(request);
     if (plan.error) return void vscode.window.showErrorMessage(plan.error);
-
-    // documents written for MKP 0.2: its own compiler, frozen, moves them first; it needs Node
-    if (plan.needs02.length) {
-      const packs02 = root ? (await vscode.workspace.findFiles(new vscode.RelativePattern(root, "**/manifest.mkp"), "**/node_modules/**")).map((m) => vscode.Uri.joinPath(m, "..")) : [];
-      request.packs02 = packs02.length > 0;
-      request.step02 = {};
-      await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: "Extended Mark: reading the MKP 0.2 documents" }, async () => {
-        for (const n of plan.needs02) {
-          const doc = uri(n);
-          request.step02![n] =
-            host.run02 && doc.scheme === "file"
-              ? await host.run02(doc.fsPath, packs02.filter((p) => p.scheme === "file").map((p) => p.fsPath)).catch((e: unknown) => ({ notRun: `the 0.2 → 0.3 step didn't run: ${e instanceof Error ? e.message : String(e)}` }))
-              : { notRun: "the 0.2 → 0.3 step runs with Node, which VS Code in a browser doesn't have: migrate it in VS Code on the desktop" };
-        }
-      });
-      plan = c.migrate(request);
-    }
 
     // the questions only a person can answer, one at a time; the plan is made again with the answers
     while (plan.questions.length) {
@@ -271,7 +247,7 @@ export function commands(context: vscode.ExtensionContext, { log, host, previews
     const fine = plan.files.length - moving.length - refused.length;
     log.info(`migrate ${target.toString(true)}: xtmd ${plan.release.from} → ${plan.release.to}`);
     for (const f of plan.files) {
-      const parts = f.result === "refused" ? [`not written: ${f.refused.join("; ")}`] : f.result === "up to date" ? ["up to date"] : [plural(f.changes, "change"), ...(f.to !== f.path ? [`renamed ${f.to.split("/").pop()}`] : [])];
+      const parts = f.result === "refused" ? [`not written: ${f.refused.join("; ")}`] : f.result === "up to date" ? ["up to date"] : [plural(f.changes, "change")];
       log.info(`  ${f.path}  ${f.moved.join(", ")}  ${parts.join("; ")}${f.inferred.length ? ` (${f.inferred.join(", ")})` : ""}`);
       for (const n of [...f.changed, ...f.notices, ...f.deletions.map((d) => `dropped: ${d}`), ...f.todos.map((t) => `TODO: ${t}`), ...f.errors.map((e) => `doesn't compile: ${e}`)]) log.info(`    ${n}`);
     }
@@ -296,49 +272,21 @@ export function commands(context: vscode.ExtensionContext, { log, host, previews
       shown.set(u.toString(), text);
       return u;
     };
-    const standIns: { at: vscode.Uri; text: string; overwrite: boolean }[] = [];
-    for (const s of plan.standIns) {
-      const at = uri(s.path);
-      const had = await textOf(at);
-      if (had !== s.text) standIns.push({ at, text: s.text, overwrite: had !== undefined });
-    }
-    for (const f of moving) sides.push([uri(f.to), uri(f.path), planned(f.to, f.text)]);
-    for (const s of standIns) sides.push([s.at, s.overwrite ? s.at : undefined, planned(name(s.at), s.text)]);
+    for (const f of moving) sides.push([uri(f.path), uri(f.path), planned(f.path, f.text)]);
     if (plan.config) sides.push([uri(plan.config.path), uri(plan.config.path), planned(plan.config.path, plan.config.text)]);
     await vscode.commands.executeCommand("vscode.changes", "Extended Mark: migrate", sides);
     const what = [...new Set(moving.flatMap((f) => f.moved))].join(", ");
     const asked = await vscode.window.showInformationMessage(`${summary} Write the changes${what ? ` (${what})` : ""}? They are open to look over.`, "Write Them", "Cancel");
     if (asked !== "Write Them") return void vscode.window.showInformationMessage("Nothing migrated.");
 
-    // one edit, which Undo takes back: each file's new text, a 0.2 name moved, the stand-ins, xtmd.toml
+    // one edit, which Undo takes back: each file's new text, and xtmd.toml
     const edit = new vscode.WorkspaceEdit();
-    for (const f of moving) {
-      if (f.text !== f.old) edit.replace(uri(f.path), whole(f.old), f.text);
-      if (f.to !== f.path) edit.renameFile(uri(f.path), uri(f.to), { overwrite: false });
-    }
-    for (const s of standIns) edit.createFile(s.at, { overwrite: s.overwrite, contents: encoder.encode(s.text) });
+    for (const f of moving) edit.replace(uri(f.path), whole(f.old), f.text);
     if (plan.config) edit.replace(uri(plan.config.path), whole(plan.config.old), plan.config.text);
-    migrating = true;
-    let applied = false;
-    try {
-      applied = await vscode.workspace.applyEdit(edit, { isRefactoring: true });
-    } finally {
-      migrating = false;
-    }
+    const applied = await vscode.workspace.applyEdit(edit, { isRefactoring: true });
     if (!applied) return void vscode.window.showErrorMessage("The migration couldn't be written: a file changed while it was planned. Run it again.");
     const todos = moving.reduce((n, f) => n + f.todos.length, 0);
     const left = [...(todos ? [plural(todos, "TODO")] : []), ...(refused.length ? [`${plural(refused.length, "file")} not written (the log says why)`] : [])];
     vscode.window.showInformationMessage(`Migrated ${plural(moving.length, "file")}${left.length ? `; left for a person: ${left.join(", ")}` : ""}. Undo in any of them takes the whole migration back.`, ...(left.length ? ["Show the Log"] : [])).then((a) => a && log.channel.show());
   };
-
-  // a document by MKP's old name, opened in an editor: offer to migrate it
-  const offered = new Set<string>();
-  const offer = (editor: vscode.TextEditor | undefined) => {
-    const doc = editor?.document;
-    if (!doc || doc.uri.scheme !== "file" || !doc.uri.path.endsWith(".mkp.md") || offered.has(doc.uri.toString()) || migrating) return;
-    offered.add(doc.uri.toString());
-    vscode.window.showInformationMessage(`${doc.uri.path.split("/").pop()} is named as MKP named a document. Migrate moves it to Extended Mark (name.xtmd).`, "Migrate It").then((a) => a && vscode.commands.executeCommand("xtmd.migrate", doc.uri));
-  };
-  context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(offer));
-  offer(vscode.window.activeTextEditor);
 }

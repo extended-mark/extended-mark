@@ -23,49 +23,42 @@ WORKDIR /src
 COPY core ./core
 COPY compiler ./compiler
 # the other members of compiler/'s workspace, so cargo can load it
-COPY ide/lsp ./ide/lsp
-COPY targets/examples/rust ./targets/examples/rust
-COPY targets/examples/misc/android/xtmd ./targets/examples/misc/android/xtmd
-COPY targets/examples/misc/android/xtmd-live ./targets/examples/misc/android/xtmd-live
+COPY runtime ./runtime
+COPY widgets/egui ./widgets/egui
+COPY renderers/egui ./renderers/egui
+COPY live/egui ./live/egui
+COPY live/compose/rust ./live/compose/rust
 RUN compiler/wasm/build.sh /src/xtmd.wasm && test -s /src/xtmd.wasm
 
-# ---- 2. the UI: @extended-mark/runtime, @extended-mark/dom, @extended-mark/wasm and the Targets page's targets (@extended-mark/embed,
-#         @extended-mark/live, @extended-mark/embed-live, @extended-mark/view, @extended-mark/react, @extended-mark/react-live) built, then bundled
-#         with the playground's own code
-
+# ---- 2. the UI: what it is bundled from built (the runtime, the widgets, the renderers, the engine, the compiler's
+#         package and the live documents), then bundled
 FROM node:22-bookworm-slim AS ui
 ENV npm_config_fund=false npm_config_audit=false npm_config_update_notifier=false
 WORKDIR /src
-COPY targets/published/runtime ./targets/published/runtime
-COPY targets/published/dom ./targets/published/dom
+COPY runtime ./runtime
+COPY widgets ./widgets
+COPY renderers ./renderers
+COPY engines ./engines
+COPY live ./live
 COPY compiler/npm/wasm ./compiler/npm/wasm
 COPY --from=compiler /src/xtmd.wasm ./compiler/npm/wasm/xtmd.wasm
-COPY targets/published/bindings/embed ./targets/published/bindings/embed
-COPY targets/published/bindings/live ./targets/published/bindings/live
-COPY targets/published/bindings/embed-live ./targets/published/bindings/embed-live
-COPY targets/published/bindings/view ./targets/published/bindings/view
-COPY targets/published/bindings/react ./targets/published/bindings/react
-COPY targets/published/bindings/react-live ./targets/published/bindings/react-live
 COPY apps/playground ./apps/playground
 # each package installed, then built, in the order they need each other: npm copies a file:
 # package (or links it) as it is then, so what it needs is built first. The packages' tests
-# compare them with the binary (xtmd) and @extended-mark/view, which aren't built here
+# need the xtmd binary (extended-mark), which isn't built here
 RUN set -e; \
-    cd /src/compiler/npm/wasm && npm pkg delete devDependencies.xtmd; \
-    cd /src/targets/published/bindings/embed && npm pkg delete devDependencies.xtmd && rm -f package-lock.json; \
-    cd /src/targets/published/bindings/live && npm pkg delete devDependencies.@extended-mark/view; \
-    for d in view react react-live; do (cd /src/targets/published/bindings/$d && npm pkg delete devDependencies.xtmd && rm -f package-lock.json); done; \
-    for d in targets/published/runtime targets/published/dom compiler/npm/wasm targets/published/bindings/embed targets/published/bindings/view targets/published/bindings/live targets/published/bindings/embed-live targets/published/bindings/react targets/published/bindings/react-live; do \
+    for d in compiler/npm/wasm runtime/typescript widgets/web renderers/dom engines/web live/web renderers/react; do \
       cd "/src/$d"; \
-      rm -rf node_modules dist; \
-      if [ -f package-lock.json ]; then npm ci; else npm install; fi; \
+      npm pkg delete devDependencies.extended-mark; \
+      rm -rf node_modules dist package-lock.json; \
+      npm install; \
       npm run build; \
     done; \
     # a page compiled with xtmd.wasm: a broken one stops the build here
     cd /src/compiler/npm/wasm && node -e "import('./dist/index.js').then(async ({ Compiler }) => { const b = (await Compiler.load()).build('page.xtmd', '# Hello\\n'); if (b.errors || !b.ir) throw new Error(JSON.stringify(b.diagnostics)); })"; \
     cd /src/apps/playground && rm -rf node_modules dist && npm ci && npm run build \
  && test -s dist/app.js && test -s dist/app.css && test -s dist/editor.worker.js && test -s dist/compiler.worker.js && test -s dist/xtmd.wasm \
- && test -s dist/targets.js && test -s dist/targets-counter.ir.json && ls dist/codicon-*.ttf
+ && test -s dist/built.html && test -s dist/embedded.html && test -s dist/live.html && test -s dist/basket.ir.json && ls dist/codicon-*.ttf
 
 # ---- 3. what runs
 
@@ -75,7 +68,7 @@ ENV NODE_ENV=production \
 WORKDIR /app
 # the packs a page may import (server.mjs: PACKS), where they are in the repo
 COPY examples/graphs ./examples/graphs
-COPY --from=ui /src/apps/playground/server.mjs /src/apps/playground/index.html /src/apps/playground/targets.html /src/apps/playground/package.json ./apps/playground/
+COPY --from=ui /src/apps/playground/server.mjs /src/apps/playground/index.html /src/apps/playground/package.json ./apps/playground/
 COPY --from=ui /src/apps/playground/examples ./apps/playground/examples
 COPY --from=ui /src/apps/playground/dist ./apps/playground/dist
 USER node

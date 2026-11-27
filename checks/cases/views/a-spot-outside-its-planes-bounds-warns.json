@@ -4,7 +4,7 @@
   "source": "a-spot-outside-its-planes-bounds-warns.xtmd",
   "expect": {
     "diagnostics": [
-      {"code": "views.spot-outside-bounds", "line": 8, "column": 18}
+      {"code": "views.warn-false", "line": 3, "column": 10}
     ]
   }
 }

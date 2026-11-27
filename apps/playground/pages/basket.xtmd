@@ -1,0 +1,100 @@
+//@about Something the shop sells, and how many of it are in the basket.
+record line {
+    id: text[1...];
+    name: text[1...];
+    note: text;
+    price: int 1...;
+    mut count: int 0..9 = 0;
+}
+
+//@about What the shop around the page gives it, and hears from it.
+extern shop {
+    currency: text;
+    open: bool;
+
+    fn order(total: number, count: number);
+}
+
+$state {
+    lines: list<line> = [
+        line { id = "tea", name = "Green tea", note = "Sencha, 100 g", price = 12, count = 1 },
+        line { id = "honey", name = "Forest honey", note = "500 g jar", price = 18 },
+        line { id = "bread", name = "Rye bread", note = "Baked this morning", price = 6, count = 1 },
+        line { id = "jam", name = "Apricot jam", note = "Made here", price = 9 },
+    ];
+    budget: int 0..120 = 60;
+
+    require "the basket stays within the budget" {
+        return lines.map(fn(l) { return l.price * l.count; }).sum().or(0) <= budget;
+    }
+}
+
+fn total(): number 0... {
+    return $state.lines.map(fn(l) { return l.price * l.count; }).sum().or(0).clamp(0, 9999);
+}
+
+fn count(): number {
+    return $state.lines.map(fn(l) { return l.count; }).sum().or(0);
+}
+
+//@about One thing on the shelf, and how many to take.
+widget shelf_row(mut l: line) {
+    view {
+        @row(gap = space.M, align = align.CENTER, wrap = false) {
+            @grow {
+                @column(gap = space.XS) {
+                    @label(value = l.name, weight = l.count > 0 ? weight.BOLD : weight.REGULAR);
+                    @label(value = "\{l.note}, \{l.price} \{shop.currency}", size = text_size.SMALL, tone = color.MUTED);
+                }
+            }
+            @press(label = "Fewer \{l.name}", disabled = l.count == 0, click = fn() { l.count = (l.count - 1).clamp(0, 9); }) {
+                @label(value = "−");
+            }
+            @label(value = "\{l.count}", font = font.MONO);
+            @press(label = "More \{l.name}", disabled = l.count == 9, click = fn() { l.count = (l.count + 1).clamp(0, 9); }) {
+                @label(value = "+");
+            }
+        }
+    }
+
+    markdown {
+        - \{l.count} × \{l.name}, \{l.price} \{shop.currency} each
+    }
+}
+
+//@about The shelf, the budget, and the order.
+widget basket() {
+    view {
+        @column(gap = space.L) {
+            mut for (l in $state.lines) {
+                if (mut x: line = l) {
+                    @shelf_row(l = x);
+                }
+            }
+            @slider(value = $state.budget, label = "Budget, \{shop.currency}");
+            @meter(value = total(), max = $state.budget, label = "Budget used", tone = total() == $state.budget ? color.WARN : color.OK);
+            @row(justify = justify.BETWEEN, align = align.CENTER) {
+                @label(value = "\{total()} \{shop.currency}, \{count()} in the basket", weight = weight.BOLD);
+                @press(
+                    label = shop.open ? "Order" : "The shop is closed",
+                    disabled = !shop.open || count() == 0,
+                    click = fn() { shop.order(total(), count()); },
+                );
+            }
+        }
+    }
+
+    markdown {
+        @for (l in $state.lines) {
+            - \{l.count} × \{l.name}, \{l.price} \{shop.currency} each
+        }
+
+        Together \{total()} \{shop.currency} of a budget of \{$state.budget}.
+    }
+}
+@@@
+## The basket
+
+Take what you like. The page keeps it within the budget.
+
+@basket;

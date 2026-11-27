@@ -1,0 +1,4174 @@
+{
+ "made_by": "xtmd 0.3.2 (Extended Mark 0.3; resolved IR: rir 1)",
+ "tag": "v0.3.2",
+ "units": [
+  {
+   "errors": [],
+   "files": [
+    "ide/vscode/test/workspace/docs/controls.xtmd",
+    "ide/vscode/test/workspace/docs/poll.xtmd",
+    "ide/vscode/test/workspace/kit/kit.xtmdpack"
+   ],
+   "id": "ide/vscode/test/workspace",
+   "markdown": {
+    "ide/vscode/test/workspace/docs/controls.xtmd": "# Controls\n\n## Buttons\n\nSave\n\nCancel\n\nBold\n\nDisabled\n\n## Choices\n\nI agree\n\nAlerts\n\nSmall\n\nMedium\n\nLarge\n\nOverview\n\nDetails\n\nFirst option\n\nSecond option\n\n## Input\n\nName: Ada\n\nNotes: \n\nVolume: 40\n\nDisabled: 40\n\n## Overlay\n\nShow more\n\nA popover, over the page.\n\n## Text\n\nA paragraph with **bold**, *italic*, `code` and a [link](<https://example.com>).\n\n> A quote.\n\n- One\n- Two\n\n| Name | Price |\n| --- | --- |\n| Tea | 12 |\n\n```js\nlet x = 1;\n```\n",
+    "ide/vscode/test/workspace/docs/poll.xtmd": "# Should the team ship on Fridays?\n\n75% say yes so far.\n\n**Yes**: 3\n\n**No**: 1\n\nI have read the rules\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "apps/playground/examples/counter.xtmd"
+   ],
+   "id": "apps/playground/examples/counter.xtmd",
+   "markdown": {
+    "apps/playground/examples/counter.xtmd": "# A counter\n\nPress the buttons: the number, this page's Markdown and `$state` all change\ntogether.\n\nCount: **0**\n\nEdit the source on the left. Try `@counter(by = 5);` below this line.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "apps/playground/examples/list.xtmd"
+   ],
+   "id": "apps/playground/examples/list.xtmd",
+   "markdown": {
+    "apps/playground/examples/list.xtmd": "# A list with rows\n\nEach row follows its task: tick one, drop one, or add one below.\n\n- [ ] Write the page\n- [x] Try it in the playground\n- [ ] Ship it\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "apps/playground/examples/release-flow.xtmd"
+   ],
+   "id": "apps/playground/examples/release-flow.xtmd",
+   "markdown": {
+    "apps/playground/examples/release-flow.xtmd": "# Release flow\n\nFrom a commit to a release\n\n- Build\n- Test\n- Ship\n\nLinks:\n\n- build to test: passes\n- test to ship: approved\n"
+   },
+   "packs": [
+    "examples/graphs/graphs.xtmdpack"
+   ],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "apps/playground/examples/slider.xtmd"
+   ],
+   "id": "apps/playground/examples/slider.xtmd",
+   "markdown": {
+    "apps/playground/examples/slider.xtmd": "# A slider with a rule\n\n`$state` says the level stays at or below the limit. Drag the level past the\nlimit, or set it higher in the `$state` tab: the write is refused, and the rule\nsays why.\n\nLevel **4**, limit **7**\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-bound-is-a-constant.xtmd:10:22 contracts.bound-not-constant"
+   ],
+   "files": [
+    "checks/cases/contracts/a-bound-is-a-constant.xtmd"
+   ],
+   "id": "checks/cases/contracts/a-bound-is-a-constant.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-channel-fns-arguments-meet-their-contracts.xtmd:7:18 contracts.outside",
+    "checks/cases/contracts/a-channel-fns-arguments-meet-their-contracts.xtmd:8:18 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/a-channel-fns-arguments-meet-their-contracts.xtmd"
+   ],
+   "id": "checks/cases/contracts/a-channel-fns-arguments-meet-their-contracts.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/contracts/a-constant-inside-its-contract.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-constant-inside-its-contract.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-constant-outside-its-contract.xtmdpack:7:22 contracts.outside"
+   ],
+   "files": [
+    "checks/cases/contracts/a-constant-outside-its-contract.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-constant-outside-its-contract.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-field-with-a-contract.xtmdpack:9:43 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/a-field-with-a-contract.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-field-with-a-contract.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/contracts/a-fn-values-return-keeps-its-contract.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-fn-values-return-keeps-its-contract.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-lambdas-return-meets-its-contract.xtmdpack:9:73 contracts.needs-proof",
+    "checks/cases/contracts/a-lambdas-return-meets-its-contract.xtmdpack:10:73 contracts.outside",
+    "checks/cases/contracts/a-lambdas-return-meets-its-contract.xtmdpack:11:57 contracts.needs-proof",
+    "checks/cases/contracts/a-lambdas-return-meets-its-contract.xtmdpack:12:33 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/a-lambdas-return-meets-its-contract.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-lambdas-return-meets-its-contract.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-length-contract-keeps-its-length.xtmdpack:7:5 contracts.length-change"
+   ],
+   "files": [
+    "checks/cases/contracts/a-length-contract-keeps-its-length.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-length-contract-keeps-its-length.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-length-on-text.xtmdpack:8:23 contracts.outside"
+   ],
+   "files": [
+    "checks/cases/contracts/a-length-on-text.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-length-on-text.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-list-item-written-meets-its-contract.xtmdpack:6:12 contracts.outside",
+    "checks/cases/contracts/a-list-item-written-meets-its-contract.xtmdpack:7:18 contracts.needs-proof",
+    "checks/cases/contracts/a-list-item-written-meets-its-contract.xtmdpack:8:13 contracts.outside",
+    "checks/cases/contracts/a-list-item-written-meets-its-contract.xtmdpack:9:13 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/a-list-item-written-meets-its-contract.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-list-item-written-meets-its-contract.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/contracts/a-list-item-written-with-a-proof.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-list-item-written-with-a-proof.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-list-literal-has-its-length.xtmdpack:12:17 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/a-list-literal-has-its-length.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-list-literal-has-its-length.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-named-constant-as-a-value.xtmdpack:11:32 contracts.outside"
+   ],
+   "files": [
+    "checks/cases/contracts/a-named-constant-as-a-value.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-named-constant-as-a-value.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/contracts/a-position-is-an-int-from-0.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-position-is-an-int-from-0.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-range-loop-with-constant-bounds.xtmdpack:18:22 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/a-range-loop-with-constant-bounds.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-range-loop-with-constant-bounds.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-range-only-on-an-ordered-type.xtmdpack:4:14 contracts.range-on-unordered"
+   ],
+   "files": [
+    "checks/cases/contracts/a-range-only-on-an-ordered-type.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-range-only-on-an-ordered-type.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-return-value-needs-its-proof.xtmdpack:4:12 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/a-return-value-needs-its-proof.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-return-value-needs-its-proof.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-shared-variable-fits-the-mut-input.xtmdpack:17:23 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/a-shared-variable-fits-the-mut-input.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-shared-variable-fits-the-mut-input.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-step.xtmdpack:8:26 contracts.outside"
+   ],
+   "files": [
+    "checks/cases/contracts/a-step.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-step.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-value-with-no-proof.xtmdpack:8:17 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/a-value-with-no-proof.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-value-with-no-proof.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/a-widget-input-with-a-contract.xtmdpack:16:27 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/a-widget-input-with-a-contract.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/a-widget-input-with-a-contract.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/an-alias-contract-combines.xtmdpack:8:24 contracts.outside",
+    "checks/cases/contracts/an-alias-contract-combines.xtmdpack:9:24 contracts.outside"
+   ],
+   "files": [
+    "checks/cases/contracts/an-alias-contract-combines.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/an-alias-contract-combines.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/both-sides-of-a-ternary.xtmdpack:8:12 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/both-sides-of-a-ternary.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/both-sides-of-a-ternary.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/clamp-with-constant-bounds.xtmdpack:12:12 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/clamp-with-constant-bounds.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/clamp-with-constant-bounds.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/clamp-with-ranged-bounds.xtmdpack:12:12 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/clamp-with-ranged-bounds.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/clamp-with-ranged-bounds.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/every-write-needs-its-proof.xtmdpack:6:13 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/every-write-needs-its-proof.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/every-write-needs-its-proof.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/contracts/in-proves-a-range.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/in-proves-a-range.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/in-proves-only-inside-its-block.xtmdpack:11:17 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/in-proves-only-inside-its-block.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/in-proves-only-inside-its-block.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/in-with-a-narrower-range-is-not-enough.xtmdpack:9:21 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/in-with-a-narrower-range-is-not-enough.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/in-with-a-narrower-range-is-not-enough.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/len-gives-the-length-contract.xtmdpack:12:18 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/len-gives-the-length-contract.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/len-gives-the-length-contract.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/len-in-proves-a-length.xtmdpack:11:18 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/len-in-proves-a-length.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/len-in-proves-a-length.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/only-compares-what-a-list-or-record-holds.xtmdpack:6:12 contracts.only-needs-same",
+    "checks/cases/contracts/only-compares-what-a-list-or-record-holds.xtmdpack:7:12 contracts.only-needs-same",
+    "checks/cases/contracts/only-compares-what-a-list-or-record-holds.xtmdpack:8:11 contracts.only-needs-same"
+   ],
+   "files": [
+    "checks/cases/contracts/only-compares-what-a-list-or-record-holds.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/only-compares-what-a-list-or-record-holds.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/only-lists-constants-of-a-same-type.xtmd:9:29 contracts.bound-not-constant"
+   ],
+   "files": [
+    "checks/cases/contracts/only-lists-constants-of-a-same-type.xtmd"
+   ],
+   "id": "checks/cases/contracts/only-lists-constants-of-a-same-type.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/only-lists-the-allowed-values.xtmdpack:11:18 contracts.needs-proof",
+    "checks/cases/contracts/only-lists-the-allowed-values.xtmdpack:8:22 contracts.outside"
+   ],
+   "files": [
+    "checks/cases/contracts/only-lists-the-allowed-values.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/only-lists-the-allowed-values.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/only-needs-a-type-that-fits-same.xtmdpack:4:12 contracts.only-needs-same"
+   ],
+   "files": [
+    "checks/cases/contracts/only-needs-a-type-that-fits-same.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/only-needs-a-type-that-fits-same.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/only-values-are-of-the-type-they-narrow.xtmdpack:5:22 types.mismatch",
+    "checks/cases/contracts/only-values-are-of-the-type-they-narrow.xtmdpack:6:21 types.mismatch"
+   ],
+   "files": [
+    "checks/cases/contracts/only-values-are-of-the-type-they-narrow.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/only-values-are-of-the-type-they-narrow.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/contracts/only-values-read-as-their-type.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/only-values-read-as-their-type.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/reaching-into-a-list-keeps-its-items-contract.xtmdpack:8:12 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/reaching-into-a-list-keeps-its-items-contract.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/reaching-into-a-list-keeps-its-items-contract.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/round-floor-and-ceil-are-whole.xtmdpack:12:12 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/round-floor-and-ceil-are-whole.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/round-floor-and-ceil-are-whole.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/try-needs-no-proof.xtmdpack:13:27 contracts.needs-proof",
+    "checks/cases/contracts/try-needs-no-proof.xtmdpack:13:36 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/try-needs-no-proof.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/try-needs-no-proof.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/two-contracts-that-cant-both-hold.xtmdpack:4:11 contracts.cannot-both-hold"
+   ],
+   "files": [
+    "checks/cases/contracts/two-contracts-that-cant-both-hold.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/two-contracts-that-cant-both-hold.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/contracts/whole-number-arithmetic.xtmdpack:12:12 contracts.needs-proof"
+   ],
+   "files": [
+    "checks/cases/contracts/whole-number-arithmetic.xtmdpack"
+   ],
+   "id": "checks/cases/contracts/whole-number-arithmetic.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/effects/a-channel-fn-called-from-an-action.xtmd"
+   ],
+   "id": "checks/cases/effects/a-channel-fn-called-from-an-action.xtmd",
+   "markdown": {
+    "checks/cases/effects/a-channel-fn-called-from-an-action.xtmd": "Save\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/effects/a-channel-fn-is-an-action.xtmd:8:5 effects.action-where-nothing-changes",
+    "checks/cases/effects/a-channel-fn-is-an-action.xtmd:19:5 effects.action-where-nothing-changes"
+   ],
+   "files": [
+    "checks/cases/effects/a-channel-fn-is-an-action.xtmd"
+   ],
+   "id": "checks/cases/effects/a-channel-fn-is-an-action.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/effects/a-handler-writes-state-and-its-widgets-own.xtmd"
+   ],
+   "id": "checks/cases/effects/a-handler-writes-state-and-its-widgets-own.xtmd",
+   "markdown": {
+    "checks/cases/effects/a-handler-writes-state-and-its-widgets-own.xtmd": "Retry\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/effects/a-lambda-writes-its-fns-local.xtmdpack:6:9 effects.lambda-writes-outer-local"
+   ],
+   "files": [
+    "checks/cases/effects/a-lambda-writes-its-fns-local.xtmdpack"
+   ],
+   "id": "checks/cases/effects/a-lambda-writes-its-fns-local.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/effects/a-plain-for-reads-its-list.xtmdpack:5:9 effects.for-changes-its-list",
+    "checks/cases/effects/a-plain-for-reads-its-list.xtmdpack:12:9 effects.for-changes-its-list"
+   ],
+   "files": [
+    "checks/cases/effects/a-plain-for-reads-its-list.xtmdpack"
+   ],
+   "id": "checks/cases/effects/a-plain-for-reads-its-list.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/effects/a-value-fn-assigns-state.xtmd:6:5 effects.write-where-nothing-changes"
+   ],
+   "files": [
+    "checks/cases/effects/a-value-fn-assigns-state.xtmd"
+   ],
+   "id": "checks/cases/effects/a-value-fn-assigns-state.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/effects/a-value-fn-calls-an-action.xtmd:10:5 effects.action-where-nothing-changes"
+   ],
+   "files": [
+    "checks/cases/effects/a-value-fn-calls-an-action.xtmd"
+   ],
+   "id": "checks/cases/effects/a-value-fn-calls-an-action.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/effects/a-value-fn-changes-its-own-locals.xtmdpack"
+   ],
+   "id": "checks/cases/effects/a-value-fn-changes-its-own-locals.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/effects/a-value-fn-takes-no-mut-parameter.xtmdpack:3:13 effects.mut-parameter-on-value-fn"
+   ],
+   "files": [
+    "checks/cases/effects/a-value-fn-takes-no-mut-parameter.xtmdpack"
+   ],
+   "id": "checks/cases/effects/a-value-fn-takes-no-mut-parameter.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/effects/a-value-fn-writes-an-opened-item.xtmdpack:13:9 effects.write-where-nothing-changes"
+   ],
+   "files": [
+    "checks/cases/effects/a-value-fn-writes-an-opened-item.xtmdpack"
+   ],
+   "id": "checks/cases/effects/a-value-fn-writes-an-opened-item.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/effects/a-widget-fn-that-returns-writes-its-own.xtmdpack:7:9 effects.write-where-nothing-changes"
+   ],
+   "files": [
+    "checks/cases/effects/a-widget-fn-that-returns-writes-its-own.xtmdpack"
+   ],
+   "id": "checks/cases/effects/a-widget-fn-that-returns-writes-its-own.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/effects/an-action-on-own-locals-that-changes-more.xtmd:26:5 effects.action-where-nothing-changes"
+   ],
+   "files": [
+    "checks/cases/effects/an-action-on-own-locals-that-changes-more.xtmd"
+   ],
+   "id": "checks/cases/effects/an-action-on-own-locals-that-changes-more.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/effects/an-action-writes-through-mut-for.xtmdpack"
+   ],
+   "id": "checks/cases/effects/an-action-writes-through-mut-for.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/effects/an-exposed-fn-is-an-action.xtmd"
+   ],
+   "id": "checks/cases/effects/an-exposed-fn-is-an-action.xtmd",
+   "markdown": {
+    "checks/cases/effects/an-exposed-fn-is-an-action.xtmd": "Points.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/effects/an-item-is-not-used-after-its-removal.xtmdpack:13:17 effects.removed-item-used"
+   ],
+   "files": [
+    "checks/cases/effects/an-item-is-not-used-after-its-removal.xtmdpack"
+   ],
+   "id": "checks/cases/effects/an-item-is-not-used-after-its-removal.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/effects/drawing-calls-only-value-fns.xtmd:10:5 effects.action-where-nothing-changes"
+   ],
+   "files": [
+    "checks/cases/effects/drawing-calls-only-value-fns.xtmd"
+   ],
+   "id": "checks/cases/effects/drawing-calls-only-value-fns.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/effects/invoke-is-an-actions.xtmdpack:7:16 effects.action-where-nothing-changes"
+   ],
+   "files": [
+    "checks/cases/effects/invoke-is-an-actions.xtmdpack"
+   ],
+   "id": "checks/cases/effects/invoke-is-an-actions.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/effects/one-value-one-mut.xtmdpack:14:14 effects.one-value-one-mut"
+   ],
+   "files": [
+    "checks/cases/effects/one-value-one-mut.xtmdpack"
+   ],
+   "id": "checks/cases/effects/one-value-one-mut.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/graphs/release-flow.xtmd:1:8 names.unknown-pack"
+   ],
+   "files": [
+    "checks/cases/graphs/release-flow.xtmd"
+   ],
+   "id": "checks/cases/graphs/release-flow.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/markdown/a-document-widget-built-from-its-view.xtmd"
+   ],
+   "id": "checks/cases/markdown/a-document-widget-built-from-its-view.xtmd",
+   "markdown": {
+    "checks/cases/markdown/a-document-widget-built-from-its-view.xtmd": "first\n\nsecond\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/markdown/a-hole-is-never-formatting.xtmd"
+   ],
+   "id": "checks/cases/markdown/a-hole-is-never-formatting.xtmd",
+   "markdown": {
+    "checks/cases/markdown/a-hole-is-never-formatting.xtmd": "By \\*not bold\\* \\[x\\](y) and \\$5.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/markdown/a-widget-writes-its-markdown.xtmd"
+   ],
+   "id": "checks/cases/markdown/a-widget-writes-its-markdown.xtmd",
+   "markdown": {
+    "checks/cases/markdown/a-widget-writes-its-markdown.xtmd": "**Deploys**\n\nWe shipped **42** times.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/markdown/an-empty-markdown-writes-nothing.xtmd"
+   ],
+   "id": "checks/cases/markdown/an-empty-markdown-writes-nothing.xtmd",
+   "markdown": {
+    "checks/cases/markdown/an-empty-markdown-writes-nothing.xtmd": "Before.\n\nAfter.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/markdown/an-md-value-is-placed-by-blocks.xtmd"
+   ],
+   "id": "checks/cases/markdown/an-md-value-is-placed-by-blocks.xtmd",
+   "markdown": {
+    "checks/cases/markdown/an-md-value-is-placed-by-blocks.xtmd": "**42** deploys\n\n- fast\n- safe\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/markdown/blocks-and-marks.xtmd"
+   ],
+   "id": "checks/cases/markdown/blocks-and-marks.xtmd",
+   "markdown": {
+    "checks/cases/markdown/blocks-and-marks.xtmd": "# Release notes\n\n## What changed\n\nSome **bold**, *italic*, ~~gone~~, `code`, a [link](<https://example.org>) and ![a cat](<cat.png>).\n\n- one\n- two\n\n3. three\n4. four\n\n- [x] done\n- [ ] not yet\n\n> quoted\n\n```rust\nfn main() {}\n```\n\n$$\nx^2\n$$\n\n---\n\n| Name | Count |\n| --- | ---: |\n| api | 3 |\n\nA note[^1].\n\n[^1]: The note.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/markdown/extern-widgets-write-their-markdown.xtmd"
+   ],
+   "id": "checks/cases/markdown/extern-widgets-write-their-markdown.xtmd",
+   "markdown": {
+    "checks/cases/markdown/extern-widgets-write-their-markdown.xtmd": "Go\n\nVolume: 5\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/markdown/indented-blocks-read-as-flat-ones.xtmd"
+   ],
+   "id": "checks/cases/markdown/indented-blocks-read-as-flat-ones.xtmd",
+   "markdown": {
+    "checks/cases/markdown/indented-blocks-read-as-flat-ones.xtmd": "# Indented blocks\n\n**Build**\n\nIt passed in **4 minutes**.\n\n```sh\nmake\n  all\n```\n\n```\na line of code\n```\n\n- **api**, first\n- worker\n\n2 of them.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/markdown/list-items-across-a-loop.xtmd"
+   ],
+   "id": "checks/cases/markdown/list-items-across-a-loop.xtmd",
+   "markdown": {
+    "checks/cases/markdown/list-items-across-a-loop.xtmd": "- api\n- worker\n\nDone.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/markdown/own-variables-start-with-their-values.xtmd"
+   ],
+   "id": "checks/cases/markdown/own-variables-start-with-their-values.xtmd",
+   "markdown": {
+    "checks/cases/markdown/own-variables-start-with-their-values.xtmd": "3 left\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/markdown/page-values-start-with-their-defaults.xtmd"
+   ],
+   "id": "checks/cases/markdown/page-values-start-with-their-defaults.xtmd",
+   "markdown": {
+    "checks/cases/markdown/page-values-start-with-their-defaults.xtmd": "On a screen\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/markdown/state-starts-with-its-values.xtmd"
+   ],
+   "id": "checks/cases/markdown/state-starts-with-its-values.xtmd",
+   "markdown": {
+    "checks/cases/markdown/state-starts-with-its-values.xtmd": "Tries: 2\n\nMany tries.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/names/a-bound-names-an-interface.xtmdpack:3:13 names.unknown-type"
+   ],
+   "files": [
+    "checks/cases/names/a-bound-names-an-interface.xtmdpack"
+   ],
+   "id": "checks/cases/names/a-bound-names-an-interface.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/names/a-deprecated-declaration-warns-where-used.xtmdpack"
+   ],
+   "id": "checks/cases/names/a-deprecated-declaration-warns-where-used.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/names/a-field-or-fn-exists-on-the-type.xtmdpack:8:14 names.unknown-field"
+   ],
+   "files": [
+    "checks/cases/names/a-field-or-fn-exists-on-the-type.xtmdpack"
+   ],
+   "id": "checks/cases/names/a-field-or-fn-exists-on-the-type.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/a-token-case-that-no-declaration-or-tokens-block-has.xtmdpack:10:35 names.unknown-case"
+   ],
+   "files": [
+    "checks/cases/names/a-token-case-that-no-declaration-or-tokens-block-has.xtmdpack"
+   ],
+   "id": "checks/cases/names/a-token-case-that-no-declaration-or-tokens-block-has.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/a-tokens-block-for-a-type-that-is-not-a-token.xtmdpack:8:5 names.not-a-token-type"
+   ],
+   "files": [
+    "checks/cases/names/a-tokens-block-for-a-type-that-is-not-a-token.xtmdpack"
+   ],
+   "id": "checks/cases/names/a-tokens-block-for-a-type-that-is-not-a-token.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/a-tokens-block-that-adds-a-case-to-an-enum.xtmdpack:6:5 names.not-a-token-type"
+   ],
+   "files": [
+    "checks/cases/names/a-tokens-block-that-adds-a-case-to-an-enum.xtmdpack"
+   ],
+   "id": "checks/cases/names/a-tokens-block-that-adds-a-case-to-an-enum.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/a-type-fn-comes-only-with-an-import.xtmd:1:20 names.unknown-fn"
+   ],
+   "files": [
+    "checks/cases/names/a-type-fn-comes-only-with-an-import.xtmd"
+   ],
+   "id": "checks/cases/names/a-type-fn-comes-only-with-an-import.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/a-type-fn-imported-as-another-name.xtmd:1:8 names.unknown-pack",
+    "checks/cases/names/a-type-fn-imported-as-another-name.xtmd:2:8 names.unknown-pack"
+   ],
+   "files": [
+    "checks/cases/names/a-type-fn-imported-as-another-name.xtmd"
+   ],
+   "id": "checks/cases/names/a-type-fn-imported-as-another-name.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/a-view-is-never-named-like-a-widget.xtmdpack:3:8 names.view-named-like-a-widget",
+    "checks/cases/names/a-view-is-never-named-like-a-widget.xtmdpack:13:4 names.view-named-like-a-widget"
+   ],
+   "files": [
+    "checks/cases/names/a-view-is-never-named-like-a-widget.xtmdpack"
+   ],
+   "id": "checks/cases/names/a-view-is-never-named-like-a-widget.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/a-widget-values-events-are-not-reached.xtmdpack:16:14 names.unknown-field"
+   ],
+   "files": [
+    "checks/cases/names/a-widget-values-events-are-not-reached.xtmdpack"
+   ],
+   "id": "checks/cases/names/a-widget-values-events-are-not-reached.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/an-exposed-fn-is-not-called-by-xtmd.xtmd:16:5 names.unknown-fn"
+   ],
+   "files": [
+    "checks/cases/names/an-exposed-fn-is-not-called-by-xtmd.xtmd"
+   ],
+   "id": "checks/cases/names/an-exposed-fn-is-not-called-by-xtmd.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/every-name-is-declared-once.xtmdpack:4:5 names.duplicate"
+   ],
+   "files": [
+    "checks/cases/names/every-name-is-declared-once.xtmdpack"
+   ],
+   "id": "checks/cases/names/every-name-is-declared-once.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/imports-do-not-clash.xtmd:2:1 names.import-clash"
+   ],
+   "files": [
+    "checks/cases/names/imports-do-not-clash.xtmd"
+   ],
+   "id": "checks/cases/names/imports-do-not-clash.xtmd",
+   "markdown": {},
+   "packs": [
+    "checks/cases/names/imports-do-not-clash.packs/a.xtmdpack",
+    "checks/cases/names/imports-do-not-clash.packs/b.xtmdpack"
+   ],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/one-visible-fn-per-name-on-a-type.xtmd:2:1 names.fn-clash"
+   ],
+   "files": [
+    "checks/cases/names/one-visible-fn-per-name-on-a-type.xtmd"
+   ],
+   "id": "checks/cases/names/one-visible-fn-per-name-on-a-type.xtmd",
+   "markdown": {},
+   "packs": [
+    "checks/cases/names/one-visible-fn-per-name-on-a-type.packs/a.xtmdpack",
+    "checks/cases/names/one-visible-fn-per-name-on-a-type.packs/b.xtmdpack"
+   ],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/one-visible-token-case-per-name.xtmdpack:4:11 names.token-case-twice"
+   ],
+   "files": [
+    "checks/cases/names/one-visible-token-case-per-name.xtmdpack"
+   ],
+   "id": "checks/cases/names/one-visible-token-case-per-name.xtmdpack",
+   "markdown": {},
+   "packs": [
+    "checks/cases/names/one-visible-token-case-per-name.packs/a.xtmdpack"
+   ],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/only-a-view-is-placed.xtmdpack:5:10 names.unknown-widget"
+   ],
+   "files": [
+    "checks/cases/names/only-a-view-is-placed.xtmdpack"
+   ],
+   "id": "checks/cases/names/only-a-view-is-placed.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/only-an-implementer-restyles-core.xtmdpack:4:11 names.core-token-restyled"
+   ],
+   "files": [
+    "checks/cases/names/only-an-implementer-restyles-core.xtmdpack"
+   ],
+   "id": "checks/cases/names/only-an-implementer-restyles-core.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/only-provided-names-are-imported.xtmd:1:10 names.not-provided"
+   ],
+   "files": [
+    "checks/cases/names/only-provided-names-are-imported.xtmd"
+   ],
+   "id": "checks/cases/names/only-provided-names-are-imported.xtmd",
+   "markdown": {},
+   "packs": [
+    "checks/cases/names/only-provided-names-are-imported.packs/a.xtmdpack"
+   ],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/shadowing-a-parameter.xtmdpack:4:9 names.shadowing"
+   ],
+   "files": [
+    "checks/cases/names/shadowing-a-parameter.xtmdpack"
+   ],
+   "id": "checks/cases/names/shadowing-a-parameter.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/shadowing-in-a-loop.xtmdpack:5:10 names.shadowing"
+   ],
+   "files": [
+    "checks/cases/names/shadowing-in-a-loop.xtmdpack"
+   ],
+   "id": "checks/cases/names/shadowing-in-a-loop.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/token-cases-have-values.xtmdpack:3:7 names.token-case-without-value"
+   ],
+   "files": [
+    "checks/cases/names/token-cases-have-values.xtmdpack"
+   ],
+   "id": "checks/cases/names/token-cases-have-values.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/unknown-enum-case.xtmdpack:5:28 names.unknown-case"
+   ],
+   "files": [
+    "checks/cases/names/unknown-enum-case.xtmdpack"
+   ],
+   "id": "checks/cases/names/unknown-enum-case.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/unknown-enum-type.xtmdpack:5:36 names.unknown-type"
+   ],
+   "files": [
+    "checks/cases/names/unknown-enum-type.xtmdpack"
+   ],
+   "id": "checks/cases/names/unknown-enum-type.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/unknown-token.xtmdpack:5:42 names.unknown-case"
+   ],
+   "files": [
+    "checks/cases/names/unknown-token.xtmdpack"
+   ],
+   "id": "checks/cases/names/unknown-token.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/unknown-widget-in-prose.xtmd:1:2 names.unknown-widget"
+   ],
+   "files": [
+    "checks/cases/names/unknown-widget-in-prose.xtmd"
+   ],
+   "id": "checks/cases/names/unknown-widget-in-prose.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/names/unknown-widget.xtmdpack:5:10 names.unknown-widget"
+   ],
+   "files": [
+    "checks/cases/names/unknown-widget.xtmdpack"
+   ],
+   "id": "checks/cases/names/unknown-widget.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/packs/a-pack-supplies-its-externs.xtmd:1:8 names.unknown-pack"
+   ],
+   "files": [
+    "checks/cases/packs/a-pack-supplies-its-externs.xtmd"
+   ],
+   "id": "checks/cases/packs/a-pack-supplies-its-externs.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/plane/a-layout-that-keeps-changing-stops.xtmd"
+   ],
+   "id": "checks/cases/plane/a-layout-that-keeps-changing-stops.xtmd",
+   "markdown": {
+    "checks/cases/plane/a-layout-that-keeps-changing-stops.xtmd": "Runaway\n\nRun\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/plane/bounds-come-from-the-spots.xtmd"
+   ],
+   "id": "checks/cases/plane/bounds-come-from-the-spots.xtmd",
+   "markdown": {
+    "checks/cases/plane/bounds-come-from-the-spots.xtmd": "Two places\n\nA\n\nBee\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/plane/boxes-stay-while-the-reader-moves.xtmd"
+   ],
+   "id": "checks/cases/plane/boxes-stay-while-the-reader-moves.xtmd",
+   "markdown": {
+    "checks/cases/plane/boxes-stay-while-the-reader-moves.xtmd": "Map\n\nHome\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/prose/a-bare-state-in-a-sentence-warns.xtmd"
+   ],
+   "id": "checks/cases/prose/a-bare-state-in-a-sentence-warns.xtmd",
+   "markdown": {
+    "checks/cases/prose/a-bare-state-in-a-sentence-warns.xtmd": "Tried \\$state.tries times.\n\nTried 0 times.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/prose/a-paragraph-takes-no-opt-hole.xtmd:3:8 prose.opt-hole"
+   ],
+   "files": [
+    "checks/cases/prose/a-paragraph-takes-no-opt-hole.xtmd"
+   ],
+   "id": "checks/cases/prose/a-paragraph-takes-no-opt-hole.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/prose/an-html-comment-warns.xtmd"
+   ],
+   "id": "checks/cases/prose/an-html-comment-warns.xtmd",
+   "markdown": {
+    "checks/cases/prose/an-html-comment-warns.xtmd": "# Notes\n\n\\<!-- shown as text in Extended Mark, which warns --\\>\n\nThe rest.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/prose/comments-in-prose.xtmd"
+   ],
+   "id": "checks/cases/prose/comments-in-prose.xtmd",
+   "markdown": {
+    "checks/cases/prose/comments-in-prose.xtmd": "# Notes\n\nThe count is 3,\nand the paragraph goes on.\n\nThere is something to count.\n\n\\@// shown as text, because the @ is escaped\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/read/a-brace-that-does-not-end-its-line.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-brace-that-does-not-end-its-line.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-call-inside-a-list-item.xtmd:1:1 prose.call-in-quote-or-item"
+   ],
+   "files": [
+    "checks/cases/read/a-call-inside-a-list-item.xtmd"
+   ],
+   "id": "checks/cases/read/a-call-inside-a-list-item.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-call-inside-a-markdown-quote.xtmd:1:1 prose.call-in-quote-or-item"
+   ],
+   "files": [
+    "checks/cases/read/a-call-inside-a-markdown-quote.xtmd"
+   ],
+   "id": "checks/cases/read/a-call-inside-a-markdown-quote.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-case-value-with-a-default.xtmdpack:4:12 syntax.case-value-is-plain"
+   ],
+   "files": [
+    "checks/cases/read/a-case-value-with-a-default.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-case-value-with-a-default.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-case-value-with-mut.xtmdpack:4:12 syntax.case-value-is-plain"
+   ],
+   "files": [
+    "checks/cases/read/a-case-value-with-mut.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-case-value-with-mut.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-character-that-is-not-xtmd.xtmdpack:3:19 syntax.unexpected-character"
+   ],
+   "files": [
+    "checks/cases/read/a-character-that-is-not-xtmd.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-character-that-is-not-xtmd.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-closing-brace-inside-a-list-item.xtmd:3:1 prose.call-in-quote-or-item"
+   ],
+   "files": [
+    "checks/cases/read/a-closing-brace-inside-a-list-item.xtmd"
+   ],
+   "id": "checks/cases/read/a-closing-brace-inside-a-list-item.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/read/a-code-fence-left-open-runs-to-the-end.xtmd"
+   ],
+   "id": "checks/cases/read/a-code-fence-left-open-runs-to-the-end.xtmd",
+   "markdown": {
+    "checks/cases/read/a-code-fence-left-open-runs-to-the-end.xtmd": "Some code:\n\n```js\nlet x = 1;\n```\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-code-fence-that-swallows-the-closing-brace.xtmd:1:1 prose.block-not-closed"
+   ],
+   "files": [
+    "checks/cases/read/a-code-fence-that-swallows-the-closing-brace.xtmd"
+   ],
+   "id": "checks/cases/read/a-code-fence-that-swallows-the-closing-brace.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-counter-loop-in-a-fn.xtmdpack:4:5 syntax.no-counter-loop"
+   ],
+   "files": [
+    "checks/cases/read/a-counter-loop-in-a-fn.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-counter-loop-in-a-fn.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-counter-loop-in-a-view.xtmdpack:6:13 syntax.no-counter-loop"
+   ],
+   "files": [
+    "checks/cases/read/a-counter-loop-in-a-view.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-counter-loop-in-a-view.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-counter-loop-in-prose.xtmd:1:1 syntax.no-counter-loop"
+   ],
+   "files": [
+    "checks/cases/read/a-counter-loop-in-prose.xtmd"
+   ],
+   "id": "checks/cases/read/a-counter-loop-in-prose.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-document-imports-with-no-version.xtmd:1:11 syntax.version-in-import"
+   ],
+   "files": [
+    "checks/cases/read/a-document-imports-with-no-version.xtmd"
+   ],
+   "id": "checks/cases/read/a-document-imports-with-no-version.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-fixture-declaration.xtmdpack:3:1 syntax.no-tests-in-the-language"
+   ],
+   "files": [
+    "checks/cases/read/a-fixture-declaration.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-fixture-declaration.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-hole-that-is-not-closed-in-a-text.xtmdpack:3:16 syntax.hole-not-closed"
+   ],
+   "files": [
+    "checks/cases/read/a-hole-that-is-not-closed-in-a-text.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-hole-that-is-not-closed-in-a-text.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-hole-that-runs-over-a-line-in-prose.xtmd:1:7 prose.hole-runs-over-a-line"
+   ],
+   "files": [
+    "checks/cases/read/a-hole-that-runs-over-a-line-in-prose.xtmd"
+   ],
+   "id": "checks/cases/read/a-hole-that-runs-over-a-line-in-prose.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-hyphen-in-a-name.xtmdpack:3:5 syntax.hyphen-in-name"
+   ],
+   "files": [
+    "checks/cases/read/a-hyphen-in-a-name.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-hyphen-in-a-name.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-line-that-starts-with-and-is-not-a-call.xtmd:1:1 prose.line-is-not-a-call"
+   ],
+   "files": [
+    "checks/cases/read/a-line-that-starts-with-and-is-not-a-call.xtmd"
+   ],
+   "id": "checks/cases/read/a-line-that-starts-with-and-is-not-a-call.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-list-method-named-after-a-keyword.xtmdpack:4:15 syntax.keyword-as-name"
+   ],
+   "files": [
+    "checks/cases/read/a-list-method-named-after-a-keyword.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-list-method-named-after-a-keyword.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-match-in-prose-with-text-before-its-cases.xtmd:2:1 prose.match-holds-cases"
+   ],
+   "files": [
+    "checks/cases/read/a-match-in-prose-with-text-before-its-cases.xtmd"
+   ],
+   "id": "checks/cases/read/a-match-in-prose-with-text-before-its-cases.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-maths-block-that-is-not-closed.xtmd:3:1 prose.maths-block-not-closed"
+   ],
+   "files": [
+    "checks/cases/read/a-maths-block-that-is-not-closed.xtmd"
+   ],
+   "id": "checks/cases/read/a-maths-block-that-is-not-closed.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-migration-in-a-document.xtmd:1:1 syntax.migration-line"
+   ],
+   "files": [
+    "checks/cases/read/a-migration-in-a-document.xtmd"
+   ],
+   "id": "checks/cases/read/a-migration-in-a-document.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-migration-statement-outside-a-block.xtmdpack:4:5 syntax.migration-line"
+   ],
+   "files": [
+    "checks/cases/read/a-migration-statement-outside-a-block.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-migration-statement-outside-a-block.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-minus-in-front-of-a-name-in-a-contract.xtmdpack:4:20 syntax.negative-name-bound"
+   ],
+   "files": [
+    "checks/cases/read/a-minus-in-front-of-a-name-in-a-contract.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-minus-in-front-of-a-name-in-a-contract.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-minus-in-front-of-a-name-in-a-range.xtmdpack:4:12 syntax.negated-range"
+   ],
+   "files": [
+    "checks/cases/read/a-minus-in-front-of-a-name-in-a-range.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-minus-in-front-of-a-name-in-a-range.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-mut-at-the-top-of-a-document-s-definitions.xtmd:1:1 file.mut-at-top"
+   ],
+   "files": [
+    "checks/cases/read/a-mut-at-the-top-of-a-document-s-definitions.xtmd"
+   ],
+   "id": "checks/cases/read/a-mut-at-the-top-of-a-document-s-definitions.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-mut-at-the-top-of-a-document.xtmd:1:1 file.mut-at-top"
+   ],
+   "files": [
+    "checks/cases/read/a-mut-at-the-top-of-a-document.xtmd"
+   ],
+   "id": "checks/cases/read/a-mut-at-the-top-of-a-document.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-mut-at-the-top-of-a-pack-s-file.xtmdpack:3:1 file.mut-at-top"
+   ],
+   "files": [
+    "checks/cases/read/a-mut-at-the-top-of-a-pack-s-file.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-mut-at-the-top-of-a-pack-s-file.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-name-that-starts-with-dollar.xtmdpack:3:17 syntax.dollar-is-only-state"
+   ],
+   "files": [
+    "checks/cases/read/a-name-that-starts-with-dollar.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-name-that-starts-with-dollar.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-number-that-runs-into-a-name.xtmdpack:3:17 syntax.number-into-name"
+   ],
+   "files": [
+    "checks/cases/read/a-number-that-runs-into-a-name.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-number-that-runs-into-a-name.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-pack-block-in-a-document.xtmd:1:1 file.pack-in-document"
+   ],
+   "files": [
+    "checks/cases/read/a-pack-block-in-a-document.xtmd"
+   ],
+   "id": "checks/cases/read/a-pack-block-in-a-document.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-packs-import-writes-no-version.xtmdpack:3:11 syntax.version-in-import"
+   ],
+   "files": [
+    "checks/cases/read/a-packs-import-writes-no-version.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-packs-import-writes-no-version.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-prose-block-whose-brace-does-not-end-its-line.xtmd:1:22 prose.brace-ends-its-line"
+   ],
+   "files": [
+    "checks/cases/read/a-prose-block-whose-brace-does-not-end-its-line.xtmd"
+   ],
+   "id": "checks/cases/read/a-prose-block-whose-brace-does-not-end-its-line.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-range-on-text.xtmdpack:4:19 syntax.range-on-text"
+   ],
+   "files": [
+    "checks/cases/read/a-range-on-text.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-range-on-text.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-second-divider.xtmd:4:1 prose.second-divider"
+   ],
+   "files": [
+    "checks/cases/read/a-second-divider.xtmd"
+   ],
+   "id": "checks/cases/read/a-second-divider.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-small-type-parameter.xtmdpack:3:10 syntax.small-type-parameter"
+   ],
+   "files": [
+    "checks/cases/read/a-small-type-parameter.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-small-type-parameter.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-state-block-inside-a-fn.xtmd:2:5 file.state-not-at-top"
+   ],
+   "files": [
+    "checks/cases/read/a-state-block-inside-a-fn.xtmd"
+   ],
+   "id": "checks/cases/read/a-state-block-inside-a-fn.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-state-field-with-no-starting-value.xtmd:2:19 file.state-field-starting-value"
+   ],
+   "files": [
+    "checks/cases/read/a-state-field-with-no-starting-value.xtmd"
+   ],
+   "id": "checks/cases/read/a-state-field-with-no-starting-value.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-state-field-written-with-mut.xtmd:2:5 file.state-field-mut"
+   ],
+   "files": [
+    "checks/cases/read/a-state-field-written-with-mut.xtmd"
+   ],
+   "id": "checks/cases/read/a-state-field-written-with-mut.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-surface-holds-signatures-only.xtmdpack:3:4 pack.surface"
+   ],
+   "files": [
+    "checks/cases/read/a-surface-holds-signatures-only.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-surface-holds-signatures-only.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-token-attribute.xtmdpack:3:15 syntax.no-attributes"
+   ],
+   "files": [
+    "checks/cases/read/a-token-attribute.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-token-attribute.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-token-with-a-type-and-fields-instead-of-cases.xtmdpack:4:5 syntax.token-shape"
+   ],
+   "files": [
+    "checks/cases/read/a-token-with-a-type-and-fields-instead-of-cases.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-token-with-a-type-and-fields-instead-of-cases.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-token-with-fields-instead-of-cases.xtmdpack:3:18 syntax.token-shape"
+   ],
+   "files": [
+    "checks/cases/read/a-token-with-fields-instead-of-cases.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-token-with-fields-instead-of-cases.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-token-with-of.xtmdpack:3:15 syntax.token-shape"
+   ],
+   "files": [
+    "checks/cases/read/a-token-with-of.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-token-with-of.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-unicode-escape-that-is-not-hex.xtmdpack:3:16 syntax.bad-unicode-escape"
+   ],
+   "files": [
+    "checks/cases/read/a-unicode-escape-that-is-not-hex.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-unicode-escape-that-is-not-hex.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-view-block-holds-five-things.xtmdpack:5:9 syntax.expected"
+   ],
+   "files": [
+    "checks/cases/read/a-view-block-holds-five-things.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-view-block-holds-five-things.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-while-loop-with-an-empty-header.xtmdpack:4:5 syntax.no-counter-loop"
+   ],
+   "files": [
+    "checks/cases/read/a-while-loop-with-an-empty-header.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-while-loop-with-an-empty-header.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-while-loop-written-as-a-for.xtmdpack:4:5 syntax.no-counter-loop"
+   ],
+   "files": [
+    "checks/cases/read/a-while-loop-written-as-a-for.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-while-loop-written-as-a-for.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-whole-range-negated.xtmdpack:3:28 syntax.negated-range"
+   ],
+   "files": [
+    "checks/cases/read/a-whole-range-negated.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-whole-range-negated.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-widget-in-a-xtmd-file-without-markdown.xtmdpack:3:8 widget.markdown-required"
+   ],
+   "files": [
+    "checks/cases/read/a-widget-in-a-xtmd-file-without-markdown.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-widget-in-a-xtmd-file-without-markdown.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/a-widget-without-a-view.xtmdpack:3:8 widget.view-required"
+   ],
+   "files": [
+    "checks/cases/read/a-widget-without-a-view.xtmdpack"
+   ],
+   "id": "checks/cases/read/a-widget-without-a-view.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/an-assert-statement.xtmdpack:4:5 syntax.no-tests-in-the-language"
+   ],
+   "files": [
+    "checks/cases/read/an-assert-statement.xtmdpack"
+   ],
+   "id": "checks/cases/read/an-assert-statement.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/an-assignment-after-a-view-in-a-view.xtmdpack:8:15 syntax.assignment-in-view"
+   ],
+   "files": [
+    "checks/cases/read/an-assignment-after-a-view-in-a-view.xtmdpack"
+   ],
+   "id": "checks/cases/read/an-assignment-after-a-view-in-a-view.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/an-id-attribute.xtmdpack:5:29 syntax.no-attributes"
+   ],
+   "files": [
+    "checks/cases/read/an-id-attribute.xtmdpack"
+   ],
+   "id": "checks/cases/read/an-id-attribute.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/an-unknown-doc-comment.xtmdpack:3:1 syntax.unknown-doc-comment"
+   ],
+   "files": [
+    "checks/cases/read/an-unknown-doc-comment.xtmdpack"
+   ],
+   "id": "checks/cases/read/an-unknown-doc-comment.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/another-fixture-declaration.xtmdpack:3:1 syntax.no-tests-in-the-language"
+   ],
+   "files": [
+    "checks/cases/read/another-fixture-declaration.xtmdpack"
+   ],
+   "id": "checks/cases/read/another-fixture-declaration.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/assigning-a-call.xtmdpack:4:5 syntax.not-a-place"
+   ],
+   "files": [
+    "checks/cases/read/assigning-a-call.xtmdpack"
+   ],
+   "id": "checks/cases/read/assigning-a-call.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/bad-hole-in-prose.xtmd:1:12 syntax.expected"
+   ],
+   "files": [
+    "checks/cases/read/bad-hole-in-prose.xtmd"
+   ],
+   "id": "checks/cases/read/bad-hole-in-prose.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/bound-that-is-not-an-atom.xtmdpack:4:27 syntax.bound-not-an-atom"
+   ],
+   "files": [
+    "checks/cases/read/bound-that-is-not-an-atom.xtmdpack"
+   ],
+   "id": "checks/cases/read/bound-that-is-not-an-atom.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/by-in-a-loop.xtmdpack:5:25 syntax.no-by"
+   ],
+   "files": [
+    "checks/cases/read/by-in-a-loop.xtmdpack"
+   ],
+   "id": "checks/cases/read/by-in-a-loop.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/call-block-forms-are-not-mixed.xtmdpack:21:13 syntax.expected"
+   ],
+   "files": [
+    "checks/cases/read/call-block-forms-are-not-mixed.xtmdpack"
+   ],
+   "id": "checks/cases/read/call-block-forms-are-not-mixed.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/cases-that-bind-and-share-a-body.xtmdpack:5:14 syntax.shared-case-binds"
+   ],
+   "files": [
+    "checks/cases/read/cases-that-bind-and-share-a-body.xtmdpack"
+   ],
+   "id": "checks/cases/read/cases-that-bind-and-share-a-body.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/chained-comparison.xtmdpack:4:18 syntax.chained-comparison"
+   ],
+   "files": [
+    "checks/cases/read/chained-comparison.xtmdpack"
+   ],
+   "id": "checks/cases/read/chained-comparison.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/doc-param-that-names-nothing.xtmdpack:3:1 doc.param-names-nothing"
+   ],
+   "files": [
+    "checks/cases/read/doc-param-that-names-nothing.xtmdpack"
+   ],
+   "id": "checks/cases/read/doc-param-that-names-nothing.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/dollar-on-its-own-in-code.xtmdpack:3:17 syntax.dollar-is-only-state"
+   ],
+   "files": [
+    "checks/cases/read/dollar-on-its-own-in-code.xtmdpack"
+   ],
+   "id": "checks/cases/read/dollar-on-its-own-in-code.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/drawing-above-the-divider.xtmd:1:1 file.drawing-in-definitions"
+   ],
+   "files": [
+    "checks/cases/read/drawing-above-the-divider.xtmd"
+   ],
+   "id": "checks/cases/read/drawing-above-the-divider.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/drawing-in-a-file.xtmdpack:3:1 file.drawing-in-definitions"
+   ],
+   "files": [
+    "checks/cases/read/drawing-in-a-file.xtmdpack"
+   ],
+   "id": "checks/cases/read/drawing-in-a-file.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/else-on-prose-without-if.xtmd:1:1 prose.else-without-if"
+   ],
+   "files": [
+    "checks/cases/read/else-on-prose-without-if.xtmd"
+   ],
+   "id": "checks/cases/read/else-on-prose-without-if.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/event-set-to-nothing.xtmdpack:5:37 syntax.expected"
+   ],
+   "files": [
+    "checks/cases/read/event-set-to-nothing.xtmdpack"
+   ],
+   "id": "checks/cases/read/event-set-to-nothing.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/expose-in-a-pack-s-file.xtmdpack:3:1 file.expose-in-pack"
+   ],
+   "files": [
+    "checks/cases/read/expose-in-a-pack-s-file.xtmdpack"
+   ],
+   "id": "checks/cases/read/expose-in-a-pack-s-file.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/expose-inside-a-widget.xtmdpack:4:5 file.expose-in-widget"
+   ],
+   "files": [
+    "checks/cases/read/expose-inside-a-widget.xtmdpack"
+   ],
+   "id": "checks/cases/read/expose-inside-a-widget.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/fn-definition-without-a-parameter-type.xtmdpack:3:7 syntax.missing-type"
+   ],
+   "files": [
+    "checks/cases/read/fn-definition-without-a-parameter-type.xtmdpack"
+   ],
+   "id": "checks/cases/read/fn-definition-without-a-parameter-type.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/front-matter-that-is-not-closed.xtmd:1:1 prose.front-matter-not-closed"
+   ],
+   "files": [
+    "checks/cases/read/front-matter-that-is-not-closed.xtmd"
+   ],
+   "id": "checks/cases/read/front-matter-that-is-not-closed.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/hole-with-two-expressions.xtmdpack:3:20 syntax.hole-holds-one-expression"
+   ],
+   "files": [
+    "checks/cases/read/hole-with-two-expressions.xtmdpack"
+   ],
+   "id": "checks/cases/read/hole-with-two-expressions.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/if-let-without-a-type.xtmdpack:4:14 syntax.missing-type"
+   ],
+   "files": [
+    "checks/cases/read/if-let-without-a-type.xtmdpack"
+   ],
+   "id": "checks/cases/read/if-let-without-a-type.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/implements-as-a-type.xtmdpack:4:18 syntax.implements-is-not-a-type"
+   ],
+   "files": [
+    "checks/cases/read/implements-as-a-type.xtmdpack"
+   ],
+   "id": "checks/cases/read/implements-as-a-type.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/input-set-twice.xtmdpack:6:13 syntax.set-twice"
+   ],
+   "files": [
+    "checks/cases/read/input-set-twice.xtmdpack"
+   ],
+   "id": "checks/cases/read/input-set-twice.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/keyword-as-a-field.xtmdpack:4:5 syntax.keyword-as-name"
+   ],
+   "files": [
+    "checks/cases/read/keyword-as-a-field.xtmdpack"
+   ],
+   "id": "checks/cases/read/keyword-as-a-field.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/keyword-as-a-method.xtmdpack:4:15 syntax.keyword-as-name"
+   ],
+   "files": [
+    "checks/cases/read/keyword-as-a-method.xtmdpack"
+   ],
+   "id": "checks/cases/read/keyword-as-a-method.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/let-without-a-type.xtmdpack:3:10 syntax.missing-type"
+   ],
+   "files": [
+    "checks/cases/read/let-without-a-type.xtmdpack"
+   ],
+   "id": "checks/cases/read/let-without-a-type.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/maths-as-a-literal-in-code.xtmdpack:3:16 syntax.dollar-is-only-state"
+   ],
+   "files": [
+    "checks/cases/read/maths-as-a-literal-in-code.xtmdpack"
+   ],
+   "id": "checks/cases/read/maths-as-a-literal-in-code.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/missing-semicolon.xtmdpack:5:28 syntax.missing-semicolon"
+   ],
+   "files": [
+    "checks/cases/read/missing-semicolon.xtmdpack"
+   ],
+   "id": "checks/cases/read/missing-semicolon.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/mixed-case-name.xtmdpack:3:5 syntax.mixed-case-name"
+   ],
+   "files": [
+    "checks/cases/read/mixed-case-name.xtmdpack"
+   ],
+   "id": "checks/cases/read/mixed-case-name.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/mut-inside-a-for-header-in-prose.xtmd:1:7 syntax.mut-before-for"
+   ],
+   "files": [
+    "checks/cases/read/mut-inside-a-for-header-in-prose.xtmd"
+   ],
+   "id": "checks/cases/read/mut-inside-a-for-header-in-prose.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/mut-without-a-type-in-a-fn.xtmdpack:4:10 syntax.missing-type"
+   ],
+   "files": [
+    "checks/cases/read/mut-without-a-type-in-a-fn.xtmdpack"
+   ],
+   "id": "checks/cases/read/mut-without-a-type-in-a-fn.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/named-and-positional-arguments-mixed.xtmdpack:5:29 syntax.mixed-arguments"
+   ],
+   "files": [
+    "checks/cases/read/named-and-positional-arguments-mixed.xtmdpack"
+   ],
+   "id": "checks/cases/read/named-and-positional-arguments-mixed.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/no-package-line.xtmdpack:1:1 file.package-line"
+   ],
+   "files": [
+    "checks/cases/read/no-package-line.xtmdpack"
+   ],
+   "id": "checks/cases/read/no-package-line.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/only-an-extern-fn-has-a-default-body.xtmdpack:8:5 syntax.expected"
+   ],
+   "files": [
+    "checks/cases/read/only-an-extern-fn-has-a-default-body.xtmdpack"
+   ],
+   "id": "checks/cases/read/only-an-extern-fn-has-a-default-body.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/slot-line-outside-a-call-s-block.xtmd:1:1 prose.slot-outside-a-call"
+   ],
+   "files": [
+    "checks/cases/read/slot-line-outside-a-call-s-block.xtmd"
+   ],
+   "id": "checks/cases/read/slot-line-outside-a-call-s-block.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/state-in-a-pack.xtmdpack:3:1 file.state-in-pack"
+   ],
+   "files": [
+    "checks/cases/read/state-in-a-pack.xtmdpack"
+   ],
+   "id": "checks/cases/read/state-in-a-pack.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/state-read-in-a-pack-s-widget.xtmdpack:5:27 file.state-in-pack"
+   ],
+   "files": [
+    "checks/cases/read/state-read-in-a-pack-s-widget.xtmdpack"
+   ],
+   "id": "checks/cases/read/state-read-in-a-pack-s-widget.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/stray-closing-brace-in-prose.xtmd:2:1 prose.stray-closing-brace"
+   ],
+   "files": [
+    "checks/cases/read/stray-closing-brace-in-prose.xtmd"
+   ],
+   "id": "checks/cases/read/stray-closing-brace-in-prose.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/text-after-a-call-in-prose.xtmd:1:22 prose.call-line-end"
+   ],
+   "files": [
+    "checks/cases/read/text-after-a-call-in-prose.xtmd"
+   ],
+   "id": "checks/cases/read/text-after-a-call-in-prose.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/text-that-runs-over-a-line.xtmdpack:3:15 syntax.text-runs-over-a-line"
+   ],
+   "files": [
+    "checks/cases/read/text-that-runs-over-a-line.xtmdpack"
+   ],
+   "id": "checks/cases/read/text-that-runs-over-a-line.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/the-old-pack-version-lines.xtmdpack:3:8 syntax.old-pack-line"
+   ],
+   "files": [
+    "checks/cases/read/the-old-pack-version-lines.xtmdpack"
+   ],
+   "id": "checks/cases/read/the-old-pack-version-lines.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/the-removed-secret-attribute.xtmdpack:4:18 syntax.no-attributes"
+   ],
+   "files": [
+    "checks/cases/read/the-removed-secret-attribute.xtmdpack"
+   ],
+   "id": "checks/cases/read/the-removed-secret-attribute.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/two-state-blocks.xtmd:5:1 file.state-twice"
+   ],
+   "files": [
+    "checks/cases/read/two-state-blocks.xtmd"
+   ],
+   "id": "checks/cases/read/two-state-blocks.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/unclosed-block-in-prose.xtmd:1:1 prose.block-not-closed"
+   ],
+   "files": [
+    "checks/cases/read/unclosed-block-in-prose.xtmd"
+   ],
+   "id": "checks/cases/read/unclosed-block-in-prose.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/unknown-attribute.xtmdpack:4:13 syntax.no-attributes"
+   ],
+   "files": [
+    "checks/cases/read/unknown-attribute.xtmdpack"
+   ],
+   "id": "checks/cases/read/unknown-attribute.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/unknown-escape.xtmdpack:3:17 syntax.unknown-escape"
+   ],
+   "files": [
+    "checks/cases/read/unknown-escape.xtmdpack"
+   ],
+   "id": "checks/cases/read/unknown-escape.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/widget-body-out-of-order.xtmdpack:5:5 widget.body-order"
+   ],
+   "files": [
+    "checks/cases/read/widget-body-out-of-order.xtmdpack"
+   ],
+   "id": "checks/cases/read/widget-body-out-of-order.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/read/widget-without-markdown.xtmdpack:3:8 widget.markdown-required"
+   ],
+   "files": [
+    "checks/cases/read/widget-without-markdown.xtmdpack"
+   ],
+   "id": "checks/cases/read/widget-without-markdown.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/runtime/a-failed-handler-is-undone.xtmd"
+   ],
+   "id": "checks/cases/runtime/a-failed-handler-is-undone.xtmd",
+   "markdown": {
+    "checks/cases/runtime/a-failed-handler-is-undone.xtmd": "Tries: 0, total: 10\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/runtime/a-slot-follows-the-inputs-it-reads.xtmd"
+   ],
+   "id": "checks/cases/runtime/a-slot-follows-the-inputs-it-reads.xtmd",
+   "markdown": {
+    "checks/cases/runtime/a-slot-follows-the-inputs-it-reads.xtmd": "Votes: 0\n\nVote.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/runtime/a-widget-that-fails-shows-a-notice.xtmd"
+   ],
+   "id": "checks/cases/runtime/a-widget-that-fails-shows-a-notice.xtmd",
+   "markdown": {
+    "checks/cases/runtime/a-widget-that-fails-shows-a-notice.xtmd": "# Shares\n\n> share failed: a division by zero\n\nAfter the shares.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/runtime/a-widget-writes-its-mut-input.xtmd"
+   ],
+   "id": "checks/cases/runtime/a-widget-writes-its-mut-input.xtmd",
+   "markdown": {
+    "checks/cases/runtime/a-widget-writes-its-mut-input.xtmd": "Level: 5\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/runtime/an-app-write-is-checked.xtmd"
+   ],
+   "id": "checks/cases/runtime/an-app-write-is-checked.xtmd",
+   "markdown": {
+    "checks/cases/runtime/an-app-write-is-checked.xtmd": "From 20 to 80.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/runtime/an-event-runs-its-handler.xtmd"
+   ],
+   "id": "checks/cases/runtime/an-event-runs-its-handler.xtmd",
+   "markdown": {
+    "checks/cases/runtime/an-event-runs-its-handler.xtmd": "Count: 0\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/runtime/extern-calls-and-expose.xtmd"
+   ],
+   "id": "checks/cases/runtime/extern-calls-and-expose.xtmd",
+   "markdown": {
+    "checks/cases/runtime/extern-calls-and-expose.xtmd": "0 K\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/runtime/page-values-change.xtmd"
+   ],
+   "id": "checks/cases/runtime/page-values-change.xtmd",
+   "markdown": {
+    "checks/cases/runtime/page-values-change.xtmd": "On a screen\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/runtime/rows-follow-their-items.xtmd"
+   ],
+   "id": "checks/cases/runtime/rows-follow-their-items.xtmd",
+   "markdown": {
+    "checks/cases/runtime/rows-follow-their-items.xtmd": "- write\n- test\n- ship\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-bad-literal-is-refused.xtmdpack:3:18 types.literal-refused"
+   ],
+   "files": [
+    "checks/cases/types/a-bad-literal-is-refused.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-bad-literal-is-refused.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-fn-without-self-is-called-on-the-type.xtmdpack:12:12 types.arguments"
+   ],
+   "files": [
+    "checks/cases/types/a-fn-without-self-is-called-on-the-type.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-fn-without-self-is-called-on-the-type.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-hole-fits-shown.xtmdpack:8:18 types.hole-not-shown"
+   ],
+   "files": [
+    "checks/cases/types/a-hole-fits-shown.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-hole-fits-shown.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-lambda-leaves-types-out-only-where-a-fn-type-is-expected.xtmdpack:12:20 types.mismatch"
+   ],
+   "files": [
+    "checks/cases/types/a-lambda-leaves-types-out-only-where-a-fn-type-is-expected.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-lambda-leaves-types-out-only-where-a-fn-type-is-expected.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-limit-passed-at-compile-time.xtmdpack:7:5 types.constant-failed"
+   ],
+   "files": [
+    "checks/cases/types/a-limit-passed-at-compile-time.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-limit-passed-at-compile-time.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/types/a-literal-with-an-opt-hole-is-an-opt.xtmd"
+   ],
+   "id": "checks/cases/types/a-literal-with-an-opt-hole-is-an-opt.xtmd",
+   "markdown": {
+    "checks/cases/types/a-literal-with-an-opt-hole-is-an-opt.xtmd": "A: none.\n\nB: was up.\n\nC: Note: up\n\nD: none\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-literal-with-an-opt-hole-where-a-plain-value-is-wanted.xtmdpack:5:33 types.mismatch",
+    "checks/cases/types/a-literal-with-an-opt-hole-where-a-plain-value-is-wanted.xtmdpack:6:19 types.mismatch"
+   ],
+   "files": [
+    "checks/cases/types/a-literal-with-an-opt-hole-where-a-plain-value-is-wanted.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-literal-with-an-opt-hole-where-a-plain-value-is-wanted.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-literals-from-never-reads-a-hole.xtmdpack:4:20 types.mismatch"
+   ],
+   "files": [
+    "checks/cases/types/a-literals-from-never-reads-a-hole.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-literals-from-never-reads-a-hole.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-match-on-a-token-in-prose-without-case-else.xtmd:8:1 types.match-on-token-needs-else"
+   ],
+   "files": [
+    "checks/cases/types/a-match-on-a-token-in-prose-without-case-else.xtmd"
+   ],
+   "id": "checks/cases/types/a-match-on-a-token-in-prose-without-case-else.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-match-on-a-token-without-case-else.xtmdpack:11:5 types.match-on-token-needs-else"
+   ],
+   "files": [
+    "checks/cases/types/a-match-on-a-token-without-case-else.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-match-on-a-token-without-case-else.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-match-on-an-enum-lists-every-case.xtmdpack:6:5 types.match-misses-cases"
+   ],
+   "files": [
+    "checks/cases/types/a-match-on-an-enum-lists-every-case.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-match-on-an-enum-lists-every-case.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-mut-parameter-takes-something-writable.xtmdpack:10:13 types.not-mut"
+   ],
+   "files": [
+    "checks/cases/types/a-mut-parameter-takes-something-writable.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-mut-parameter-takes-something-writable.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-mut-value-has-exactly-the-wanted-type.xtmdpack:9:13 types.mismatch"
+   ],
+   "files": [
+    "checks/cases/types/a-mut-value-has-exactly-the-wanted-type.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-mut-value-has-exactly-the-wanted-type.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-number-failure-seen-at-compile-time.xtmdpack:3:5 types.constant-failed"
+   ],
+   "files": [
+    "checks/cases/types/a-number-failure-seen-at-compile-time.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-number-failure-seen-at-compile-time.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-range-bound-is-an-atom.xtmdpack:4:12 types.mismatch"
+   ],
+   "files": [
+    "checks/cases/types/a-range-bound-is-an-atom.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-range-bound-is-an-atom.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-record-holds-itself-only-in-a-list-or-opt.xtmdpack:3:8 types.recursive-type"
+   ],
+   "files": [
+    "checks/cases/types/a-record-holds-itself-only-in-a-list-or-opt.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-record-holds-itself-only-in-a-list-or-opt.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-records-require-holds-for-constants.xtmdpack:13:5 types.constant-failed"
+   ],
+   "files": [
+    "checks/cases/types/a-records-require-holds-for-constants.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-records-require-holds-for-constants.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-text-holds-no-view.xtmdpack:3:25 types.view-in-text"
+   ],
+   "files": [
+    "checks/cases/types/a-text-holds-no-view.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-text-holds-no-view.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-token-value-has-the-tokens-type.xtmdpack:6:18 types.mismatch"
+   ],
+   "files": [
+    "checks/cases/types/a-token-value-has-the-tokens-type.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-token-value-has-the-tokens-type.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-tokens-value-only-in-a-tokens-block.xtmdpack:6:36 types.mismatch"
+   ],
+   "files": [
+    "checks/cases/types/a-tokens-value-only-in-a-tokens-block.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-tokens-value-only-in-a-tokens-block.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/a-type-parameter-appears-in-the-signature.xtmdpack:3:8 types.type-parameter-unused",
+    "checks/cases/types/a-type-parameter-appears-in-the-signature.xtmdpack:7:4 types.type-parameter-unused"
+   ],
+   "files": [
+    "checks/cases/types/a-type-parameter-appears-in-the-signature.xtmdpack"
+   ],
+   "id": "checks/cases/types/a-type-parameter-appears-in-the-signature.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/an-action-returns-no-value.xtmdpack:4:12 types.return"
+   ],
+   "files": [
+    "checks/cases/types/an-action-returns-no-value.xtmdpack"
+   ],
+   "id": "checks/cases/types/an-action-returns-no-value.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/an-event-is-set-to-a-fn.xtmdpack:15:24 types.mismatch"
+   ],
+   "files": [
+    "checks/cases/types/an-event-is-set-to-a-fn.xtmdpack"
+   ],
+   "id": "checks/cases/types/an-event-is-set-to-a-fn.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/an-exposed-fn-returns-nothing.xtmd:12:16 types.return"
+   ],
+   "files": [
+    "checks/cases/types/an-exposed-fn-returns-nothing.xtmd"
+   ],
+   "id": "checks/cases/types/an-exposed-fn-returns-nothing.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/an-exposed-fn-takes-constants-and-returns-nothing.xtmd:7:16 types.exposed-mut-parameter",
+    "checks/cases/types/an-exposed-fn-takes-constants-and-returns-nothing.xtmd:12:17 types.return"
+   ],
+   "files": [
+    "checks/cases/types/an-exposed-fn-takes-constants-and-returns-nothing.xtmd"
+   ],
+   "id": "checks/cases/types/an-exposed-fn-takes-constants-and-returns-nothing.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/an-interface-asks-for-no-mut-field.xtmdpack:4:9 types.interface-mut-field"
+   ],
+   "files": [
+    "checks/cases/types/an-interface-asks-for-no-mut-field.xtmdpack"
+   ],
+   "id": "checks/cases/types/an-interface-asks-for-no-mut-field.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/an-opt-is-opened-before-use.xtmdpack:4:12 types.mismatch"
+   ],
+   "files": [
+    "checks/cases/types/an-opt-is-opened-before-use.xtmdpack"
+   ],
+   "id": "checks/cases/types/an-opt-is-opened-before-use.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/any-of-an-interface-that-compares.xtmdpack:3:13 types.any-of-a-self-interface"
+   ],
+   "files": [
+    "checks/cases/types/any-of-an-interface-that-compares.xtmdpack"
+   ],
+   "id": "checks/cases/types/any-of-an-interface-that-compares.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/arithmetic-needs-numeric-or-scaled.xtmdpack:4:12 types.mismatch"
+   ],
+   "files": [
+    "checks/cases/types/arithmetic-needs-numeric-or-scaled.xtmdpack"
+   ],
+   "id": "checks/cases/types/arithmetic-needs-numeric-or-scaled.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/comparing-needs-same-and-ordered.xtmdpack:4:12 types.not-comparable"
+   ],
+   "files": [
+    "checks/cases/types/comparing-needs-same-and-ordered.xtmdpack"
+   ],
+   "id": "checks/cases/types/comparing-needs-same-and-ordered.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/equality-is-strict.xtmdpack:4:17 types.mismatch"
+   ],
+   "files": [
+    "checks/cases/types/equality-is-strict.xtmdpack"
+   ],
+   "id": "checks/cases/types/equality-is-strict.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/for-walks-a-list-or-a-range.xtmdpack:5:15 types.mismatch"
+   ],
+   "files": [
+    "checks/cases/types/for-walks-a-list-or-a-range.xtmdpack"
+   ],
+   "id": "checks/cases/types/for-walks-a-list-or-a-range.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/implements-is-a-checked-promise.xtmdpack:11:8 types.implements-unkept"
+   ],
+   "files": [
+    "checks/cases/types/implements-is-a-checked-promise.xtmdpack"
+   ],
+   "id": "checks/cases/types/implements-is-a-checked-promise.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/match-takes-an-enum-bool-number-or-text.xtmdpack:4:5 types.match-subject",
+    "checks/cases/types/match-takes-an-enum-bool-number-or-text.xtmdpack:12:5 types.match-misses-cases"
+   ],
+   "files": [
+    "checks/cases/types/match-takes-an-enum-bool-number-or-text.xtmdpack"
+   ],
+   "id": "checks/cases/types/match-takes-an-enum-bool-number-or-text.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/mut-for-walks-a-mut-list.xtmdpack:4:19 types.not-mut"
+   ],
+   "files": [
+    "checks/cases/types/mut-for-walks-a-mut-list.xtmdpack"
+   ],
+   "id": "checks/cases/types/mut-for-walks-a-mut-list.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/only-a-fn-is-called.xtmdpack:4:12 types.not-callable"
+   ],
+   "files": [
+    "checks/cases/types/only-a-fn-is-called.xtmdpack"
+   ],
+   "id": "checks/cases/types/only-a-fn-is-called.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/types/only-a-mut-is-assigned.xtmdpack:11:5 types.not-mut"
+   ],
+   "files": [
+    "checks/cases/types/only-a-mut-is-assigned.xtmdpack"
+   ],
+   "id": "checks/cases/types/only-a-mut-is-assigned.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/versions/a-break-at-the-same-version.xtmdpack"
+   ],
+   "id": "checks/cases/versions/a-break-at-the-same-version.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/versions/a-drop-without-why-warns.xtmdpack"
+   ],
+   "id": "checks/cases/versions/a-drop-without-why-warns.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/versions/a-migration-leaves-a-change-unsaid.xtmdpack"
+   ],
+   "id": "checks/cases/versions/a-migration-leaves-a-change-unsaid.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/versions/a-migration-names-what-was-there.xtmdpack"
+   ],
+   "id": "checks/cases/versions/a-migration-names-what-was-there.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/versions/a-break-at-the-same-version/surfaces/kit@1.xtmdpack"
+   ],
+   "id": "checks/cases/versions/a-break-at-the-same-version/surfaces/kit@1.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/versions/kit2/kit.xtmdpack"
+   ],
+   "id": "checks/cases/versions/kit2/kit.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/versions/kit2/surfaces/kit@1.xtmdpack"
+   ],
+   "id": "checks/cases/versions/kit2/surfaces/kit@1.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/views/a-document-widget-builds-its-markdown.xtmd"
+   ],
+   "id": "checks/cases/views/a-document-widget-builds-its-markdown.xtmd",
+   "markdown": {
+    "checks/cases/views/a-document-widget-builds-its-markdown.xtmd": "few\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/views/a-field-without-a-default-is-given.xtmdpack:8:15 views.missing-input"
+   ],
+   "files": [
+    "checks/cases/views/a-field-without-a-default-is-given.xtmdpack"
+   ],
+   "id": "checks/cases/views/a-field-without-a-default-is-given.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/views/a-press-in-a-sentence-is-clicked.xtmd"
+   ],
+   "id": "checks/cases/views/a-press-in-a-sentence-is-clicked.xtmd",
+   "markdown": {
+    "checks/cases/views/a-press-in-a-sentence-is-clicked.xtmd": "Press Add one and the count, 0, goes up.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/views/a-prose-slot-must-exist.xtmd:3:7 views.unknown-slot"
+   ],
+   "files": [
+    "checks/cases/views/a-prose-slot-must-exist.xtmd"
+   ],
+   "id": "checks/cases/views/a-prose-slot-must-exist.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/views/a-sizing-property-is-set-once.xtmdpack:12:18 views.sizing-set-twice"
+   ],
+   "files": [
+    "checks/cases/views/a-sizing-property-is-set-once.xtmdpack"
+   ],
+   "id": "checks/cases/views/a-sizing-property-is-set-once.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/views/a-slot-length-written-out.xtmdpack:27:15 views.slot-length",
+    "checks/cases/views/a-slot-length-written-out.xtmdpack:38:15 views.slot-length"
+   ],
+   "files": [
+    "checks/cases/views/a-slot-length-written-out.xtmdpack"
+   ],
+   "id": "checks/cases/views/a-slot-length-written-out.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/views/a-slot-takes-its-widget-type.xtmdpack:37:15 views.slot-takes-its-type"
+   ],
+   "files": [
+    "checks/cases/views/a-slot-takes-its-widget-type.xtmdpack"
+   ],
+   "id": "checks/cases/views/a-slot-takes-its-widget-type.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/views/a-spot-outside-its-planes-bounds-warns.xtmd"
+   ],
+   "id": "checks/cases/views/a-spot-outside-its-planes-bounds-warns.xtmd",
+   "markdown": {
+    "checks/cases/views/a-spot-outside-its-planes-bounds-warns.xtmd": "Map\n\nin\n\nout\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/views/a-view-is-not-held-in-a-mut.xtmdpack:4:9 views.view-in-mut"
+   ],
+   "files": [
+    "checks/cases/views/a-view-is-not-held-in-a-mut.xtmdpack"
+   ],
+   "id": "checks/cases/views/a-view-is-not-held-in-a-mut.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/views/a-widget-require-on-constant-inputs.xtmd:12:2 views.widget-require-false"
+   ],
+   "files": [
+    "checks/cases/views/a-widget-require-on-constant-inputs.xtmd"
+   ],
+   "id": "checks/cases/views/a-widget-require-on-constant-inputs.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/views/a-widget-values-inputs-are-read-only.xtmdpack:19:5 views.widget-value-input-assigned"
+   ],
+   "files": [
+    "checks/cases/views/a-widget-values-inputs-are-read-only.xtmdpack"
+   ],
+   "id": "checks/cases/views/a-widget-values-inputs-are-read-only.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/views/an-md-goes-in-no-hole.xtmd:5:9 prose.md-in-hole"
+   ],
+   "files": [
+    "checks/cases/views/an-md-goes-in-no-hole.xtmd"
+   ],
+   "id": "checks/cases/views/an-md-goes-in-no-hole.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/views/an-xtmd-fn-given-to-shade-warns.xtmd"
+   ],
+   "id": "checks/cases/views/an-xtmd-fn-given-to-shade-warns.xtmd",
+   "markdown": {
+    "checks/cases/views/an-xtmd-fn-given-to-shade-warns.xtmd": "Glow\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/views/assignment-in-a-view.xtmdpack:8:13 views.unknown-input"
+   ],
+   "files": [
+    "checks/cases/views/assignment-in-a-view.xtmdpack"
+   ],
+   "id": "checks/cases/views/assignment-in-a-view.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/views/children-for-a-two-slot-widget.xtmdpack:26:10 views.children-need-one-slot"
+   ],
+   "files": [
+    "checks/cases/views/children-for-a-two-slot-widget.xtmdpack"
+   ],
+   "id": "checks/cases/views/children-for-a-two-slot-widget.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/views/every-view-is-drawn-with-at.xtmdpack:9:9 views.view-needs-at"
+   ],
+   "files": [
+    "checks/cases/views/every-view-is-drawn-with-at.xtmdpack"
+   ],
+   "id": "checks/cases/views/every-view-is-drawn-with-at.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/views/missing-required-input.xtmdpack:5:10 views.missing-input"
+   ],
+   "files": [
+    "checks/cases/views/missing-required-input.xtmdpack"
+   ],
+   "id": "checks/cases/views/missing-required-input.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/views/named-arguments-to-a-fn-used-with-at.xtmdpack:8:18 views.named-arguments-to-fn"
+   ],
+   "files": [
+    "checks/cases/views/named-arguments-to-a-fn-used-with-at.xtmdpack"
+   ],
+   "id": "checks/cases/views/named-arguments-to-a-fn-used-with-at.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/views/positional-argument-to-a-widget.xtmdpack:5:16 views.positional-argument"
+   ],
+   "files": [
+    "checks/cases/views/positional-argument-to-a-widget.xtmdpack"
+   ],
+   "id": "checks/cases/views/positional-argument-to-a-widget.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/views/prose-beside-named-slots-is-an-error.xtmd:2:2 views.children-need-one-slot"
+   ],
+   "files": [
+    "checks/cases/views/prose-beside-named-slots-is-an-error.xtmd"
+   ],
+   "id": "checks/cases/views/prose-beside-named-slots-is-an-error.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/views/prose-fills-named-slots.xtmd"
+   ],
+   "id": "checks/cases/views/prose-fills-named-slots.xtmd",
+   "markdown": {
+    "checks/cases/views/prose-fills-named-slots.xtmd": "# Details\n\nMore\n\nThe rest, **written in prose**.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "checks/cases/views/slot-given-with-equals.xtmdpack:26:27 views.slot-given-with-equals"
+   ],
+   "files": [
+    "checks/cases/views/slot-given-with-equals.xtmdpack"
+   ],
+   "id": "checks/cases/views/slot-given-with-equals.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/views/unknown-input.xtmdpack:5:29 views.unknown-input"
+   ],
+   "files": [
+    "checks/cases/views/unknown-input.xtmdpack"
+   ],
+   "id": "checks/cases/views/unknown-input.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [
+    "checks/cases/views/unknown-slot.xtmdpack:27:13 views.unknown-slot"
+   ],
+   "files": [
+    "checks/cases/views/unknown-slot.xtmdpack"
+   ],
+   "id": "checks/cases/views/unknown-slot.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/bullets.xtmd"
+   ],
+   "id": "checks/cases/widgets/bullets.xtmd",
+   "markdown": {
+    "checks/cases/widgets/bullets.xtmd": "- one\n- two\n\n1. first\n2. second\n\n- [x] done\n- [ ] not yet\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/canvas.xtmd"
+   ],
+   "id": "checks/cases/widgets/canvas.xtmd",
+   "markdown": {
+    "checks/cases/widgets/canvas.xtmd": "A dot and a line\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/code.xtmd"
+   ],
+   "id": "checks/cases/widgets/code.xtmd",
+   "markdown": {
+    "checks/cases/widgets/code.xtmd": "```js\nlet x = 1;\n```\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/divider.xtmd"
+   ],
+   "id": "checks/cases/widgets/divider.xtmd",
+   "markdown": {
+    "checks/cases/widgets/divider.xtmd": "Above.\n\n---\n\nBelow.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/field.xtmd"
+   ],
+   "id": "checks/cases/widgets/field.xtmd",
+   "markdown": {
+    "checks/cases/widgets/field.xtmd": "Name: Ada\n\nHello, Ada\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/flex.xtmd"
+   ],
+   "id": "checks/cases/widgets/flex.xtmd",
+   "markdown": {
+    "checks/cases/widgets/flex.xtmd": "one\n\ntwo\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/footnote.xtmd"
+   ],
+   "id": "checks/cases/widgets/footnote.xtmd",
+   "markdown": {
+    "checks/cases/widgets/footnote.xtmd": "A claim[^1].\n\n[^1]: Its source.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/grid.xtmd"
+   ],
+   "id": "checks/cases/widgets/grid.xtmd",
+   "markdown": {
+    "checks/cases/widgets/grid.xtmd": "wide\n\nleft\n\nright\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/heading.xtmd"
+   ],
+   "id": "checks/cases/widgets/heading.xtmd",
+   "markdown": {
+    "checks/cases/widgets/heading.xtmd": "# A title\n\n## A part of it\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/icon.xtmd"
+   ],
+   "id": "checks/cases/widgets/icon.xtmd",
+   "markdown": {
+    "checks/cases/widgets/icon.xtmd": "Done\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/image.xtmd"
+   ],
+   "id": "checks/cases/widgets/image.xtmd",
+   "markdown": {
+    "checks/cases/widgets/image.xtmd": "\\!\\[A cup of tea\\](https\\://example.com/tea.png)\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/label.xtmd"
+   ],
+   "id": "checks/cases/widgets/label.xtmd",
+   "markdown": {
+    "checks/cases/widgets/label.xtmd": "Hello\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/math.xtmd"
+   ],
+   "id": "checks/cases/widgets/math.xtmd",
+   "markdown": {
+    "checks/cases/widgets/math.xtmd": "$$\nx^2 + y^2 = r^2\n$$\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/overlay.xtmd"
+   ],
+   "id": "checks/cases/widgets/overlay.xtmd",
+   "markdown": {
+    "checks/cases/widgets/overlay.xtmd": "More\n\nThe rest\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/paragraph.xtmd"
+   ],
+   "id": "checks/cases/widgets/paragraph.xtmd",
+   "markdown": {
+    "checks/cases/widgets/paragraph.xtmd": "A paragraph with **bold**, *italics*, `code` and a [link](<https://example.com>).\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/press.xtmd"
+   ],
+   "id": "checks/cases/widgets/press.xtmd",
+   "markdown": {
+    "checks/cases/widgets/press.xtmd": "Pressed 0 times\n\nBold\n\nOff\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/quote.xtmd"
+   ],
+   "id": "checks/cases/widgets/quote.xtmd",
+   "markdown": {
+    "checks/cases/widgets/quote.xtmd": "> Quoted, with **weight**.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/shade.xtmd"
+   ],
+   "id": "checks/cases/widgets/shade.xtmd",
+   "markdown": {
+    "checks/cases/widgets/shade.xtmd": "A gradient\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/slider.xtmd"
+   ],
+   "id": "checks/cases/widgets/slider.xtmd",
+   "markdown": {
+    "checks/cases/widgets/slider.xtmd": "Level: 3\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/cases/widgets/table.xtmd"
+   ],
+   "id": "checks/cases/widgets/table.xtmd",
+   "markdown": {
+    "checks/cases/widgets/table.xtmd": "| Item | Price |\n| --- | ---: |\n| Tea | 3 |\n| Cake | 4\\.50 |\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/core/lists-and-ranges.xtmdpack"
+   ],
+   "id": "checks/core/lists-and-ranges.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/core/markdown.xtmdpack"
+   ],
+   "id": "checks/core/markdown.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/core/numbers-and-text.xtmdpack"
+   ],
+   "id": "checks/core/numbers-and-text.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/core/types.xtmdpack"
+   ],
+   "id": "checks/core/types.xtmdpack",
+   "markdown": {},
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "checks/packs/badge/badge.xtmdpack"
+   ],
+   "id": "checks/packs/badge",
+   "markdown": {},
+   "packs": [
+    "checks/packs/badge/badge.xtmdpack"
+   ],
+   "valid": true
+  },
+  {
+   "errors": [
+    "compiler/npm/extended-mark/test/vite-broken.xtmd:2:13 names.unknown-name"
+   ],
+   "files": [
+    "compiler/npm/extended-mark/test/vite-broken.xtmd"
+   ],
+   "id": "compiler/npm/extended-mark/test/vite-broken.xtmd",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "compiler/npm/extended-mark/test/vite-app/sprint.xtmd"
+   ],
+   "id": "compiler/npm/extended-mark/test/vite-app/sprint.xtmd",
+   "markdown": {
+    "compiler/npm/extended-mark/test/vite-app/sprint.xtmd": "# Sprint\n\nThere are 2 tasks open.\n\nOpen: 2\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "examples/graphs/graphs.xtmdpack",
+    "examples/graphs/release-flow.xtmd"
+   ],
+   "id": "examples/graphs",
+   "markdown": {
+    "examples/graphs/release-flow.xtmd": "# Release flow\n\nFrom a commit to a release\n\n- Build\n- Test\n- Ship\n\nLinks:\n\n- build to test: passes\n- test to ship: approved\n"
+   },
+   "packs": [
+    "examples/graphs/graphs.xtmdpack"
+   ],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "examples/pages/shop.xtmd"
+   ],
+   "id": "examples/pages/shop.xtmd",
+   "markdown": {
+    "examples/pages/shop.xtmd": "# Shop\n\nThe basket holds 3 items for 36 \u20ac of a 60 \u20ac budget.\n\n- Tea: 12 \u20ac\n- Honey: 18 \u20ac\n- Bread: 6 \u20ac\n\nBudget: 60\n\nCheck out\n\nOrders placed: 0.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "schemas/examples/counter.xtmd"
+   ],
+   "id": "schemas/examples/counter.xtmd",
+   "markdown": {
+    "schemas/examples/counter.xtmd": "# Counter\n\nThe count is 0.\n\nAdd\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "targets/examples/misc/android/compose/tokens.xtmdpack"
+   ],
+   "id": "targets/examples/misc/android/compose",
+   "markdown": {},
+   "packs": [
+    "targets/examples/misc/android/compose/tokens.xtmdpack"
+   ],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "targets/examples/misc/android/compose/sample/pages/tour.xtmd"
+   ],
+   "id": "targets/examples/misc/android/compose/sample/pages/tour.xtmd",
+   "markdown": {
+    "targets/examples/misc/android/compose/sample/pages/tour.xtmd": "# A tour of Extended Mark on Android\n\nEvery block here is a **Jetpack Compose** widget drawn by *xtmd-android*, from the same IR the web runs. Links like [the spec](<https://example.com>) are checked first, `code` is mono, and maths reads $e^{i\\pi} + 1 = 0$.\n\n- [x] Draw the page\n- [ ] Run the checks on a phone\n\n> A quote, set off as Material 3 sets one off.\n\n```kotlin\n@Composable fun XtmdPage(page: CompiledPage, externs: Externs = Externs.None)\n```\n\n$$\n\\sum_{k=1}^{n} k = \\frac{n(n+1)}{2}\n$$\n\n| Widget | Compose | Material 3 |\n| --- | :---: | ---: |\n| press | Button | yes |\n| slider | Slider | yes |\n\n---\n\n## Controls\n\nYour name: \n\nHello, stranger.\n\nLevel: 4\n\nDark\n\na star\n\nDone one more\n\nS\n\nM\n\nL\n\nShow the details\n\nSize M, level 4, 1 of 2 done.\n\n## Layout\n\nA grid of three columns\n\none\n\ntwo\n\nthree\n\n## A canvas\n\nA dot, a line and a point to drag\n\n## A plane\n\nNotes on a board\n\nPinch to zoom, drag to pan\n\nAnother note\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "targets/examples/rust/egui/examples/demo.xtmd"
+   ],
+   "id": "targets/examples/rust/egui/examples/demo.xtmd",
+   "markdown": {
+    "targets/examples/rust/egui/examples/demo.xtmd": "# xtmd-egui\n\nA page drawn with **egui**: its widgets read the props the runtime worked out, and write through\nchecked writes. The plane pans with a drag and zooms with the wheel.\n\nHello, Ada\n\nName: Ada\n\nLevel: 5\n\nDone\n\nMore\n\nDrawn over the page, from its anchor.\n\nA board\n\nBuild\n\nShip\n\nMaths shows as its TeX on egui:\n\n$$\nx^2 + y^2 = r^2\n$$\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "targets/published/bindings/testing/counter-v2.xtmd"
+   ],
+   "id": "targets/published/bindings/testing/counter-v2.xtmd",
+   "markdown": {
+    "targets/published/bindings/testing/counter-v2.xtmd": "# Total: 0 points, by 2\n\nAdd one\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "targets/published/bindings/testing/counter.xtmd"
+   ],
+   "id": "targets/published/bindings/testing/counter.xtmd",
+   "markdown": {
+    "targets/published/bindings/testing/counter.xtmd": "# Count: 0 points\n\nAdd one\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "targets/published/bindings/testing/notes.xtmd"
+   ],
+   "id": "targets/published/bindings/testing/notes.xtmd",
+   "markdown": {
+    "targets/published/bindings/testing/notes.xtmd": "# Notes: 0\n\nApples: 0\n\nMore\n\nHidden until opened\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/brk",
+   "markdown": {
+    "doc.xtmd": "false\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/core_names",
+   "markdown": {
+    "doc.xtmd": "Some **bold** and [a link](<https://x.y>).\n\nx\n\ny\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/fence",
+   "markdown": {
+    "doc.xtmd": "Some text.\n\n```\n@@@\n```\n\nMore.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/fence2",
+   "markdown": {
+    "doc.xtmd": "Text\n\n```\n@@@\n```\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd",
+    "kit/kit.xtmdpack"
+   ],
+   "id": "probes/gfx",
+   "markdown": {
+    "doc.xtmd": "glow\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/gone_names",
+   "markdown": {
+    "doc.xtmd": "1\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/kw_uses",
+   "markdown": {
+    "doc.xtmd": "A 1 3 4 5\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/let_block",
+   "markdown": {
+    "doc.xtmd": "x\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/let_host",
+   "markdown": {
+    "doc.xtmd": "Wide: false\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/let_state",
+   "markdown": {
+    "doc.xtmd": "Twice is 4.\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "doc.xtmd:3:10 views.children-need-one-slot"
+   ],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/level",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/mut_assign",
+   "markdown": {
+    "doc.xtmd": "go\n\n0\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "doc.xtmd:11:6 names.unknown-widget"
+   ],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/mut_field",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/one_slot",
+   "markdown": {
+    "doc.xtmd": "x\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd",
+    "kit/kit.xtmdpack"
+   ],
+   "id": "probes/pack_name",
+   "markdown": {
+    "doc.xtmd": "**b** [l](<https://x.y>)\n\n3\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [
+    "doc.xtmd:5:7 views.unknown-input",
+    "doc.xtmd:5:2 views.missing-input",
+    "doc.xtmd:7:7 views.unknown-input",
+    "doc.xtmd:7:2 views.missing-input"
+   ],
+   "files": [
+    "doc.xtmd",
+    "kit/kit.xtmdpack"
+   ],
+   "id": "probes/packmig",
+   "markdown": {},
+   "packs": [],
+   "valid": false
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/rt_blocks",
+   "markdown": {
+    "doc.xtmd": "\\# head\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/rt_plain",
+   "markdown": {
+    "doc.xtmd": "x\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/rt_state",
+   "markdown": {
+    "doc.xtmd": "a b\n\n# a\n"
+   },
+   "packs": [],
+   "valid": true
+  },
+  {
+   "errors": [],
+   "files": [
+    "doc.xtmd"
+   ],
+   "id": "probes/sentence",
+   "markdown": {
+    "doc.xtmd": "x\n"
+   },
+   "packs": [],
+   "valid": true
+  }
+ ]
+}

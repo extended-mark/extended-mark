@@ -1,9 +1,9 @@
 # The checks on every pull request, and on staging and main after a merge: Rust's tests, every npm package's
-# tests and the playground's, and every target's conformance checks (xtmd target check); and on a pull
-# request into main, and on staging after a merge, the release's dry run. Main's ruleset
-# (.github/rulesets/main.json) requires the job named "Types, tests and conformance", which passes only
-# when the ones before it do; the TypeScript builds are the type checks. The release runs these same
-# checks (release.yml calls this workflow).
+# tests and the playground's, and Android's Kotlin; and on a pull request into main, and on staging after
+# a merge, the release's dry run. Main's ruleset (.github/rulesets/main.json) requires the job named
+# "Types, tests and conformance" (its name is the ruleset's), which passes only when the ones before it do;
+# the TypeScript builds are the type checks. The release runs these same checks (release.yml calls this
+# workflow).
 #
 # A tree (the exact files, this workflow's own included) is tested once: a run that passes leaves a small
 # artifact named after the tree's hash (tested-<tree>, and dryrun-<tree> for the release dry run's
@@ -50,7 +50,7 @@ jobs:
       dryrun: ${{ steps.find.outputs.dryrun }}
       wants-dryrun: ${{ steps.find.outputs.wants-dryrun }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: find
         env:
           GH_TOKEN: ${{ github.token }}
@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Rust, for wasm32-wasip1
         run: rustup toolchain install stable --profile minimal --target wasm32-wasip1 && rustup default stable
       - uses: Swatinem/rust-cache@v2
@@ -93,7 +93,7 @@ jobs:
         run: pip install "ziglang==$ZIGLANG"
       - name: Build
         run: XTMD_ZIG="python3 -m ziglang" compiler/wasm/build.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: checks-xtmd-wasm
           path: compiler/npm/wasm/xtmd.wasm
@@ -107,7 +107,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Rust
         run: rustup toolchain install stable --profile minimal && rustup default stable
       - uses: Swatinem/rust-cache@v2
@@ -125,8 +125,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           # npm's downloads, kept between runs while the lock files stay the same
@@ -138,7 +138,7 @@ jobs:
         with:
           workspaces: compiler
           key: release
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: checks-xtmd-wasm
           path: compiler/npm/wasm
@@ -152,78 +152,99 @@ jobs:
         run: node tools/release/build-ts.mjs
       - name: Tested
         run: node tools/release/build-ts.mjs --test-only
+      - name: The notes for agents, held to the repository
+        run: |
+          node --test tools/llm/test/*.test.mjs
+          node tools/llm/check.mjs
+      - name: The pre-commit checks, and the table of what each release removes
+        run: |
+          node --test .github/pre-commit/test/*.test.mjs
+          node .github/pre-commit/check.mjs
+      - name: xtmd migrate's tools - the release before's front end is its tag's, and chain.py
+        # the 0.3.2 corpus itself is migrated by Rust's tests (compiler/xtmd/tests/migrate_032.rs)
+        run: |
+          tag=$(sed -n 's/^pub const TAG: &str = "\(.*\)";$/\1/p' compiler/xtmd/previous/mod.rs)
+          git fetch --no-tags --depth=1 origin "refs/tags/$tag:refs/tags/$tag"
+          node tools/release/previous.mjs --check
+          python3 -m unittest discover tools/migrate/test
       - name: The VS Code extension, built and tested
         working-directory: ide/vscode
         run: npm install --no-audit --no-fund && npm test
 
-  conformance:
-    name: Every target's conformance checks
-    needs: [gate, wasm]
+  android:
+    name: Android's Kotlin
+    needs: gate
     if: needs.gate.outputs.tested != 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: "**/package-lock.json"
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
+      - name: The Android SDK the project builds with
+        # the runner has one, and these parts of it may be missing
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.1.0" > "$RUNNER_TEMP/sdk.log" || { tail -n 20 "$RUNNER_TEMP/sdk.log"; exit 1; }
       - name: Rust
         run: rustup toolchain install stable --profile minimal && rustup default stable
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: compiler
-          key: release
-      - uses: actions/download-artifact@v4
-        with:
-          name: checks-xtmd-wasm
-          path: compiler/npm/wasm
-      - name: The compiler, and the native runtime's and egui's check adapters
-        working-directory: compiler
-        run: |
-          cargo build --release -p xtmd -p xtmd-runtime -p xtmd-egui -p xtmd-egui-live --bins
-          echo "$PWD/target/release" >> "$GITHUB_PATH"
-      - name: The npm packages the web targets draw with
-        run: node tools/release/build-ts.mjs
-      - name: The VS Code extension's widgets, for the vscode target
-        working-directory: ide/vscode
-        run: npm install --no-audit --no-fund
-      - name: Gradle's downloads, kept between runs
-        uses: actions/cache@v4
+          key: android
+      - name: Gradle's downloads, and Robolectric's Android, kept between runs
+        uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ hashFiles('targets/examples/misc/android/compose/**/*.gradle.kts', 'targets/examples/misc/android/compose/gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: gradle-
-      - name: The Android libraries for the JVM, and their check adapters' classpath
+            ~/.m2/repository/org/robolectric
+          key: android-${{ hashFiles('**/*.gradle.kts', 'renderers/compose/gradle/**') }}
+          restore-keys: |
+            android-
+            gradle-
+      - name: The compiler, which the tests build their pages with
+        working-directory: compiler
+        run: cargo build --release -p xtmd
+      - name: The libraries for the JVM, and the Kotlin bindings
         run: |
-          targets/examples/misc/android/xtmd/build.sh host
-          targets/examples/misc/android/xtmd-live/build.sh host
-          # the adapters start as `java @build/check_adapter.args …` (targets/examples/misc/android/compose/target.yaml);
-          # without the file, android's and android-live's adapters can't start.
-          # Gradle fetches its plugins from Google, Maven Central and the Gradle Plugin Portal; when one
-          # stops answering (as on 20 November 2026), it is tried again a minute later, up to three times
-          # Gradle's own reason goes in the check's annotations, so a failure says why without its log
-          cd targets/examples/misc/android/compose
+          runtime/kotlin/rust/build.sh host
+          live/compose/rust/build.sh host
+      - name: Built
+        # Gradle fetches its plugins from Google, Maven Central and the Gradle Plugin Portal; when one stops
+        # answering it is tried again a minute later, up to three times. Kotlin that doesn't compile isn't.
+        working-directory: renderers/compose
+        run: |
           set -o pipefail
           for try in 1 2 3; do
-            ./gradlew --no-daemon :xtmd-android:checkAdapterArgs 2>&1 | tee "$RUNNER_TEMP/gradle.log" && break
-            why=$(grep -A4 -E "What went wrong|^e: " "$RUNNER_TEMP/gradle.log" | grep -v -E "^\* (What went wrong|Try)|^--$|^$" | head -6 | tr '\n' ' ' | cut -c1-500)
-            why=${why:-$(tail -n 3 "$RUNNER_TEMP/gradle.log" | tr '\n' ' ' | cut -c1-500)}
+            ./gradlew --no-daemon :xtmd-android-widgets:compileDebugUnitTestKotlin :xtmd-android:compileDebugUnitTestKotlin :xtmd-android-live:compileDebugUnitTestKotlin :sample:compileDebugUnitTestKotlin 2>&1 | tee "$RUNNER_TEMP/gradle.log" && break
+            why=$(grep -E "^e: " "$RUNNER_TEMP/gradle.log" | head -6 | tr '\n' ' ' | cut -c1-500)
+            if [ -n "$why" ]; then echo "::error::The Kotlin doesn't compile: $why"; exit 1; fi
+            why=$(tail -n 8 "$RUNNER_TEMP/gradle.log" | tr '\n' ' ' | cut -c1-500)
             if [ "$try" = 3 ]; then echo "::error::Gradle failed three times: $why"; exit 1; fi
             echo "::warning::Gradle failed (try $try of 3): $why; trying again in 60 seconds"
             sleep 60
           done
-      - name: A browser for the web targets
-        run: echo "XTMD_CHROMIUM=$(command -v google-chrome || command -v chromium)" >> "$GITHUB_ENV"
-      - name: Every target, every case
-        run: xtmd target check
+      - name: Tested
+        working-directory: renderers/compose
+        run: |
+          # Robolectric fetches its Android from Maven as a module's first test starts. When it can't, the module's
+          # tests didn't start: when nothing else failed they are tried again a minute later, up to three times
+          # in all. A test that ran and failed isn't run again; it and why are in the check's annotations.
+          for try in 1 2 3; do
+            ./gradlew --no-daemon testDebugUnitTest --continue && exit 0
+            python3 ../../tools/release/android-failures.py ../.. || exit 1
+            echo "::warning::Robolectric's Android couldn't be fetched (try $try of 3)"
+            if [ "$try" != 3 ]; then sleep 60; fi
+          done
+          exit 1
+      - name: Not one was skipped
+        working-directory: renderers/compose
+        run: |
+          ran=$(find ../.. -path "*/build/test-results/testDebugUnitTest/*.xml" -exec cat {} + | grep -c "<testcase")
+          skipped=$(find ../.. -path "*/build/test-results/testDebugUnitTest/*.xml" -exec cat {} + | grep -c "<skipped" || true)
+          echo "$ran tests, $skipped skipped"
+          test "$ran" -gt 0 && test "$skipped" -eq 0
 
   release:
     name: Release dry run
@@ -239,8 +260,8 @@ jobs:
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       PACK: ${{ needs.gate.outputs.dryrun != 'true' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
@@ -269,7 +290,7 @@ jobs:
         with:
           workspaces: compiler
           key: release
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: env.PACK == 'true'
         with:
           name: checks-xtmd-wasm
@@ -297,7 +318,7 @@ jobs:
       - name: This tree's packaging passed
         if: env.PACK == 'true'
         run: echo "${{ needs.gate.outputs.tree }}" > "$RUNNER_TEMP/tree.txt"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: env.PACK == 'true'
         with:
           name: dryrun-${{ needs.gate.outputs.tree }}
@@ -308,26 +329,26 @@ jobs:
     # the check main's ruleset requires, by this name
     name: Types, tests and conformance
     if: always()
-    needs: [gate, rust, npm, conformance, release]
+    needs: [gate, rust, npm, android, release]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Every check passed
         run: |
-          echo "tree ${{ needs.gate.outputs.tree }} (tested before: ${{ needs.gate.outputs.tested }}); Rust's tests: ${{ needs.rust.result }}; npm and the playground: ${{ needs.npm.result }}; conformance: ${{ needs.conformance.result }}; release dry run: ${{ needs.release.result }}"
+          echo "tree ${{ needs.gate.outputs.tree }} (tested before: ${{ needs.gate.outputs.tested }}); Rust's tests: ${{ needs.rust.result }}; npm and the playground: ${{ needs.npm.result }}; Android's Kotlin: ${{ needs.android.result }}; release dry run: ${{ needs.release.result }}"
           test "${{ needs.gate.result }}" = success
           if [ "${{ needs.gate.outputs.tested }}" = true ]; then
             echo "these files passed every test in an earlier run of this repository: tested-${{ needs.gate.outputs.tree }}"
           else
             test "${{ needs.rust.result }}" = success
             test "${{ needs.npm.result }}" = success
-            test "${{ needs.conformance.result }}" = success
+            test "${{ needs.android.result }}" = success
           fi
           # the dry run is skipped on pull requests into staging, and runs before main
           test "${{ needs.release.result }}" = success || test "${{ needs.release.result }}" = skipped
           echo "${{ needs.gate.outputs.tree }}" > "$RUNNER_TEMP/tree.txt"
       # this tree passed: a later run on the same files (after a merge, in the release) needn't test it again
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: needs.gate.outputs.tested != 'true'
         with:
           name: tested-${{ needs.gate.outputs.tree }}

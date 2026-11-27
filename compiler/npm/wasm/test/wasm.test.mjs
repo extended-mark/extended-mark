@@ -1,5 +1,5 @@
-// xtmd.wasm held to the binary: every conformance case built both ways gives the same IR and the
-// same diagnostics, and what a real-time target leans on (a broken document, packs given as text,
+// xtmd.wasm held to the binary: every case built both ways gives the same IR and the
+// same diagnostics, and what a live document leans on (a broken document, packs given as text,
 // a compiler that goes on after a bad one) works.
 
 import { test } from "node:test";
@@ -12,6 +12,7 @@ import { Compiler } from "../dist/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const casesDir = join(here, "../../../../checks/cases");
+const pagesDir = join(here, "../../../../runtime/typescript/test/cases");
 
 function walk(dir, keep, out = []) {
   for (const name of readdirSync(dir).sort()) {
@@ -23,7 +24,8 @@ function walk(dir, keep, out = []) {
 }
 
 /** Every case with a source: where it is, its packs' folders and files, and those files' text. */
-const cases = walk(casesDir, (p) => p.endsWith(".json")).flatMap((f) => {
+// the compiler's, and the pages the TypeScript runtime runs, which all compile
+const cases = [casesDir, pagesDir].flatMap((d) => walk(d, (p) => p.endsWith(".json"))).flatMap((f) => {
   const c = JSON.parse(readFileSync(f, "utf8"));
   if (!c.id || !c.source) return [];
   const dir = dirname(f);
@@ -42,7 +44,7 @@ test("xtmd.wasm loads, compiling core once", () => {
   console.log(`xtmd.wasm loaded in ${loadMs} ms`);
 });
 
-test("every conformance case gives the binary's IR, or the binary's errors", async () => {
+test("every case gives the binary's IR, or the binary's errors", async () => {
   let built = 0;
   for (const c of cases) {
     const got = compiler.build(c.source, readFileSync(c.source, "utf8"), c.files);
@@ -64,7 +66,7 @@ test("every conformance case gives the binary's IR, or the binary's errors", asy
     const key = (d) => `${d.file}:${d.line}:${d.column} ${d.code}`;
     assert.deepEqual(got.diagnostics.filter((d) => d.file === c.source).map(key).sort(), said.filter((d) => d.file === c.source).map(key).sort(), c.id);
   }
-  // most cases are compile errors on purpose; the rest run on the targets
+  // most cases are compile errors on purpose; the rest run on the renderers
   assert.ok(built >= 50, `${built} of ${cases.length} built`);
 });
 
@@ -80,20 +82,23 @@ test("a document with errors gives them, with no IR, and the compiler goes on", 
 
 test("a pack given as text is used, and one the document names but isn't given is an error", () => {
   const pack = { path: "shapes/shapes.xtmdpack", text: "package shapes;\n\npack shapes@1 {\n    provides double;\n}\n\nfn double(x: number): number {\n    return x * 2;\n}\n" };
-  const doc = "import shapes;\n@@@\nTwice: \\{double(4)}\n";
+  const doc = "import shapes;\n$state {\n    n: number = 4;\n}\n@@@\nTwice: \\{double($state.n)}\n";
   const ok = compiler.build("page.xtmd", doc, [pack]);
   assert.equal(ok.errors, 0, JSON.stringify(ok.diagnostics));
   assert.ok(JSON.stringify(ok.ir).includes("shapes/double"));
+  // one of a constant is worked out, and the fn isn't needed
+  const worked = compiler.build("page.xtmd", "import shapes;\n@@@\nTwice: \\{double(4)}\n", [pack]);
+  assert.ok(JSON.stringify(worked.ir).includes('"8"') && !JSON.stringify(worked.ir).includes("shapes/double"));
   const missing = compiler.build("page.xtmd", doc);
   assert.ok(missing.errors > 0 && missing.diagnostics.some((d) => d.code === "names.unknown-pack"), JSON.stringify(missing.diagnostics));
 });
 
-test("every case's resolved IR is the binary's (xtmd build --rir), and only when asked", async () => {
+test("every case's resolved IR is the binary's (xtmd compile --rir), and only when asked", async () => {
   let resolved = 0;
   for (const c of cases) {
     const text = readFileSync(c.source, "utf8");
     const got = compiler.build(c.source, text, c.files, { rir: true });
-    const run = await cli.run(["build", "--rir", c.source, ...c.packs.flatMap((p) => ["--pack", p])]);
+    const run = await cli.run(["compile", "--rir", c.source, ...c.packs.flatMap((p) => ["--pack", p])]);
     if (run.code !== 0) continue;
     assert.deepEqual(got.rir, JSON.parse(run.stdout), c.id);
     // the IR beside it is the one a build without it gives
@@ -118,7 +123,7 @@ test("core's files come first in the resolved IR when asked, resolved, as the bi
   assert.ok(files.length > 10 && files[0].path.startsWith("core/") && files.at(-1).path === "page.xtmd", files.map((f) => f.path).join(" "));
   const press = files.find((f) => f.path === "core/controls.xtmdpack").declarations.find((d) => d.extern_widget?.id === "core/press").extern_widget;
   assert.equal(press.inputs[0].id, "core/press.label");
-  assert.match(press.doc.about, /^Something to press/);
+  assert.match(press.comments.doc.about, /^Something to press/);
 });
 
 test("every case formats as xtmd fmt writes it", async () => {
@@ -180,13 +185,15 @@ test("every case's Markdown is xtmd md's, and a document that doesn't compile ha
 test("a migration plans what xtmd migrate writes, asks what it asks, and keeps nothing between runs", async () => {
   const { mkdtempSync, mkdirSync, writeFileSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
-  // the CLI's own fixture: kit@2 renames and drops what kit@1 had
+  // the CLI's own fixture: kit@2 renames and drops what kit@1 had, in a tree that says it is this
+  // release's (one that names none is read as 0.3.2's)
+  const release = JSON.parse(readFileSync(join(here, "../package.json"), "utf8")).version;
   const surface = "package kit@1;\n\nrecord stat {\n    label: text;\n    value: text;\n}\n\nenum state { DONE, LATE }\n\nextern widget chart(values: list<number>, color: color = color.ACCENT);\nextern widget badge(label: text, shadow: bool = false);\nextern widget sparkline(values: list<number>);\nextern widget stats(items: list<stat>);\n";
-  const kit = "package kit;\n\npack kit@2 {\n    uses core@1;\n    provides plot, badge, stat, state, stats;\n}\n\nrecord stat {\n    title: text;\n    value: text;\n    unit: text;\n}\n\nenum state { DONE, OVERDUE }\n\nextern widget plot(values: list<number>, tone: color = color.ACCENT);\nextern widget badge(label: text, size: size = size.M);\nextern widget stats(items: list<stat>);\n";
+  const kit = "package kit;\n\npack kit@2 {\n    uses core@2;\n    provides plot, badge, stat, state, stats;\n}\n\nrecord stat {\n    title: text;\n    value: text;\n    unit: text;\n}\n\nenum state { DONE, OVERDUE }\n\nextern widget plot(values: list<number>, tone: color = color.ACCENT) {\n    markdown { }\n}\nextern widget badge(label: text, size: size = size.M) {\n    markdown { }\n}\nextern widget stats(items: list<stat>) {\n    markdown { }\n}\n";
   const migration = "package kit;\n\nmigration kit@1 to kit@2 {\n    widget chart {\n        rename(to = plot);\n        rename(input = color, to = tone);\n    }\n\n    widget badge {\n        drop(input = shadow, why = \"badges have no shadow\");\n        set(input = size, value = size.S, when = !given(size), why = \"kit@1's badges were small\");\n    }\n\n    widget sparkline {\n        drop(why = \"use plot\");\n    }\n\n    record stat {\n        rename(field = label, to = title);\n        add(field = unit, value = \"\", why = \"a stat names its unit\");\n    }\n\n    enum state {\n        split(from = state.LATE, to = [state.OVERDUE, state.DONE], why = \"late is now overdue, or done\");\n    }\n}\n";
   const doc = "import kit;\n\n$state {\n    s: state = state.LATE;\n}\n@@@\n# Report\n\n@chart(values = [1, 2], color = color.OK);\n\n@badge(label = \"Beta\", shadow = true);\n\n@sparkline(values = [3]);\n\n@stats(items = [stat { label = \"Deploys\", value = \"42\" }]);\n";
   const dir = mkdtempSync(join(tmpdir(), "xtmd-wasm-migrate-"));
-  const files = { "kit/kit.xtmdpack": kit, "kit/surfaces/kit@1.xtmdpack": surface, "kit/migrations/kit@2.xtmdpack": migration, "xtmd.toml": "packs = [\"kit\"]\n\n[uses]\nkit = 1\n", "docs/report.xtmd": doc };
+  const files = { "kit/kit.xtmdpack": kit, "kit/surfaces/kit@1.xtmdpack": surface, "kit/migrations/kit@2.xtmdpack": migration, "xtmd.toml": `xtmd = "${release}"\npacks = ["kit"]\n\n[uses]\nkit = 1\n`, "docs/report.xtmd": doc };
   for (const [f, t] of Object.entries(files)) {
     mkdirSync(dirname(join(dir, f)), { recursive: true });
     writeFileSync(join(dir, f), t);

@@ -1,0 +1,33 @@
+record span {
+    low: number;
+    high: number;
+
+    warn "the span is wide" {
+        return high - low < 10;
+    }
+}
+
+let wide: span = span { low = 0, high = 50 };
+
+widget gauge(low: number, high: number) {
+    warn "the low end is above the high end" {
+        return low < high;
+    }
+    view {
+        @label(value = "\{low} to \{high}");
+    }
+}
+
+$state {
+    tries: int = 9;
+
+    warn "many tries" {
+        return $state.tries < 5;
+    }
+}
+@@@
+@gauge(low = 9, high = 5);
+
+@gauge(low = 1, high = 5);
+
+\{wide.low}

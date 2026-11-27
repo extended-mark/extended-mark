@@ -1,8 +1,0 @@
-.gradle/
-build/
-.kotlin/
-local.properties
-# written by ../xtmd/build.sh: the native libraries and the generated bindings
-xtmd-android/native/
-# written by ../xtmd-live/build.sh: the compiler's native libraries and its bindings
-xtmd-android-live/native/

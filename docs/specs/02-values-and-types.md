@@ -2,7 +2,7 @@
 
 Page 2 of 9. Records, enums, constant and mut, passing values, optional values, numbers, contracts and the proofs they need, and what a fn may change.
 
-Eight types are built in, because the syntax makes them: `number`, `bool`, `text`, `duration`, `list<T>`, `opt<T>`, `range<T>` and `view`. Everything else, from `int`, `point`, `date`, `moment`, `latex`, `md` and `template` to the token types, the options and `page`, is declared in `core`, the standard library, which is written in Extended Mark and imported by every file. Page 5 has all of it.
+Nine types are built in, because the syntax makes them: `number`, `bool`, `text`, `duration`, `list<T>`, `opt<T>`, `range<T>`, `view` and `rich_text`. Text that code works with is `text`, and Markdown is `rich_text`: there is no third. Everything else, from `int`, `point`, `date`, `moment`, `latex` and `template` to the token types, the options and `page`, is declared in `core`, the standard library, which is written in Extended Mark and imported by every file. Page 5 has all of it.
 
 A type is written in one of five forms.
 
@@ -27,13 +27,13 @@ enum stage {
 
 //@about One tile.
 record stat {
-    label: text[1...];               // required
-    value: text;                     // required
-    change: opt<text> = opt.NONE;    // optional, may be absent
+    label: text[1...]; // required
+    value: text; // required
+    change: opt<text> = opt.NONE; // optional, may be absent
     note: opt<text> = opt.NONE;
     tone: opt<color> = opt.NONE;
-    size: int 1... = 16;             // optional, falls back to 16
-    mut seen: bool = false;          // can change
+    size: int 1... = 16; // optional, falls back to 16
+    mut seen: bool = false; // can change
 }
 
 // another name for a type, not a new type
@@ -98,7 +98,7 @@ fn mark(mut s: stat) {
 
 - **Every `let` and `mut` writes its type**, `if (let c: text = …)` and `if (mut x: todo = …)` included. Names bound by `for` and `case` take the type of what they walk or open, because they are not declarations: in `mut for (t in todos)`, `t` is an `opt<todo>`.
 - **A literal takes the type that is expected**: `stat { … }`, `[1, 2]` and `opt.NONE` are checked against the declared type. With nothing to aim for, as in `"\{42}"`, `42` is a `number`.
-- **A literal with holes** is an `opt` when one of its holes is (Optional values, below). A literal whose type's `from` would have to read a hole is a compile error that names the hole and says to build the record: `"2026-\{month}-01"` is no `date`, and `date { year = 2026, month = month, day = 1 }` is, with `month` proved to be an `int 1..12`. A hole is glued in as text and parsed again, so even a month of 7 would fail as `2026-7-01`. Holes stay in literals only where they are placed and never read: in `text`, `rich_text`, `md` and `latex` (page 4).
+- **A literal with holes** is an `opt` when one of its holes is (Optional values, below). A literal whose type's `from` would have to read a hole is a compile error that names the hole and says to build the record: `"2026-\{month}-01"` is no `date`, and `date { year = 2026, month = month, day = 1 }` is, with `month` proved to be an `int 1..12`. A hole is glued in as text and parsed again, so even a month of 7 would fail as `2026-7-01`. Holes stay in literals only where they are placed and never read: in `text`, `rich_text` and `latex` (page 4).
 - **A lambda's types may come from where it is used.** Passed to an input, a parameter or an event, or given to a `let` that writes its type, a lambda may leave out its parameter types and its return type: `fn(p) { return p.nick; }`. Anywhere else it writes them all. Writing them is always allowed.
 
 ### Passing values
@@ -109,18 +109,18 @@ Assigning makes a value of its own. `let b: stat = a;`, `mut out: list<number> =
 
 ```java
 fn sorted_copy(xs: list<number>): list<number> {
-    mut out: list<number> = xs;      // out is its own value: xs is untouched
+    mut out: list<number> = xs; // out is its own value: xs is untouched
     out.sort();
     return out;
 }
 
 fn sweep(mut stats: list<stat>) {
-    mut for (t in stats) {           // t is an opt<stat>, for the real item
-        if (mut s: stat = t) {       // still in the list
+    mut for (t in stats) { // t is an opt<stat>, for the real item
+        if (mut s: stat = t) { // still in the list
             if (s.seen) {
-                stats.remove(s);     // the loop goes on with the next item of its copy
+                stats.remove(s); // the loop goes on with the next item of its copy
             } else {
-                s.seen = true;       // writes the real item, wherever it now is
+                s.seen = true; // writes the real item, wherever it now is
             }
         }
     }
@@ -132,7 +132,8 @@ fn sweep(mut stats: list<stat>) {
 - **Plain `for` makes no copy.** It can't change the list it walks or its items, and a change to them in its body is a compile error. It can still update its own locals, such as a running total.
 - **After a removal**: Once a body or an event handler removes `x` from its list, `x` can't be used in the rest of that block. It is a compile error when the compiler can see it, and a failure when it can't.
 - **Lambdas**: A lambda reads its parameters, and the constants, `let`s and `for` variables around it, as they were when it was made. The variables it may assign it reads and writes where they live, so after `$state.tries = $state.tries + 1;` the next read sees the new value. A lambda with no return type may assign `$state`'s fields, the widget's own variables, a `mut` input, and a `mut for` or `if (mut …)` variable, whose writes go to the real item. A row leaves the page with its item, so its handlers can never write an item that is gone. A lambda can't assign a `mut` local of the fn it is written in.
-- **Derived values**: A `let` at the top of a document or in a widget or a view is worked out again whenever something it reads changes, such as a `$state` field or an input. One whose expression is a constant is a constant (Contracts, below). A `let` inside a fn is an ordinary local.
+- **Constants at the top of a file**: A `let` at the top of a file is a constant (Contracts, below). Anything else is a compile error. A fn gives a value that changes: `fn total(): number { … }`, read as `total()`.
+- **Derived values**: A `let` in a widget or a view is worked out again whenever something it reads changes, such as a `$state` field or an input. A `let` inside a fn is an ordinary local.
 - **Memory** is the implementer's. Extended Mark code has no pointers, no freeing and no null, and indexing gives an `opt`, so it can't cause a memory error. Values can't form cycles, because assigning makes a value of its own and a reference can't be stored, so no tracing garbage collector is needed.
 
 ### Optional values
@@ -164,9 +165,9 @@ Using an `opt<color>` where a `color` is wanted is an ordinary type error. A pla
 
 ```java
 let readings: list<opt<number>> = [opt.SOME(3), opt.NONE];
-let b: opt<opt<number>> = readings[1];       // opt.SOME(opt.NONE): the item is there, and empty
-let c: opt<opt<number>> = readings[5];       // opt.NONE: there is no item 5
-let d: opt<opt<number>> = 3;                 // opt.SOME(opt.SOME(3))
+let b: opt<opt<number>> = readings[1]; // opt.SOME(opt.NONE): the item is there, and empty
+let c: opt<opt<number>> = readings[5]; // opt.NONE: there is no item 5
+let d: opt<opt<number>> = 3; // opt.SOME(opt.SOME(3))
 ```
 
 ### Numbers
@@ -182,12 +183,12 @@ There is one number type, `number`. It is exact base-10: IEEE 754 decimal128, wi
 - **`duration`** counts milliseconds and is written `250ms` or `2s`. It is a separate type, because a duration is not a plain number: `d.ms()` gives one.
 
 ```java
-let half: number = 7 / 2;                // 3.5
-let rest: number = 7 % 2;                // 1
-let whole: int = (7 / 2).floor();        // 3
-let sum: number = 0.1 + 0.2;             // 0.3
-let third: number = 1 / 3;               // 0.3333… to 34 digits
-let root: opt<number> = (-4).sqrt();     // opt.NONE: no real root
+let half: number = 7 / 2; // 3.5
+let rest: number = 7 % 2; // 1
+let whole: int = (7 / 2).floor(); // 3
+let sum: number = 0.1 + 0.2; // 0.3
+let third: number = 1 / 3; // 0.3333… to 34 digits
+let root: opt<number> = (-4).sqrt(); // opt.NONE: no real root
 ```
 
 ### Contracts
@@ -195,21 +196,21 @@ let root: opt<number> = (-4).sqrt();     // opt.NONE: no real root
 A contract narrows a type. There are four kinds.
 
 ```java
-start: number 0... = 5;                  // a range: 0 or more
-below: number ...10;                     // 10 or less
-level: number 0..10;                     // both bounds are always included
-offset: number -20..40;                  // the minus is the bound's own sign
-grade: number 0..limit;                  // a bound can be a named constant
-last: number 0..(limit - 1);             // anything longer goes in brackets
-count: int 0...;                         // a whole number, 0 or more: number 0... step 1
+start: number 0... = 5; // a range: 0 or more
+below: number ...10; // 10 or less
+level: number 0..10; // both bounds are always included
+offset: number -20..40; // the minus is the bound's own sign
+grade: number 0..limit; // a bound can be a named constant
+last: number 0..(limit - 1); // anything longer goes in brackets
+count: int 0...; // a whole number, 0 or more: number 0... step 1
 ratio: number 0.4..10;
 volume: number 0..1 step 0.05;
 delay: duration 100ms..10s;
-name: text[1...];                        // a length: square brackets, for text and lists
-code: text[3];                           // exactly 3 characters
+name: text[1...]; // a length: square brackets, for text and lists
+code: text[3]; // exactly 3 characters
 items: list<stat>[1...];
-pair: list<number>[2];                   // exactly 2 items
-scores: list<number 0..100>[1..50];      // a range on each item, a length on the list
+pair: list<number>[2]; // exactly 2 items
+scores: list<number 0..100>[1..50]; // a range on each item, a length on the list
 note: opt<text[1...]> = opt.NONE;
 tone: color only (color.INFO, color.OK, color.WARN, color.BAD) = color.INFO;
 side: text only ("left", "right") = "left";
@@ -221,7 +222,7 @@ side: text only ("left", "right") = "left";
 - **A length** `[low..high]`, `[low...]` or `[n]` counts the characters of a text or the items of a list. `[3]` is exactly 3, short for `[3..3]`. Nothing is ever padded to fit.
 - **`only (…)`** lists the allowed values, for types that implement `same`, and the values are constants. Tokens compare as cases, so the `tone` above takes those four cases and no other, whatever values a theme gives them.
 - **A bound** is a number with an optional sign, a duration, a named constant, or a constant expression in brackets. Bounds are always constants. A type can't depend on a value that is only known when the page runs.
-- **Constants** are literals, enum cases (tokens among them), top-level `let` values whose expression is itself a constant, and arithmetic over those. A `let` that reads a variable, `$state` or an extern value is not a constant.
+- **Constants** are what the compiler can work out: literals, enum cases (tokens among them), records, lists, arithmetic, top-level `let`s, fns called on constants, and lambdas and widgets held as values that read nothing that changes. What reads a variable, `$state` or an extern value is not a constant, and neither is what calls an `extern fn`, whose supplier may replace its default.
 
 #### When a value is accepted
 
@@ -232,6 +233,7 @@ A value with a narrower contract is always accepted where a wider one, or none, 
 | The value is a constant | `level = 7` | Checked on the spot. Out of range is a compile error on that line |
 | `if (x in low..high)` | `if (n in 0..100) { … }` | Inside the block, `x` has that range. `x` is a `let`, a parameter or a loop variable |
 | `if (x.len() in low..high)` | `if (name.len() in 1...) { … }` | Inside the block, `x` has that length |
+| Opening with a contract | `if (let t: text[1...] = draft.trim()) { … }` | The block runs only when the value is there and fits the contract written, and inside it the name has that contract. With `if (mut …)`, it is the value when the block starts that has to fit |
 | `clamp` with constant bounds | `(n + 1).clamp(0, 10)` | The result is in `0..10`, and whole when the value and the bounds are |
 | `clamp` with ranged bounds | `value.clamp(0, max)`, with `max: number 0...` | The result runs from the low bound's lowest value to the high bound's highest: here `0...` |
 | `round`, `floor`, `ceil` | `share.round()` | The result is an `int` |
@@ -242,7 +244,7 @@ A value with a narrower contract is always accepted where a wider one, or none, 
 | `len()` | `items.len()` | An `int` with the list's or text's length contract as its range |
 | The two sides of `? :` | `wide ? n.clamp(1, 4) : n.clamp(1, 2)` | The result covers both sides: `1..4` |
 
-Everything else gives the plain type. In particular, arithmetic on anything but constants loses its range: `a + b` on two `number 0..10` is a `number` (an `int`, if both were whole). A value with no proof where a contract is wanted is a compile error that asks for one. It never becomes an `opt`: only `try` turns a value that doesn't fit into `opt.NONE` (Bigger rules, below).
+Everything else gives the plain type. In particular, arithmetic on anything but constants loses its range: `a + b` on two `number 0..10` is a `number` (an `int`, if both were whole). A value with no proof where a contract is wanted is a compile error that asks for one. It never becomes an `opt`: only `try` turns a value that doesn't fit into `opt.NONE` (Bigger rules, below), and only opening with a contract passes over one.
 
 ```java
 fn rank(score: number 0..100): text {
@@ -251,7 +253,7 @@ fn rank(score: number 0..100): text {
 
 fn grade(n: number): text {
     if (n in 0..100) {
-        return rank(n);                  // n is a number 0..100 here
+        return rank(n); // n is a number 0..100 here
     }
     return "out of range";
 }
@@ -319,9 +321,10 @@ fn entered(a: number, b: number): opt<span> {
 - **Made anywhere.** A record that has `require` blocks can be made anywhere. Its rules run when it is made: at compile time for constants, where a `false` is a compile error, and when the page runs for anything else, where a `false` is a failure. Write `try` in front to get an `opt` instead, for values that may be wrong.
 - **`try`** in front of a record literal, a `with`, or a case that carries values, such as `try stroke.PX(value)`, gives an `opt`: the value when every contract and every `require` holds, and `opt.NONE` when one does not. So a value under `try` needs no proof. Without `try`, each field's contract still needs its proof.
 - **Contracts first.** A limit on one field is best written as that field's contract, which is proved at compile time, as `date`'s `month: int 1..12` is (page 5). A `require` is for rules across fields, such as a span's end coming after its start, or a day fitting its month.
-- **Every change is checked.** Whenever a value changes, every contract and `require` block that reads it is checked, wherever it lives: in a record, a widget or `$state`. A rule that fails is handled where the change happened: in an event handler it is a failure, and the event is undone; under `try` the answer is `opt.NONE`; a write from the app is refused and reported. Values that have to move together change in one step, so the rules see only the result: `$state = $state with { low = a, high = b };`.
+- **Every change is checked.** Whenever a value changes, every contract and `require` block that reads it is checked, wherever it lives: in a record, a widget or `$state`. A rule that fails is handled where the change happened: in an event handler it is a failure, and the event is undone; under `try` the answer is `opt.NONE`; a write from the host is refused and reported. Values that have to move together change in one step, so the rules see only the result: `$state = $state with { low = a, high = b };`.
 - **Mut fields.** So a record with `require` blocks may have `mut` fields: every change to one checks its rules again.
-- **In a widget**, a `require` reads inputs only. With constant inputs it is checked by the compiler. Otherwise it is checked when the widget is made and when an input changes, and a `false` is a failure of that widget.
+- **In a widget**, written in Extended Mark or extern, a `require` reads inputs and slots only. With constants it is checked by the compiler. Otherwise it is checked when the widget is made and when something it reads changes, and a `false` is a failure of that widget.
+- **`warn` is a `require` that only tells.** It is written where a `require` is, in a record, a widget, an extern widget or `$state`, and it refuses, undoes and replaces nothing. A `false` is a compile warning when everything it reads is constant. When the page runs, the host is told, with the message and the widget it is about, once each time it becomes false.
 
 ### What a fn may change
 
@@ -339,7 +342,7 @@ fn counted(): text {
 }
 ```
 
-The number shown would depend on how often the implementer happened to redraw: once on a desktop, several times on a phone that resized, and once more every time someone exported Markdown. With the rule, every change starts in an action: an event handler, or a call or a write from the app. What the page shows doesn't depend on how often it is drawn, an implementer can redraw only what changed, exporting Markdown or previewing can't change anything, and "why did this change?" always has one answer: the action that ran.
+The number shown would depend on how often the implementer happened to redraw: once on a desktop, several times on a phone that resized, and once more every time someone exported Markdown. With the rule, every change starts in an action: an event handler, or a call or a write from the host. What the page shows doesn't depend on how often it is drawn, an implementer can redraw only what changed, exporting Markdown or previewing can't change anything, and "why did this change?" always has one answer: the action that ran.
 
 The return type tells the two kinds apart without a new keyword. A fn with a return type answers a question. A fn with none is an action.
 

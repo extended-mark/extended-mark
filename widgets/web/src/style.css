@@ -1,0 +1,704 @@
+/* @extended-mark/dom: a calm, native look in the system font. Every colour, length and font comes from core's
+   tokens, custom properties under the page's own class, for both themes: the root's
+   data-xtmd-theme says which. The values here are only for a page without them. */
+
+:where(.xtmd-root) {
+  --xtmd-color-surface: #ffffff;
+  --xtmd-color-ink: #1a1c1f;
+  --xtmd-color-muted: #6b7280;
+  --xtmd-color-line: #d4d7dc;
+  --xtmd-color-accent: #2563eb;
+  --xtmd-color-bad: #dc2626;
+  --xtmd-space-xs: 2px;
+  --xtmd-space-s: 4px;
+  --xtmd-space-m: 8px;
+  --xtmd-space-l: 16px;
+  --xtmd-space-xl: 32px;
+  --xtmd-radius-card: 8px;
+  --xtmd-radius-pill: 999px;
+  --xtmd-font-body-family: system-ui, sans-serif;
+  --xtmd-font-body-size: 16px;
+  --xtmd-font-body-weight: 400;
+  --xtmd-font-body-line: 1.5;
+  --xtmd-font-heading-family: system-ui, sans-serif;
+  --xtmd-font-heading-size: 22px;
+  --xtmd-font-heading-weight: 650;
+  --xtmd-font-heading-line: 1.25;
+  --xtmd-font-mono-family: ui-monospace, monospace;
+  --xtmd-font-mono-size: 14px;
+  --xtmd-font-mono-weight: 400;
+  --xtmd-font-mono-line: 1.45;
+  --xtmd-shadow-raised: 0 1px 3px #0000001f;
+}
+
+.xtmd-root {
+  display: block;
+  color: var(--xtmd-color-ink);
+  background: var(--xtmd-color-surface);
+  font-family: var(--xtmd-font-body-family);
+  font-size: var(--xtmd-font-body-size);
+  font-weight: var(--xtmd-font-body-weight);
+  line-height: var(--xtmd-font-body-line);
+  -webkit-text-size-adjust: 100%;
+  overflow-wrap: break-word;
+}
+
+.xtmd-root *,
+.xtmd-root *::before,
+.xtmd-root *::after {
+  box-sizing: border-box;
+}
+
+.xtmd-root [hidden] {
+  display: none !important;
+}
+
+.xtmd-root :focus-visible {
+  outline: 2px solid var(--xtmd-color-accent);
+  outline-offset: 2px;
+}
+
+/* ---- blocks: no margins of their own; a flow of blocks spaces them */
+
+:where(.xtmd-root) :where(p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre, figure, hr, table) {
+  margin: 0;
+}
+
+.xtmd-root,
+.xtmd-quote,
+.xtmd-item-body,
+.xtmd-footnote-body,
+.xtmd-overlay-body {
+  --xtmd-flow: 0.75em;
+}
+
+:is(.xtmd-root, .xtmd-quote, .xtmd-item-body, .xtmd-footnote-body, .xtmd-overlay-body) > :where(:not(style)) + * {
+  margin-block-start: var(--xtmd-flow);
+}
+
+:is(.xtmd-root, .xtmd-quote, .xtmd-item-body, .xtmd-footnote-body) > :where(:not(style)) + :is(h1, h2, h3) {
+  margin-block-start: 1.25em;
+}
+
+.xtmd-heading {
+  font-family: var(--xtmd-font-heading-family);
+  font-weight: var(--xtmd-font-heading-weight);
+  line-height: var(--xtmd-font-heading-line);
+  text-wrap: balance;
+}
+
+h1.xtmd-heading { font-size: calc(var(--xtmd-font-heading-size) * 1.36); }
+h2.xtmd-heading { font-size: var(--xtmd-font-heading-size); }
+h3.xtmd-heading { font-size: calc(var(--xtmd-font-heading-size) * 0.82); }
+h4.xtmd-heading { font-size: 1em; }
+h5.xtmd-heading { font-size: 0.9em; }
+h6.xtmd-heading { font-size: 0.85em; color: var(--xtmd-color-muted); }
+
+.xtmd-root a {
+  color: var(--xtmd-color-accent);
+  text-underline-offset: 0.18em;
+}
+
+.xtmd-root [data-unsafe-link] {
+  text-decoration: underline dotted;
+}
+
+.xtmd-bullets {
+  padding-inline-start: 1.5em;
+}
+
+.xtmd-item + .xtmd-item {
+  margin-block-start: 0.25em;
+}
+
+.xtmd-item.xtmd-task {
+  list-style: none;
+  display: flex;
+  gap: 0.5em;
+  align-items: baseline;
+  margin-inline-start: -1.4em;
+}
+
+.xtmd-item-check {
+  margin: 0;
+  flex: none;
+  accent-color: var(--xtmd-color-accent);
+  translate: 0 0.12em;
+}
+
+.xtmd-item-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.xtmd-quote {
+  border-inline-start: 3px solid var(--xtmd-color-line);
+  padding-inline-start: 1em;
+  color: color-mix(in srgb, var(--xtmd-color-ink) 80%, var(--xtmd-color-muted));
+}
+
+.xtmd-root code {
+  font-family: var(--xtmd-font-mono-family);
+  font-size: 0.9em;
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--xtmd-color-line) 35%, transparent);
+}
+
+.xtmd-code {
+  font-family: var(--xtmd-font-mono-family);
+  font-size: var(--xtmd-font-mono-size);
+  line-height: var(--xtmd-font-mono-line);
+  padding: 0.75em 1em;
+  border-radius: var(--xtmd-radius-card);
+  background: color-mix(in srgb, var(--xtmd-color-line) 30%, var(--xtmd-color-surface));
+  overflow-x: auto;
+  tab-size: 4;
+}
+
+.xtmd-root .xtmd-code-text {
+  font-size: inherit;
+  padding: 0;
+  background: none;
+}
+
+.xtmd-math {
+  font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", math, serif;
+}
+
+div.xtmd-math {
+  display: block;
+  overflow-x: auto;
+  text-align: center;
+  font-size: 1.1em;
+}
+
+.xtmd-math-tex {
+  font-family: var(--xtmd-font-mono-family);
+  font-size: 0.9em;
+}
+
+.xtmd-table {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.xtmd-table-grid {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.xtmd-table-grid :is(th, td) {
+  padding: 0.4em 0.75em;
+  border-block-end: 1px solid var(--xtmd-color-line);
+  text-align: start;
+  vertical-align: top;
+}
+
+.xtmd-table-grid th {
+  font-weight: 600;
+  border-block-end-width: 2px;
+}
+
+.xtmd-divider {
+  border: 0;
+  border-block-start: 1px solid var(--xtmd-color-line);
+}
+
+.xtmd-note-ref a {
+  text-decoration: none;
+  padding-inline: 0.1em;
+}
+
+.xtmd-footnote {
+  display: flex;
+  gap: 0.5em;
+  font-size: 0.9em;
+  color: color-mix(in srgb, var(--xtmd-color-ink) 75%, var(--xtmd-color-muted));
+}
+
+.xtmd-footnote-mark {
+  flex: none;
+  min-width: 1.2em;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+.xtmd-footnote-body {
+  min-width: 0;
+}
+
+.xtmd-notice {
+  padding: 0.5em 0.75em;
+  border: 1px solid var(--xtmd-color-bad);
+  border-radius: var(--xtmd-radius-card);
+  background: color-mix(in srgb, var(--xtmd-color-bad) 8%, var(--xtmd-color-surface));
+  color: var(--xtmd-color-ink);
+  font-size: 0.9em;
+}
+
+/* ---- drawing */
+
+.xtmd-label {
+  display: block;
+  min-width: 0;
+}
+
+.xtmd-sentence .xtmd-label {
+  display: inline;
+}
+
+.xtmd-label[data-size="small"] { font-size: 0.875em; }
+.xtmd-label[data-size="large"] { font-size: 1.25em; }
+.xtmd-label[data-weight="medium"] { font-weight: 500; }
+.xtmd-label[data-weight="bold"] { font-weight: 650; }
+.xtmd-label[data-font="body"] { font-family: var(--xtmd-font-body-family); }
+.xtmd-label[data-font="heading"] { font-family: var(--xtmd-font-heading-family); font-weight: var(--xtmd-font-heading-weight); }
+.xtmd-label[data-font="mono"] { font-family: var(--xtmd-font-mono-family); font-size: var(--xtmd-font-mono-size); }
+.xtmd-label.xtmd-nowrap { white-space: nowrap; }
+.xtmd-label.xtmd-clip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.xtmd-label.xtmd-halo {
+  text-shadow:
+    0 0 2px var(--xtmd-color-surface),
+    0 0 2px var(--xtmd-color-surface),
+    0 0 4px var(--xtmd-color-surface);
+}
+
+.xtmd-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.xtmd-root .xtmd-icon {
+  width: 1.25em;
+  height: 1.25em;
+  flex: none;
+  vertical-align: -0.25em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.xtmd-root .xtmd-icon.xtmd-filled { fill: currentColor; }
+.xtmd-root .xtmd-icon[data-size="small"] { width: 1em; height: 1em; }
+.xtmd-root .xtmd-icon[data-size="large"] { width: 1.75em; height: 1.75em; }
+
+/* ---- press */
+
+.xtmd-press {
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  min-height: 2.25em;
+  padding: 0.35em 0.9em;
+  border: 1px solid var(--xtmd-color-line);
+  border-radius: var(--xtmd-radius-card);
+  background: var(--xtmd-color-surface);
+  color: var(--xtmd-color-ink);
+  line-height: 1.25;
+  cursor: pointer;
+  text-align: center;
+  transition: background-color 120ms, border-color 120ms, color 120ms;
+}
+
+.xtmd-press:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--xtmd-color-ink) 6%, var(--xtmd-color-surface));
+}
+
+.xtmd-press:active:not(:disabled) {
+  background: color-mix(in srgb, var(--xtmd-color-ink) 11%, var(--xtmd-color-surface));
+}
+
+.xtmd-press:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.xtmd-press.xtmd-toned {
+  background: var(--xtmd-tone);
+  border-color: var(--xtmd-tone);
+  color: var(--xtmd-color-surface);
+}
+
+.xtmd-press.xtmd-toned:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--xtmd-tone) 88%, var(--xtmd-color-ink));
+}
+
+.xtmd-press-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.xtmd-press[data-kind="toggle"].xtmd-selected,
+.xtmd-press[data-kind="option"].xtmd-selected {
+  background: color-mix(in srgb, var(--xtmd-color-accent) 14%, var(--xtmd-color-surface));
+  border-color: color-mix(in srgb, var(--xtmd-color-accent) 55%, var(--xtmd-color-line));
+}
+
+.xtmd-press[data-kind="plain"] {
+  border-color: transparent;
+  background: transparent;
+  color: var(--xtmd-color-accent);
+  padding-inline: 0.3em;
+  min-height: 0;
+}
+
+.xtmd-press[data-kind="tab"] {
+  border: 0;
+  border-block-end: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--xtmd-color-muted);
+}
+
+.xtmd-press[data-kind="tab"].xtmd-selected {
+  color: var(--xtmd-color-ink);
+  border-block-end-color: var(--xtmd-color-accent);
+}
+
+.xtmd-press:is([data-kind="check"], [data-kind="radio"], [data-kind="switch"]) {
+  border-color: transparent;
+  background: transparent;
+  padding-inline: 0.2em;
+  justify-content: flex-start;
+}
+
+.xtmd-press-indicator {
+  display: none;
+}
+
+.xtmd-press:is([data-kind="check"], [data-kind="radio"], [data-kind="switch"]) .xtmd-press-indicator {
+  display: inline-block;
+  position: relative;
+  flex: none;
+  width: 1.05em;
+  height: 1.05em;
+  border: 1.5px solid var(--xtmd-color-muted);
+  border-radius: 4px;
+  background: var(--xtmd-color-surface);
+  transition: background-color 120ms, border-color 120ms;
+}
+
+.xtmd-press[data-kind="radio"] .xtmd-press-indicator { border-radius: 50%; }
+
+.xtmd-press[data-kind="switch"] .xtmd-press-indicator {
+  width: 1.9em;
+  height: 1.1em;
+  border-radius: var(--xtmd-radius-pill);
+}
+
+.xtmd-press:is([data-kind="check"], [data-kind="radio"], [data-kind="switch"]).xtmd-selected .xtmd-press-indicator {
+  background: var(--xtmd-color-accent);
+  border-color: var(--xtmd-color-accent);
+}
+
+.xtmd-press[data-kind="check"].xtmd-selected .xtmd-press-indicator::after {
+  content: "";
+  position: absolute;
+  left: 0.3em;
+  top: 0.1em;
+  width: 0.28em;
+  height: 0.55em;
+  border: solid var(--xtmd-color-surface);
+  border-width: 0 2px 2px 0;
+  rotate: 45deg;
+}
+
+.xtmd-press[data-kind="radio"].xtmd-selected .xtmd-press-indicator::after {
+  content: "";
+  position: absolute;
+  inset: 0.22em;
+  border-radius: 50%;
+  background: var(--xtmd-color-surface);
+}
+
+.xtmd-press[data-kind="switch"] .xtmd-press-indicator::after {
+  content: "";
+  position: absolute;
+  top: 0.1em;
+  left: 0.1em;
+  width: 0.75em;
+  height: 0.75em;
+  border-radius: 50%;
+  background: var(--xtmd-color-muted);
+  transition: translate 120ms;
+}
+
+.xtmd-press[data-kind="switch"].xtmd-selected .xtmd-press-indicator::after {
+  translate: 0.8em 0;
+  background: var(--xtmd-color-surface);
+}
+
+/* ---- field and slider */
+
+.xtmd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  min-width: 0;
+}
+
+.xtmd-field-label,
+.xtmd-slider-label {
+  font-size: 0.875em;
+  font-weight: 500;
+  color: var(--xtmd-color-muted);
+}
+
+.xtmd-field-input {
+  font: inherit;
+  width: 100%;
+  min-width: 0;
+  padding: 0.45em 0.65em;
+  border: 1px solid var(--xtmd-color-line);
+  border-radius: var(--xtmd-radius-card);
+  background: var(--xtmd-color-surface);
+  color: var(--xtmd-color-ink);
+}
+
+.xtmd-root .xtmd-field-input:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--xtmd-color-accent) 45%, transparent);
+  outline-offset: 0;
+  border-color: var(--xtmd-color-accent);
+}
+
+textarea.xtmd-field-input {
+  resize: vertical;
+}
+
+.xtmd-field-input::placeholder {
+  color: var(--xtmd-color-muted);
+}
+
+.xtmd-slider {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.15em 0.75em;
+  align-items: center;
+  min-width: 0;
+}
+
+.xtmd-slider-label {
+  grid-column: 1 / -1;
+}
+
+.xtmd-slider-input {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--xtmd-color-accent);
+}
+
+.xtmd-slider-value {
+  min-width: 3ch;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- overlay: a popover beside its anchor, or a dialog over the page */
+
+.xtmd-overlay {
+  display: inline-block;
+}
+
+.xtmd-overlay-anchor {
+  display: inline-block;
+}
+
+.xtmd-overlay-anchor[role="button"] {
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.xtmd-overlay-body[popover] {
+  position-area: bottom span-right;
+  position-try-fallbacks: flip-block, flip-inline;
+  inset: auto;
+  margin: 6px 0;
+  padding: 0.75em 1em;
+  max-width: min(24rem, calc(100vw - 32px));
+  border: 1px solid var(--xtmd-color-line);
+  border-radius: var(--xtmd-radius-card);
+  background: var(--xtmd-color-surface);
+  color: var(--xtmd-color-ink);
+  box-shadow: var(--xtmd-shadow-raised), 0 10px 28px rgb(0 0 0 / 0.14);
+}
+
+.xtmd-overlay-body[data-mode="tooltip"] {
+  position-area: top;
+  padding: 0.3em 0.6em;
+  font-size: 0.875em;
+  border-color: transparent;
+  background: var(--xtmd-color-ink);
+  color: var(--xtmd-color-surface);
+  box-shadow: none;
+}
+
+dialog.xtmd-overlay-body {
+  padding: 1.25em 1.5em;
+  max-width: min(36rem, calc(100vw - 32px));
+  border: 1px solid var(--xtmd-color-line);
+  border-radius: var(--xtmd-radius-card);
+  background: var(--xtmd-color-surface);
+  color: var(--xtmd-color-ink);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.25);
+}
+
+dialog.xtmd-overlay-body::backdrop {
+  background: rgb(0 0 0 / 0.35);
+}
+
+/* ---- layout */
+
+.xtmd-flex {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.xtmd-flex[data-axis="x"] {
+  flex-direction: row;
+}
+
+.xtmd-clickable {
+  cursor: pointer;
+}
+
+.xtmd-grid {
+  display: grid;
+  min-width: 0;
+}
+
+.xtmd-cell,
+.xtmd-sizing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+/* ---- plane */
+
+/* its width is its view's, the drawn area the layout works out from `width`: the border is outside */
+.xtmd-plane {
+  box-sizing: content-box;
+  max-width: calc(100% - 2px);
+  border: 1px solid var(--xtmd-color-line);
+  border-radius: var(--xtmd-radius-card);
+  overflow: hidden;
+  background: var(--xtmd-color-surface);
+}
+
+.xtmd-plane-view {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+}
+
+.xtmd-plane-view.xtmd-panning {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.xtmd-plane-inner {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+}
+
+.xtmd-plane-background,
+.xtmd-plane-items {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+}
+
+.xtmd-spot {
+  position: absolute;
+  width: max-content;
+  cursor: auto;
+}
+
+/* ---- gfx */
+
+.xtmd-canvas {
+  position: relative;
+  max-width: 100%;
+}
+
+.xtmd-canvas-surface {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.xtmd-canvas.xtmd-clickable .xtmd-canvas-surface {
+  cursor: crosshair;
+}
+
+.xtmd-place {
+  overflow: visible;
+}
+
+.xtmd-place-box {
+  width: max-content;
+}
+
+.xtmd-shade {
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.xtmd-shade-pixels {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.xtmd-root .xtmd-live {
+  cursor: pointer;
+}
+
+.xtmd-root .xtmd-live:focus-visible {
+  outline: 2px solid var(--xtmd-color-accent);
+}
+
+.xtmd-handle {
+  cursor: grab;
+}
+
+.xtmd-handle-hit {
+  fill: transparent;
+}
+
+.xtmd-handle-dot {
+  stroke: var(--xtmd-color-surface);
+  stroke-width: 2px;
+}
+
+.xtmd-handle:focus-visible {
+  outline: none;
+}
+
+.xtmd-handle:focus-visible .xtmd-handle-dot {
+  stroke: var(--xtmd-color-accent);
+  stroke-width: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xtmd-root * {
+    transition: none !important;
+  }
+}

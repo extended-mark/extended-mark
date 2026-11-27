@@ -1,0 +1,286 @@
+package xtmd.android
+
+import androidx.activity.ComponentActivity
+import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.runAndroidComposeUiTest
+import java.io.File
+import xtmd.android.check.FixedMeasure
+import xtmd.android.check.settle
+import xtmd.android.check.waitsForXtmd
+import androidx.compose.ui.geometry.Offset
+import xtmd.android.ffi.Val
+import org.json.JSONObject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+/** XtmdPage drawing real pages, built by the xtmd binary: the shop example and the sample's tour.
+ * The widgets are driven through their semantics, as TalkBack or a test would. */
+@OptIn(ExperimentalTestApi::class)
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE) // real text measuring (Skia), so widths are a phone's
+@Config(sdk = [36], qualifiers = "w400dp-h2000dp-port-notnight-mdpi")
+open class XtmdPageTest {
+    /** The widgets pages are drawn with here. */
+    protected open val externs: Externs = Externs.None
+
+    private val repo = generateSequence(File(System.getProperty("user.dir")).absoluteFile) { it.parentFile }.first { File(it, "checks").isDirectory }
+    private val xtmd = File(repo, "compiler/target/release/xtmd")
+
+    /** A page's IR, as `xtmd compile` writes it. */
+    private fun ir(source: File): String {
+        check(xtmd.canExecute()) { "the xtmd binary isn't built: cargo build --release -p xtmd in compiler/" }
+        val out = File.createTempFile("xtmd-page", ".ir.json")
+        val p = ProcessBuilder(xtmd.path, "compile", source.path, "--out", out.path).redirectErrorStream(true).start()
+        val log = p.inputStream.bufferedReader().readText()
+        assertEquals(log, 0, p.waitFor())
+        return out.readText().also { out.delete() }
+    }
+
+    private val shop by lazy { ir(File(repo, "examples/pages/shop.xtmd")) }
+    private val tour by lazy { ir(File(repo, "renderers/compose/sample/pages/tour.xtmd")) }
+
+    private fun state(page: CompiledPage, name: String) = page.state(name)?.toIrJson()
+
+    /** What is drawn as a widget of its own: what a sentence is made of is drawn as its words. */
+    private fun blocks(tree: JSONObject): Set<String> {
+        val inSentence = setOf("words", "bold", "italic", "strike", "link", "code_span", "inline_math", "inline_image", "note_mark", "line_break").map { "core/$it" }
+        return tree.keys().asSequence().filter { tree.getJSONObject(it).getString("widget") !in inSentence }.toSet()
+    }
+
+    /** A coroutine goes on where its work ended when its dispatcher doesn't say where, as a Compose test's doesn't. */
+    @Test
+    fun aChangeMadeAwayIsReadBackOnTheMainThread() {
+        val page = CompiledPage.fromJson(tour, PageOptions(zone = UtcZone))
+        val main = Thread.currentThread()
+        var after: Thread? = null
+        CoroutineScope(Dispatchers.Unconfined).launch {
+            page.changeAway { Thread.sleep(50) }
+            after = Thread.currentThread()
+        }
+        val until = System.nanoTime() + 60_000_000_000L
+        while (after == null || !XtmdWork.idle) {
+            check(System.nanoTime() < until) { "the change never came back" }
+            Thread.sleep(2)
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        }
+        assertEquals(main, after)
+    }
+
+    @Test
+    fun theTourDrawsEveryWidgetItHas() = runAndroidComposeUiTest<ComponentActivity> {
+        waitsForXtmd()
+        val page = CompiledPage.fromJson(tour, PageOptions(zone = UtcZone))
+        setContent { XtmdPage(page, externs) }
+        settle()
+        assertEquals(emptyList<String>(), page.missing)
+        val tree = JSONObject(page.native.observeJson(null)).getJSONObject("tree")
+        val widgets = tree.keys().asSequence().map { tree.getJSONObject(it).getString("widget") }.toSet()
+        for (w in listOf("core/heading", "core/paragraph", "core/bullets", "core/item", "core/quote", "core/code", "core/math", "core/table", "core/divider",
+            "core/field", "core/slider", "core/press", "core/icon", "core/overlay", "core/grid", "core/cell", "core/canvas", "core/layer", "core/circle",
+            "core/path", "core/handle", "core/place", "core/shade", "core/plane", "core/spot", "core/label", "core/flex")) {
+            assertTrue("the tour has a $w", w in widgets)
+        }
+        // everything in the tree is drawn: a closed overlay's body too, hidden
+        assertEquals(blocks(tree), page.drawn)
+        // and the plane's note was laid out from Compose's own measure
+        assertTrue(state(page, "note")!!.startsWith("{\"some\""))
+    }
+
+    @Test
+    fun aPressRunsItsHandlerAndTheAppHearsItsCall() = runAndroidComposeUiTest<ComponentActivity> {
+        waitsForXtmd()
+        val page = CompiledPage.fromJson(shop, PageOptions(zone = UtcZone))
+        setContent { XtmdPage(page, externs) }
+        settle()
+        onNodeWithText("Check out").performClick()
+        settle()
+        assertEquals("{\"num\":\"1\"}", state(page, "orders"))
+        val calls = page.takeCalls()
+        assertEquals(1, calls.size)
+        assertTrue(calls[0].name, calls[0].name.endsWith("shop.checkout"))
+        assertEquals(listOf<Val>(Val.Num("36"), Val.Num("3")), calls[0].args)
+        // a row's own press takes its item out
+        onNodeWithText("Remove Honey").performClick()
+        settle()
+        assertTrue(page.markdown().contains("2 items for 18 €"))
+    }
+
+    @Test
+    fun aPressInASentenceIsDrawnAmongItsWordsAndClicked() = runAndroidComposeUiTest<ComponentActivity> {
+        waitsForXtmd()
+        val source = File.createTempFile("sentence", ".xtmd")
+        source.writeText(
+            """
+            ${'$'}state {
+                count: int = 0;
+            }
+            @@@
+            Press \{@press(label = "Add one", click = fn() { ${'$'}state.count = ${'$'}state.count + 1; })} and the count goes up.
+            """.trimIndent() + "\n",
+        )
+        val page = CompiledPage.fromJson(ir(source).also { source.delete() }, PageOptions(zone = UtcZone))
+        setContent { XtmdPage(page, externs) }
+        settle()
+        // the press is the paragraph's slot, drawn in its line after "Press"
+        val tree = JSONObject(page.native.observeJson(null)).getJSONObject("tree")
+        assertEquals(1, tree.keys().asSequence().count { it.startsWith("m0/") && tree.getJSONObject(it).getString("widget") == "core/press" })
+        assertEquals(blocks(tree), page.drawn)
+        val para = onNode(hasText("Press", substring = true)).fetchSemanticsNode().boundsInRoot
+        val press = onNodeWithText("Add one").fetchSemanticsNode().boundsInRoot
+        assertTrue("$press isn't in $para", para.inflate(1f).contains(press.topLeft) && para.inflate(1f).contains(press.bottomRight))
+        assertTrue("$press isn't after Press in $para", press.left > para.left + 20f && press.top < para.top + 8f)
+        onNodeWithText("Add one").performClick()
+        settle()
+        assertEquals("{\"num\":\"1\"}", state(page, "count"))
+    }
+
+    @Test
+    fun aSliderWritesExactlyAndARefusedWriteLeavesTheValue() = runAndroidComposeUiTest<ComponentActivity> {
+        waitsForXtmd()
+        val page = CompiledPage.fromJson(shop, PageOptions(zone = UtcZone))
+        setContent { XtmdPage(page, externs) }
+        settle()
+        val slider = onNode(hasContentDescription("Budget") and SemanticsMatcher.keyIsDefined(SemanticsActions.SetProgress), useUnmergedTree = true)
+        slider.performSemanticsAction(SemanticsActions.SetProgress) { it(45f) }
+        settle()
+        assertEquals("{\"num\":\"45\"}", state(page, "budget"))
+        // the basket costs 36: a budget of 30 breaks `$state`'s rule, and is undone
+        slider.performSemanticsAction(SemanticsActions.SetProgress) { it(30f) }
+        settle()
+        assertEquals("{\"num\":\"45\"}", state(page, "budget"))
+        val refused = JSONObject(page.native.observeJson(null)).getJSONObject("outcome").getJSONArray("refused")
+        assertEquals("the basket fits the budget", refused.getJSONObject(0).getString("rule"))
+        assertEquals(45f, slider.fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo].current)
+    }
+
+    @Test
+    fun aFieldWritesWhatIsTyped() = runAndroidComposeUiTest<ComponentActivity> {
+        waitsForXtmd()
+        val page = CompiledPage.fromJson(tour, PageOptions(zone = UtcZone))
+        setContent { XtmdPage(page, externs, measure = FixedMeasure) }
+        settle()
+        onNode(hasSetTextAction()).performTextReplacement("Ada")
+        settle()
+        assertEquals("{\"text\":\"Ada\"}", state(page, "name"))
+        onNodeWithText("Hello, Ada.").assertExists()
+    }
+
+    @Test
+    fun aLongCodeLineScrollsAndEndsWithoutAnEmptyLine() = runAndroidComposeUiTest<ComponentActivity> {
+        waitsForXtmd()
+        val page = CompiledPage.fromJson(tour, PageOptions(zone = UtcZone))
+        setContent { XtmdPage(page, externs, measure = FixedMeasure) }
+        settle()
+        val code = onNode(SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "code.text"), useUnmergedTree = true)
+        // the source's last line break ends its line: no empty line under it
+        assertEquals(1, code.fetchSemanticsNode().config[SemanticsProperties.Text].first().text.lines().size)
+        val before = code.fetchSemanticsNode().boundsInRoot.left
+        // a finger across the block, which is as wide as the page
+        onNode(SemanticsMatcher.expectValue(SemanticsProperties.TestTag, "code"), useUnmergedTree = true).performTouchInput { swipeLeft() }
+        settle()
+        assertTrue("it scrolls sideways", code.fetchSemanticsNode().boundsInRoot.left < before)
+    }
+
+    @Test
+    fun aDragThatEndsWhileAWriteIsInFlightWritesWhereItEnded() = runAndroidComposeUiTest<ComponentActivity> {
+        waitsForXtmd()
+        val page = CompiledPage.fromJson(tour, PageOptions(zone = UtcZone))
+        val writes = mutableListOf<Val>()
+        page.watcher = object : PageWatcher {
+            override fun write(path: String, input: String, value: Val) {
+                if (input == "at") writes += value
+            }
+        }
+        setContent { XtmdPage(page, externs, measure = FixedMeasure) }
+        settle()
+        fun bounds(tag: String) = onNode(SemanticsMatcher.expectValue(SemanticsProperties.TestTag, tag), useUnmergedTree = true).fetchSemanticsNode().boundsInWindow
+        val surface = bounds("canvas.surface")
+        val start = bounds("handle").center
+        val view = activity!!.window.decorView
+        var time = android.os.SystemClock.uptimeMillis()
+        val downTime = time
+        fun send(action: Int, at: Offset) {
+            time += 8
+            val e = android.view.MotionEvent.obtain(downTime, time, action, at.x, at.y, 0)
+            runOnUiThread { view.dispatchTouchEvent(e) }
+            e.recycle()
+        }
+        // the page held by a long call on another thread (a big shade's pixels): a write started
+        // now waits for it, in flight, while the finger goes on and lifts
+        val shade = page.tree.let { t ->
+            fun find(ns: List<xtmd.android.ffi.Node>): xtmd.android.ffi.Node? = ns.firstNotNullOfOrNull { n -> if (n.widget == "core/shade") n else find(n.slots.flatMap { it.nodes }) }
+            find(t)!!
+        }
+        val holder = Thread { page.native.shade(shade.id, 160u, 160u) }
+        send(android.view.MotionEvent.ACTION_DOWN, start)
+        send(android.view.MotionEvent.ACTION_MOVE, start + Offset(20f, -10f))
+        holder.start()
+        Thread.sleep(50)
+        // a frame: the first write starts, and waits for the page
+        mainClock.advanceTimeByFrame()
+        send(android.view.MotionEvent.ACTION_MOVE, start + Offset(30f, -20f))
+        val end = start + Offset(42f, -31f)
+        send(android.view.MotionEvent.ACTION_MOVE, start + Offset(40f, -30f))
+        // the lift is a little further on than the last move
+        send(android.view.MotionEvent.ACTION_UP, end)
+        assertTrue("a write was in flight when the drag ended", !XtmdWork.idle && holder.isAlive)
+        settle()
+        holder.join()
+        // the canvas is -1..1 across and up, 320 dp wide at an aspect of 1.5 (its height a fraction
+        // the laid-out box rounds); one dp is 2/320 units, kept to 4 places
+        val w = surface.width
+        val h = w / 1.5f
+        fun units(x: Float, y: Float) = "{\"record\":{\"type\":\"core/point\",\"fields\":{\"x\":{\"num\":\"%s\"},\"y\":{\"num\":\"%s\"}}}}".format(
+            V.show(V.decimal(-1.0 + (x - surface.left) / w * 2.0, 4)), V.show(V.decimal(1.0 - (y - surface.top) / h * 2.0, 4)))
+        assertEquals(units(end.x, end.y), writes.last().toIrJson())
+        assertEquals(units(end.x, end.y), state(page, "p"))
+        assertTrue("fewer writes than moves: ${writes.size}", writes.size in 2..3)
+    }
+
+    @Test
+    fun anAppsWidgetReplacesOurs() = runAndroidComposeUiTest<ComponentActivity> {
+        waitsForXtmd()
+        val page = CompiledPage.fromJson(shop, PageOptions(zone = UtcZone))
+        val mine = Widget { p, ctx -> Text("mine: ${p.text("value")}", Modifier.site(ctx, "label")) }
+        setContent { XtmdPage(page, Externs(externs.widgets + mapOf("core/label" to mine))) }
+        settle()
+        onNodeWithText("mine: Tea: 12 €").assertExists()
+    }
+
+    @Test
+    fun theAppsWritesAreChecked() = runAndroidComposeUiTest<ComponentActivity> {
+        waitsForXtmd()
+        val page = CompiledPage.fromJson(shop, PageOptions(zone = UtcZone, state = mapOf("budget" to Val.Num("80"))))
+        setContent { XtmdPage(page, externs) }
+        settle()
+        assertEquals("{\"num\":\"80\"}", state(page, "budget"))
+        page.set("budget" to Val.Num("120"))
+        settle()
+        assertEquals("{\"num\":\"80\"}", state(page, "budget"))
+        page.setPage(null, "DARK")
+        settle()
+        assertEquals("DARK", page.theme)
+    }
+}

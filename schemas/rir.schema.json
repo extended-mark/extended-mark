@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/rir.schema.json",
-  "title": "Extended Mark resolved IR 1",
-  "description": "The resolved IR (rir): what the xtmd compiler's checker understood of a build, written out. Every name is resolved to what it names, every value has its type, and nothing is lowered: prose is still Markdown, a call still has its arguments by name, and there are no bindings, sites or handlers. Every node keeps its span in its file's source and the comments that sit with it, so a tool can edit the source exactly or print it back. Targets never read it: they run the IR (ir.schema.json). Types are the IR's. `xtmd build --rir` writes it.",
+  "title": "Extended Mark resolved IR 2",
+  "description": "The resolved IR (rir): what the xtmd compiler's checker understood of a build, written out. Every name is resolved to what it names, every value has its type, and nothing is lowered: prose is still Markdown, a call still has its arguments by name, and there are no bindings, sites or handlers. Every node keeps its span in its file's source and the comments that sit with it, so a tool can edit the source exactly or print it back. Renderers never read it: they run the IR (ir.schema.json). Types are the IR's. `xtmd compile --rir` writes it.",
   "$ref": "#/$defs/root",
   "$defs": {
     "span": {
@@ -17,15 +17,33 @@
     },
     "comments": {
       "type": "object",
-      "description": "The comments that sit with a node, as written, `//` or `@//` included.",
+      "description": "A node's comments, as written, `//` or `@//` included. `doc` holds its `//@` lines; `leading` the others on the lines just above it, with no blank line after them; `trailing` the comment that ends its line after its `;` or `,`; `block_start` and `block_end` the comments after an opening and a closing bracket (`{`, `(`, `[`) that end their lines, each with `at`, which of the node's own bracket pairs, counted from 0 in the order they are written (those of the nodes inside it aside); `free` the comments inside it after its last expression. On an expression, `free` holds the comments written just before it, inside the node it is in (`price + // before tax`, then `tax`).",
       "properties": {
-        "before": {
+        "doc": {
+          "$ref": "#/$defs/doc"
+        },
+        "leading": {
           "type": "array",
           "items": {
             "type": "string"
           }
         },
-        "after": {
+        "trailing": {
+          "type": "string"
+        },
+        "block_start": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bracket_comment"
+          }
+        },
+        "block_end": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bracket_comment"
+          }
+        },
+        "free": {
           "type": "array",
           "items": {
             "type": "string"
@@ -43,8 +61,8 @@
       "description": "A build, resolved: the files given to the compiler, as its checker understood them.",
       "properties": {
         "rir": {
-          "const": 1,
-          "description": "This format's version. A release may add parts; one that changes or removes a part, or what it means, raises it."
+          "const": 2,
+          "description": "This format's version, a whole number of its own: a release may add parts; one that changes or removes a part, or what it means, raises it. The schemas of earlier versions are kept in schemas/rir-history."
         },
         "xtmd": {
           "type": "string",
@@ -149,12 +167,30 @@
           "type": "string",
           "description": "A pack's file's package; left out for a document."
         },
+        "version": {
+          "type": "integer",
+          "description": "A surface's version: the number on its package line, `package kit@1;`."
+        },
         "sha256": {
           "type": "string",
           "description": "The SHA-256 of the source the spans are offsets into: a tool reads the source beside this file, and checks it is that one."
         },
         "front_matter": {
-          "$ref": "#/$defs/span"
+          "type": "object",
+          "description": "A document's front matter: its text without the `---` lines, as the IR has it, and where it stands.",
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "span": {
+              "$ref": "#/$defs/span"
+            }
+          },
+          "required": [
+            "text",
+            "span"
+          ],
+          "additionalProperties": false
         },
         "imports": {
           "type": "array",
@@ -183,12 +219,22 @@
             "$ref": "#/$defs/block"
           }
         },
-        "comments": {
+        "package_comments": {
+          "$ref": "#/$defs/comments",
+          "description": "The comments of a pack's file's package line."
+        },
+        "head": {
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/comment_item"
           },
-          "description": "Comments that sit with no node: at the end of the file."
+          "description": "Comment items above the package line."
+        },
+        "comment_items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/comment_item"
+          }
         }
       },
       "required": [
@@ -231,7 +277,7 @@
     },
     "doc": {
       "type": "object",
-      "description": "A declaration's doc comments.",
+      "description": "A node's doc comments: `//@about`, `//@param` and `//@deprecated`.",
       "properties": {
         "about": {
           "type": "string"
@@ -319,7 +365,7 @@
     },
     "generic": {
       "type": "object",
-      "description": "A type parameter and its bounds.",
+      "description": "A type parameter and its bounds: the interfaces it implements, each a type with its arguments.",
       "properties": {
         "name": {
           "type": "string"
@@ -327,7 +373,7 @@
         "bounds": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/id"
+            "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
           }
         }
       },
@@ -353,20 +399,25 @@
                 "name_span": {
                   "$ref": "#/$defs/span"
                 },
-                "doc": {
-                  "$ref": "#/$defs/doc"
-                },
                 "generics": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/generic"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/generic"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "implements": {
                   "type": "array",
                   "items": {
                     "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                  }
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -377,30 +428,50 @@
                 "cases": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "description": "A case, with the values it carries.",
-                    "properties": {
-                      "name": {
-                        "type": "string"
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "description": "A case, with the values it carries.",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "fields": {
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "$ref": "#/$defs/field"
+                                },
+                                {
+                                  "$ref": "#/$defs/comment_item"
+                                }
+                              ]
+                            }
+                          },
+                          "span": {
+                            "$ref": "#/$defs/span"
+                          },
+                          "comments": {
+                            "$ref": "#/$defs/comments"
+                          },
+                          "comment_items": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/$defs/comment_item"
+                            }
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "span"
+                        ],
+                        "additionalProperties": false
                       },
-                      "fields": {
-                        "type": "array",
-                        "items": {
-                          "$ref": "#/$defs/field"
-                        }
-                      },
-                      "span": {
-                        "$ref": "#/$defs/span"
-                      },
-                      "comments": {
-                        "$ref": "#/$defs/comments"
+                      {
+                        "$ref": "#/$defs/comment_item"
                       }
-                    },
-                    "required": [
-                      "name",
-                      "span"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
@@ -430,20 +501,25 @@
                 "name_span": {
                   "$ref": "#/$defs/span"
                 },
-                "doc": {
-                  "$ref": "#/$defs/doc"
-                },
                 "generics": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/generic"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/generic"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "implements": {
                   "type": "array",
                   "items": {
                     "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                  }
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -454,13 +530,33 @@
                 "fields": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/field"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/field"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "requires": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/require"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/require"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
+                  }
+                },
+                "comment_items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/comment_item"
                   }
                 }
               },
@@ -490,20 +586,25 @@
                 "name_span": {
                   "$ref": "#/$defs/span"
                 },
-                "doc": {
-                  "$ref": "#/$defs/doc"
-                },
                 "generics": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/generic"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/generic"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "implements": {
                   "type": "array",
                   "items": {
                     "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                  }
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -517,30 +618,50 @@
                 "cases": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "description": "A case.",
-                    "properties": {
-                      "name": {
-                        "type": "string"
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "description": "A case.",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "fields": {
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "$ref": "#/$defs/field"
+                                },
+                                {
+                                  "$ref": "#/$defs/comment_item"
+                                }
+                              ]
+                            }
+                          },
+                          "span": {
+                            "$ref": "#/$defs/span"
+                          },
+                          "comments": {
+                            "$ref": "#/$defs/comments"
+                          },
+                          "comment_items": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/$defs/comment_item"
+                            }
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "span"
+                        ],
+                        "additionalProperties": false
                       },
-                      "fields": {
-                        "type": "array",
-                        "items": {
-                          "$ref": "#/$defs/field"
-                        }
-                      },
-                      "span": {
-                        "$ref": "#/$defs/span"
-                      },
-                      "comments": {
-                        "$ref": "#/$defs/comments"
+                      {
+                        "$ref": "#/$defs/comment_item"
                       }
-                    },
-                    "required": [
-                      "name",
-                      "span"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
@@ -570,20 +691,25 @@
                 "name_span": {
                   "$ref": "#/$defs/span"
                 },
-                "doc": {
-                  "$ref": "#/$defs/doc"
-                },
                 "generics": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/generic"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/generic"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "implements": {
                   "type": "array",
                   "items": {
                     "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                  }
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -622,20 +748,25 @@
                 "name_span": {
                   "$ref": "#/$defs/span"
                 },
-                "doc": {
-                  "$ref": "#/$defs/doc"
-                },
                 "generics": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/generic"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/generic"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "implements": {
                   "type": "array",
                   "items": {
                     "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                  }
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -649,19 +780,46 @@
                 "fields": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/field"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/field"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "fns": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/signature"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/signature"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "events": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/event"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/event"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
+                  }
+                },
+                "comment_items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/comment_item"
                   }
                 }
               },
@@ -691,20 +849,25 @@
                 "name_span": {
                   "$ref": "#/$defs/span"
                 },
-                "doc": {
-                  "$ref": "#/$defs/doc"
-                },
                 "generics": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/generic"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/generic"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "implements": {
                   "type": "array",
                   "items": {
                     "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                  }
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -715,55 +878,148 @@
                 "inputs": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/field"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/field"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "slots": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/slot"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/slot"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "events": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/event"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/event"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "requires": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/require"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/require"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "own": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/var"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/var"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "lets": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/var"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/var"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "fns": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/fn"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/fn"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "view": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/stmt"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/stmt"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "markdown": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/block"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/block"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
+                  }
+                },
+                "tokens": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "An extern's `tokens` line, as written."
+                },
+                "uses": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "An extern's `uses` line, as written."
+                },
+                "piece": {
+                  "type": "string",
+                  "description": "The piece of Markdown an extern is, from `markdown #quote;`."
+                },
+                "comment_items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/comment_item"
+                  }
+                },
+                "part_comments": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/part_comment"
                   }
                 }
               },
@@ -798,7 +1054,7 @@
           "properties": {
             "extern_widget": {
               "type": "object",
-              "description": "A widget its target or its pack supplies.",
+              "description": "A widget its renderer or its pack supplies.",
               "properties": {
                 "id": {
                   "$ref": "#/$defs/id"
@@ -806,20 +1062,25 @@
                 "name_span": {
                   "$ref": "#/$defs/span"
                 },
-                "doc": {
-                  "$ref": "#/$defs/doc"
-                },
                 "generics": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/generic"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/generic"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "implements": {
                   "type": "array",
                   "items": {
                     "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                  }
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -830,25 +1091,65 @@
                 "inputs": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/field"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/field"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "slots": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/slot"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/slot"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "events": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/event"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/event"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "markdown": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/block"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/block"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
+                  }
+                },
+                "comment_items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/comment_item"
+                  }
+                },
+                "part_comments": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/part_comment"
                   }
                 }
               },
@@ -891,20 +1192,25 @@
                 "name_span": {
                   "$ref": "#/$defs/span"
                 },
-                "doc": {
-                  "$ref": "#/$defs/doc"
-                },
                 "generics": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/generic"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/generic"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "implements": {
                   "type": "array",
                   "items": {
                     "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                  }
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -931,7 +1237,7 @@
           "properties": {
             "extern": {
               "type": "object",
-              "description": "An extern block: values and fns the app supplies.",
+              "description": "An extern block: values and fns the host supplies.",
               "properties": {
                 "id": {
                   "$ref": "#/$defs/id"
@@ -939,20 +1245,25 @@
                 "name_span": {
                   "$ref": "#/$defs/span"
                 },
-                "doc": {
-                  "$ref": "#/$defs/doc"
-                },
                 "generics": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/generic"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/generic"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "implements": {
                   "type": "array",
                   "items": {
                     "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                  }
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -963,13 +1274,46 @@
                 "values": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/field"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/field"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "fns": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/signature"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/signature"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
+                  }
+                },
+                "tokens": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "An extern's `tokens` line, as written."
+                },
+                "comment_items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/comment_item"
+                  }
+                },
+                "part_comments": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/part_comment"
                   }
                 }
               },
@@ -999,20 +1343,25 @@
                 "name_span": {
                   "$ref": "#/$defs/span"
                 },
-                "doc": {
-                  "$ref": "#/$defs/doc"
-                },
                 "generics": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/generic"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/generic"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "implements": {
                   "type": "array",
                   "items": {
                     "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                  }
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -1055,20 +1404,25 @@
                 "name_span": {
                   "$ref": "#/$defs/span"
                 },
-                "doc": {
-                  "$ref": "#/$defs/doc"
-                },
                 "generics": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/generic"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/generic"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "implements": {
                   "type": "array",
                   "items": {
                     "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                  }
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -1079,32 +1433,45 @@
                 "lines": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "description": "`color.PRIMARY = …;`",
-                    "properties": {
-                      "token": {
-                        "$ref": "#/$defs/id"
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "description": "`color.PRIMARY = …;`",
+                        "properties": {
+                          "token": {
+                            "$ref": "#/$defs/id"
+                          },
+                          "case": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "$ref": "#/$defs/expr"
+                          },
+                          "span": {
+                            "$ref": "#/$defs/span"
+                          },
+                          "comments": {
+                            "$ref": "#/$defs/comments"
+                          }
+                        },
+                        "required": [
+                          "token",
+                          "case",
+                          "value",
+                          "span"
+                        ],
+                        "additionalProperties": false
                       },
-                      "case": {
-                        "type": "string"
-                      },
-                      "value": {
-                        "$ref": "#/$defs/expr"
-                      },
-                      "span": {
-                        "$ref": "#/$defs/span"
-                      },
-                      "comments": {
-                        "$ref": "#/$defs/comments"
+                      {
+                        "$ref": "#/$defs/comment_item"
                       }
-                    },
-                    "required": [
-                      "token",
-                      "case",
-                      "value",
-                      "span"
-                    ],
-                    "additionalProperties": false
+                    ]
+                  }
+                },
+                "comment_items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/comment_item"
                   }
                 }
               },
@@ -1134,20 +1501,25 @@
                 "name_span": {
                   "$ref": "#/$defs/span"
                 },
-                "doc": {
-                  "$ref": "#/$defs/doc"
-                },
                 "generics": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/generic"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/generic"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "implements": {
                   "type": "array",
                   "items": {
-                    "type": "string"
-                  }
+                    "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -1161,33 +1533,46 @@
                 "uses": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "description": "A pack used.",
-                    "properties": {
-                      "name": {
-                        "type": "string"
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "description": "A pack used.",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "span": {
+                            "$ref": "#/$defs/span"
+                          },
+                          "comments": {
+                            "$ref": "#/$defs/comments"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "version"
+                        ],
+                        "additionalProperties": false
                       },
-                      "version": {
-                        "type": "integer"
-                      },
-                      "span": {
-                        "$ref": "#/$defs/span"
-                      },
-                      "comments": {
-                        "$ref": "#/$defs/comments"
+                      {
+                        "$ref": "#/$defs/comment_item"
                       }
-                    },
-                    "required": [
-                      "name",
-                      "version"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "provides": {
                   "type": "array",
                   "items": {
                     "type": "string"
+                  }
+                },
+                "part_comments": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/part_comment"
                   }
                 }
               },
@@ -1230,20 +1615,25 @@
                 "name_span": {
                   "$ref": "#/$defs/span"
                 },
-                "doc": {
-                  "$ref": "#/$defs/doc"
-                },
                 "generics": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/generic"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/generic"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "implements": {
                   "type": "array",
                   "items": {
                     "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                  }
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -1254,13 +1644,27 @@
                 "params": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/param"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/param"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "body": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/migration_stmt"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/migration_stmt"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 }
               },
@@ -1288,20 +1692,25 @@
         "name_span": {
           "$ref": "#/$defs/span"
         },
-        "doc": {
-          "$ref": "#/$defs/doc"
-        },
         "generics": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/generic"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/generic"
+              },
+              {
+                "$ref": "#/$defs/comment_item"
+              }
+            ]
           }
         },
         "implements": {
           "type": "array",
           "items": {
             "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-          }
+          },
+          "description": "The interfaces it implements, each a type with its arguments."
         },
         "span": {
           "$ref": "#/$defs/span"
@@ -1316,7 +1725,14 @@
         "params": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/param"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/param"
+              },
+              {
+                "$ref": "#/$defs/comment_item"
+              }
+            ]
           }
         },
         "returns": {
@@ -1325,8 +1741,25 @@
         "body": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/stmt"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/stmt"
+              },
+              {
+                "$ref": "#/$defs/comment_item"
+              }
+            ]
           }
+        },
+        "on_generics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/generic"
+          },
+          "description": "The type parameters of the type a fn is added to: `T` in `fn list<T>.some(…)`."
+        },
+        "name": {
+          "type": "string"
         }
       },
       "required": [
@@ -1348,7 +1781,14 @@
         "params": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/param"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/param"
+              },
+              {
+                "$ref": "#/$defs/comment_item"
+              }
+            ]
           }
         },
         "returns": {
@@ -1359,6 +1799,12 @@
         },
         "comments": {
           "$ref": "#/$defs/comments"
+        },
+        "generics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/generic"
+          }
         }
       },
       "required": [
@@ -1408,7 +1854,14 @@
         "params": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/param"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/param"
+              },
+              {
+                "$ref": "#/$defs/comment_item"
+              }
+            ]
           }
         },
         "span": {
@@ -1427,15 +1880,26 @@
     },
     "require": {
       "type": "object",
-      "description": "A `require` block: its message and its body.",
+      "description": "A `require` or a `warn` block: its message and its body.",
       "properties": {
+        "warn": {
+          "type": "boolean",
+          "description": "A `warn` block."
+        },
         "message": {
           "type": "string"
         },
         "body": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/stmt"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/stmt"
+              },
+              {
+                "$ref": "#/$defs/comment_item"
+              }
+            ]
           }
         },
         "span": {
@@ -1490,13 +1954,27 @@
         "fields": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/field"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/field"
+              },
+              {
+                "$ref": "#/$defs/comment_item"
+              }
+            ]
           }
         },
         "requires": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/require"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/require"
+              },
+              {
+                "$ref": "#/$defs/comment_item"
+              }
+            ]
           }
         },
         "span": {
@@ -1504,6 +1982,12 @@
         },
         "comments": {
           "$ref": "#/$defs/comments"
+        },
+        "comment_items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/comment_item"
+          }
         }
       },
       "required": [
@@ -1522,7 +2006,14 @@
         "fns": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/fn"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/fn"
+              },
+              {
+                "$ref": "#/$defs/comment_item"
+              }
+            ]
           }
         },
         "span": {
@@ -1530,6 +2021,12 @@
         },
         "comments": {
           "$ref": "#/$defs/comments"
+        },
+        "comment_items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/comment_item"
+          }
         }
       },
       "required": [
@@ -1580,44 +2077,65 @@
         "fns": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/fn"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/fn"
+              },
+              {
+                "$ref": "#/$defs/comment_item"
+              }
+            ]
           }
         },
         "blocks": {
           "type": "array",
           "items": {
-            "type": "object",
-            "description": "A block: what happens to the uses of one older declaration.",
-            "properties": {
-              "kind": {
-                "type": "string"
+            "anyOf": [
+              {
+                "type": "object",
+                "description": "A block: what happens to the uses of one older declaration.",
+                "properties": {
+                  "kind": {
+                    "type": "string"
+                  },
+                  "target": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "body": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/migration_stmt"
+                        },
+                        {
+                          "$ref": "#/$defs/comment_item"
+                        }
+                      ]
+                    }
+                  },
+                  "name_span": {
+                    "$ref": "#/$defs/span"
+                  },
+                  "span": {
+                    "$ref": "#/$defs/span"
+                  },
+                  "comments": {
+                    "$ref": "#/$defs/comments"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "target",
+                  "body",
+                  "span"
+                ],
+                "additionalProperties": false
               },
-              "target": {
-                "$ref": "#/$defs/id"
-              },
-              "body": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/$defs/migration_stmt"
-                }
-              },
-              "name_span": {
-                "$ref": "#/$defs/span"
-              },
-              "span": {
-                "$ref": "#/$defs/span"
-              },
-              "comments": {
-                "$ref": "#/$defs/comments"
+              {
+                "$ref": "#/$defs/comment_item"
               }
-            },
-            "required": [
-              "kind",
-              "target",
-              "body",
-              "span"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "span": {
@@ -1625,6 +2143,12 @@
         },
         "comments": {
           "$ref": "#/$defs/comments"
+        },
+        "comment_items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/comment_item"
+          }
         }
       },
       "required": [
@@ -1655,7 +2179,20 @@
                 "args": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/named"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/named"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
+                  }
+                },
+                "comment_items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/comment_item"
                   }
                 }
               },
@@ -1685,7 +2222,14 @@
             "execute": {
               "type": "array",
               "items": {
-                "$ref": "#/$defs/stmt"
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/stmt"
+                  },
+                  {
+                    "$ref": "#/$defs/comment_item"
+                  }
+                ]
               }
             },
             "span": {
@@ -1715,7 +2259,14 @@
                 "body": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/migration_stmt"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/migration_stmt"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 }
               },
@@ -1803,42 +2354,67 @@
         "args": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/named"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/named"
+              },
+              {
+                "$ref": "#/$defs/comment_item"
+              }
+            ]
           }
         },
         "slots": {
           "type": "array",
           "items": {
-            "type": "object",
-            "description": "A slot filled: by the call's children, or by name; in view code or in prose.",
-            "properties": {
-              "slot": {
-                "$ref": "#/$defs/id"
+            "anyOf": [
+              {
+                "type": "object",
+                "description": "A slot filled: by the call's children, or by name; in view code or in prose.",
+                "properties": {
+                  "slot": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "view": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/stmt"
+                        },
+                        {
+                          "$ref": "#/$defs/comment_item"
+                        }
+                      ]
+                    }
+                  },
+                  "prose": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/block"
+                    }
+                  },
+                  "span": {
+                    "$ref": "#/$defs/span"
+                  },
+                  "comments": {
+                    "$ref": "#/$defs/comments"
+                  },
+                  "children": {
+                    "type": "boolean",
+                    "description": "Filled by the call's block, for a widget with one slot, rather than by name."
+                  }
+                },
+                "required": [
+                  "slot",
+                  "span"
+                ],
+                "additionalProperties": false
               },
-              "view": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/$defs/stmt"
-                }
-              },
-              "prose": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/$defs/block"
-                }
-              },
-              "span": {
-                "$ref": "#/$defs/span"
-              },
-              "comments": {
-                "$ref": "#/$defs/comments"
+              {
+                "$ref": "#/$defs/comment_item"
               }
-            },
-            "required": [
-              "slot",
-              "span"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "span": {
@@ -1846,6 +2422,12 @@
         },
         "comments": {
           "$ref": "#/$defs/comments"
+        },
+        "comment_items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/comment_item"
+          }
         }
       },
       "required": [
@@ -1967,7 +2549,14 @@
                 "holes": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/expr"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/expr"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 }
               },
@@ -2000,7 +2589,14 @@
             "list": {
               "type": "array",
               "items": {
-                "$ref": "#/$defs/expr"
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/expr"
+                  },
+                  {
+                    "$ref": "#/$defs/comment_item"
+                  }
+                ]
               }
             },
             "span": {
@@ -2033,7 +2629,20 @@
                 "fields": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/named"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/named"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
+                  }
+                },
+                "comment_items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/comment_item"
                   }
                 }
               },
@@ -2078,7 +2687,20 @@
                 "args": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/expr"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/expr"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
+                  }
+                },
+                "comment_items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/comment_item"
                   }
                 }
               },
@@ -2218,6 +2840,10 @@
                 "extern": {
                   "$ref": "#/$defs/id"
                 },
+                "fn": {
+                  "$ref": "#/$defs/id",
+                  "description": "A fn given as a value by its name, by its full name: `pad` in `xs.map(pad)`."
+                },
                 "self": {
                   "type": "boolean"
                 },
@@ -2306,11 +2932,24 @@
                 "args": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/expr"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/expr"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "name_span": {
                   "$ref": "#/$defs/span"
+                },
+                "comment_items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/comment_item"
+                  }
                 }
               },
               "required": [
@@ -2349,7 +2988,20 @@
                 "args": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/expr"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/expr"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
+                  }
+                },
+                "comment_items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/comment_item"
                   }
                 }
               },
@@ -2389,7 +3041,20 @@
                 "args": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/expr"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/expr"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
+                  }
+                },
+                "comment_items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/comment_item"
                   }
                 }
               },
@@ -2507,7 +3172,20 @@
                 "fields": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/named"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/named"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
+                  }
+                },
+                "comment_items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/comment_item"
                   }
                 }
               },
@@ -2567,7 +3245,14 @@
                 "params": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/param"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/param"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 },
                 "returns": {
@@ -2576,7 +3261,20 @@
                 "body": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/stmt"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/stmt"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
+                  }
+                },
+                "generics": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/generic"
                   }
                 }
               },
@@ -2742,32 +3440,53 @@
                 "branches": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "description": "A branch.",
-                    "properties": {
-                      "cond": {
-                        "$ref": "#/$defs/expr"
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "description": "A branch.",
+                        "properties": {
+                          "cond": {
+                            "$ref": "#/$defs/expr"
+                          },
+                          "opens": {
+                            "$ref": "#/$defs/var"
+                          },
+                          "body": {
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "$ref": "#/$defs/stmt"
+                                },
+                                {
+                                  "$ref": "#/$defs/comment_item"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "body"
+                        ],
+                        "additionalProperties": false
                       },
-                      "opens": {
-                        "$ref": "#/$defs/var"
-                      },
-                      "body": {
-                        "type": "array",
-                        "items": {
-                          "$ref": "#/$defs/stmt"
-                        }
+                      {
+                        "$ref": "#/$defs/comment_item"
                       }
-                    },
-                    "required": [
-                      "body"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "else": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/stmt"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/stmt"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 }
               },
@@ -2812,7 +3531,14 @@
                 "body": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/stmt"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/stmt"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 }
               },
@@ -2850,34 +3576,55 @@
                 "cases": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "description": "A case.",
-                    "properties": {
-                      "patterns": {
-                        "type": "array",
-                        "items": {
-                          "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/pattern"
-                        }
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "description": "A case.",
+                        "properties": {
+                          "patterns": {
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/pattern"
+                                },
+                                {
+                                  "$ref": "#/$defs/comment_item"
+                                }
+                              ]
+                            }
+                          },
+                          "body": {
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "$ref": "#/$defs/stmt"
+                                },
+                                {
+                                  "$ref": "#/$defs/comment_item"
+                                }
+                              ]
+                            }
+                          },
+                          "span": {
+                            "$ref": "#/$defs/span"
+                          },
+                          "comments": {
+                            "$ref": "#/$defs/comments"
+                          }
+                        },
+                        "required": [
+                          "patterns",
+                          "body",
+                          "span"
+                        ],
+                        "additionalProperties": false
                       },
-                      "body": {
-                        "type": "array",
-                        "items": {
-                          "$ref": "#/$defs/stmt"
-                        }
-                      },
-                      "span": {
-                        "$ref": "#/$defs/span"
-                      },
-                      "comments": {
-                        "$ref": "#/$defs/comments"
+                      {
+                        "$ref": "#/$defs/comment_item"
                       }
-                    },
-                    "required": [
-                      "patterns",
-                      "body",
-                      "span"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
@@ -2914,7 +3661,20 @@
                 "args": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/expr"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/expr"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
+                  }
+                },
+                "comment_items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/comment_item"
                   }
                 }
               },
@@ -3033,32 +3793,46 @@
                 "branches": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "description": "A branch.",
-                    "properties": {
-                      "cond": {
-                        "$ref": "#/$defs/expr"
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "description": "A branch.",
+                        "properties": {
+                          "cond": {
+                            "$ref": "#/$defs/expr"
+                          },
+                          "opens": {
+                            "$ref": "#/$defs/var"
+                          },
+                          "prose": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/$defs/block"
+                            }
+                          }
+                        },
+                        "required": [
+                          "prose"
+                        ],
+                        "additionalProperties": false
                       },
-                      "opens": {
-                        "$ref": "#/$defs/var"
-                      },
-                      "prose": {
-                        "type": "array",
-                        "items": {
-                          "$ref": "#/$defs/block"
-                        }
+                      {
+                        "$ref": "#/$defs/comment_item"
                       }
-                    },
-                    "required": [
-                      "prose"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "else": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/$defs/block"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/block"
+                      },
+                      {
+                        "$ref": "#/$defs/comment_item"
+                      }
+                    ]
                   }
                 }
               },
@@ -3141,34 +3915,48 @@
                 "cases": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "description": "A case.",
-                    "properties": {
-                      "patterns": {
-                        "type": "array",
-                        "items": {
-                          "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/pattern"
-                        }
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "description": "A case.",
+                        "properties": {
+                          "patterns": {
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/pattern"
+                                },
+                                {
+                                  "$ref": "#/$defs/comment_item"
+                                }
+                              ]
+                            }
+                          },
+                          "prose": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/$defs/block"
+                            }
+                          },
+                          "span": {
+                            "$ref": "#/$defs/span"
+                          },
+                          "comments": {
+                            "$ref": "#/$defs/comments"
+                          }
+                        },
+                        "required": [
+                          "patterns",
+                          "prose",
+                          "span"
+                        ],
+                        "additionalProperties": false
                       },
-                      "prose": {
-                        "type": "array",
-                        "items": {
-                          "$ref": "#/$defs/block"
-                        }
-                      },
-                      "span": {
-                        "$ref": "#/$defs/span"
-                      },
-                      "comments": {
-                        "$ref": "#/$defs/comments"
+                      {
+                        "$ref": "#/$defs/comment_item"
                       }
-                    },
-                    "required": [
-                      "patterns",
-                      "prose",
-                      "span"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 }
               },
@@ -3207,6 +3995,10 @@
                   "items": {
                     "$ref": "#/$defs/block"
                   }
+                },
+                "children": {
+                  "type": "boolean",
+                  "description": "Filled by the call's block, for a widget with one slot, rather than by name."
                 }
               },
               "required": [
@@ -3260,13 +4052,82 @@
         "holes": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/expr"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/expr"
+              },
+              {
+                "$ref": "#/$defs/comment_item"
+              }
+            ]
           }
         }
       },
       "required": [
         "markdown",
         "holes"
+      ],
+      "additionalProperties": false
+    },
+    "bracket_comment": {
+      "type": "object",
+      "description": "A comment after a bracket that ends its line, and which of the node's bracket pairs it is.",
+      "properties": {
+        "at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "at",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "comment_item": {
+      "type": "object",
+      "description": "Comments on lines of their own that belong to no node: a run with a blank line after it, or one before a list's closing bracket. In a list they stand where they were written, like an entry; where a body's members are written in lists by kind, they are in its `comment_items`, placed by their span.",
+      "properties": {
+        "comment": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      },
+      "required": [
+        "comment"
+      ],
+      "additionalProperties": false
+    },
+    "part_comment": {
+      "type": "object",
+      "description": "The comments of a member written into its owner rather than as an entry of a list: a widget's `view`, `markdown`, `tokens` or `uses`, an extern block's `tokens`, a pack's `uses`, `provides` or `implements` line.",
+      "properties": {
+        "part": {
+          "enum": [
+            "view",
+            "markdown",
+            "tokens",
+            "uses",
+            "provides",
+            "implements"
+          ]
+        },
+        "comments": {
+          "$ref": "#/$defs/comments"
+        }
+      },
+      "required": [
+        "part",
+        "comments"
       ],
       "additionalProperties": false
     }

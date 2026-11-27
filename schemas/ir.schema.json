@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json",
-  "title": "Extended Mark IR 3",
-  "description": "The one IR the xtmd compiler writes and every target runs: Extended Mark 0.3, checked and lowered. No Markdown is left in it. This schema is the source of the Rust and TypeScript types.",
+  "title": "Extended Mark IR 4",
+  "description": "The one IR the xtmd compiler writes and every runtime runs: Extended Mark, checked and lowered. No Markdown is left in it, and it holds only what the page can run. This schema is the source of the Rust and TypeScript types.",
   "$ref": "#/$defs/file",
   "$defs": {
     "file": {
@@ -23,8 +23,8 @@
       "description": "One build: the document (or pack) with the parts of core and of the given packs it uses, checked and lowered, ready to run.",
       "properties": {
         "version": {
-          "const": 3,
-          "description": "The IR's version. 0.3 writes 3."
+          "const": 4,
+          "description": "The IR's version: a whole number of its own, apart from xtmd's version. 0.4 writes 4."
         },
         "xtmd": {
           "type": "string",
@@ -44,7 +44,7 @@
         },
         "front_matter": {
           "type": "string",
-          "description": "A document's YAML front matter, without its --- lines, passed to the app untouched (page 1)."
+          "description": "A document's YAML front matter, without its --- lines, passed to the host untouched (page 1)."
         },
         "needs": {
           "$ref": "#/$defs/needs"
@@ -61,12 +61,6 @@
             "$ref": "#/$defs/template"
           }
         },
-        "bindings": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/binding"
-          }
-        },
         "handlers": {
           "type": "array",
           "items": {
@@ -81,9 +75,7 @@
         "levels",
         "needs",
         "declarations",
-        "templates",
-        "bindings",
-        "handlers"
+        "templates"
       ],
       "additionalProperties": false
     },
@@ -94,18 +86,18 @@
         "core.live",
         "core.gfx"
       ],
-      "description": "A level a target has (page 6): core.draw draws the extern widgets, core.live holds variables and runs events, core.gfx draws the canvas widgets. A target lists the ones it has, and a call, a widget or a page lists the ones it needs: none means its Markdown is enough."
+      "description": "A level a platform has (page 6): core.draw draws the extern widgets, core.live holds variables and runs events, core.gfx draws the canvas widgets. A renderer says which it has, and a call, a widget or a page lists the ones it needs: none means its Markdown is enough."
     },
     "needs": {
       "type": "object",
-      "description": "Every extern the page uses, by who supplies it. A target checks the list when it mounts the page.",
+      "description": "Every extern the page uses, by who supplies it. A runtime checks the list when it starts the page.",
       "properties": {
         "core": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "core's externs, supplied by the target: widgets, fns and channels."
+          "description": "core's externs, supplied by the widget set, the runtime and the renderer: widgets and fns."
         },
         "packs": {
           "type": "array",
@@ -133,18 +125,18 @@
             "additionalProperties": false
           }
         },
-        "app": {
+        "host": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "The document's own channels' fns and values, supplied by the app when it mounts the page."
+          "description": "Every value and fn taken from the host, by its full name: a value of core's page (`core/page.width`), and the values and fns of the document's own channels (`doc/scores.unit`)."
         }
       },
       "required": [
         "core",
         "packs",
-        "app"
+        "host"
       ],
       "additionalProperties": false
     },
@@ -341,8 +333,7 @@
       },
       "required": [
         "name",
-        "fields",
-        "requires"
+        "fields"
       ],
       "additionalProperties": false
     },
@@ -372,8 +363,7 @@
       },
       "required": [
         "name",
-        "cases",
-        "ordered"
+        "cases"
       ],
       "additionalProperties": false
     },
@@ -418,7 +408,7 @@
           "additionalProperties": {
             "$ref": "#/$defs/expr"
           },
-          "description": "Each named case's value, from the tokens blocks of the build. A target may give its own."
+          "description": "Each named case's value, from the tokens blocks of the build. A renderer may give its own."
         }
       },
       "required": [
@@ -466,11 +456,7 @@
         }
       },
       "required": [
-        "name",
-        "widget",
-        "fields",
-        "fns",
-        "events"
+        "name"
       ],
       "additionalProperties": false
     },
@@ -502,11 +488,26 @@
           "items": {
             "$ref": "#/$defs/stmt"
           }
+        },
+        "reads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/read"
+          },
+          "uniqueItems": true,
+          "description": "What it reads beside its parameters, the fns it calls included."
+        },
+        "writes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/root"
+          },
+          "uniqueItems": true,
+          "description": "What it may write beside its `mut` parameters, the fns it calls included."
         }
       },
       "required": [
         "name",
-        "params",
         "body"
       ],
       "additionalProperties": false
@@ -546,7 +547,6 @@
               },
               "required": [
                 "name",
-                "params",
                 "supplier"
               ],
               "additionalProperties": false
@@ -556,7 +556,7 @@
             "fn"
           ],
           "additionalProperties": false,
-          "description": "An extern fn: native to every target (core's), a pack's, or the app's."
+          "description": "An extern fn: native to every runtime (core's), a pack's, or the host's."
         },
         {
           "type": "object",
@@ -613,12 +613,18 @@
                 },
                 "supplier": {
                   "$ref": "#/$defs/supplier"
+                },
+                "tokens": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true,
+                  "description": "The tokens the page itself is drawn with, from the block's `tokens` line."
                 }
               },
               "required": [
                 "name",
-                "values",
-                "fns",
                 "supplier"
               ],
               "additionalProperties": false
@@ -628,7 +634,7 @@
             "channel"
           ],
           "additionalProperties": false,
-          "description": "An extern block: values the app gives and fns Extended Mark calls."
+          "description": "An extern block: values the host gives and fns Extended Mark calls."
         },
         {
           "type": "object",
@@ -669,9 +675,9 @@
       "enum": [
         "core",
         "pack",
-        "app"
+        "host"
       ],
-      "description": "Who supplies an extern: the target (core's), the pack that declares it, or the app (a document's channels)."
+      "description": "Who supplies an extern: the platform (core's), the pack that declares it, or the host (a document's channels)."
     },
     "extern_widget": {
       "type": "object",
@@ -704,12 +710,31 @@
             "$ref": "#/$defs/event"
           }
         },
+        "tokens": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "description": "The tokens its look comes from: a case by its full name (`core/color.LINE`)."
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/require"
+          },
+          "description": "What it expects of its inputs and slots: its `require` and `warn` blocks."
+        },
+        "piece": {
+          "type": "string",
+          "description": "The piece of Markdown it is, from `markdown #quote;`: `quote`. Its Markdown is that piece's, and `markdown` is left out."
+        },
         "markdown": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/node"
           },
-          "description": "What it writes as Markdown when nobody supplies it, or when the target only writes Markdown. Left out for Markdown's own blocks, which write themselves."
+          "description": "What it writes as Markdown, from its markdown block. Left out when it writes nothing, or when it is a piece of Markdown."
         },
         "levels": {
           "type": "array",
@@ -717,7 +742,7 @@
             "$ref": "#/$defs/level"
           },
           "uniqueItems": true,
-          "description": "The levels drawing this widget needs: core.draw, or core.gfx for the canvas widgets."
+          "description": "The levels drawing this widget needs beyond core.draw: those its `uses` names."
         },
         "supplier": {
           "$ref": "#/$defs/supplier"
@@ -725,10 +750,6 @@
       },
       "required": [
         "name",
-        "inputs",
-        "slots",
-        "events",
-        "levels",
         "supplier"
       ],
       "additionalProperties": false
@@ -751,14 +772,13 @@
         }
       },
       "required": [
-        "fields",
-        "requires"
+        "fields"
       ],
       "additionalProperties": false
     },
     "expose": {
       "type": "object",
-      "description": "Fns the app may call, answering the extern channel of the same name.",
+      "description": "Fns the host may call, answering the extern channel of the same name.",
       "properties": {
         "channel": {
           "type": "string"
@@ -782,6 +802,14 @@
                 "items": {
                   "$ref": "#/$defs/stmt"
                 }
+              },
+              "writes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/root"
+                },
+                "uniqueItems": true,
+                "description": "What it may write, the fns it calls included."
               }
             },
             "required": [
@@ -811,20 +839,12 @@
         },
         "value": {
           "$ref": "#/$defs/expr"
-        },
-        "reads": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "What it reads, as in a binding; empty for a constant."
         }
       },
       "required": [
         "name",
         "type",
-        "value",
-        "reads"
+        "value"
       ],
       "additionalProperties": false
     },
@@ -919,34 +939,38 @@
         }
       },
       "required": [
-        "name",
-        "params"
+        "name"
       ],
       "additionalProperties": false
     },
     "require": {
       "type": "object",
-      "description": "A rule, checked whenever a value it reads changes.",
+      "description": "A rule, checked whenever a value it reads changes: `require` refuses, `warn` only tells the host.",
       "properties": {
         "message": {
           "type": "string"
-        },
-        "reads": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
         },
         "body": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/stmt"
           }
+        },
+        "warn": {
+          "type": "boolean",
+          "description": "A `warn` block: false is told, and refuses nothing."
+        },
+        "reads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/read"
+          },
+          "uniqueItems": true,
+          "description": "What the rule reads, the fns it calls included."
         }
       },
       "required": [
         "message",
-        "reads",
         "body"
       ],
       "additionalProperties": false
@@ -1115,8 +1139,7 @@
                 }
               },
               "required": [
-                "type",
-                "fields"
+                "type"
               ],
               "additionalProperties": false
             }
@@ -1221,7 +1244,7 @@
             "token"
           ],
           "additionalProperties": false,
-          "description": "A token, by its name. A target draws it with its own value."
+          "description": "A token, by its name. A renderer draws it with its own value."
         },
         {
           "type": "object",
@@ -1264,7 +1287,20 @@
             "rich"
           ],
           "additionalProperties": false,
-          "description": "Inline Markdown, already parsed: a `core/rich_text`."
+          "description": "A `core/rich_text`, its Markdown already read."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "sentence": {
+              "$ref": "#/$defs/expr"
+            }
+          },
+          "required": [
+            "sentence"
+          ],
+          "additionalProperties": false,
+          "description": "Whether a rich_text is a sentence, and not blocks."
         },
         {
           "type": "object",
@@ -1326,20 +1362,6 @@
             "get"
           ],
           "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "bind": {
-              "type": "string",
-              "description": "A binding's id."
-            }
-          },
-          "required": [
-            "bind"
-          ],
-          "additionalProperties": false,
-          "description": "A prop worked out by a binding."
         },
         {
           "type": "object",
@@ -1427,6 +1449,10 @@
                 },
                 "type": {
                   "$ref": "#/$defs/type"
+                },
+                "whole": {
+                  "type": "boolean",
+                  "description": "Proved: what it works on, and the number it gives when it gives one, are whole and within 9007199254740991 of zero, so any platform's whole numbers hold them exactly."
                 }
               },
               "required": [
@@ -1579,8 +1605,7 @@
         }
       },
       "required": [
-        "name",
-        "args"
+        "name"
       ],
       "additionalProperties": false
     },
@@ -1604,7 +1629,6 @@
         }
       },
       "required": [
-        "params",
         "body"
       ],
       "additionalProperties": false
@@ -1733,10 +1757,107 @@
         }
       },
       "required": [
-        "root",
-        "path"
+        "root"
       ],
       "additionalProperties": false
+    },
+    "read": {
+      "description": "Something that may be another value later, which a place in the page reads. Constants, tokens and a fn's own locals are none.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "local": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "local"
+          ],
+          "additionalProperties": false,
+          "description": "A local of the view around it: a loop's variable, a `let`, what a condition or a match binds."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "input"
+          ],
+          "additionalProperties": false,
+          "description": "An input of the widget the code is in."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cell": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cell"
+          ],
+          "additionalProperties": false,
+          "description": "A widget's own variable."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "$state": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "$state"
+          ],
+          "additionalProperties": false,
+          "description": "A field of the document's `$state`."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "slot": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "slot"
+          ],
+          "additionalProperties": false,
+          "description": "A slot of the widget the code is in."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "extern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "extern"
+          ],
+          "additionalProperties": false,
+          "description": "A value of an extern channel: `core/page.width`."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "any": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "any"
+          ],
+          "additionalProperties": false,
+          "description": "It can't be known: a fn held in a variable is called. It is worked out again after every change."
+        }
+      ]
     },
     "root": {
       "oneOf": [
@@ -1838,78 +1959,21 @@
     },
     "rich": {
       "type": "object",
+      "description": "A rich_text: calls, as a value. A sentence's are drawn among words; `blocks` says they are blocks instead.",
       "properties": {
-        "segments": {
+        "nodes": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/segment"
+            "$ref": "#/$defs/node"
           }
+        },
+        "blocks": {
+          "type": "boolean"
         }
       },
       "required": [
-        "segments"
+        "nodes"
       ],
-      "additionalProperties": false
-    },
-    "segment": {
-      "type": "object",
-      "properties": {
-        "segment": {
-          "type": "object",
-          "properties": {
-            "part": {
-              "type": "string",
-              "enum": [
-                "TEXT",
-                "CODE",
-                "MATH",
-                "IMAGE",
-                "NOTE",
-                "BREAK",
-                "VIEW"
-              ]
-            },
-            "value": {
-              "$ref": "#/$defs/expr",
-              "description": "TEXT and CODE: the text; MATH: the `core/latex`; NOTE: the mark; VIEW: the view."
-            },
-            "src": {
-              "$ref": "#/$defs/expr"
-            },
-            "alt": {
-              "$ref": "#/$defs/expr"
-            },
-            "marks": {
-              "$ref": "#/$defs/marks"
-            }
-          },
-          "required": [
-            "part"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "required": [
-        "segment"
-      ],
-      "additionalProperties": false
-    },
-    "marks": {
-      "type": "object",
-      "properties": {
-        "bold": {
-          "type": "boolean"
-        },
-        "italic": {
-          "type": "boolean"
-        },
-        "strike": {
-          "type": "boolean"
-        },
-        "link": {
-          "$ref": "#/$defs/expr"
-        }
-      },
       "additionalProperties": false
     },
     "view_value": {
@@ -1938,11 +2002,21 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "reads": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/read"
+            },
+            "uniqueItems": true
+          },
+          "description": "What each argument reads, by its name, as an extern's inputs do."
         }
       },
       "required": [
-        "widget",
-        "args"
+        "widget"
       ],
       "additionalProperties": false
     },
@@ -2066,8 +2140,7 @@
                 }
               },
               "required": [
-                "branches",
-                "else"
+                "branches"
               ],
               "additionalProperties": false
             }
@@ -2106,7 +2179,6 @@
                 }
               },
               "required": [
-                "mut",
                 "name",
                 "type",
                 "over",
@@ -2301,7 +2373,6 @@
                 }
               },
               "required": [
-                "mut",
                 "name",
                 "type",
                 "opt"
@@ -2449,7 +2520,8 @@
           "items": {
             "$ref": "#/$defs/node"
           },
-          "description": "Its markdown block, lowered onto core's extern Markdown blocks; built from the view for a document's widget that has none. Empty when it writes nothing."
+          "description": "Its markdown block, lowered onto core's extern Markdown blocks; built from the view for a document's widget that has none. Left out when it is the view itself, and empty when it writes nothing.",
+          "x-option": true
         },
         "levels": {
           "type": "array",
@@ -2457,20 +2529,12 @@
             "$ref": "#/$defs/level"
           },
           "uniqueItems": true,
-          "description": "The levels this widget needs wherever it is called: its own variables need core.live, and it needs every level its view's calls need."
+          "description": "The levels this widget needs wherever it is called, beyond core.draw: its own variables need core.live, and it needs every level its view's calls need."
         }
       },
       "required": [
         "name",
-        "inputs",
-        "slots",
-        "events",
-        "cells",
-        "requires",
-        "fns",
-        "view",
-        "markdown",
-        "levels"
+        "view"
       ],
       "additionalProperties": false
     },
@@ -2482,7 +2546,7 @@
           "properties": {
             "extern": {
               "type": "object",
-              "description": "An extern widget, drawn by the target.",
+              "description": "An extern widget, drawn by the renderer.",
               "properties": {
                 "name": {
                   "type": "string"
@@ -2524,13 +2588,23 @@
                     "$ref": "#/$defs/level"
                   },
                   "uniqueItems": true,
-                  "description": "The levels this call needs (page 6), its slots' included."
+                  "description": "The levels this call needs beyond core.draw (page 6), its slots' included."
+                },
+                "reads": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/read"
+                    },
+                    "uniqueItems": true
+                  },
+                  "description": "What each input reads, by its name. One that isn't here reads nothing that changes: it is the same for as long as the page is open. What is inside a view or a rich_text it holds says its own."
                 }
               },
               "required": [
                 "name",
-                "site",
-                "props"
+                "site"
               ],
               "additionalProperties": false
             }
@@ -2580,13 +2654,23 @@
                     "$ref": "#/$defs/level"
                   },
                   "uniqueItems": true,
-                  "description": "The levels this call needs (page 6), its slots' included."
+                  "description": "The levels this call needs beyond core.draw (page 6), its slots' included."
+                },
+                "reads": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/read"
+                    },
+                    "uniqueItems": true
+                  },
+                  "description": "What each argument reads, by its name, as an extern's inputs do."
                 }
               },
               "required": [
                 "name",
-                "site",
-                "args"
+                "site"
               ],
               "additionalProperties": false
             }
@@ -2633,10 +2717,17 @@
                   "items": {
                     "$ref": "#/$defs/node"
                   }
+                },
+                "reads": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/read"
+                  },
+                  "uniqueItems": true,
+                  "description": "What the list or the range reads."
                 }
               },
               "required": [
-                "mut",
                 "name",
                 "type",
                 "over",
@@ -2674,6 +2765,14 @@
                         "items": {
                           "$ref": "#/$defs/node"
                         }
+                      },
+                      "reads": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/read"
+                        },
+                        "uniqueItems": true,
+                        "description": "What the condition reads."
                       }
                     },
                     "required": [
@@ -2692,8 +2791,7 @@
               },
               "required": [
                 "site",
-                "branches",
-                "else"
+                "branches"
               ],
               "additionalProperties": false
             }
@@ -2745,6 +2843,14 @@
                   "items": {
                     "$ref": "#/$defs/node"
                   }
+                },
+                "reads": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/read"
+                  },
+                  "uniqueItems": true,
+                  "description": "What the value reads."
                 }
               },
               "required": [
@@ -2772,6 +2878,18 @@
                 },
                 "view": {
                   "$ref": "#/$defs/expr"
+                },
+                "sentence": {
+                  "type": "boolean",
+                  "description": "It goes in a sentence, so a rich_text placed here is one: blocks are a failure."
+                },
+                "reads": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/read"
+                  },
+                  "uniqueItems": true,
+                  "description": "What the view reads."
                 }
               },
               "required": [
@@ -2795,6 +2913,14 @@
               "properties": {
                 "let": {
                   "$ref": "#/$defs/local"
+                },
+                "reads": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/read"
+                  },
+                  "uniqueItems": true,
+                  "description": "What the value reads."
                 }
               },
               "required": [
@@ -2809,31 +2935,6 @@
           "additionalProperties": false
         }
       ]
-    },
-    "binding": {
-      "type": "object",
-      "description": "A prop that isn't constant: its value, and everything it reads.",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "value": {
-          "$ref": "#/$defs/expr"
-        },
-        "reads": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "`cell:n`, `input:t.title`, `$state:spent`, `let:doc/open`, `extern:core/page.width`. Never too few."
-        }
-      },
-      "required": [
-        "id",
-        "value",
-        "reads"
-      ],
-      "additionalProperties": false
     },
     "handler": {
       "type": "object",
@@ -2853,6 +2954,22 @@
           "items": {
             "$ref": "#/$defs/stmt"
           }
+        },
+        "reads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/read"
+          },
+          "uniqueItems": true,
+          "description": "What it reads, the fns it calls included."
+        },
+        "writes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/root"
+          },
+          "uniqueItems": true,
+          "description": "What it may write, the fns it calls included. An event it invokes writes what that event's handler does."
         }
       },
       "required": [

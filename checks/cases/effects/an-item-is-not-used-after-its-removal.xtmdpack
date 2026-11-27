@@ -2,7 +2,7 @@ package t;
 
 record stat {
     label: text;
-    seen: bool = false;
+    mut seen: bool = false;
 }
 
 fn sweep(mut stats: list<stat>) {

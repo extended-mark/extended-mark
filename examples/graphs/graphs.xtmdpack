@@ -1,16 +1,16 @@
 package graphs;
 
 pack graphs@1 {
-    uses core@1;
+    uses core@2;
     provides node, link, graph;
 }
 
 //@about One thing in a graph: where it goes, what it says, and where it landed.
 record node {
     id: text[1...];
-    at: point;                                      // in the plane's units
+    at: point; // in the plane's units
     label: text;
-    box: opt<region> = opt.NONE;                    // written by its spot after layout
+    mut box: opt<region> = opt.NONE; // written by its spot after layout
 }
 
 //@about A relation between two nodes, by their ids. Core's edge names a side, so this is link.
