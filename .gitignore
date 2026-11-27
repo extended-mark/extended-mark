@@ -8,3 +8,6 @@ dist/
 !schemas/ir-history/**/*.ir.json
 core.[0-9]*
 compiler/npm/wasm/xtmd.wasm
+
+# Python
+__pycache__/

@@ -225,6 +225,75 @@
                 "object",
                 "null"
               ]
+            },
+            "resolved": {
+              "description": "What 0.3.2 resolved that rir 1 says nowhere: each fn with a `mut` parameter, by its id (`self`, and the others in order); each widget's `mut` input, by its id; each fn the host gives (an extern fn), by its id; and each widget's slots, in order, with their types.",
+              "type": "object",
+              "properties": {
+                "fns": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "self": {
+                        "type": "boolean"
+                      },
+                      "params": {
+                        "type": "array",
+                        "items": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "required": [
+                      "self",
+                      "params"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "externs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "slots": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                }
+              },
+              "required": [
+                "fns",
+                "inputs",
+                "externs",
+                "slots"
+              ],
+              "additionalProperties": false
             }
           },
           "required": [

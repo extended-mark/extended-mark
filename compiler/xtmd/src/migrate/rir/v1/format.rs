@@ -1,18 +1,13 @@
-//! The step from 0.3.2, rir 1, to 0.4.0, rir 2. Its format part (`format`) brings rir 1's shape to rir
-//! 2's: comments as 0.4.0's parser keeps them (`leading` and `trailing` for `before` and `after`, a
-//! declaration's doc comments among them), a front matter's text, a type parameter's bounds and a pack's
-//! interfaces as types; and what rir 1 had no place for, which 0.3.2's front end gives beside it
-//! (`left_out`, readers/previous.rs), put where 0.4.0's parser would put it. Its language part moves what
-//! 0.4.0's language changed. Every part works on the JSON, by names and types; nothing reads the text.
+//! The step's format part: rir 1's shape brought to rir 2's. Comments as 0.4.0's parser keeps them
+//! (`leading` and `trailing` for `before` and `after`, a declaration's doc comments among them), a front
+//! matter's text, a type parameter's bounds as types; and what rir 1 had no place for, which 0.3.2's
+//! front end gives beside it (`left_out`, readers/previous.rs), put where 0.4.0's parser would put it.
 
 use serde_json::{json, Map, Value};
 
-/// rir 1's schema, with what 0.3.2's front end gives beside it: `left_out`, a file's.
-pub const SCHEMA: &str = include_str!("rir-1.schema.json");
-
 /// rir 1's shape brought to rir 2's. A comment whose place this release's parser couldn't give is kept,
 /// at the end of its file, with a TODO saying where it was.
-pub fn format(v: &mut Value, asked: &mut super::Asked) -> Result<(), Vec<String>> {
+pub fn format(v: &mut Value, asked: &mut crate::migrate::rir::Asked) -> Result<(), Vec<String>> {
     for f in v["files"].as_array_mut().into_iter().flatten() {
         let left = f.as_object_mut().and_then(|o| o.remove("left_out")).unwrap_or(Value::Null);
         file(f, &left, asked);
@@ -20,7 +15,7 @@ pub fn format(v: &mut Value, asked: &mut super::Asked) -> Result<(), Vec<String>
     Ok(())
 }
 
-fn file(f: &mut Value, left: &Value, asked: &mut super::Asked) {
+fn file(f: &mut Value, left: &Value, asked: &mut crate::migrate::rir::Asked) {
     let path = f["path"].as_str().unwrap_or("").to_string();
     let now = left.get("now").filter(|n| n.is_object());
     // the front matter: its text, without its `---` lines, and where it stands
@@ -44,7 +39,7 @@ fn file(f: &mut Value, left: &Value, asked: &mut super::Asked) {
     reshape(f);
     // where each comment goes: where this release's parser puts it, by the spans both give the same text
     let Some(now) = now else {
-        // a declaration's doc comment rir 1 kept as its doc stays there
+        // a declaration's doc comment, which rir 1 kept as its doc, stays there
         let mut docs = Vec::new();
         abouts(f, &mut docs);
         let lost: Vec<Value> = left["comments"]
@@ -52,7 +47,7 @@ fn file(f: &mut Value, left: &Value, asked: &mut super::Asked) {
             .into_iter()
             .flatten()
             .filter_map(|c| c["text"].as_str())
-            .filter(|t| !t.strip_prefix("//@about").map_or(false, |a| docs.iter().any(|d| d == a.trim())))
+            .filter(|t| !t.strip_prefix("//@").and_then(|a| a.split_once(' ')).map_or(false, |(_, rest)| docs.iter().any(|d| !d.is_empty() && rest.trim().ends_with(d.as_str()))))
             .map(|t| Value::String(t.to_string()))
             .collect();
         if !lost.is_empty() {
@@ -75,12 +70,20 @@ fn file(f: &mut Value, left: &Value, asked: &mut super::Asked) {
     }
 }
 
-/// Every doc comment's `about` below `v`.
+/// Every text of a doc comment below `v`: its `about`, its parameters', its `deprecated`.
 fn abouts(v: &Value, out: &mut Vec<String>) {
+    fn texts(v: &Value, out: &mut Vec<String>) {
+        match v {
+            Value::String(s) => out.push(s.trim().to_string()),
+            Value::Object(o) => o.values().for_each(|x| texts(x, out)),
+            Value::Array(a) => a.iter().for_each(|x| texts(x, out)),
+            _ => {}
+        }
+    }
     match v {
         Value::Object(o) => {
-            if let Some(a) = o.get("doc").and_then(|d| d["about"].as_str()) {
-                out.push(a.trim().to_string());
+            if let Some(d) = o.get("doc") {
+                texts(d, out);
             }
             o.values().for_each(|x| abouts(x, out));
         }
@@ -205,7 +208,7 @@ fn count(v: &Value) -> usize {
 }
 
 /// A TODO at the end of a file, for what belongs to no node.
-fn todo_at_end(f: &mut Value, asked: &mut super::Asked, path: &str, what: &str) {
+fn todo_at_end(f: &mut Value, asked: &mut crate::migrate::rir::Asked, path: &str, what: &str) {
     push_item(f, json!({ "comment": [format!("// TODO(xtmd migrate): {}", what)] }));
     asked.todos.push(format!("{}: {}", path, what));
 }

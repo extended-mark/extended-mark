@@ -77,6 +77,10 @@ pub fn plan(read: Read, step: Option<&Step>, answers: BTreeMap<String, String>, 
         plan.refused.extend(e.into_iter().map(|e| format!("the resolved IR {} read: {}", read.release, e)));
         return plan;
     }
+    // what the step made while a question is open isn't what it will make: nothing is printed till then
+    if !plan.open.is_empty() {
+        return plan;
+    }
     let printed = match crate::decompile::decompile(&v) {
         Ok(p) => p,
         Err(e) => {
@@ -87,9 +91,13 @@ pub fn plan(read: Read, step: Option<&Step>, answers: BTreeMap<String, String>, 
     let sources: Vec<Source> = printed.iter().map(|p| Source { path: p.path.clone(), text: p.text.clone() }).collect();
     let compiled = check(&sources);
     let made: BTreeMap<&str, &Value> = v["files"].as_array().into_iter().flatten().filter_map(|f| Some((f["path"].as_str()?, f))).collect();
+    // a file left with a TODO is written whether or not it compiles: what it can't compile with until a
+    // person has done what the TODO says is said beside it
+    let todo_in = |path: &str| plan.todos.iter().any(|t| t.strip_prefix(path).map_or(false, |r| r.starts_with(": ")));
     for p in &printed {
         match compiled.get(&p.path) {
             None => plan.refused.push(format!("{}: this xtmd didn't compile it", p.path)),
+            Some(Err(errors)) if todo_in(&p.path) => plan.warnings.push(format!("{}: it doesn't compile yet, and is written with its TODOs for a person: {}", p.path, errors.join("; "))),
             Some(Err(errors)) => plan.refused.push(format!("{}: what was printed doesn't compile: {}", p.path, errors.join("; "))),
             Some(Ok(now)) => {
                 if let Some(d) = made.get(p.path.as_str()).and_then(|was| first_difference(&written(was), &written(&now.rir), "")) {

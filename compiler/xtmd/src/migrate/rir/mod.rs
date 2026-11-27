@@ -27,11 +27,17 @@ pub struct Step {
 }
 
 /// The step this xtmd takes, from the release before it, 0.3.2's rir 1, to rir 2.
-pub static STEP: Option<Step> = None;
+pub static STEP: Option<Step> = Some(Step { from: 1, schema: v1::SCHEMA, run: v1::step });
 
 /// Whether the step is whole: until it is, a tree written for the release before goes through the
 /// steps of cli/migrate.rs, which edit its text.
 pub const READY: bool = false;
+
+/// Whether `xtmd migrate` takes a tree written for the release before through the step: when it is
+/// whole, or, before, when XTMD_MIGRATE_STEP is set, for the step's own tests (tests/migrate_032.rs).
+pub fn ready() -> bool {
+    READY || std::env::var_os("XTMD_MIGRATE_STEP").is_some()
+}
 
 /// What this version's resolved IR fits: `schemas/rir.schema.json`.
 pub const NOW: &str = include_str!("rir-2.schema.json");

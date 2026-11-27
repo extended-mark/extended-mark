@@ -62,7 +62,9 @@ impl Reader for Previous {
             let doc = crate::migrate::is_doc(&f.path);
             let mut world: Vec<old::Source> = packs.iter().map(old_source).collect();
             world.extend(own.iter().filter(|p| p.path != f.path).map(|p| old_source(p)));
-            let (c, r) = old::compile_rir(&self.base, &[world], &[old_source(f)], if doc { "doc" } else { "main" });
+            let module = if doc { "doc" } else { "main" };
+            let (_, checker) = old::compile_with(self.base.clone(), &[world.clone()], &[old_source(f)], module);
+            let (c, r) = old::compile_rir(&self.base, &[world], &[old_source(f)], module);
             let said: Vec<String> = c.diagnostics.iter().filter(|d| d.diagnostic.is_error()).map(|d| format!("{}: {}", d.file, d.diagnostic.message)).collect();
             let Some(r) = r.filter(|_| said.is_empty()) else {
                 errors.extend(if said.is_empty() { vec![format!("{}: {} gave no resolved IR", f.path, self.release())] } else { said });
@@ -72,6 +74,7 @@ impl Reader for Previous {
                 if file["path"] == f.path.as_str() && !all.iter().any(|x: &Value| x["path"] == file["path"]) {
                     let mut file = file.clone();
                     file["left_out"] = left_out(&f.path, &f.text, &file);
+                    file["left_out"]["resolved"] = resolved(&checker);
                     let mut now_world: Vec<Source> = packs.to_vec();
                     now_world.extend(own.iter().filter(|p| p.path != f.path).map(|p| (*p).clone()));
                     file["left_out"]["now"] = self.comments_now(f, &now_world);
@@ -154,6 +157,29 @@ pub fn comments_of(path: &str, src: &str) -> (Vec<(usize, usize, String)>, Optio
         }
     }
     (out, front, divider)
+}
+
+/// What 0.3.2 resolved that rir 1 says nowhere: each fn with a `mut` parameter (by its id, `self` apart,
+/// the others in order), each widget's `mut` input, by its id, each fn the host gives, by its id, and
+/// each widget's slots, in order, with their types.
+fn resolved(c: &old::Checker) -> Value {
+    let mut fns = serde_json::Map::new();
+    for f in c.fns.iter().filter(|f| f.params.iter().any(|p| p.mutable)) {
+        let own = f.params.iter().find(|p| p.is_self).map_or(false, |p| p.mutable);
+        let params: Vec<bool> = f.params.iter().filter(|p| !p.is_self).map(|p| p.mutable).collect();
+        fns.insert(f.full.clone(), json!({ "self": own, "params": params }));
+    }
+    let (mut inputs, mut slots) = (Vec::new(), serde_json::Map::new());
+    for d in &c.defs {
+        if let old::DefKind::Widget { inputs: i, slots: s, .. } = &d.kind {
+            inputs.extend(i.iter().filter(|x| x.mutable).map(|x| Value::String(format!("{}.{}", d.full, x.name))));
+            if !s.is_empty() {
+                slots.insert(d.full.clone(), s.iter().map(|x| json!({ "name": x.name, "type": x.ir })).collect());
+            }
+        }
+    }
+    let externs: Vec<Value> = c.fns.iter().filter(|f| f.external).map(|f| Value::String(f.full.clone())).collect();
+    json!({ "fns": fns, "inputs": inputs, "externs": externs, "slots": slots })
 }
 
 /// What rir 1 left out of a file: its comments that aren't among those it kept, the front matter's text,

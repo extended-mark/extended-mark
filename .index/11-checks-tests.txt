@@ -22,6 +22,7 @@ Who runs what
     migrate_pipeline.rs a made-up release before's tree through the pipeline and xtmd migrate
     migrate_032.rs      checks/migrate-0.3 migrated; migrate_previous.rs 0.3.2's front end read it
     migrate_032_format.rs  0.3.2's files in rir 2's shape: what 0.4.0 gives the same text, comments too
+    migrate_032_language.rs  the step's language part, a row of plan #2443 a test
     decompile.rs        every file to its resolved IR, printed back, to the same resolved IR, IR, Markdown;
                         every page from its IR, printed back, to the same IR
     formats_schemas.rs  schemas, examples, generated types

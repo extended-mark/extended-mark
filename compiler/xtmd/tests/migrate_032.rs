@@ -3,8 +3,10 @@
 //! `xtmd migrate` run on it without writing. What each unit came to is checked against expected.tsv,
 //! so a phase that moves more files says so there, and one that moves fewer fails. Nothing is skipped.
 //!
-//! `XTMD_BLESS=1 cargo test --test migrate_032` writes what this xtmd does into expected.tsv. Where it
-//! goes: every unit valid in 0.3.2 `moved` or `todo`, and every unit 0.3.2 refuses `refused`.
+//! Each unit goes through the step from 0.3.2 (src/migrate/rir/v1), XTMD_MIGRATE_STEP set while it isn't
+//! yet what `xtmd migrate` takes by itself. `XTMD_BLESS=1 cargo test --test migrate_032` writes what this
+//! xtmd does into expected.tsv. Where it goes: every unit valid in 0.3.2 `moved` or `todo`, and every
+//! unit 0.3.2 refuses `refused`.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -85,7 +87,8 @@ fn migrate(u: &Unit, scratch: &Path) -> String {
         args.extend(["--config".into(), "xtmd.toml".into()]);
     }
     args.extend(["--dry-run".into(), "--format".into(), "json".into()]);
-    let out = Command::new(env!("CARGO_BIN_EXE_xtmd")).current_dir(&dir).args(&args).output().unwrap();
+    // through the step from 0.3.2, whole or not yet (rir::READY)
+    let out = Command::new(env!("CARGO_BIN_EXE_xtmd")).current_dir(&dir).args(&args).env("XTMD_MIGRATE_STEP", "1").output().unwrap();
     let _ = std::fs::remove_dir_all(&dir);
     match out.status.code() {
         Some(0) => "moved".into(),

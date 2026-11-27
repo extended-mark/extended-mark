@@ -15,7 +15,8 @@ use crate::migrate::pipeline::{self, Checked, Plan};
 use crate::migrate::readers::{self, Reader, PREVIOUS};
 use crate::migrate::{is_doc, release_in, release_of, with_release, RELEASE};
 
-/// The exit code of a run that writes, or would write, what a person must look at.
+/// The exit code of a run that writes, or would write, what a person must look at, or that waits on a
+/// question only a person can answer.
 pub const FOR_A_PERSON: u8 = 3;
 
 /// The answers in an answers file: `[steps]`, each question's id and its answer.
@@ -69,7 +70,7 @@ pub fn route(args: &[String]) -> Option<ExitCode> {
         return Some(ExitCode::from(1));
     }
     // until the step from the release before is whole, its trees still go the way they went
-    if !crate::migrate::rir::READY {
+    if !crate::migrate::rir::ready() {
         return None;
     }
     if assumed {
@@ -193,6 +194,10 @@ pub fn run(args: &[String], reader: Option<Box<dyn Reader>>, step: Option<&crate
         }
     }
     say(&plan, &writes, json, diff);
+    // a question open, and nothing refused: a person answers it, and the run goes on
+    if plan.refused.is_empty() && !plan.open.is_empty() {
+        return ExitCode::from(FOR_A_PERSON);
+    }
     if !plan.ready() {
         return ExitCode::from(1);
     }
@@ -242,7 +247,14 @@ pub fn compile_all(base: &crate::check::Checker, packs: &[Source], printed: &[So
         let doc = is_doc(&file.path);
         let others: Vec<Source> = world.iter().filter(|p| p.path != file.path).cloned().collect();
         let (c, rir) = crate::check::compile_rir(base, &[others], &[file.clone()], if doc { "doc" } else { "main" });
-        let errors: Vec<String> = c.diagnostics.iter().filter(|d| d.diagnostic.is_error()).map(|d| d.diagnostic.message.to_string()).collect();
+        // an error in a pack it uses is said as that pack's: one given with --pack and still written for
+        // the release before is migrated first
+        let errors: Vec<String> = c
+            .diagnostics
+            .iter()
+            .filter(|d| d.diagnostic.is_error())
+            .map(|d| if d.file == file.path { d.diagnostic.message.to_string() } else { format!("in {}, which it uses (migrate a pack before what uses it): {}", d.file, d.diagnostic.message) })
+            .collect();
         let entry = rir.as_ref().and_then(|r| r["files"].as_array()?.iter().find(|f| f["path"] == file.path.as_str()).cloned());
         let result = match (c.module, entry) {
             (Some(mut m), Some(rir)) if errors.is_empty() => {
