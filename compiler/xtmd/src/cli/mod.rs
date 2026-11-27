@@ -437,6 +437,34 @@ fn decompile(args: &[String]) -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    // an IR, as xtmd compile writes it, in the resolved IR's shape first; what it has lost is said once
+    let value = if value.get("ir").is_some() {
+        let stem = std::path::Path::new(path).file_name().and_then(|n| n.to_str()).unwrap_or("page");
+        let stem = stem.strip_suffix(".json").unwrap_or(stem);
+        let stem = stem.strip_suffix(".ir").unwrap_or(stem);
+        let module = value["ir"]["module"].as_str().unwrap_or("doc");
+        let file = if module == "doc" { format!("{}.xtmd", stem) } else { format!("{}.xtmdpack", stem) };
+        let dir = std::path::Path::new(path).parent().map(|d| d.to_string_lossy().into_owned()).unwrap_or_default();
+        let file = if dir.is_empty() || out::out_path(args).is_some() { file } else { format!("{}/{}", dir, file) };
+        match crate::decompile::ir::from_ir(&value, &file) {
+            Ok(f) => {
+                for l in &f.losses {
+                    if json {
+                        eprintln!("{}", serde_json::json!({ "type": "warning", "code": "decompile.lost", "message": l }));
+                    } else {
+                        eprintln!("warning: what an IR doesn't keep is written anew: {}", l);
+                    }
+                }
+                f.rir
+            }
+            Err(e) => {
+                eprintln!("error: {}: {}", path, e);
+                return ExitCode::from(1);
+            }
+        }
+    } else {
+        value
+    };
     let printed = match crate::decompile::decompile(&value) {
         Ok(p) => p,
         Err(errors) => {

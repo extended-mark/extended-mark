@@ -109,10 +109,11 @@ const COMPILE: &str = "usage: xtmd compile <files|folders>… [--pack a,b] [--co
         xtmd compile docs --out dist
         xtmd compile page.xtmd --rir --pretty";
 
-const DECOMPILE: &str = "usage: xtmd decompile <file.rir.json> [--out dir | --stdout | --diff | --check] [--format json]
-  The opposite of xtmd compile --rir: each file of a resolved IR written back as source, every name
-  as its file knows it and every comment in its place, in xtmd fmt's layout. It reads nothing of the
-  source the resolved IR was made from.
+const DECOMPILE: &str = "usage: xtmd decompile <file.rir.json | file.ir.json> [--out dir | --stdout | --diff | --check] [--format json]
+  The opposite of xtmd compile: each file of a resolved IR written back as source, every name as its
+  file knows it and every comment in its place, in xtmd fmt's layout. It reads nothing of the source
+  it was made from. From an IR, the page is written again from what it runs: a warning says each kind
+  of thing an IR doesn't keep (comments, the Markdown's spelling, the order of arguments, ...).
   --out dir      writes each file under dir, at the path the resolved IR names; without it, at that path
   --stdout       prints the files instead, one after the other
   --diff         writes nothing: shows how each file there would change
@@ -121,7 +122,8 @@ const DECOMPILE: &str = "usage: xtmd decompile <file.rir.json> [--out dir | --st
   exit: 0 written, or nothing would change; 1 a part it can't write back, or with --check a file that would
         change; 2 a usage error, or a file that can't be read
   e.g.  xtmd compile page.xtmd --rir --out page.rir.json && xtmd decompile page.rir.json --stdout
-        xtmd decompile build.rir.json --out migrated";
+        xtmd decompile build.rir.json --out migrated
+        xtmd compile page.xtmd --out page.ir.json && xtmd decompile page.ir.json --stdout";
 
 const EXPORT: &str = "usage: xtmd export <files|folders>… [--pack a,b] [--config xtmd.toml] [--format json] --out dir --engine <name|path> [the engine's own arguments]
   Writes the files an engine makes of the documents, into --out's folder: HTML, Rust, whatever the

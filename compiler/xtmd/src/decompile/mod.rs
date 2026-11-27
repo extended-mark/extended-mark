@@ -9,6 +9,11 @@
 
 use serde_json::{json, Value};
 
+pub mod ir;
+
+/// The resolved IR's version this prints from, and the shape `ir` turns an IR into.
+pub const RIR_SHAPE: u64 = 2;
+
 use crate::syntax::{format, Entry};
 
 /// One file, printed back.

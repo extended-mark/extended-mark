@@ -2,6 +2,7 @@
 //! same resolved IR, spans apart; and what is printed back is in `xtmd fmt`'s layout already.
 
 use serde_json::Value;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use xtmd::check::{compile_core_logged, compile_rir, compile_rir_with, Compiled, RirOptions, Source};
 
@@ -292,12 +293,174 @@ fn xtmd_decompile_writes_a_resolved_irs_files_back_where_it_is_told() {
     assert_eq!(xtmd(&dir, &["decompile", "page.rir.json"]).0, 0);
     assert_eq!(std::fs::read_to_string(dir.join("page.xtmd")).unwrap(), source);
 
-    // what isn't a resolved IR is a usage error that says what is
+    // what is neither a resolved IR nor an IR is an error that says what each is
+    std::fs::write(dir.join("other.json"), "{\"pages\": []}").unwrap();
+    let (code, _, err) = xtmd(&dir, &["decompile", "other.json"]);
+    assert_eq!(code, 1);
+    assert!(err.contains("xtmd compile --rir"), "{}", err);
     std::fs::write(dir.join("ir.json"), "{\"ir\": {}}").unwrap();
     let (code, _, err) = xtmd(&dir, &["decompile", "ir.json"]);
     assert_eq!(code, 1);
-    assert!(err.contains("xtmd compile --rir"), "{}", err);
+    assert!(err.contains("isn't an IR"), "{}", err);
     let (code, _, _) = xtmd(&dir, &["decompile", "missing.json"]);
     assert_eq!(code, 2);
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// What an IR says of the page itself: its templates, handlers and own declarations. Which of core's declarations
+/// it holds is what the page reaches, which a constant worked out can change.
+fn own_ir(ir: &Value) -> Value {
+    let mut ir = ir["ir"].clone();
+    let own = |d: &Value| {
+        let inner = d["declare"].as_object().and_then(|o| o.values().next()).cloned().unwrap_or_default();
+        let inner = inner.as_object().filter(|o| o.len() == 1 && !o.contains_key("name")).and_then(|o| o.values().next().cloned()).unwrap_or(inner);
+        inner["name"].as_str().map_or(true, |n| n.starts_with("doc/"))
+    };
+    let decls: Vec<Value> = ir["declarations"].as_array().into_iter().flatten().filter(|d| own(d)).cloned().collect();
+    ir["declarations"] = Value::Array(decls);
+    ir.as_object_mut().unwrap().remove("needs");
+    unfold(&mut ir, &BTreeMap::new());
+    ir
+}
+
+/// A call worked out when the page was compiled leaves its locals in the rich text it made, and
+/// decompile writes their values in their place: the same text, so both are compared with the values
+/// put in.
+fn unfold(v: &mut Value, held: &BTreeMap<String, Value>) {
+    match v {
+        Value::Object(o) => {
+            if let Some(Value::String(n)) = o.get("get").and_then(|g| g.get("local")) {
+                if let Some(x) = held.get(n) {
+                    *v = x.clone();
+                    return;
+                }
+            }
+            // what reads a value put in reads it no more
+            if let Some(Value::Object(reads)) = o.get_mut("reads") {
+                for r in reads.values_mut() {
+                    if let Value::Array(xs) = r {
+                        xs.retain(|x| x["local"].as_str().map_or(true, |n| !held.contains_key(n)));
+                    }
+                }
+                reads.retain(|_, r| r.as_array().map_or(true, |xs| !xs.is_empty()));
+                if reads.is_empty() {
+                    o.remove("reads");
+                }
+            }
+            if let Some(Value::Array(mut nodes)) = o.remove("nodes") {
+                let mut more = held.clone();
+                nodes.retain(|n| match n["declare"]["let"].as_object() {
+                    Some(d) => {
+                        let mut x = d.get("value").cloned().unwrap_or_default();
+                        unfold(&mut x, &more);
+                        more.insert(d["name"].as_str().unwrap_or("").to_string(), x);
+                        false
+                    }
+                    None => true,
+                });
+                for n in nodes.iter_mut() {
+                    unfold(n, &more);
+                }
+                for x in o.values_mut() {
+                    unfold(x, held);
+                }
+                o.insert("nodes".into(), Value::Array(nodes));
+                return;
+            }
+            for x in o.values_mut() {
+                unfold(x, held);
+            }
+        }
+        Value::Array(xs) => xs.iter_mut().for_each(|x| unfold(x, held)),
+        _ => {}
+    }
+}
+
+/// A document's IR as `xtmd compile` writes it.
+fn page_ir(c: &Compiled) -> Option<Value> {
+    let mut m = c.module.clone()?;
+    xtmd::lower::lower(&mut m);
+    Some(serde_json::json!({ "ir": m }))
+}
+
+#[test]
+fn every_page_printed_back_from_its_ir_compiles_to_the_same_ir() {
+    std::thread::Builder::new().stack_size(64 << 20).spawn(from_ir_round_trip).unwrap().join().unwrap();
+}
+
+fn from_ir_round_trip() {
+    let verbose = std::env::var("XTMD_DECOMPILE_DIFF").is_ok();
+    let core = sources(&repo().join("core"), &["."]);
+    let base = compile_core_logged(&core);
+    // every document that compiles: the cases', and the examples' and apps' with their folders' packs
+    let mut pages: Vec<(Vec<Source>, Source)> = Vec::new();
+    let mut all = Vec::new();
+    cases(&repo().join("checks/cases"), &mut all);
+    cases(&repo().join("runtime/typescript/test/cases"), &mut all);
+    for case_path in all {
+        let case = json(&case_path);
+        let Some(source) = case["source"].as_str().filter(|s| s.ends_with(".xtmd")) else { continue };
+        let dir = case_path.parent().unwrap();
+        let names: Vec<&str> = case["packs"].as_array().into_iter().flatten().filter_map(Value::as_str).collect();
+        let path = dir.join(source);
+        pages.push((sources(dir, &names), Source { path: path.to_string_lossy().into_owned(), text: std::fs::read_to_string(&path).unwrap() }));
+    }
+    for root in ["examples", "apps"] {
+        let mut stack = vec![repo().join(root)];
+        while let Some(d) = stack.pop() {
+            let mut es: Vec<PathBuf> = std::fs::read_dir(&d).unwrap().map(|e| e.unwrap().path()).collect();
+            es.sort();
+            for p in &es {
+                if p.is_dir() && p.file_name().map_or(true, |n| n != "node_modules") {
+                    stack.push(p.clone());
+                } else if p.extension().map_or(false, |x| x == "xtmd") {
+                    pages.push((sources(&d, &["."]), Source { path: p.to_string_lossy().into_owned(), text: std::fs::read_to_string(p).unwrap() }));
+                }
+            }
+        }
+    }
+    let (mut printed, mut failures) = (0, Vec::new());
+    let mut losses: std::collections::BTreeMap<String, usize> = Default::default();
+    for (packs, page) in pages {
+        let before = compile_rir(&base, &[packs.clone()], &[page.clone()], "doc").0;
+        let Some(ir) = page_ir(&before) else { continue };
+        let fail = |failures: &mut Vec<String>, what: String| {
+            if verbose {
+                eprintln!("{}\n", what.chars().take(3000).collect::<String>());
+            }
+            failures.push(what);
+        };
+        let from = match xtmd::decompile::ir::from_ir(&ir, &page.path) {
+            Ok(f) => f,
+            Err(e) => {
+                fail(&mut failures, format!("{}: {}", page.path, e));
+                continue;
+            }
+        };
+        for l in from.losses {
+            *losses.entry(l).or_default() += 1;
+        }
+        let text = match xtmd::decompile::decompile(&from.rir) {
+            Ok(p) => p.into_iter().next().unwrap().text,
+            Err(e) => {
+                fail(&mut failures, e.join("\n"));
+                continue;
+            }
+        };
+        printed += 1;
+        let after = compile_rir(&base, &[packs], &[Source { path: page.path.clone(), text: text.clone() }], "doc").0;
+        let Some(again) = page_ir(&after) else {
+            let errors: Vec<String> = after.diagnostics.iter().filter(|d| d.diagnostic.is_error()).map(|d| format!("{}", d.diagnostic.message)).collect();
+            fail(&mut failures, format!("{}: what decompile printed from its IR doesn't compile: {}\n{}", page.path, errors.join("; "), text));
+            continue;
+        };
+        if let Some(d) = first_difference(&own_ir(&ir), &own_ir(&again), "") {
+            fail(&mut failures, format!("{}: its IR: {}\n{}", page.path, d, text));
+        } else if markdown(&before) != markdown(&after) {
+            fail(&mut failures, format!("{}: its Markdown was\n{}\nand is\n{}", page.path, markdown(&before), markdown(&after)));
+        }
+    }
+    eprintln!("decompile from an IR: {} pages printed back; said lost: {:?}", printed, losses);
+    assert!(failures.is_empty(), "{} failures:\n{}", failures.len(), failures.join("\n\n"));
+    assert!(printed >= 50, "only {} pages printed back", printed);
 }

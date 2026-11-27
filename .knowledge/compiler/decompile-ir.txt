@@ -1,0 +1,15 @@
+DECOMPILE FROM AN IR  compiler/xtmd/src/decompile/ir.rs
+`xtmd decompile page.ir.json` reads a compact IR (`{"ir": …}`, what `xtmd compile` writes) as well as a
+resolved one: from_ir turns it into a resolved IR's file, and the one writer prints it. What the IR
+doesn't keep is written anew, each kind of loss said once as a warning (`decompile.lost` in json):
+comments, the Markdown's spelling, the order of a call's arguments, what the page doesn't reach,
+imports' other names, tokens blocks' names, and a call worked out when compiled (its value is
+written). Nothing else may be lost: compiler/xtmd/tests/decompile.rs prints back every page of the
+cases, examples and apps from its IR, and holds the IR compiled again to the first, its Markdown too.
+What lowering does that has to be undone, so that the same IR comes back:
+- widgets in the IR's order, which numbers their handlers; a handler is a lambda in its event
+- a hole alone in its paragraph: `declare let ~mN` and an `if` on `sentence(~mN)`
+- a call folded in rich text leaves `declare let` locals before the words: their values are put in
+- `place` in a sentence, in bold too, is a hole; with a rich view, in a call's block, it is prose
+- `hole.TEXT(x)` in inline maths, and `show` around a hole's value
+This is how a release's migration reads a page: the old compiler's IR, steps, then decompile.

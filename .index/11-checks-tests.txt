@@ -17,7 +17,8 @@ Who runs what
     check_commonmark.rs, check_md_inline.rs, check_prune.rs, check_schema.rs, check_levels.rs
     syntax_fmt.rs, syntax_keywords.rs, syntax_spec_examples.rs (docs/specs)
     migrate_ir_history.rs, cli_migrate_040.rs, cli_pack_migration.rs
-    decompile.rs        every file to its resolved IR, printed back, to the same resolved IR, IR, Markdown
+    decompile.rs        every file to its resolved IR, printed back, to the same resolved IR, IR, Markdown;
+                        every page from its IR, printed back, to the same IR
     formats_schemas.rs  schemas, examples, generated types
     live.rs, lsp_server.rs                     order.rs            which part uses which
   runtime, widgets, renderers, engines, live    */test: node --test, some in Chromium
