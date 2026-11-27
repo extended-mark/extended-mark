@@ -345,6 +345,21 @@ impl<'a> Moving<'a> {
                 up.splice(0..0, todos);
             }
         }
+        // a value placed in a view without a name: `let held_<n>: T = value;` and `@held_<n>;`, n its
+        // place in the list
+        for i in (0..items.len()).rev() {
+            let Some(value) = items[i].get("xtmd_held").cloned() else { continue };
+            let span = items[i]["span"].clone();
+            let name = format!("held_{}", i + 1);
+            let ty = value.get("type").cloned().unwrap_or_else(|| json!({ "name": "core/rich_text" }));
+            let comments = items[i].get("comments").cloned();
+            items[i] = json!({ "use": { "widget": name, "args": [], "span": span }, "span": span });
+            let mut held = json!({ "name": name, "type": ty, "value": value, "span": span });
+            if let Some(c) = comments {
+                held["comments"] = c;
+            }
+            items.insert(i, json!({ "let": held, "span": span }));
+        }
         // a value placed as a hole is Markdown, and one run with the Markdown beside it, as the
         // printed file reads
         if merge {
@@ -430,10 +445,8 @@ impl<'a> Moving<'a> {
                 "prose" | "markdown" => json!({ "markdown": { "markdown": "\u{fffc}", "holes": [value] }, "span": span }),
                 "view" | "body" => match ["local", "input", "slot"].iter().find_map(|g| value.pointer(&format!("/get/{}", g)).and_then(Value::as_str)) {
                     Some(name) => json!({ "use": { "widget": name, "args": [], "span": span }, "span": span }),
-                    None => {
-                        let w = format!("{} places this use's value where it stands, and in a view only a value with a name is placed: give it one (`let x: rich_text = …;`), then `@x;`", self.label);
-                        return self.cannot(done, &span, w.clone(), w);
-                    }
+                    // in a view a value is placed by its name: one is given it, just before (list())
+                    None => json!({ "xtmd_held": value, "span": span }),
                 },
                 _ => value,
             };

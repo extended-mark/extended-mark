@@ -18,6 +18,6 @@ compiler/xtmd/tests/migrate_032_format.rs holds it to what 0.4.0 gives for the s
 doesn't say (mut parameters and inputs, extern fns, slots) the reader adds as left_out.resolved, from
 0.3.2's checker. Then a file per language row, then core's migration (its core.rs).
 A file with a TODO is written even if it doesn't compile.
-Until rir::READY, a 0.3.2 tree still takes compiler/xtmd/src/cli/migrate.rs's text steps (releases.rs).
+rir::READY (on from 0.4.0) says the step is whole; tools/release/preflight.mjs won't release without it.
 compiler/xtmd/tests/migrate_pipeline.rs runs a made-up release before, rir 1 with `words` for `prose`;
 compiler/xtmd/tests/migrate_032.rs runs every 0.3.2 file of checks/migrate-0.3 against expected.tsv.

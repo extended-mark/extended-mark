@@ -64,8 +64,12 @@ fn rename(v: &mut Value, ids: &BTreeMap<String, String>) {
                 }
             }
             if let Some(g) = o.get_mut("get").and_then(Value::as_object_mut) {
-                if let Some(l) = g.get("local").and_then(Value::as_str).filter(|l| keyword(l)).map(String::from) {
-                    g.insert("local".into(), Value::String(format!("{}_", l)));
+                // a local's, an input's, a widget's own value's or a slot's: by its name, which its
+                // declaration renamed
+                for key in ["local", "input", "own", "slot"] {
+                    if let Some(l) = g.get(key).and_then(Value::as_str).filter(|l| keyword(l)).map(String::from) {
+                        g.insert(key.into(), Value::String(format!("{}_", l)));
+                    }
                 }
                 // a read of `$state`'s field, by its name
                 if let Some(s) = g.get("state").and_then(Value::as_str).filter(|s| ids.contains_key(&format!("$state.{}", s))).map(String::from) {

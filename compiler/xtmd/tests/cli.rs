@@ -8,12 +8,16 @@ fn xtmd(args: &[&str]) -> (i32, String, String) {
     (out.status.code().unwrap_or(-1), String::from_utf8_lossy(&out.stdout).into_owned(), String::from_utf8_lossy(&out.stderr).into_owned())
 }
 
+/// A tree of these files. Its trees are written for this release: an xtmd.toml that names none is given
+/// this release's `xtmd =` line, since xtmd migrate reads a tree whose xtmd.toml names none as written for
+/// the release before.
 fn scratch(name: &str, files: &[(&str, &str)]) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("xtmd-cli-{}-{}", name, std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     for (path, text) in files {
         let p = dir.join(path);
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        let text = if path.ends_with("xtmd.toml") && !text.lines().any(|l| l.starts_with("xtmd =")) { format!("xtmd = \"{}\"\n{}", env!("CARGO_PKG_VERSION"), text) } else { text.to_string() };
         std::fs::write(p, text).unwrap();
     }
     dir
@@ -322,12 +326,13 @@ fn migrate_takes_a_prose_calls_block_from_the_parser_fences_and_all() {
 #[test]
 fn migrate_keeps_the_release_a_tree_is_written_for_in_xtmd_toml() {
     let release = env!("CARGO_PKG_VERSION");
-    // no record: taken as 0.3.0, and the run that moves the tree writes this xtmd's release
+    // written for this release, with kit@1: the run that moves it keeps the release and records kit@2 (a
+    // tree whose xtmd.toml names no release is read as written for the release before: migrate_pipeline.rs)
     let dir = kit_tree("migrate-release", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n");
     let docs = dir.join("docs");
     let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run"]);
     assert_eq!(code, 0, "{}", out);
-    assert!(out.contains(&format!("has no `xtmd =` line, so the tree is taken as written for xtmd 0.3.0; migrating writes xtmd = \"{}\" into it, and [uses] kit = 2.", release)), "{}", out);
+    assert!(out.contains(&format!("xtmd.toml: written for xtmd {}; migrating writes [uses] kit = 2.", release)), "{}", out);
     let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
     assert_eq!(code, 0, "{}{}", out, err);
     let toml = std::fs::read_to_string(dir.join("xtmd.toml")).unwrap();
@@ -754,7 +759,7 @@ fn migrate_from_the_tree_reads_its_xtmd_toml_and_refuses_a_pack_it_doesnt_have()
     assert_eq!(run(&["migrate", "--check"]).0, 1);
     assert_eq!(run(&["migrate", ".", "--check"]).0, 1);
     // a pack the document imports that isn't in the build: refused, saying how to add it
-    let lone = scratch("migrate-no-pack", &[("docs/report.xtmd", OLD_DOC)]);
+    let lone = scratch("migrate-no-pack", &[("docs/report.xtmd", OLD_DOC), ("xtmd.toml", "")]);
     let (code, out, _) = xtmd(&["migrate", lone.join("docs").to_str().unwrap(), "--dry-run"]);
     assert_eq!(code, 1);
     assert!(out.contains("not written: it imports kit, which isn't in the build: pass its folder with --pack"), "{}", out);
@@ -768,20 +773,21 @@ fn migrate_says_each_change_with_its_why_and_its_diff_is_a_patch() {
     assert_eq!(code, 0, "{}", out);
     assert!(out.contains("changed, each by a statement of the migration (with its why):"), "{}", out);
     assert!(out.contains("badge: size = size.S, added: kit@1's badges were small") && out.contains("stat: unit = \"\", added: a stat names its unit") && out.contains("LATE → OVERDUE, renamed by kit@2"), "{}", out);
-    // --diff: on stdout only the patch, xtmd.toml's hunk too; what it says on stderr
+    // --diff: on stdout only the patch, xtmd.toml's [uses] hunk too; what it says on stderr
     let out = Command::new(env!("CARGO_BIN_EXE_xtmd")).args(["migrate", "docs", "--diff"]).current_dir(&dir).output().unwrap();
     let (patch, said) = (String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
-    assert!(patch.starts_with("--- a/docs/report.xtmd\n+++ b/docs/report.xtmd\n@@") && patch.contains("--- a/xtmd.toml\n+++ b/xtmd.toml\n") && patch.contains(&format!("+xtmd = \"{}\"", env!("CARGO_PKG_VERSION"))) && patch.contains("+kit = 2"), "{}", patch);
+    assert!(patch.starts_with("--- a/docs/report.xtmd\n+++ b/docs/report.xtmd\n@@") && patch.contains("--- a/xtmd.toml\n+++ b/xtmd.toml\n") && patch.contains("+kit = 2"), "{}", patch);
     assert!(said.contains("1 file: 1 to migrate"), "{}", said);
-    // JSON says what the run would write into xtmd.toml, and the changes as notes
+    // JSON says what xtmd.toml says, what the run would write into it (no release: it says this one), and
+    // the changes as notes
     let (_, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run", "--format", "json"]);
     let lines: Vec<serde_json::Value> = out.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
     let summary = lines.last().unwrap();
-    assert_eq!((summary["xtmd_toml"]["says"].as_str(), summary["xtmd_toml"]["records"].as_str(), summary["xtmd_toml"]["uses"]["kit"].as_u64()), (None, Some(env!("CARGO_PKG_VERSION")), Some(2)));
+    assert_eq!((summary["xtmd_toml"]["says"].as_str(), summary["xtmd_toml"]["records"].as_str(), summary["xtmd_toml"]["uses"]["kit"].as_u64()), (Some(env!("CARGO_PKG_VERSION")), None, Some(2)));
     assert!(lines.iter().any(|l| l["kind"] == "changed" && l["text"].as_str().map_or(false, |t| t.contains("size = size.S"))), "{}", out);
     // and the warning before writing says what it rewrites
     let (_, out, _) = xtmd(&["migrate", docs.to_str().unwrap()]);
-    assert!(out.contains("warning: this rewrites 1 file in place, and xtmd.toml's `xtmd =` line and [uses]."), "{}", out);
+    assert!(out.contains("warning: this rewrites 1 file in place, and xtmd.toml's [uses]."), "{}", out);
 }
 
 #[test]

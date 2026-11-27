@@ -160,6 +160,13 @@ jobs:
         run: |
           node --test .github/pre-commit/test/*.test.mjs
           node .github/pre-commit/check.mjs
+      - name: xtmd migrate's tools - the release before's front end is its tag's, and chain.py
+        # the 0.3.2 corpus itself is migrated by Rust's tests (compiler/xtmd/tests/migrate_032.rs)
+        run: |
+          tag=$(sed -n 's/^pub const TAG: &str = "\(.*\)";$/\1/p' compiler/xtmd/previous/mod.rs)
+          git fetch --no-tags --depth=1 origin "refs/tags/$tag:refs/tags/$tag"
+          node tools/release/previous.mjs --check
+          python3 -m unittest discover tools/migrate/test
       - name: The VS Code extension, built and tested
         working-directory: ide/vscode
         run: npm install --no-audit --no-fund && npm test

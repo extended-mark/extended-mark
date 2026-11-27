@@ -1,4 +1,5 @@
-//! `xtmd migrate` from 0.3 to 0.4: what the release's own steps change, on a tree with a pack.
+//! `xtmd migrate` from 0.3.2 to 0.4.0, end to end through the step (src/migrate/rir/v1), on trees with a pack:
+//! what is moved, and what is written with a TODO and said, with exit 3.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -130,7 +131,7 @@ Flush text.
 "#;
 
 #[test]
-fn a_left_out_slot_becomes_opt_or_is_given_an_empty_block_and_a_plain_block_is_named() {
+fn a_left_out_slot_is_given_an_empty_block_and_a_plain_block_is_named() {
     let dir = tree("slots", &[("xtmd.toml", TOML), ("kit/kit.xtmdpack", KIT), ("doc.xtmd", DOC)]);
     let (code, before) = xtmd(&dir, &["check", "."]);
     assert_eq!(code, 1, "{before}");
@@ -140,20 +141,20 @@ fn a_left_out_slot_becomes_opt_or_is_given_an_empty_block_and_a_plain_block_is_n
     assert_eq!(code, 0, "{after}");
     let doc = std::fs::read_to_string(dir.join("doc.xtmd")).unwrap();
     for want in [
-        "slot abouts: opt<list<about>>;",
-        "slot extra: opt<view>;",
-        "\\{abouts.or([]).len()}",
-        "for (a in abouts.or([])) {",
-        "        @if (let extra_given: view = extra) {\n            \\{extra_given}\n        }\n",
+        // A1: a slot that may be empty is given an empty block where a call leaves it out; the widget stays
+        "    slot abouts: list<about>;\n    slot extra: view;\n",
+        "@box(name = \"a\") {\n    @slot abouts {\n    }\n\n    @slot extra {\n    }\n}\n",
+        "        @box(name = \"in code\") {\n            abouts { }\n            extra { }\n        }\n",
         "@two(title = \"plain\") {\n    @slot head {\n        Some **words**.\n\n        - a list\n    }\n}\n",
         "@frame(title = \"flush\") {\n    @slot body {\n        Flush text.\n    }\n}\n",
         "@two(title = \"left out\") {\n    @slot head {\n    }\n}\n",
-        "        @two(title = \"left out in code\") {\n            head {\n            }\n        }\n",
+        "        @two(title = \"left out in code\") {\n            head { }\n        }\n",
+        "@two(title = \"half\") {\n    @slot head {\n    }\n\n    @slot foot {\n        Foot.\n    }\n}\n",
     ] {
         assert!(doc.contains(want), "{want}\nin\n{doc}");
     }
     let kit = std::fs::read_to_string(dir.join("kit/kit.xtmdpack")).unwrap();
-    assert!(kit.contains("slot body: opt<view>;") && kit.contains("@if (let body_given: view = body) {"), "{kit}");
+    assert!(kit.contains("    slot body: view;\n") && kit.contains("@card(title = \"in the pack\") {\n            body { }\n        }"), "{kit}");
     assert_eq!(std::fs::read_to_string(dir.join("xtmd.toml")).unwrap(), TOML.replace("0.3.2", env!("CARGO_PKG_VERSION")));
     // what was drawn is what is drawn: nothing given is still nothing
     let (code, md) = xtmd(&dir, &["md", "doc.xtmd"]);
@@ -190,10 +191,10 @@ widget tabs() {
 fn a_slot_that_must_hold_something_is_left_for_a_person() {
     let dir = tree("hard", &[("hard.xtmd", HARD)]);
     let (code, out) = xtmd(&dir, &["migrate", "hard.xtmd", "--yes"]);
-    assert_eq!(code, 1, "{out}");
+    // said out loud: no xtmd.toml is the release before, and each TODO, with exit 3
+    assert_eq!(code, 3, "{out}");
+    assert!(out.contains("the tree is read as written for 0.3.2"), "{out}");
     assert!(out.contains("`tabs` needs its slot `panels`") && out.contains("`tabs` needs its slot `head`"), "{out}");
-    assert_eq!(std::fs::read_to_string(dir.join("hard.xtmd")).unwrap(), HARD, "a refused file is not written");
-    let (_, out) = xtmd(&dir, &["migrate", "hard.xtmd", "--yes", "--allow-todos"]);
     let text = std::fs::read_to_string(dir.join("hard.xtmd")).unwrap();
     assert!(text.contains("@// TODO(xtmd migrate): `tabs` needs its slot `panels`"), "{out}\n{text}");
 }
@@ -258,8 +259,9 @@ fn a_name_spelled_warn_is_renamed_and_an_extern_says_what_it_is_as_markdown() {
     let dir = tree("warn", &[("xtmd.toml", TOML), ("kit/kit.xtmdpack", PLAIN_EXTERNS), ("doc.xtmd", WARNED)]);
     assert_eq!(xtmd(&dir, &["check", "."]).0, 1);
     let (code, out) = xtmd(&dir, &["migrate", ".", "--yes"]);
-    assert_eq!(code, 0, "{out}");
-    assert!(out.contains("`warn` is a keyword"), "{out}");
+    // `$state.warn` is renamed too, with a TODO: a host reads it by its name
+    assert_eq!(code, 3, "{out}");
+    assert!(out.contains("`$state.warn` is `warn_` now, as `warn` is a keyword"), "{out}");
     let (code, after) = xtmd(&dir, &["check", "."]);
     assert_eq!(code, 0, "{after}");
     let doc = std::fs::read_to_string(dir.join("doc.xtmd")).unwrap();
@@ -277,7 +279,7 @@ fn a_name_spelled_warn_is_renamed_and_an_extern_says_what_it_is_as_markdown() {
     let kit = std::fs::read_to_string(dir.join("kit/kit.xtmdpack")).unwrap();
     for want in [
         "// says nothing as Markdown yet\nextern widget mark(warn_: text) {\n    markdown { }\n}\n",
-        "    slot body: view;      // what it holds\n\n    markdown { }\n}\n",
+        "    slot body: view; // what it holds\n\n    markdown { }\n}\n",
         "extern widget gap() {\n    markdown { }\n}\n",
     ] {
         assert!(kit.contains(want), "{want}\nin\n{kit}");
@@ -348,7 +350,8 @@ fn what_reads_a_rich_texts_parts_is_left_for_a_person() {
     let doc = "fn first(a: rich_text): int {\n    return a.segments.len();\n}\n\nfn same_words(a: rich_text, b: rich_text): bool {\n    return a == b;\n}\n@@@\nhi\n";
     let dir = tree("parts", &[("xtmd.toml", "xtmd = \"0.3.2\"\n"), ("doc.xtmd", doc)]);
     let (code, out) = xtmd(&dir, &["migrate", ".", "--yes"]);
-    assert_eq!(code, 1, "{out}");
-    assert!(out.contains("line 2: a rich_text is a view in 0.4") && out.contains("line 6: a rich_text is a view in 0.4, and isn't compared"), "{out}");
-    assert_eq!(std::fs::read_to_string(dir.join("doc.xtmd")).unwrap(), doc);
+    assert_eq!(code, 3, "{out}");
+    assert!(out.contains("nothing reads its parts") && out.contains("a rich_text is drawn in 0.4.0, and two aren't compared"), "{out}");
+    let text = std::fs::read_to_string(dir.join("doc.xtmd")).unwrap();
+    assert!(text.contains("    // TODO(xtmd migrate): a rich_text is drawn in 0.4.0, and two aren't compared: compare the texts they are made from\n    return a == b;"), "{text}");
 }

@@ -5,7 +5,9 @@
 //
 // They are: the notes for agents (tools/llm/check.mjs); every version the same (tools/release/bump.mjs
 // --check); core formatted (xtmd fmt --check core, with the xtmd of compiler/target/release, or
-// XTMD_BINARY); and the table of moved commands and flags, held to the code and to VERSION.
+// XTMD_BINARY); what moves a tree written for the release before VERSION there (the release preflight's
+// migrationFindings, with the tags this clone has); and the table of moved commands and flags, held to
+// the code and to VERSION.
 //
 // The table is made from `MOVED` (compiler/xtmd/src/cli/mod.rs) and `MOVED_FLAGS` (flags.rs). An entry is
 // removed in the release after the one that moved it: the next minor one, 0.4.0's in 0.5.0. The check
@@ -16,6 +18,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { migrationFindings, migrationTree } from "../../tools/release/preflight.mjs";
 
 const CHECKS = ".github/pre-commit/Pre Commit checks.md";
 const COMMANDS = "compiler/xtmd/src/cli/mod.rs";
@@ -113,6 +116,7 @@ function main() {
     ...tableProblems(read(CHECKS), entries, read("VERSION").trim()),
     ...run(repo, "node tools/llm/check.mjs", process.execPath, ["tools/llm/check.mjs"]),
     ...run(repo, "node tools/release/bump.mjs --check", process.execPath, ["tools/release/bump.mjs", "--check"]),
+    ...migrationFindings(read("VERSION").trim(), execFileSync("git", ["tag", "--list"], { cwd: repo, encoding: "utf8" }).split("\n").filter(Boolean), migrationTree(repo)).errors,
     ...(existsSync(xtmd)
       ? run(repo, "xtmd fmt --check core", xtmd, ["fmt", "--check", "core"])
       : [`xtmd fmt --check core didn't run: there is no ${xtmd}; cargo build --release -p xtmd, or set XTMD_BINARY`]),
