@@ -81,6 +81,16 @@ pub fn run(args: &[String]) -> ExitCode {
     }
     files.sort();
     files.dedup();
+    if files.is_empty() {
+        eprintln!("nothing to move: {} holds no document or pack's file", targets.join(", "));
+        return ExitCode::SUCCESS;
+    }
+    // the tree's own packs are in its build, for the old release as for this one
+    let own: Vec<String> = files.iter().filter(|f| !is_doc(f)).cloned().collect();
+    if !own.is_empty() {
+        build.push("--pack".into());
+        build.push(own.join(","));
+    }
     let packs = match super::options(&[targets.clone(), build.clone()].concat()) {
         Ok((_, p, _)) => p,
         Err(e) => {

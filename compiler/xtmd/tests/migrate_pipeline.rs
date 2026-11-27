@@ -277,10 +277,15 @@ fn xtmd_migrate_reader_plans_then_writes_every_file_or_none() {
     assert_eq!(code, 0, "{}", err);
     let books = std::fs::read_to_string(dir.join("books.xtmd")).unwrap();
     assert!(books.contains("// what is on the shelf\nlet first: text = \"Read\";"), "{}", books);
-    // once moved, nothing more to do
-    let (code, _, err) = xtmd(&["migrate", d, "--pack", &pack, "--reader", me, "--check"]);
+    // once moved, nothing more to do; the tree's own pack is in its build without --pack
+    let (code, _, err) = xtmd(&["migrate", d, "--reader", me, "--check"]);
     assert_eq!(code, 0, "{}", err);
     assert!(err.contains("nothing to change"), "{}", err);
+    // a folder with nothing of Extended Mark's in it has nothing to move
+    let empty = scratch("cli-empty", &[("README.md", "# nothing here\n")]);
+    let (code, _, err) = xtmd(&["migrate", empty.to_str().unwrap(), "--reader", me, "--yes"]);
+    assert_eq!(code, 0, "{}", err);
+    assert!(err.contains("nothing to move"), "{}", err);
 
     // one file the old release can't read: nothing is written, the others neither
     let dir = scratch("cli-none", &[("a.xtmd", "let x: text   = \"a\";\n@@@\n\\{x}\n"), ("b.xtmd", "@@@\n\\{nothing_here}\n")]);
