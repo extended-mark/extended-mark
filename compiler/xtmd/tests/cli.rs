@@ -515,10 +515,43 @@ fn in_a_terminal_every_question_is_listed_then_asked_in_turn() {
             .stdout(std::process::Stdio::piped())
             .spawn()
             .unwrap();
-        use std::io::Write;
-        child.stdin.take().unwrap().write_all(input.as_bytes()).unwrap();
-        let out = child.wait_with_output().unwrap();
-        String::from_utf8_lossy(&out.stdout).replace('\r', "")
+        // each answer typed once xtmd waits for it, as a person types: what is typed ahead of a prompt
+        // isn't kept by every terminal (macOS's script(1) loses it). xtmd waits when it says nothing for
+        // a while.
+        use std::io::{Read, Write};
+        let mut stdout = child.stdout.take().unwrap();
+        let (tx, rx) = std::sync::mpsc::channel::<Vec<u8>>();
+        let reader = std::thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            while let Ok(n) = stdout.read(&mut buf) {
+                if n == 0 || tx.send(buf[..n].to_vec()).is_err() {
+                    break;
+                }
+            }
+        });
+        let mut out = Vec::new();
+        let quiet = |out: &mut Vec<u8>| {
+            let start = std::time::Instant::now();
+            while let Ok(chunk) = rx.recv_timeout(std::time::Duration::from_millis(400)) {
+                out.extend(chunk);
+                if start.elapsed() > std::time::Duration::from_secs(30) {
+                    break;
+                }
+            }
+        };
+        let mut stdin = child.stdin.take().unwrap();
+        for line in input.split_inclusive('\n') {
+            quiet(&mut out);
+            if stdin.write_all(line.as_bytes()).and_then(|_| stdin.flush()).is_err() {
+                break;
+            }
+        }
+        quiet(&mut out);
+        drop(stdin);
+        child.wait().unwrap();
+        reader.join().unwrap();
+        out.extend(rx.try_iter().flatten());
+        String::from_utf8_lossy(&out).replace('\r', "")
     };
     // a terminal that closes before every question is answered writes nothing
     let out = run("2\n");
