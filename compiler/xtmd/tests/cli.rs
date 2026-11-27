@@ -492,10 +492,13 @@ fn the_walkthroughs_bugs_stay_fixed() {
 
 #[test]
 fn in_a_terminal_every_question_is_listed_then_asked_in_turn() {
-    // a terminal of its own: script(1) gives xtmd one, and the answers are typed into it
-    if Command::new("script").arg("--version").output().is_err() {
+    // a terminal of its own: script(1) gives xtmd one, and the answers are typed into it. util-linux's
+    // takes the command with -c (and says its version); BSD's and macOS's take it after the file
+    let Ok(version) = Command::new("script").arg("--version").output() else {
+        eprintln!("not run: there is no script(1) to give xtmd a terminal");
         return;
-    }
+    };
+    let gnu = version.status.success();
     let dir = kit_tree("migrate-asked", "packs = [\"kit\"]\n\n[uses]\nkit = 1\n");
     let migration = MIGRATION
         .replace("when = !given(size)", "when = confirm(why = \"Make kit@1's badges small?\")")
@@ -503,8 +506,10 @@ fn in_a_terminal_every_question_is_listed_then_asked_in_turn() {
         .replace("rename(from = state.LATE, to = state.OVERDUE);", "split(from = state.LATE, to = [state.OVERDUE, state.DONE], why = \"late is now overdue, or done\");");
     std::fs::write(dir.join("kit/migrations/kit@2.xtmdpack"), migration).unwrap();
     let run = |input: &str| {
+        let cmd = format!("{} migrate docs --allow-dirty --answers answers.toml", env!("CARGO_BIN_EXE_xtmd"));
+        let args: Vec<&str> = if gnu { vec!["-qec", &cmd, "/dev/null"] } else { vec!["-q", "/dev/null", "sh", "-c", &cmd] };
         let mut child = Command::new("script")
-            .args(["-qec", &format!("{} migrate docs --allow-dirty --answers answers.toml", env!("CARGO_BIN_EXE_xtmd")), "/dev/null"])
+            .args(&args)
             .current_dir(&dir)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
