@@ -156,6 +156,10 @@ jobs:
         run: |
           node --test tools/llm/test/*.test.mjs
           node tools/llm/check.mjs
+      - name: The pre-commit checks, and the table of what each release removes
+        run: |
+          node --test .github/pre-commit/test/*.test.mjs
+          node .github/pre-commit/check.mjs
       - name: The VS Code extension, built and tested
         working-directory: ide/vscode
         run: npm install --no-audit --no-fund && npm test

@@ -37,8 +37,8 @@ export function tracked(repo) {
 /** The words of a line that may be paths. */
 export function pathsIn(line) {
   const out = [];
-  // a name with spaces in it is named in double quotes: "Pre Commit checks.md"
-  line = line.replace(/"([\w.-]+(?: [\w.-]+)+\.\w+)"/g, (_, name) => {
+  // a name with spaces in it is named in double quotes: ".github/pre-commit/Pre Commit checks.md"
+  line = line.replace(/"((?:[\w.-]+\/)*[\w.-]+(?: [\w.-]+)+\.\w+)"/g, (_, name) => {
     out.push(name);
     return " ";
   });

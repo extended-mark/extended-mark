@@ -75,6 +75,7 @@ test("what is no path: placeholders, addresses, packages, flags, endings, built 
   assert.deepEqual(pathsIn("notes/<version>.md https://x.y/z @extended-mark/dom --format .xtmdpack 1,000"), []);
   // a name with spaces is one path when it is in double quotes
   assert.deepEqual(pathsIn('read "Pre Commit checks.md" and docs/a.md'), ["Pre Commit checks.md", "docs/a.md"]);
+  assert.deepEqual(pathsIn('go through ".github/pre-commit/Pre Commit checks.md"**: what'), [".github/pre-commit/Pre Commit checks.md"]);
   assert.deepEqual(found({ ".knowledge/how/it-works.txt": "code/a/target/x.rs and dist/index.js and page.ir.json\n" }), []);
 });
 

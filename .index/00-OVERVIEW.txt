@@ -36,10 +36,9 @@ THE TREE
   tools/                  release, llm (checks these notes), cli-usability
   brand/                  logo and icons
   devbench/               video takes, recorded for demos
-  .github/                workflows, rulesets
+  .github/                workflows, rulesets, pre-commit: the checks before a commit
   VERSION                 the release's version; tools/release/bump.mjs raises it everywhere
   README.md, CLAUDE.md    for people, for agents
-  "Pre Commit checks.md"  before a commit; what each release removes that the one before moved
   install.sh, install.ps1 one-line installers of the xtmd binary
 
 THE SHORTEST WAY THROUGH THE CODE

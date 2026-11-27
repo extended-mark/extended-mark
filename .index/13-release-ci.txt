@@ -16,6 +16,9 @@ tools/cli-usability/  harness.py, the command tried as a person would
 .github/workflows/notes.yml     release notes and versions, on merge requests into main
 .github/workflows/release.yml   binaries, wasm, tests, publishing, on main
 .github/rulesets/               what main requires
+.github/pre-commit/             before a commit; test/
+  ".github/pre-commit/Pre Commit checks.md"  what to check, what each release removes that one moved
+  check.mjs                     the checks a program can make; --write: the table of moved commands
 
 install.sh, install.ps1         the binary from a release
 VERSION                         the version everything is written with

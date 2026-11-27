@@ -47,10 +47,16 @@ const ASKED_FOR: &[(&str, &str, &str)] = &[
     ("*", "-h", "use --help"),
     ("*", "--json", "use --format json"),
     ("migrate", "-y", "use --yes"),
-    // export runs an engine; the IR and the resolved IR are compile's
-    ("export", "--rir", "xtmd compile writes the resolved IR: xtmd compile page.xtmd --rir"),
-    ("export", "--core", "xtmd compile writes the resolved IR, core's files in it: xtmd compile page.xtmd --rir --core"),
-    ("export", "--pretty", "xtmd compile writes the IR: xtmd compile page.xtmd --pretty"),
+];
+
+/// A flag a release moved: its command, the flag, the release that moved it, and the one there is. Like
+/// a command in `MOVED`, it answers in that release only; the next one removes it, by the table in
+/// ".github/pre-commit/Pre Commit checks.md", which `.github/pre-commit/check.mjs` holds to this list.
+pub(crate) const MOVED_FLAGS: &[(&str, &str, &str, &str)] = &[
+    // build's, which export took over: the IR and the resolved IR are compile's
+    ("export", "--rir", "0.4.0", "xtmd compile writes the resolved IR: xtmd compile page.xtmd --rir"),
+    ("export", "--core", "0.4.0", "xtmd compile writes the resolved IR, core's files in it: xtmd compile page.xtmd --rir --core"),
+    ("export", "--pretty", "0.4.0", "xtmd compile writes the IR: xtmd compile page.xtmd --pretty"),
 ];
 
 /// The command's flags looked over: each one it doesn't know, warned about, and whether it can run;
@@ -63,8 +69,10 @@ pub(crate) fn check(cmd: &str, args: &[String]) -> (Vec<String>, bool) {
         if known.contains(&name) {
             continue;
         }
-        match ASKED_FOR.iter().find(|(c, f, _)| (*c == cmd || *c == "*") && *f == name) {
-            Some((_, _, instead)) => {
+        let asked = ASKED_FOR.iter().find(|(c, f, _)| (*c == cmd || *c == "*") && *f == name).map(|(_, _, i)| *i);
+        let moved = MOVED_FLAGS.iter().find(|(c, f, _, _)| *c == cmd && *f == name).map(|(_, _, _, i)| *i);
+        match asked.or(moved) {
+            Some(instead) => {
                 eprintln!("error: xtmd {} has no {}: {}", cmd, name, instead);
                 ok = false;
             }
@@ -107,8 +115,9 @@ mod tests {
 
     #[test]
     fn every_flag_asked_for_is_one_its_command_hasnt() {
-        for (cmd, flag, instead) in ASKED_FOR {
-            assert!(!known(cmd).contains(flag), "xtmd {} takes {}", cmd, flag);
+        let moved = MOVED_FLAGS.iter().map(|(c, f, _, i)| (*c, *f, *i));
+        for (cmd, flag, instead) in ASKED_FOR.iter().copied().chain(moved) {
+            assert!(!known(cmd).contains(&flag), "xtmd {} takes {}", cmd, flag);
             assert!(!instead.is_empty());
         }
     }

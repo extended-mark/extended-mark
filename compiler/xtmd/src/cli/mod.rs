@@ -339,7 +339,8 @@ fn export(args: &[String], engine: Option<(String, Vec<String>)>) -> ExitCode {
 }
 
 /// A command a release moved: its name, the release that moved it, and where it went. It runs nothing and
-/// says where to go, for that release only; the next one removes it ("Pre Commit checks.md").
+/// says where to go, for that release only; the next one removes it, by the table in
+/// ".github/pre-commit/Pre Commit checks.md", which `.github/pre-commit/check.mjs` holds to this list.
 pub(crate) const MOVED: &[(&str, &str, &str)] = &[(
     "build",
     "0.4.0",

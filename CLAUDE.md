@@ -73,8 +73,9 @@ How to use them:
    exists moves to it. An IR version that hasn't shipped is changed in place.
 10. **Write like the code around you**: full sentences in comments, saying why, in the words of the
     spec (`.knowledge/conventions/words.txt`).
-11. **Before a commit, go through "Pre Commit checks.md"**: the checks, and what a release removes that
-    the one before moved.
+11. **Before a commit, go through ".github/pre-commit/Pre Commit checks.md"**: what to check, and what a
+    release removes that the one before moved. `node .github/pre-commit/check.mjs` makes the checks a
+    program can.
 
 ## Keeping the notes true
 
