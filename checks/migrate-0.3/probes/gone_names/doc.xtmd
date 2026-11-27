@@ -1,0 +1,16 @@
+record part {
+    n: int = 1;
+}
+
+enum block { A, B }
+
+widget blocks(n: int) {
+    view {
+        @label(value = "\{n}");
+    }
+    markdown {
+        \{n}
+    }
+}
+@@@
+@blocks(n = part { }.n);

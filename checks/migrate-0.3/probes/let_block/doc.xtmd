@@ -1,0 +1,13 @@
+widget a() {
+    view {
+        let v: view = @label(value = "x");
+        @v {
+            @label(value = "lost");
+        }
+    }
+    markdown {
+        x
+    }
+}
+@@@
+@a;

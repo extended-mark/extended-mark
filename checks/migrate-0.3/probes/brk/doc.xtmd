@@ -1,0 +1,5 @@
+fn f(a: rich_text, b: rich_text): bool {
+    return a.show() == b.show();
+}
+@@@
+\{f("a", "b")}

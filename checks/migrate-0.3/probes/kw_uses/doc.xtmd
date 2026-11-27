@@ -1,0 +1,9 @@
+record r {
+    uses: int = 1;
+}
+
+let execute: int = 3;
+let migration: int = 4;
+let provides: int = 5;
+@@@
+A \{r { }.uses} \{execute} \{migration} \{provides}

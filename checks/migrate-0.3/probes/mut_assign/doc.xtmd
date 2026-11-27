@@ -1,0 +1,21 @@
+record pt {
+    x: int = 0;
+}
+
+$state {
+    p: pt = pt { };
+}
+
+fn bump(mut n: int) {
+    n = n + 1;
+}
+
+fn go() {
+    $state.p.x = 3;
+    bump($state.p.x);
+}
+
+@@@
+@press(label = "go", click = go);
+
+\{$state.p.x}
