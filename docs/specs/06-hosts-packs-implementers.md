@@ -122,6 +122,23 @@ Migrations and surfaces never reach a page: the IR has neither, and building a d
 
 The compiler writes a build in two forms. The **IR** is what a page runs from: checked and lowered, with no Markdown left in it. The **resolved IR** is for tools: what the checker understood, with every name resolved to what it names and every value typed, nothing lowered, and each part's place in its source and every comment kept: a node's own (its doc comments, those just above it, the one that ends its line, those after a bracket that ends a line, and free ones inside an expression, before the expression after them) and those that belong to no node, which stand in their list as comment items; a document keeps its front matter's text. The resolved IR has a whole-number version of its own, and the schema of each one a release shipped is kept. `xtmd migrate` works from it, and so can an editor, a linter or a program that writes Extended Mark. Both are JSON with a versioned schema (`schemas/`): `xtmd compile` writes the IR and `xtmd compile --rir` the resolved IR, and nothing that runs, draws or builds a page reads the resolved IR. `--pretty` writes either over several lines.
 
+`xtmd decompile` is the other way: it writes a resolved IR back as source, every name as its file knows it and every comment in its place, in `xtmd fmt`'s layout, and what it writes compiles to the same resolved IR. It reads an IR too, and then writes the page again from what it runs: what an IR doesn't keep, such as comments, the Markdown's spelling and the order of a call's arguments, is written anew, and each kind of it is said, as a warning.
+
+| Resolved IR | Written by |
+|---|---|
+| 1 | xtmd 0.3.0 to 0.3.2 |
+| 2 | xtmd 0.4 |
+
+**A release that changes the language** moves what was written for the release before it by what each release understands of it, never by its text, and for any release, not only the last:
+
+1. **The old release reads it.** The release a tree is written for is the one that understands it: its `xtmd compile --rir` gives each file's resolved IR, and its `xtmd md` each document's Markdown.
+2. **Steps.** The resolved IR is brought to the version this xtmd writes, one version at a time, from JSON to JSON, by names and types. What a step is given is checked against the schema its version had, which is kept, and what it makes against the next version's.
+3. **What a person decides.** A step asks what only a person can decide, by a question with an id; whoever migrates answers it, or a file does. What no answer can move is left as it was, with a TODO above it.
+4. **Printed and checked.** Every file is written again from the resolved IR, in `xtmd fmt`'s layout with its comments, and compiled. Each document's Markdown must be what the old release wrote: a migration changes how a page is written, never what it says.
+5. **Every file, or none.** A question nothing answers, a file that doesn't compile and a document whose Markdown changed each stop the whole tree, and nothing is written. Otherwise every file is, and the tree's `xtmd.toml` says the new release.
+
+`xtmd migrate <tree> --reader <the old release's xtmd>` does this. A reader is whatever gives a tree's resolved IR and Markdown as its release understood them; a release from 0.4 on is read with its own command, and 0.3's, which has no `compile`, needs one of its own. A release that moves a command or a flag keeps it for that release only, to say where it went, and the next release removes it.
+
 ### The IR
 
 A page's IR is whole, never changes as the page runs, and holds only what the page can run:

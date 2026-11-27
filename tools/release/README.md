@@ -13,6 +13,28 @@ merge; enable it and run it by hand when the release should go out. While `main`
 release, a merge request may keep it and add to `notes/<VERSION>.md`: the check holds it only above
 the last release.
 
+## Before a release: the checklist
+
+What a release owes the one before it, gone through on the merge request that raises `VERSION`:
+
+1. `node tools/release/bump.mjs <version>` raises it everywhere and starts `notes/<version>.md`.
+2. `node .github/pre-commit/check.mjs` passes: the notes for agents, every version the same, core
+   formatted, and the table of moved commands and flags. A row whose "Remove in" is this release fails
+   it until its entry, its message and its tests are taken out, and the notes say so.
+3. **The IR.** A change to what a runtime reads raises its version: the old schema kept in
+   `schemas/ir-history/<old>/` and `compiler/xtmd/src/migrate/ir/`, the step in `migrate/ir/`, and the
+   table in spec page 6 ("The IR").
+4. **The resolved IR.** A change to what it holds raises its version: the old schema kept in
+   `schemas/rir-history/<old>/` and `compiler/xtmd/src/migrate/rir/`, the step in `STEPS`, its test,
+   and the table in spec page 6 (docs/guides/migration.md says how).
+5. **The language.** Every change to what a file means comes with how what exists moves to it: a rir
+   step, a pack migration, or a release step of `migrate/releases.rs`, each in the notes.
+6. **Read by the release before.** The repository's documents move from the last release: with
+   `<the last release's xtmd>` as the reader, `xtmd migrate <folder> --reader … --dry-run` is ready,
+   nothing refused and no question open, for each folder of examples/ and apps/ (the playground with
+   `--pack examples/graphs`). examples/pack-migration is refused, as it should be: its documents are
+   written for kit@1, for `xtmd migrate` to move by the pack's migration.
+
 What it does, in order:
 
 1. **Binaries.** `xtmd` for Linux on x64 and arm64 (static, musl), macOS on Intel and Apple

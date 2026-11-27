@@ -122,8 +122,17 @@ def kit_tree(migration=C["MIGRATION"], doc=C["OLD_DOC"], config=USES_KIT1):
     return files
 
 
+# releases: a tree written for a release, not in fmt's layout, with a comment and a pack of its own
+SHELF = repo_text("compiler/xtmd/tests/migrate_pipeline.rs")
+SHELF = {k: codecs.decode(v, "unicode_escape") for k, v in
+         re.findall(r'const (SHELF|BOOKS|NOTES): &str = "((?:[^"\\]|\\.)*)";', SHELF)}
+SHELF_TREE = {"shelf/shelf.xtmdpack": SHELF["SHELF"], "books.xtmd": SHELF["BOOKS"], "notes.xtmd": SHELF["NOTES"],
+              "xtmd.toml": 'xtmd = "0.4.0"\npacks = ["shelf"]\n'}
+
 # Each scene: (files, in git?). "repo" is the repository itself, read only.
 SCENES = {
+    "shelf": (SHELF_TREE, True),
+    "shelf-broken": (dict(SHELF_TREE, **{"notes.xtmd": SHELF["NOTES"].replace("$state.n", "$state.count")}), True),
     "pages": ({"counter.xtmd": COUNTER, "broken.xtmd": BROKEN, "messy.xtmd": MESSY}, False),
     "flow": ({"graphs/graphs.xtmdpack": repo_text("examples/graphs/graphs.xtmdpack"),
               "release-flow.xtmd": repo_text("examples/graphs/release-flow.xtmd")}, False),
@@ -241,6 +250,26 @@ REELS = {
               " && xtmd check --pack kit kit/migrations/kit@2.xtmdpack", show=["kit/migrations/kit@2.xtmdpack"]),
         ],
     },
+    "releases": {
+        "part": 8, "title": "From one release to the next: compile, decompile, migrate --reader",
+        "chapters": ["compile --rir", "decompile", "migrate --reader", "every file or none"],
+        "steps": [
+            S("tree", "shelf", "find . -type f -not -path './.git/*' | sort", show=["books.xtmd"]),
+            S("rir", "shelf", "xtmd compile books.xtmd --rir | jq -c '{rir, xtmd, files: [.files[].kind]}'"),
+            S("comments", "shelf", "xtmd compile books.xtmd --rir | jq -c '.files[] | select(.kind == \"document\") | .declarations[0].let | {id, comments}'"),
+            S("back", "shelf", "xtmd compile books.xtmd --rir --out books.rir.json && xtmd decompile books.rir.json --stdout"),
+            S("from-ir", "shelf", "xtmd compile books.xtmd --out books.ir.json && xtmd decompile books.ir.json --stdout"),
+            S("old", "shelf", "rm books.*.json && mkdir -p old && cp \"$(command -v xtmd)\" old/xtmd && old/xtmd --version"),
+            S("dry", "shelf", "xtmd migrate . --reader old/xtmd --dry-run"),
+            S("diff", "shelf", "xtmd migrate . --reader old/xtmd --diff"),
+            S("json", "shelf", "xtmd migrate . --reader old/xtmd --dry-run --format json"),
+            S("yes", "shelf", "xtmd migrate . --reader old/xtmd --yes", show=["books.xtmd"]),
+            S("check", "shelf", "xtmd migrate . --reader old/xtmd --check"),
+            S("broken-old", "shelf-broken", "mkdir -p old && cp \"$(command -v xtmd)\" old/xtmd && xtmd migrate . --reader old/xtmd --yes", show=["notes.xtmd"]),
+            S("untouched", "shelf-broken", "git status --short -- '*.xtmd' '*.xtmdpack' && echo 'every file is as it was'"),
+            S("no-reader", "shelf", "xtmd migrate . --reader /no/such/xtmd --yes"),
+        ],
+    },
     "fixes": {
         "part": 7, "title": "What the usability test changed",
         "chapters": ["help", "flags", "fmt", "check", "migrate", "target check"],
@@ -314,7 +343,7 @@ def capture(work, name, reel, xtmd_sha, built_from):
                       "segments": r["segments"], "exit": r["exit"], "seconds": seconds,
                       "tty": bool(st["answers"]), "before": before, "after": after})
         print("  %-16s exit %-3s %6.2fs  %s" % (st["id"], r["exit"], seconds, st["cmd"]))
-    return {"reel": name, "part": reel["part"], "parts": len(REELS), "title": reel["title"],
+    return {"reel": name, "part": reel["part"], "parts": max(r["part"] for r in REELS.values()), "title": reel["title"],
             "chapters": reel["chapters"], "steps": steps, "xtmd_sha256": xtmd_sha,
             "built_from": built_from, "work": os.path.abspath(work),
             "captured": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}

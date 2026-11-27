@@ -1,6 +1,6 @@
 [package]
 name = "xtmd"
-description = "Extended Mark's compiler, as a library and as the xtmd command: check, fmt, build, md, migrate and the language server"
+description = "Extended Mark's compiler, as a library and as the xtmd command: check, fmt, compile, decompile, export, md, migrate and the language server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

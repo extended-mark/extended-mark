@@ -13,6 +13,7 @@ docs/specs/                                the language; every rule has a case
 docs/guides/host.md               drawing a page from its tree
 docs/guides/runtime.md            running the IR on a platform
 docs/guides/engine.md             building pages into files ahead of time
+docs/guides/migration.md          moving a tree to a new release; making a release's rir step
 
 notes/<version>.md                what a release changed; notes/README.md has the form
 README.md                         install, what is where
