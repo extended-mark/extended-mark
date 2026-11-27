@@ -185,13 +185,15 @@ test("every case's Markdown is xtmd md's, and a document that doesn't compile ha
 test("a migration plans what xtmd migrate writes, asks what it asks, and keeps nothing between runs", async () => {
   const { mkdtempSync, mkdirSync, writeFileSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
-  // the CLI's own fixture: kit@2 renames and drops what kit@1 had
+  // the CLI's own fixture: kit@2 renames and drops what kit@1 had, in a tree that says it is this
+  // release's (one that names none is read as 0.3.2's)
+  const release = JSON.parse(readFileSync(join(here, "../package.json"), "utf8")).version;
   const surface = "package kit@1;\n\nrecord stat {\n    label: text;\n    value: text;\n}\n\nenum state { DONE, LATE }\n\nextern widget chart(values: list<number>, color: color = color.ACCENT);\nextern widget badge(label: text, shadow: bool = false);\nextern widget sparkline(values: list<number>);\nextern widget stats(items: list<stat>);\n";
   const kit = "package kit;\n\npack kit@2 {\n    uses core@2;\n    provides plot, badge, stat, state, stats;\n}\n\nrecord stat {\n    title: text;\n    value: text;\n    unit: text;\n}\n\nenum state { DONE, OVERDUE }\n\nextern widget plot(values: list<number>, tone: color = color.ACCENT) {\n    markdown { }\n}\nextern widget badge(label: text, size: size = size.M) {\n    markdown { }\n}\nextern widget stats(items: list<stat>) {\n    markdown { }\n}\n";
   const migration = "package kit;\n\nmigration kit@1 to kit@2 {\n    widget chart {\n        rename(to = plot);\n        rename(input = color, to = tone);\n    }\n\n    widget badge {\n        drop(input = shadow, why = \"badges have no shadow\");\n        set(input = size, value = size.S, when = !given(size), why = \"kit@1's badges were small\");\n    }\n\n    widget sparkline {\n        drop(why = \"use plot\");\n    }\n\n    record stat {\n        rename(field = label, to = title);\n        add(field = unit, value = \"\", why = \"a stat names its unit\");\n    }\n\n    enum state {\n        split(from = state.LATE, to = [state.OVERDUE, state.DONE], why = \"late is now overdue, or done\");\n    }\n}\n";
   const doc = "import kit;\n\n$state {\n    s: state = state.LATE;\n}\n@@@\n# Report\n\n@chart(values = [1, 2], color = color.OK);\n\n@badge(label = \"Beta\", shadow = true);\n\n@sparkline(values = [3]);\n\n@stats(items = [stat { label = \"Deploys\", value = \"42\" }]);\n";
   const dir = mkdtempSync(join(tmpdir(), "xtmd-wasm-migrate-"));
-  const files = { "kit/kit.xtmdpack": kit, "kit/surfaces/kit@1.xtmdpack": surface, "kit/migrations/kit@2.xtmdpack": migration, "xtmd.toml": "packs = [\"kit\"]\n\n[uses]\nkit = 1\n", "docs/report.xtmd": doc };
+  const files = { "kit/kit.xtmdpack": kit, "kit/surfaces/kit@1.xtmdpack": surface, "kit/migrations/kit@2.xtmdpack": migration, "xtmd.toml": `xtmd = "${release}"\npacks = ["kit"]\n\n[uses]\nkit = 1\n`, "docs/report.xtmd": doc };
   for (const [f, t] of Object.entries(files)) {
     mkdirSync(dirname(join(dir, f)), { recursive: true });
     writeFileSync(join(dir, f), t);
