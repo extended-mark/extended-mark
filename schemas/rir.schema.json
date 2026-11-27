@@ -167,6 +167,10 @@
           "type": "string",
           "description": "A pack's file's package; left out for a document."
         },
+        "version": {
+          "type": "integer",
+          "description": "A surface's version: the number on its package line, `package kit@1;`."
+        },
         "sha256": {
           "type": "string",
           "description": "The SHA-256 of the source the spans are offsets into: a tool reads the source beside this file, and checks it is that one."
@@ -361,7 +365,7 @@
     },
     "generic": {
       "type": "object",
-      "description": "A type parameter and its bounds.",
+      "description": "A type parameter and its bounds: the interfaces it implements, each a type with its arguments.",
       "properties": {
         "name": {
           "type": "string"
@@ -369,14 +373,7 @@
         "bounds": {
           "type": "array",
           "items": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/id"
-              },
-              {
-                "$ref": "#/$defs/comment_item"
-              }
-            ]
+            "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
           }
         }
       },
@@ -418,15 +415,9 @@
                 "implements": {
                   "type": "array",
                   "items": {
-                    "anyOf": [
-                      {
-                        "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                      },
-                      {
-                        "$ref": "#/$defs/comment_item"
-                      }
-                    ]
-                  }
+                    "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -526,15 +517,9 @@
                 "implements": {
                   "type": "array",
                   "items": {
-                    "anyOf": [
-                      {
-                        "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                      },
-                      {
-                        "$ref": "#/$defs/comment_item"
-                      }
-                    ]
-                  }
+                    "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -617,15 +602,9 @@
                 "implements": {
                   "type": "array",
                   "items": {
-                    "anyOf": [
-                      {
-                        "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                      },
-                      {
-                        "$ref": "#/$defs/comment_item"
-                      }
-                    ]
-                  }
+                    "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -728,15 +707,9 @@
                 "implements": {
                   "type": "array",
                   "items": {
-                    "anyOf": [
-                      {
-                        "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                      },
-                      {
-                        "$ref": "#/$defs/comment_item"
-                      }
-                    ]
-                  }
+                    "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -791,15 +764,9 @@
                 "implements": {
                   "type": "array",
                   "items": {
-                    "anyOf": [
-                      {
-                        "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                      },
-                      {
-                        "$ref": "#/$defs/comment_item"
-                      }
-                    ]
-                  }
+                    "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -898,15 +865,9 @@
                 "implements": {
                   "type": "array",
                   "items": {
-                    "anyOf": [
-                      {
-                        "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                      },
-                      {
-                        "$ref": "#/$defs/comment_item"
-                      }
-                    ]
-                  }
+                    "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -1117,15 +1078,9 @@
                 "implements": {
                   "type": "array",
                   "items": {
-                    "anyOf": [
-                      {
-                        "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                      },
-                      {
-                        "$ref": "#/$defs/comment_item"
-                      }
-                    ]
-                  }
+                    "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -1253,15 +1208,9 @@
                 "implements": {
                   "type": "array",
                   "items": {
-                    "anyOf": [
-                      {
-                        "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                      },
-                      {
-                        "$ref": "#/$defs/comment_item"
-                      }
-                    ]
-                  }
+                    "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -1312,15 +1261,9 @@
                 "implements": {
                   "type": "array",
                   "items": {
-                    "anyOf": [
-                      {
-                        "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                      },
-                      {
-                        "$ref": "#/$defs/comment_item"
-                      }
-                    ]
-                  }
+                    "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -1416,15 +1359,9 @@
                 "implements": {
                   "type": "array",
                   "items": {
-                    "anyOf": [
-                      {
-                        "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                      },
-                      {
-                        "$ref": "#/$defs/comment_item"
-                      }
-                    ]
-                  }
+                    "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -1483,15 +1420,9 @@
                 "implements": {
                   "type": "array",
                   "items": {
-                    "anyOf": [
-                      {
-                        "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                      },
-                      {
-                        "$ref": "#/$defs/comment_item"
-                      }
-                    ]
-                  }
+                    "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -1586,8 +1517,9 @@
                 "implements": {
                   "type": "array",
                   "items": {
-                    "type": "string"
-                  }
+                    "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -1699,15 +1631,9 @@
                 "implements": {
                   "type": "array",
                   "items": {
-                    "anyOf": [
-                      {
-                        "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-                      },
-                      {
-                        "$ref": "#/$defs/comment_item"
-                      }
-                    ]
-                  }
+                    "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
+                  },
+                  "description": "The interfaces it implements, each a type with its arguments."
                 },
                 "span": {
                   "$ref": "#/$defs/span"
@@ -1782,15 +1708,9 @@
         "implements": {
           "type": "array",
           "items": {
-            "anyOf": [
-              {
-                "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
-              },
-              {
-                "$ref": "#/$defs/comment_item"
-              }
-            ]
-          }
+            "$ref": "https://raw.githubusercontent.com/extended-mark/extended-mark/main/schemas/ir.schema.json#/$defs/type"
+          },
+          "description": "The interfaces it implements, each a type with its arguments."
         },
         "span": {
           "$ref": "#/$defs/span"
@@ -1830,6 +1750,16 @@
               }
             ]
           }
+        },
+        "on_generics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/generic"
+          },
+          "description": "The type parameters of the type a fn is added to: `T` in `fn list<T>.some(…)`."
+        },
+        "name": {
+          "type": "string"
         }
       },
       "required": [
@@ -1869,6 +1799,12 @@
         },
         "comments": {
           "$ref": "#/$defs/comments"
+        },
+        "generics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/generic"
+          }
         }
       },
       "required": [
@@ -2463,6 +2399,10 @@
                   },
                   "comments": {
                     "$ref": "#/$defs/comments"
+                  },
+                  "children": {
+                    "type": "boolean",
+                    "description": "Filled by the call's block, for a widget with one slot, rather than by name."
                   }
                 },
                 "required": [
@@ -3326,6 +3266,12 @@
                       }
                     ]
                   }
+                },
+                "generics": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/generic"
+                  }
                 }
               },
               "required": [
@@ -4045,6 +3991,10 @@
                   "items": {
                     "$ref": "#/$defs/block"
                   }
+                },
+                "children": {
+                  "type": "boolean",
+                  "description": "Filled by the call's block, for a widget with one slot, rather than by name."
                 }
               },
               "required": [

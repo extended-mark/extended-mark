@@ -185,6 +185,9 @@ impl<'c> Writer<'c> {
         if let Some(p) = &ast.package {
             o.insert("package".into(), json!(p.item.name));
         }
+        if let Some(v) = &ast.surface {
+            o.insert("version".into(), json!(v.name.parse::<u64>().unwrap_or(0)));
+        }
         o.insert("sha256".into(), json!(sha256_hex(rec.src.as_bytes())));
         if let Some(fm) = ast.front_matter {
             o.insert("front_matter".into(), json!({ "text": front_matter_text(&rec.src[fm.range()]), "span": span(fm) }));
@@ -248,6 +251,20 @@ impl<'c> Writer<'c> {
         o.insert("id".into(), json!(id));
         o.insert("name_span".into(), span(name.span));
         o.insert("span".into(), span(d.span));
+        let (generics, implements): (Option<&ast::Generics>, &[ast::IfaceRef]) = match &d.kind {
+            DeclKind::Enum(e) => (e.generics.as_ref(), &[]),
+            DeclKind::Record(r) => (r.generics.as_ref(), &r.implements),
+            DeclKind::Token(t) => (None, &t.implements),
+            DeclKind::Interface(i) => (i.generics.as_ref(), &[]),
+            DeclKind::Widget(w) | DeclKind::ExternWidget(w) => (w.generics.as_ref(), &w.implements),
+            DeclKind::ExternType(t) => (t.generics.as_ref(), &t.implements),
+            _ => (None, &[]),
+        };
+        self.generics(f, generics, "generics", &mut o);
+        if !implements.is_empty() {
+            let list: Vec<Value> = implements.iter().map(|i| self.iface(f, i)).collect();
+            o.insert("implements".into(), json!(list));
+        }
         let key = match &d.kind {
             DeclKind::Enum(e) => {
                 o.insert("cases".into(), json!(self.entries(&e.cases.items, &e.cases.dangling, |w, c| w.case_decl(f, &id, &c.item))));
@@ -421,6 +438,7 @@ impl<'c> Writer<'c> {
     fn widget(&mut self, f: usize, id: &str, w: &ast::WidgetDecl, o: &mut Map<String, Value>) {
         let mut inputs = self.entries(&w.inputs.items, &w.inputs.dangling, |wr, i| wr.field(f, id, &i.item));
         let (mut slots, mut events, mut requires, mut own, mut lets, mut fns, mut view, mut markdown) = (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
+        let mut written: Vec<&str> = Vec::new();
         let mut parts = Vec::new();
         let no_members: Vec<ast::Node<ast::WidgetMember>> = Vec::new();
         let (members, end) = match &w.body {
@@ -455,6 +473,7 @@ impl<'c> Writer<'c> {
             }
             ast::WidgetMember::View(b) => {
                 view = wr.stmts(f, b);
+                written.push("view");
                 part(&mut parts, "view", c);
             }
             ast::WidgetMember::Tokens(refs) => {
@@ -471,12 +490,16 @@ impl<'c> Writer<'c> {
                     o.insert("piece".into(), json!(p.name));
                 }
                 markdown = wr.prose(f, &md.prose);
+                if md.piece.is_none() {
+                    written.push("markdown");
+                }
                 part(&mut parts, "markdown", c);
             }
         });
         o.insert("inputs".into(), json!(inputs));
         for (k, v) in [("slots", slots), ("events", events), ("requires", requires), ("own", own), ("lets", lets), ("fns", fns), ("view", view), ("markdown", markdown)] {
-            if !v.is_empty() || k == "slots" || k == "events" {
+            // a view or a markdown block written empty is there, and means something an absent one doesn't
+            if !v.is_empty() || k == "slots" || k == "events" || written.contains(&k) {
                 o.insert(k.into(), json!(v));
             }
         }
@@ -484,11 +507,31 @@ impl<'c> Writer<'c> {
         put_parts(o, parts);
     }
 
+    /// Type parameters, `<T: chart + literal<text>>`, each with its bounds as types.
+    fn generics(&mut self, f: usize, g: Option<&ast::Generics>, key: &str, o: &mut Map<String, Value>) {
+        let Some(g) = g else { return };
+        let params: Vec<Value> = g.params.iter().map(|p| json!({ "name": p.name.name, "bounds": p.bounds.iter().map(|b| self.iface(f, b)).collect::<Vec<_>>() })).collect();
+        o.insert(key.into(), json!(params));
+    }
+
+    /// An interface named with its type arguments, as a type.
+    fn iface(&mut self, f: usize, i: &ast::IfaceRef) -> Value {
+        let name = self.type_full(f, &i.name.name).unwrap_or_else(|| i.name.name.clone());
+        let mut t = json!({ "name": name });
+        if !i.args.is_empty() {
+            t["args"] = json!(i.args.iter().map(|a| self.ty_of_ast(f, a)).collect::<Vec<_>>());
+        }
+        t
+    }
+
     fn fn_parts(&mut self, f: usize, fd: &ast::FnDecl, o: &mut Map<String, Value>) {
-        if let Some((on, _)) = &fd.sig.on {
+        if let Some((on, g)) = &fd.sig.on {
             let t = self.type_full(f, &on.name).unwrap_or_else(|| on.name.clone());
             o.insert("on".into(), json!(t));
+            self.generics(f, g.as_ref(), "on_generics", o);
         }
+        o.insert("name".into(), json!(fd.sig.name.name));
+        self.generics(f, fd.sig.generics.as_ref(), "generics", o);
         o.insert("params".into(), json!(self.params(f, &fd.sig.params)));
         if let Some(ast::RetType::Type(t)) = &fd.sig.ret {
             o.insert("returns".into(), json!(self.ty_of_ast(f, t)));
@@ -502,6 +545,7 @@ impl<'c> Writer<'c> {
         let mut o = Map::new();
         o.insert("name".into(), json!(s.name.name));
         o.insert("id".into(), json!(format!("{}.{}", owner, s.name.name)));
+        self.generics(f, s.generics.as_ref(), "generics", &mut o);
         o.insert("params".into(), json!(self.params(f, &s.params)));
         if let Some(ast::RetType::Type(t)) = &s.ret {
             o.insert("returns".into(), json!(self.ty_of_ast(f, t)));
@@ -764,7 +808,7 @@ impl<'c> Writer<'c> {
         match &v.block {
             Some(ast::CallBlock::Children(b)) => {
                 let slot = widget.and_then(|d| self.only_slot(d)).unwrap_or_default();
-                slots.push(json!({ "slot": format!("{}.{}", full, slot), "view": self.stmts(f, b), "span": span(b.span) }));
+                slots.push(json!({ "slot": format!("{}.{}", full, slot), "children": true, "view": self.stmts(f, b), "span": span(b.span) }));
             }
             Some(ast::CallBlock::Named(body)) => {
                 items = self.members(&body.items, &body.dangling, |w, e, c| match &e.item {
@@ -896,7 +940,12 @@ impl<'c> Writer<'c> {
                         }
                     }
                 }
-                let of = self.target_at(f, target.span).unwrap_or_default();
+                // a name nothing resolves, as in a migration's statements, is kept as it is written
+                let written = match &target.kind {
+                    ExprKind::Name(tn) => tn.name.clone(),
+                    _ => String::new(),
+                };
+                let of = self.target_at(f, target.span).unwrap_or(written);
                 let mut co = Map::new();
                 co.insert("of".into(), json!(of));
                 co.insert("case".into(), json!(name.name));
@@ -1019,14 +1068,18 @@ impl<'c> Writer<'c> {
         let src = self.c.files[f].src.clone();
         let mut out = Vec::new();
         let mut run: Vec<&ast::TextLine> = Vec::new();
-        let flush = |w: &mut Self, run: &mut Vec<&ast::TextLine>, out: &mut Vec<Value>| {
-            // blank lines around a run are the layout's, not the run's
+        // blank lines around a run are the layout's, not the run's; but a comment line is read as if it weren't
+        // there, so a blank line beside one says whether the paragraph goes on past it, and is the run's
+        let flush = |w: &mut Self, run: &mut Vec<&ast::TextLine>, out: &mut Vec<Value>, keep_lead: bool, keep_trail: bool| {
             let blank = |l: &&ast::TextLine| l.holes.is_empty() && src[l.span.range()].trim().is_empty();
-            while run.last().map_or(false, blank) {
+            while !keep_trail && run.last().map_or(false, blank) {
                 run.pop();
             }
-            let lead = run.iter().take_while(|l| blank(l)).count();
+            let lead = if keep_lead { 0 } else { run.iter().take_while(|l| blank(l)).count() };
             run.drain(..lead);
+            if run.iter().all(blank) {
+                run.clear();
+            }
             if run.is_empty() {
                 return;
             }
@@ -1049,17 +1102,20 @@ impl<'c> Writer<'c> {
             out.push(json!({ "markdown": { "markdown": text, "holes": holes }, "span": span(sp) }));
             run.clear();
         };
+        let mut after_comment = false;
         for n in &p.nodes {
             match n {
                 ast::ProseNode::Text(l) => run.push(l),
                 ast::ProseNode::Fence(ls) | ast::ProseNode::Maths(ls) => run.extend(ls.iter()),
                 other => {
-                    flush(self, &mut run, &mut out);
+                    let comment = matches!(other, ast::ProseNode::Comment { .. });
+                    flush(self, &mut run, &mut out, after_comment, comment);
                     out.push(self.prose_node(f, other));
+                    after_comment = comment;
                 }
             }
         }
-        flush(self, &mut run, &mut out);
+        flush(self, &mut run, &mut out, after_comment, false);
         out
     }
 
@@ -1083,9 +1139,12 @@ impl<'c> Writer<'c> {
                             rest.nodes.push(node.clone());
                         }
                     }
-                    if !rest.nodes.is_empty() {
+                    // blank lines between named slots are layout, and fill no slot
+                    let src = &self.c.files[f].src;
+                    let blank = |n: &ast::ProseNode| matches!(n, ast::ProseNode::Text(l) if l.holes.is_empty() && src[l.span.range()].trim().is_empty());
+                    if !rest.nodes.iter().all(blank) {
                         let slot = widget.and_then(|d| self.only_slot(d)).unwrap_or_default();
-                        slots.insert(0, json!({ "slot": format!("{}.{}", full, slot), "prose": self.prose(f, &rest), "span": span(c.span) }));
+                        slots.insert(0, json!({ "slot": format!("{}.{}", full, slot), "children": true, "prose": self.prose(f, &rest), "span": span(c.span) }));
                     }
                     if !slots.is_empty() {
                         u["slots"] = json!(slots);

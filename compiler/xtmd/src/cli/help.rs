@@ -9,6 +9,7 @@ usage: xtmd <command> [arguments] [flags]
   xtmd check <file|folder>…      report every error and warning, then a line for each file
   xtmd parse <file>              print a file's syntax tree, as JSON
   xtmd compile <file|folder>…    write each document's IR, for a runtime (--rir: the resolved IR, for tools)
+  xtmd decompile <file.rir.json> write a resolved IR's files back as source, in the canonical layout
   xtmd md <file|folder>…         write each document's Markdown, as it reads when it first loads
   xtmd build … --engine e        the files an engine makes of the documents: HTML, Rust, whatever it is for
   xtmd surface <pack>            the release step: record what this version of the pack provides
@@ -108,6 +109,20 @@ const COMPILE: &str = "usage: xtmd compile <files|folders>… [--pack a,b] [--co
         xtmd compile docs --out dist
         xtmd compile page.xtmd --rir --pretty";
 
+const DECOMPILE: &str = "usage: xtmd decompile <file.rir.json> [--out dir | --stdout | --diff | --check] [--format json]
+  The opposite of xtmd compile --rir: each file of a resolved IR written back as source, every name
+  as its file knows it and every comment in its place, in xtmd fmt's layout. It reads nothing of the
+  source the resolved IR was made from.
+  --out dir      writes each file under dir, at the path the resolved IR names; without it, at that path
+  --stdout       prints the files instead, one after the other
+  --diff         writes nothing: shows how each file there would change
+  --check        writes nothing: exit 1 when a file there would change
+  --format json  a JSON line for each file: written, same or would change
+  exit: 0 written, or nothing would change; 1 a part it can't write back, or with --check a file that would
+        change; 2 a usage error, or a file that can't be read
+  e.g.  xtmd compile page.xtmd --rir --out page.rir.json && xtmd decompile page.rir.json --stdout
+        xtmd decompile build.rir.json --out migrated";
+
 const BUILD: &str = "usage: xtmd build <files|folders>… [--pack a,b] [--config xtmd.toml] [--format json] --out dir --engine <name|path> [the engine's own arguments]
   Writes the files an engine makes of the documents, into --out's folder: HTML, Rust, whatever the
   engine is for. Each document is compiled as xtmd compile does, and its IR given to the engine.
@@ -158,6 +173,7 @@ pub(crate) fn of(cmd: &str) -> Option<&'static str> {
         "check" => CHECK,
         "parse" => PARSE,
         "compile" => COMPILE,
+        "decompile" => DECOMPILE,
         "build" => BUILD,
         "md" => MD,
         "surface" => SURFACE,

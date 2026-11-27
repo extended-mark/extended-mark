@@ -11,6 +11,7 @@ fn known(cmd: &str) -> &'static [&'static str] {
         "check" => &["--pack", "--config", "--format", "--out", "--help"],
         "compile" => &["--rir", "--core", "--pretty", "--pack", "--config", "--format", "--out", "--help"],
         "build" => &["--engine", "--pack", "--config", "--format", "--out", "--help"],
+        "decompile" => &["--stdout", "--diff", "--check", "--format", "--out", "--help"],
         "md" => &["--pack", "--config", "--format", "--out", "--help"],
         "surface" => &["--check", "--diff", "--stdout", "--force", "--pack", "--config", "--format", "--out", "--help"],
         "migrate" => &[
@@ -30,7 +31,7 @@ pub(crate) fn writes(cmd: &str, args: &[String]) -> bool {
     let has = |f: &str| args.iter().any(|a| a == f);
     match cmd {
         "fmt" => !(has("--check") || has("--diff") || has("--stdout") || has("--stdin")),
-        "surface" => !(has("--check") || has("--diff") || has("--stdout")),
+        "surface" | "decompile" => !(has("--check") || has("--diff") || has("--stdout")),
         "migrate" => !(has("--dry-run") || has("--check") || has("--diff") || has("--stdout")),
         _ => false,
     }

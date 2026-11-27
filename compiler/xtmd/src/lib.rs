@@ -12,6 +12,7 @@
 //! | `syntax` | Text to a tree and back: the reader and `xtmd fmt` |
 //! | `lower` | What a page can run, as the IR a runtime runs |
 //! | `check` | Names, types, rules; gives the IR |
+//! | `decompile` | A resolved IR back to text: `xtmd decompile` |
 //! | `live` | Text to IR in one call, core compiled once; a text followed as it is edited |
 //! | `migrate` | `xtmd migrate`, on texts |
 //! | `lsp` | The language server |
@@ -28,6 +29,8 @@ pub mod markdown;
 pub mod check;
 #[cfg(feature = "cli")]
 pub mod cli;
+#[cfg(feature = "compiler")]
+pub mod decompile;
 #[cfg(feature = "compiler")]
 pub mod live;
 #[cfg(feature = "compiler")]

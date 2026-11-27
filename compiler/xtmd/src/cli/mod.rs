@@ -405,6 +405,78 @@ fn compile(args: &[String], engine: Option<(String, Vec<String>)>) -> ExitCode {
     }
 }
 
+/// `xtmd decompile <file.rir.json> [--out dir | --stdout | --diff | --check]`: each file of a resolved IR
+/// printed back as source, in the canonical layout, at the path it names (under `--out`'s folder when
+/// given); `--stdout` prints them, `--diff` and `--check` say how the files there would change.
+fn decompile(args: &[String]) -> ExitCode {
+    let named = positional(args);
+    if named.len() != 1 {
+        eprintln!("{}", help::of("decompile").unwrap());
+        return ExitCode::from(2);
+    }
+    let path = named[0].as_str();
+    let json = match json_or_exit(args) {
+        Ok(j) => j,
+        Err(c) => return c,
+    };
+    let has = |f: &str| args.iter().any(|a| a == f);
+    let (stdout, diff, check) = (has("--stdout"), has("--diff"), has("--check"));
+    let value: serde_json::Value = match std::fs::read_to_string(path).map_err(|e| e.to_string()).and_then(|t| serde_json::from_str(&t).map_err(|e| e.to_string())) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("{}: {}", path, e);
+            return ExitCode::from(2);
+        }
+    };
+    let printed = match crate::decompile::decompile(&value) {
+        Ok(p) => p,
+        Err(errors) => {
+            for e in errors {
+                eprintln!("error: {}", e);
+            }
+            return ExitCode::from(1);
+        }
+    };
+    let out_dir = out::out_path(args);
+    let mut differ = false;
+    for p in &printed {
+        let target = match &out_dir {
+            Some(d) => std::path::Path::new(d).join(p.path.trim_start_matches('/')).to_string_lossy().into_owned(),
+            None => p.path.clone(),
+        };
+        if stdout {
+            out::print(&p.text);
+            continue;
+        }
+        let had = std::fs::read_to_string(&target).ok();
+        let same = had.as_deref() == Some(p.text.as_str());
+        differ |= !same;
+        if diff || check {
+            if diff && !same {
+                out::print(&crate::migrate::unified(&target, had.as_deref().unwrap_or(""), &p.text));
+            }
+            if json {
+                out::line(serde_json::json!({ "type": "file", "file": target, "result": if same { "same" } else { "would change" } }));
+            } else if check && !same {
+                eprintln!("{}: the resolved IR prints back differently", target);
+            }
+            continue;
+        }
+        if let Err(e) = out::write_file(&target, &p.text) {
+            eprintln!("{}", e);
+            return ExitCode::from(1);
+        }
+        if json {
+            out::line(serde_json::json!({ "type": "file", "file": target, "result": "written" }));
+        }
+    }
+    if check && differ {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
 fn read(path: &str) -> Result<(String, crate::syntax::Entry), String> {
     if std::path::Path::new(path).is_dir() {
         return Err(format!("{}: a folder", path));
@@ -819,7 +891,7 @@ fn md(args: &[String]) -> ExitCode {
 }
 
 /// The commands, as `xtmd help` names them.
-const COMMANDS: &[&str] = &["fmt", "check", "parse", "compile", "build", "md", "surface", "migrate", "lsp"];
+const COMMANDS: &[&str] = &["fmt", "check", "parse", "compile", "decompile", "build", "md", "surface", "migrate", "lsp"];
 
 /// Flags written before the command (`xtmd --format json check …`), moved to after it, where each
 /// command reads them.
@@ -913,7 +985,7 @@ fn run(args: &[String]) -> ExitCode {
         return ExitCode::from(2);
     }
     // --out: build, md and surface write their document there; the rest, what they print
-    if !matches!(cmd, "compile" | "build" | "md" | "surface") {
+    if !matches!(cmd, "compile" | "decompile" | "build" | "md" | "surface") {
         if let Some(p) = out::out_path(rest) {
             out::to_file(&p);
         }
@@ -923,6 +995,7 @@ fn run(args: &[String]) -> ExitCode {
         "parse" => parse_cmd(rest),
         "check" => check(rest),
         "compile" => compile(rest, None),
+        "decompile" => decompile(rest),
         "build" => build(rest, engine),
         "md" => md(rest),
         "surface" => surface::surface_cmd(rest),

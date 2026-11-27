@@ -52,6 +52,7 @@ compiler/xtmd/src/check/      names, types, rules; gives whole IR
   rir.rs              the resolved IR
   shared.rs           core shared between compiles, cloned without copying
 
+compiler/xtmd/src/decompile/  a resolved IR printed back as source, in fmt's layout (xtmd decompile)
 compiler/xtmd/src/live/       the compiler embedded, core compiled once; `Live` follows a text
 compiler/xtmd/src/migrate/    text and IR brought up to a version
   step.rs             one pack migration applied to one file

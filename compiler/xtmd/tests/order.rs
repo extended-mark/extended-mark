@@ -12,10 +12,11 @@ const USES: &[(&str, &[&str])] = &[
     ("syntax", &[]),
     ("lower", &["formats", "eval"]),
     ("check", &["formats", "eval", "syntax"]),
+    ("decompile", &["syntax"]),
     ("live", &["formats", "syntax", "lower", "check"]),
     ("migrate", &["formats", "markdown", "syntax", "lower", "check"]),
     ("lsp", &["formats", "syntax", "live"]),
-    ("cli", &["formats", "markdown", "syntax", "lower", "check", "live", "migrate", "lsp"]),
+    ("cli", &["formats", "markdown", "syntax", "lower", "check", "decompile", "live", "migrate", "lsp"]),
 ];
 
 fn files(dir: &Path, out: &mut Vec<PathBuf>) {

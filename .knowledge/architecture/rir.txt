@@ -7,4 +7,9 @@ in lists, or a body's `comment_items` where its members are split by kind; `part
 view, markdown, tokens, uses. `block_*` say which bracket pair by `at`, counted in the parse
 tree's order (the writer's walk). Front matter keeps its text. Each version a release shipped
 is kept in schemas/rir-history.
-The language server reads it. Nothing that runs, draws or builds a page does.
+What `xtmd decompile` prints back from it compiles to the same resolved IR, IR and Markdown, over
+core, the cases, examples and apps (compiler/xtmd/tests/decompile.rs): so the rir keeps what the
+text means where layout would say it, an empty `markdown { }`, a slot filled by the block
+(`children`), a blank line beside a prose comment (it ends a paragraph). Layout it doesn't keep
+is fmt's choice: where a list breaks (over 110 columns), blank lines between members.
+The language server and decompile read it. Nothing that runs, draws or builds a page does.
