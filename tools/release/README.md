@@ -137,9 +137,11 @@ permissions: read and write).
 
 ## The scripts
 
-- `build-ts.mjs [--test | --test-only]`: installs and builds every npm package in order, the
-  playground last, each after what it uses (npm links a `file:` dependency, so it is built first),
-  then tests them all.
+- `build-ts.mjs [--test | --test-only] [--only <folders> | --except <folders>] [--list]`: installs
+  and builds every npm package in order, the playground last, each after what it uses (npm links a
+  `file:` dependency, so it is built first), then tests them all, or those under `--only`'s folders,
+  or all but `--except`'s; `--list` says which and does nothing. CI's npm job tests on four
+  machines at once, its last part taking every package the others don't name.
 - `check-notes.mjs [--base-version x.y.z] | --notes-for x.y.z`: the release-notes check, and a
   note's title and body for its release.
 - `publish-npm.mjs --version x.y.z [--stage] [--dry-run]`: publishes each package after its

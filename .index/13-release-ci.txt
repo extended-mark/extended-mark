@@ -4,7 +4,7 @@ tools/release/
   bump.mjs            raises VERSION everywhere; --check names what disagrees
   check-notes.mjs     the release notes' form
   packages.mjs        npm packages in the order they build
-  build-ts.mjs        installs, builds, tests them (--test, --test-only)
+  build-ts.mjs        installs, builds, tests them (--test, --test-only; --only, --except, --list)
   publish-npm.mjs, publish-crates.sh
   android-failures.py which Android tests failed, and whether they may be tried again
   preflight.mjs       could every registry take this release; does it move the release before's trees
