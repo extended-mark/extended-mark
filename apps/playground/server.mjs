@@ -267,7 +267,7 @@ export async function startServer(options = {}) {
   const port = options.port ?? Number(env.PORT ?? 8080);
   const host = options.host ?? env.HOST ?? "0.0.0.0";
   const examplesDir = options.examplesDir ?? join(here, "examples");
-  const distDir = options.distDir ?? join(here, "dist");
+  const distDir = options.distDir ?? (env.PLAYGROUND_DIST || join(here, "dist"));
   const files = fileCache();
   const alerter =
     options.alerter ??
