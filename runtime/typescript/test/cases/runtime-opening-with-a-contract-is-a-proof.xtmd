@@ -1,0 +1,37 @@
+$state {
+    xs: list<int> = [4, 12];
+    draft: text = "   ";
+    names: list<text[1...]> = [];
+}
+
+widget zero() {
+    view {
+        @press(label = "Zero the small ones", click = fn() {
+            mut for (x in $state.xs) {
+                if (mut n: int 0..9 = x) {
+                    n = 0;
+                }
+            }
+        });
+    }
+    markdown {
+        \{$state.xs.map(fn(x: int): text { return "\{x}"; }).join(", ")}
+    }
+}
+
+widget add() {
+    view {
+        @press(label = "Add the draft", click = fn() {
+            if (let t: text[1...] = $state.draft.trim()) {
+                $state.names.add(t);
+            }
+        });
+    }
+    markdown {
+        Names: \{$state.names.len()}
+    }
+}
+@@@
+@zero;
+
+@add;

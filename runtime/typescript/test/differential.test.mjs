@@ -162,6 +162,21 @@ fn try_turn(n: number): opt<dial> {
     return try d with { level = n };
 }
 
+// opening with a contract is a proof: it opens only when the value fits
+fn named(s: text): text {
+    if (let t: text[1...] = s.trim()) {
+        return t;
+    }
+    return "none";
+}
+
+fn small(x: opt<int>): text {
+    if (let n: int 0..9 = x) {
+        return "small \\{n}";
+    }
+    return "not small";
+}
+
 fn describe(s: stage): text {
     match (s) {
         case stage.IDLE, stage.DONE {
@@ -188,6 +203,15 @@ fn digits_of(n: number): list<text> {
 const trigInputs = ["0.5", "1", "2", "3", "-1", "10", "100", "0.001", "1000000", "-123.456"];
 
 /** [type, expression]: everything the evaluator does, at the edges where it can go wrong. */
+/** Cases whose answer is a rule: opening with a contract is a proof, so a value that doesn't fit doesn't open. */
+const ANSWERS = [
+  ['named("  ada ")', { text: "ada" }],
+  ['named("   ")', { text: "none" }],
+  ["small(opt.SOME(4))", { text: "small 4" }],
+  ["small(opt.SOME(12))", { text: "not small" }],
+  ["small(opt.NONE)", { text: "not small" }],
+];
+
 const CASES = [
   // arithmetic, exact, halves to even
   ["number", "0.1 + 0.2"],
@@ -248,6 +272,11 @@ const CASES = [
   ["text", "\"\\{-0.0}\""],
   ["text", "\"\\{1 / 8}\""],
   // maths
+  ["text", "named(\"  ada \")"],
+  ["text", "named(\"   \")"],
+  ["text", "small(opt.SOME(4))"],
+  ["text", "small(opt.SOME(12))"],
+  ["text", "small(opt.NONE)"],
   ["opt<number>", "(2).sqrt()"],
   ["opt<number>", "(3).sqrt()"],
   ["opt<number>", "(16).sqrt()"],
@@ -487,6 +516,11 @@ test("the TypeScript evaluator agrees with the Rust evaluator", (t) => {
       mismatches.push(`r_${k}: ${ty} = ${expr.length > 80 ? expr.slice(0, 80) + "…" : expr}\n    rust: ${show(want)}\n    ts:   ${show(ts)}`);
     }
   });
+  // where what both give is a rule, it is checked as well
+  for (const [expr, value] of ANSWERS) {
+    const k = CASES.findIndex(([, e]) => e === expr);
+    assert.equal(rust.get(k).value, canon(value), `r_${k}: ${expr}`);
+  }
   console.log(`# differential: ${CASES.length - mismatches.length}/${CASES.length} cases agree with the Rust evaluator (${failures} of them failures)`);
   assert.equal(mismatches.length, 0, `cases that differ:\n${mismatches.join("\n")}`);
 });

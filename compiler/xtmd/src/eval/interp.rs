@@ -849,12 +849,15 @@ impl<'p> Machine<'p> {
                     (p, self.read_place(&target)?)
                 }
             };
+            // with a contract it is a proof as well: it opens only when the value fits
             match now {
+                Value::Opt(Some(v)) if !self.fits(&v, &o.ty)? => Ok(false),
                 Value::Opt(Some(_)) => {
                     self.bind(&o.name, Binding::Ref(inside));
                     Ok(true)
                 }
                 Value::Opt(None) => Ok(false),
+                v if !matches!(v, Value::Opt(_)) && !self.fits(&v, &o.ty)? => Ok(false),
                 // a plain value where an opt is wanted is always there
                 _ => {
                     let mut p = inside;
@@ -864,17 +867,17 @@ impl<'p> Machine<'p> {
                 }
             }
         } else {
-            match self.eval(&o.opt)? {
-                Value::Opt(Some(v)) => {
-                    self.bind(&o.name, Binding::Value((*v).clone()));
-                    Ok(true)
-                }
-                Value::Opt(None) => Ok(false),
-                v => {
-                    self.bind(&o.name, Binding::Value(v));
-                    Ok(true)
-                }
+            let v = match self.eval(&o.opt)? {
+                Value::Opt(Some(v)) => (*v).clone(),
+                Value::Opt(None) => return Ok(false),
+                v => v,
+            };
+            // with a contract it is a proof as well: it opens only when the value fits
+            if !self.fits(&v, &o.ty)? {
+                return Ok(false);
             }
+            self.bind(&o.name, Binding::Value(v));
+            Ok(true)
         }
     }
 

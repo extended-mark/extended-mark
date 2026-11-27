@@ -233,6 +233,7 @@ A value with a narrower contract is always accepted where a wider one, or none, 
 | The value is a constant | `level = 7` | Checked on the spot. Out of range is a compile error on that line |
 | `if (x in low..high)` | `if (n in 0..100) { … }` | Inside the block, `x` has that range. `x` is a `let`, a parameter or a loop variable |
 | `if (x.len() in low..high)` | `if (name.len() in 1...) { … }` | Inside the block, `x` has that length |
+| Opening with a contract | `if (let t: text[1...] = draft.trim()) { … }` | The block runs only when the value is there and fits the contract written, and inside it the name has that contract. With `if (mut …)`, it is the value when the block starts that has to fit |
 | `clamp` with constant bounds | `(n + 1).clamp(0, 10)` | The result is in `0..10`, and whole when the value and the bounds are |
 | `clamp` with ranged bounds | `value.clamp(0, max)`, with `max: number 0...` | The result runs from the low bound's lowest value to the high bound's highest: here `0...` |
 | `round`, `floor`, `ceil` | `share.round()` | The result is an `int` |
@@ -243,7 +244,7 @@ A value with a narrower contract is always accepted where a wider one, or none, 
 | `len()` | `items.len()` | An `int` with the list's or text's length contract as its range |
 | The two sides of `? :` | `wide ? n.clamp(1, 4) : n.clamp(1, 2)` | The result covers both sides: `1..4` |
 
-Everything else gives the plain type. In particular, arithmetic on anything but constants loses its range: `a + b` on two `number 0..10` is a `number` (an `int`, if both were whole). A value with no proof where a contract is wanted is a compile error that asks for one. It never becomes an `opt`: only `try` turns a value that doesn't fit into `opt.NONE` (Bigger rules, below).
+Everything else gives the plain type. In particular, arithmetic on anything but constants loses its range: `a + b` on two `number 0..10` is a `number` (an `int`, if both were whole). A value with no proof where a contract is wanted is a compile error that asks for one. It never becomes an `opt`: only `try` turns a value that doesn't fit into `opt.NONE` (Bigger rules, below), and only opening with a contract passes over one.
 
 ```java
 fn rank(score: number 0..100): text {

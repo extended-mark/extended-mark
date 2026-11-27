@@ -1629,7 +1629,8 @@ impl Checker {
                     let own = self.root_of(cx, value).is_own();
                     crate::check::effects::set_own_origin(cx, &name.name, own);
                 }
-                ir::Cond::Open(ir::CondOpen { mutable: *mutable, name: name.name.clone(), ty: self.ir_ty(&t), opt })
+                // its type keeps its contract: it opens only when the value fits (page 2)
+                ir::Cond::Open(ir::CondOpen { mutable: *mutable, name: name.name.clone(), ty: declared, opt })
             }
         }
     }

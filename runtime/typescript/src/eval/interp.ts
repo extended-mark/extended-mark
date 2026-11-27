@@ -561,14 +561,12 @@ export class Machine extends Ops {
     const o = c.open;
     if (!o.mut) {
       const v = this.eval(o.opt);
-      if (v.kind === "opt") {
-        if (v.value === null) {
-          return false;
-        }
-        this.bind(o.name, { value: v.value });
-        return true;
+      const inner = v.kind === "opt" ? v.value : v;
+      // with a contract it is a proof as well: it opens only when the value fits
+      if (inner === null || !this.fits(inner, o.type)) {
+        return false;
       }
-      this.bind(o.name, { value: v });
+      this.bind(o.name, { value: inner });
       return true;
     }
     let target = this.placeOf(o.opt);
@@ -593,14 +591,18 @@ export class Machine extends Ops {
       inside = { root: target.root, path: [...target.path, INSIDE] };
       now = this.readPlace(target);
     }
+    // with a contract it is a proof as well: it opens only when the value fits
     if (now.kind === "opt") {
-      if (now.value === null) {
+      if (now.value === null || !this.fits(now.value, o.type)) {
         return false;
       }
       this.bind(o.name, { ref: inside });
       return true;
     }
     // a plain value where an opt is wanted is always there
+    if (!this.fits(now, o.type)) {
+      return false;
+    }
     this.bind(o.name, { ref: { root: inside.root, path: inside.path.slice(0, -1) } });
     return true;
   }

@@ -46,6 +46,19 @@ fn a_page_mounts_its_tree_its_state_and_its_markdown() {
 }
 
 #[test]
+fn opening_with_a_contract_opens_only_a_value_that_fits() {
+    // the page of @extended-mark/runtime's case of the same name
+    let source = std::fs::read_to_string(repo().join("runtime/typescript/test/cases/runtime-opening-with-a-contract-is-a-proof.xtmd")).unwrap();
+    let mut p = page(&source);
+    assert_eq!(p.markdown().unwrap(), "4, 12\n\nNames: 0\n");
+    click(&mut p, "s0/s0");
+    click(&mut p, "s1/s0");
+    // a small number is zeroed and a large one left; a blank draft opens nothing, so nothing fails
+    assert_eq!(p.markdown().unwrap(), "0, 12\n\nNames: 0\n");
+    assert!(p.take_outcome().refused.is_empty());
+}
+
+#[test]
 fn a_widgets_write_goes_to_the_callers_variable_checked_against_its_contract() {
     let mut p = page("$state {\n    n: int 0..10 = 3;\n}\n@@@\n@slider(value = $state.n, label = \"N\");\n");
     p.write("s0", "value", v(&p, num("7"))).unwrap();
