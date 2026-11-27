@@ -1,8 +1,10 @@
-//! A resolved IR an earlier release's reader wrote, brought to the version this xtmd's decompile
-//! prints: plain steps from one version's JSON to the next's, one way, as for the IR (../ir). What a
-//! step is given fits its version's schema, kept as it was (schemas/rir-history), and what it gives
-//! fits the next's. What a step can't settle by itself it asks, by a question's id, answered in
-//! `--answers`; what no answer can settle it leaves to a person, as a TODO above the node.
+//! A resolved IR the release before this one wrote, brought to the version this xtmd's decompile
+//! prints: one plain step from that release's JSON to this one's, one way, as for the IR (../ir). A
+//! release moves only a tree written for the release right before it, so it holds one step, never a
+//! chain: a tree further back is moved by each release in between, in turn. What the step is given
+//! fits its version's schema, kept as it was (schemas/rir-history), and what it gives fits this one's.
+//! What it can't settle by itself it asks, by a question's id, answered in `--answers`; what no answer
+//! can settle it leaves to a person, as a TODO above the node.
 
 use std::collections::BTreeMap;
 
@@ -13,7 +15,7 @@ use crate::migrate::ir::schema;
 /// The resolved IR's version this xtmd prints.
 pub const VERSION: u64 = crate::decompile::RIR_SHAPE;
 
-/// From a version to the next.
+/// From the release before this one to this one.
 pub struct Step {
     pub from: u64,
     /// What the version's resolved IR fits.
@@ -22,8 +24,12 @@ pub struct Step {
     pub run: fn(&mut Value, &mut Asked) -> Result<(), Vec<String>>,
 }
 
-/// The steps this xtmd takes. rir 1, 0.3's, to 2 comes with 0.3.2's reader, set aside (#14715).
-pub static STEPS: &[Step] = &[];
+/// The step this xtmd takes, from the release before it, 0.3.2's rir 1, to rir 2.
+pub static STEP: Option<Step> = None;
+
+/// Whether the step is whole: until it is, a tree written for the release before goes through the
+/// steps of cli/migrate.rs, which edit its text.
+pub const READY: bool = false;
 
 /// What this version's resolved IR fits: `schemas/rir.schema.json`.
 pub const NOW: &str = include_str!("rir-2.schema.json");
@@ -86,25 +92,26 @@ pub fn version(v: &Value) -> Option<u64> {
     v.get("rir")?.as_u64()
 }
 
-/// The resolved IR brought to `VERSION` through `steps`, each told what was answered; or why it can't
-/// be. A question left open stops nothing here: the caller writes nothing while one is.
-pub fn migrate(v: &mut Value, steps: &[Step], asked: &mut Asked) -> Result<u64, Vec<String>> {
+/// The resolved IR brought to `VERSION` by `step`, which is told what was answered; or why it can't
+/// be. Without a step it was read by this release, and is only checked. A step runs whether or not the
+/// version changes: a release that changes what files mean has a step even when the resolved IR's
+/// shape stays. A question left open stops nothing here: the caller writes nothing while one is.
+pub fn migrate(v: &mut Value, step: Option<&Step>, asked: &mut Asked) -> Result<u64, Vec<String>> {
     let Some(from) = version(v) else { return Err(vec!["it isn't a resolved IR: `xtmd compile --rir` writes { \"rir\": 2, \"files\": … }".into()]) };
-    if from > VERSION {
-        return Err(vec![format!("it is rir {}, and this xtmd prints rir {}: use a later xtmd", from, VERSION)]);
-    }
-    let mut at = from;
-    while at < VERSION {
-        let Some(s) = steps.iter().find(|s| s.from == at) else { return Err(vec![format!("it is rir {}, and no step leads from it to rir {}", at, at + 1)]) };
-        fits(v, s.schema, at)?;
-        (s.run)(v, asked)?;
-        at += 1;
-        v["rir"] = at.into();
-        fits(v, steps.iter().find(|s| s.from == at).map_or(NOW, |s| s.schema), at)?;
-    }
-    if from == VERSION {
+    let Some(s) = step else {
+        if from != VERSION {
+            return Err(vec![format!("it is rir {}, and this xtmd reads rir {}", from, VERSION)]);
+        }
         fits(v, NOW, VERSION)?;
+        return Ok(from);
+    };
+    if from != s.from {
+        return Err(vec![format!("it is rir {}, and this xtmd's step moves rir {}, its previous release's", from, s.from)]);
     }
+    fits(v, s.schema, from)?;
+    (s.run)(v, asked)?;
+    v["rir"] = VERSION.into();
+    fits(v, NOW, VERSION)?;
     Ok(from)
 }
 

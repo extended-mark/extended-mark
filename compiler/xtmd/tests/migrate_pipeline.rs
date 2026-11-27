@@ -1,14 +1,15 @@
-//! The migration pipeline (migrate/pipeline.rs), through a made-up release: 0.3.9, whose resolved IR
-//! is a made-up rir 1, the same as rir 2 but for a document's prose, which it calls `words`. Its reader
-//! is this xtmd, writing rir 2 and then putting it back to rir 1; its one step, 1 to 2, renames
-//! `words` to `prose`, and asks and leaves what the tests have it ask and leave.
+//! The migration pipeline (migrate/pipeline.rs), through a made-up previous release: 0.3.9, whose
+//! resolved IR is a made-up rir 1, the same as rir 2 but for a document's prose, which it calls
+//! `words`. Its front end is this xtmd's, writing rir 2 and then putting it back to rir 1; its step, 1
+//! to 2, renames `words` to `prose`, and asks and leaves what the tests have it ask and leave. The
+//! command's own run (cli/migrate_rir.rs) is given the same front end in place of compiler/previous/.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use serde_json::Value;
 use xtmd::check::{compile_core, compile_on, compile_rir, Checker, Source};
-use xtmd::migrate::pipeline::{plan, Plan};
+use xtmd::migrate::pipeline::{plan, Checked, Plan};
 use xtmd::migrate::readers::{Read, Reader};
 use xtmd::migrate::rir::{self, Asked, Step};
 
@@ -41,26 +42,29 @@ fn markdown_of(base: &Checker, packs: &[Source], doc: &Source) -> Result<String,
     xtmd::markdown::page(&m).map(|b| xtmd::markdown::write_page(m.front_matter.as_deref(), &b)).map_err(|e| vec![e.0])
 }
 
-/// 0.3.9's reader: this xtmd's resolved IR, put back to the made-up rir 1, and its Markdown.
-struct MadeUp<'a> {
-    base: &'a Checker,
-    sources: Vec<Source>,
+/// 0.3.9's front end: this xtmd's resolved IR, put back to the made-up rir 1, and its Markdown.
+struct MadeUp {
+    base: Checker,
 }
 
-impl Reader for MadeUp<'_> {
-    fn read(&self, files: &[String], _: &[String]) -> Result<Read, Vec<String>> {
-        let packs: Vec<Source> = self.sources.iter().filter(|s| s.path.ends_with(".xtmdpack")).cloned().collect();
+impl Reader for MadeUp {
+    fn release(&self) -> String {
+        "0.3.9".into()
+    }
+
+    fn read(&self, files: &[Source], packs: &[Source]) -> Result<Read, Vec<String>> {
+        let own: Vec<Source> = files.iter().filter(|s| s.path.ends_with(".xtmdpack")).cloned().collect();
         let (mut all, mut markdown, mut top) = (Vec::new(), BTreeMap::new(), None);
-        for f in files {
-            let s = self.sources.iter().find(|s| &s.path == f).unwrap();
-            let doc = f.ends_with(".xtmd");
-            let others: Vec<Source> = packs.iter().filter(|p| &p.path != f).cloned().collect();
-            let (_, r) = compile_rir(self.base, &[others.clone()], &[s.clone()], if doc { "doc" } else { "main" });
-            let r = r.ok_or_else(|| vec![format!("{}: no resolved IR", f)])?;
-            all.extend(r["files"].as_array().unwrap().iter().filter(|x| x["path"] == f.as_str()).cloned());
+        for s in files {
+            let doc = s.path.ends_with(".xtmd");
+            let mut others: Vec<Source> = packs.to_vec();
+            others.extend(own.iter().filter(|p| p.path != s.path).cloned());
+            let (_, r) = compile_rir(&self.base, &[others.clone()], &[s.clone()], if doc { "doc" } else { "main" });
+            let r = r.ok_or_else(|| vec![format!("{}: 0.3.9 doesn't take it", s.path)])?;
+            all.extend(r["files"].as_array().unwrap().iter().filter(|x| x["path"] == s.path.as_str()).cloned());
             top.get_or_insert(r);
             if doc {
-                markdown.insert(f.clone(), markdown_of(self.base, &others, s)?);
+                markdown.insert(s.path.clone(), markdown_of(&self.base, &others, s)?);
             }
         }
         let mut rir = top.unwrap();
@@ -69,6 +73,7 @@ impl Reader for MadeUp<'_> {
                 file["words"] = p;
             }
         }
+        rir.as_object_mut().unwrap().remove("levels");
         rir["files"] = Value::Array(all);
         rir["rir"] = 1.into();
         rir["xtmd"] = "0.3.9".into();
@@ -125,6 +130,18 @@ fn rewords(v: &mut Value, a: &mut Asked) -> Result<(), Vec<String>> {
     Ok(())
 }
 
+/// A step that makes an argument in books.xtmd mean another input than its name says: what is printed is
+/// the name, so what it compiles back to is not what the step made.
+fn retargets(v: &mut Value, a: &mut Asked) -> Result<(), Vec<String>> {
+    rename(v, a)?;
+    for f in v["files"].as_array_mut().unwrap() {
+        if f["path"] == "books.xtmd" {
+            *f = serde_json::from_str(&f.to_string().replacen("\"shelf/row_of_books.title\"", "\"shelf/row_of_books.heading\"", 1)).unwrap();
+        }
+    }
+    Ok(())
+}
+
 fn tree() -> Vec<Source> {
     vec![
         Source { path: "shelf/shelf.xtmdpack".into(), text: SHELF.into() },
@@ -133,18 +150,15 @@ fn tree() -> Vec<Source> {
     ]
 }
 
+fn step(run: fn(&mut Value, &mut Asked) -> Result<(), Vec<String>>) -> Step {
+    Step { from: 1, schema: schema_1(), run }
+}
+
 fn run(run: fn(&mut Value, &mut Asked) -> Result<(), Vec<String>>, answers: &[(&str, &str)], sources: Vec<Source>) -> Plan {
     let base = base();
-    let files: Vec<String> = sources.iter().map(|s| s.path.clone()).collect();
-    let packs: Vec<Source> = sources.iter().filter(|s| s.path.ends_with(".xtmdpack")).cloned().collect();
-    let read = MadeUp { base: &base, sources }.read(&files, &[]).unwrap();
-    let steps = [Step { from: 1, schema: schema_1(), run }];
-    let check = |printed: &[Source]| -> BTreeMap<String, Result<String, Vec<String>>> {
-        let new_packs: Vec<Source> = printed.iter().filter(|s| s.path.ends_with(".xtmdpack")).cloned().collect();
-        let world = if new_packs.is_empty() { packs.clone() } else { new_packs };
-        printed.iter().filter(|s| s.path.ends_with(".xtmd")).map(|d| (d.path.clone(), markdown_of(&base, &world, d))).collect()
-    };
-    plan(read, &steps, answers.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(), &check)
+    let read = MadeUp { base: base.clone() }.read(&sources, &[]).unwrap();
+    let check = |printed: &[Source]| -> BTreeMap<String, Result<Checked, Vec<String>>> { xtmd::cli::migrate_rir::compile_all(&base, &[], printed) };
+    plan(read, Some(&step(run)), answers.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(), &check)
 }
 
 fn text<'a>(p: &'a Plan, path: &str) -> &'a str {
@@ -184,25 +198,43 @@ fn what_a_step_leaves_to_a_person_is_a_todo_above_it() {
 }
 
 #[test]
+fn what_a_step_leaves_to_a_person_is_written_and_said() {
+    let p = run(rename_and_ask, &[("books.xtmd: first", "todo")], tree());
+    assert!(p.ready() && p.for_a_person(), "{:?}", p.refused);
+    let clean = run(rename, &[], tree());
+    assert!(clean.ready() && !clean.for_a_person());
+}
+
+#[test]
 fn a_step_is_held_to_the_schema_on_both_sides() {
     let p = run(breaks, &[], tree());
     assert!(!p.ready());
     assert!(p.refused.iter().any(|r| r.contains("doesn't fit rir 2's schema")), "{:?}", p.refused);
-    // and no step from a version: nothing can be done
+    // and without the step from the release before, a resolved IR of it can't be moved
     let base = base();
-    let files = vec!["notes.xtmd".to_string()];
-    let read = MadeUp { base: &base, sources: tree() }.read(&files, &[]).unwrap();
-    let p = plan(read, &[], BTreeMap::new(), &|_| BTreeMap::new());
-    assert_eq!(p.refused, ["the resolved IR 0.3.9 read: it is rir 1, and no step leads from it to rir 2"]);
+    let read = MadeUp { base: base.clone() }.read(&tree()[2..], &[]).unwrap();
+    let p = plan(read, None, BTreeMap::new(), &|_| BTreeMap::new());
+    assert_eq!(p.refused, ["the resolved IR 0.3.9 read: it is rir 1, and this xtmd reads rir 2"]);
 }
 
 #[test]
-fn a_document_whose_markdown_changes_is_refused_and_so_is_every_file() {
-    let p = run(rewords, &[], tree());
+fn what_is_printed_must_compile_back_to_what_the_step_made() {
+    let p = run(retargets, &[], tree());
     assert!(!p.ready());
     assert_eq!(p.refused.len(), 1, "{:?}", p.refused);
-    assert!(p.refused[0].starts_with("books.xtmd: its Markdown changed: line "), "{}", p.refused[0]);
-    assert!(p.refused[0].contains("Write") && p.refused[0].contains("Wrote"), "{}", p.refused[0]);
+    assert!(p.refused[0].starts_with("books.xtmd: what was printed compiles to another resolved IR than the step made, at "), "{}", p.refused[0]);
+    assert!(p.refused[0].contains("target") && p.refused[0].contains("row_of_books.heading"), "{}", p.refused[0]);
+}
+
+#[test]
+fn a_document_whose_markdown_changes_is_written_with_a_warning() {
+    let p = run(rewords, &[], tree());
+    assert!(p.ready(), "{:?}", p.refused);
+    assert!(!p.for_a_person(), "a warning leaves nothing for a person");
+    assert_eq!(p.warnings.len(), 1, "{:?}", p.warnings);
+    assert!(p.warnings[0].starts_with("books.xtmd: its Markdown changed: line "), "{}", p.warnings[0]);
+    assert!(p.warnings[0].contains("Write") && p.warnings[0].contains("Wrote"), "{}", p.warnings[0]);
+    assert!(text(&p, "books.xtmd").contains("\"Wrote\""));
 }
 
 #[test]
@@ -225,27 +257,31 @@ fn a_document_that_doesnt_compile_after_is_refused() {
 }
 
 #[test]
-fn the_kept_schema_is_rirs_and_every_resolved_ir_of_the_tree_fits_it() {
+fn the_kept_schema_is_rirs_and_the_one_step_is_from_the_release_before() {
     assert_eq!(rir::NOW, std::fs::read_to_string(repo().join("schemas/rir.schema.json")).unwrap());
     let base = base();
-    let files: Vec<String> = tree().iter().map(|s| s.path.clone()).collect();
-    let mut read = MadeUp { base: &base, sources: tree() }.read(&files, &[]).unwrap();
+    let mut read = MadeUp { base: base.clone() }.read(&tree(), &[]).unwrap();
     let mut asked = Asked::default();
-    assert_eq!(rir::migrate(&mut read.rir, &[Step { from: 1, schema: schema_1(), run: rename }], &mut asked), Ok(1));
-    // a resolved IR of this version needs no step
-    assert_eq!(rir::migrate(&mut read.rir, &[], &mut asked), Ok(2));
+    let mut older = read.rir.clone();
+    assert_eq!(rir::migrate(&mut read.rir, Some(&step(rename)), &mut asked), Ok(1));
+    // read by this release: no step, and only checked
+    assert_eq!(rir::migrate(&mut read.rir, None, &mut asked), Ok(2));
+    // one further back than the step's is never moved, nor a later one
+    older["rir"] = 0.into();
+    assert!(rir::migrate(&mut older, Some(&step(rename)), &mut asked).unwrap_err()[0].contains("this xtmd's step moves rir 1, its previous release's"));
     read.rir["rir"] = 3.into();
-    assert!(rir::migrate(&mut read.rir, &[], &mut asked).unwrap_err()[0].contains("use a later xtmd"));
+    assert!(rir::migrate(&mut read.rir, None, &mut asked).unwrap_err()[0].contains("this xtmd reads rir 2"));
 }
 
-fn xtmd(args: &[&str]) -> (i32, String, String) {
-    let out = std::process::Command::new(env!("CARGO_BIN_EXE_xtmd")).args(args).output().unwrap();
+fn xtmd(dir: &std::path::Path, args: &[&str]) -> (i32, String, String) {
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_xtmd")).current_dir(dir).args(args).output().unwrap();
     (out.status.code().unwrap_or(-1), String::from_utf8_lossy(&out.stdout).into_owned(), String::from_utf8_lossy(&out.stderr).into_owned())
 }
 
 fn scratch(name: &str, files: &[(&str, &str)]) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("xtmd-pipeline-{}-{}", name, std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
     for (path, text) in files {
         let p = dir.join(path);
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();
@@ -254,47 +290,74 @@ fn scratch(name: &str, files: &[(&str, &str)]) -> PathBuf {
     dir
 }
 
+/// The command's run, in `dir`, with 0.3.9's front end for the release before.
+fn migrate(dir: &std::path::Path, args: &[&str]) -> std::process::ExitCode {
+    let here = std::env::current_dir().unwrap();
+    std::env::set_current_dir(dir).unwrap();
+    let args: Vec<String> = args.iter().map(|a| a.to_string()).collect();
+    let code = xtmd::cli::migrate_rir::run(&args, Some(Box::new(MadeUp { base: base() })), Some(&step(rename)));
+    std::env::set_current_dir(here).unwrap();
+    code
+}
+
+static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[test]
-fn xtmd_migrate_reader_plans_then_writes_every_file_or_none() {
-    let me = env!("CARGO_BIN_EXE_xtmd");
-    let dir = scratch("cli", &[("shelf/shelf.xtmdpack", SHELF), ("books.xtmd", BOOKS), ("notes.xtmd", NOTES)]);
-    let d = dir.to_str().unwrap();
-    let pack = dir.join("shelf").display().to_string();
-    // a release's own xtmd reads its tree: what changes is the layout, and nothing is written yet
-    let (code, _, err) = xtmd(&["migrate", d, "--pack", &pack, "--reader", me, "--dry-run"]);
-    assert_eq!(code, 0, "{}", err);
-    assert!(err.contains("read by 0.4.0's xtmd as rir 2") && err.contains("books.xtmd: changes"), "{}", err);
+fn xtmd_migrate_plans_then_writes_every_file_or_none_and_says_what_is_left() {
+    use std::process::ExitCode;
+    let _one = ONE_AT_A_TIME.lock().unwrap();
+    let dir = scratch("run", &[("xtmd.toml", "xtmd = \"0.3.9\"\npacks = [\"shelf\"]\n"), ("shelf/shelf.xtmdpack", SHELF), ("books.xtmd", BOOKS), ("notes.xtmd", NOTES)]);
+    // nothing is written without --yes where nothing can be asked
+    assert_eq!(migrate(&dir, &["."]), ExitCode::from(1));
     assert_eq!(std::fs::read_to_string(dir.join("books.xtmd")).unwrap(), BOOKS);
-    let (code, out, _) = xtmd(&["migrate", d, "--pack", &pack, "--reader", me, "--format", "json", "--dry-run"]);
-    assert_eq!(code, 0);
-    let last: Value = serde_json::from_str(out.lines().last().unwrap()).unwrap();
-    assert_eq!((last["type"].as_str(), last["ready"].as_bool(), last["from"].as_str()), (Some("summary"), Some(true), Some("0.4.0")));
-    // without a terminal it writes only with --yes
-    let (code, _, err) = xtmd(&["migrate", d, "--pack", &pack, "--reader", me]);
-    assert_eq!(code, 1, "{}", err);
-    assert!(err.contains("nothing written: --yes writes it"), "{}", err);
-    let (code, _, err) = xtmd(&["migrate", d, "--pack", &pack, "--reader", me, "--yes"]);
-    assert_eq!(code, 0, "{}", err);
+    assert_eq!(migrate(&dir, &[".", "--dry-run"]), ExitCode::from(0));
+    assert_eq!(migrate(&dir, &[".", "--yes"]), ExitCode::from(0));
     let books = std::fs::read_to_string(dir.join("books.xtmd")).unwrap();
     assert!(books.contains("// what is on the shelf\nlet first: text = \"Read\";"), "{}", books);
-    // once moved, nothing more to do; the tree's own pack is in its build without --pack
-    let (code, _, err) = xtmd(&["migrate", d, "--reader", me, "--check"]);
-    assert_eq!(code, 0, "{}", err);
-    assert!(err.contains("nothing to change"), "{}", err);
-    // a folder with nothing of Extended Mark's in it has nothing to move
-    let empty = scratch("cli-empty", &[("README.md", "# nothing here\n")]);
-    let (code, _, err) = xtmd(&["migrate", empty.to_str().unwrap(), "--reader", me, "--yes"]);
-    assert_eq!(code, 0, "{}", err);
-    assert!(err.contains("nothing to move"), "{}", err);
+    assert!(std::fs::read_to_string(dir.join("xtmd.toml")).unwrap().starts_with(&format!("xtmd = \"{}\"", env!("CARGO_PKG_VERSION"))));
 
-    // one file the old release can't read: nothing is written, the others neither
-    let dir = scratch("cli-none", &[("a.xtmd", "let x: text   = \"a\";\n@@@\n\\{x}\n"), ("b.xtmd", "@@@\n\\{nothing_here}\n")]);
-    let (code, _, err) = xtmd(&["migrate", dir.to_str().unwrap(), "--reader", me, "--yes"]);
-    assert_eq!(code, 1, "{}", err);
-    assert!(err.contains("nothing written"), "{}", err);
+    // what the step leaves for a person is written, and the run says so with its exit code
+    fn leaves_a_todo(v: &mut Value, asked: &mut Asked) -> Result<(), Vec<String>> {
+        rename(v, asked)?;
+        for f in v["files"].as_array_mut().unwrap() {
+            let path = f["path"].as_str().unwrap().to_string();
+            if let Some(d) = f["declarations"].as_array_mut().and_then(|ds| ds.iter_mut().find(|d| d.get("let").is_some())) {
+                asked.todo(d, &path, "look at first");
+            }
+        }
+        Ok(())
+    }
+    let dir = scratch("todo", &[("xtmd.toml", "xtmd = \"0.3.9\"\npacks = [\"shelf\"]\n"), ("shelf/shelf.xtmdpack", SHELF), ("books.xtmd", BOOKS)]);
+    let args: Vec<String> = [".", "--yes"].iter().map(|a| a.to_string()).collect();
+    let here = std::env::current_dir().unwrap();
+    std::env::set_current_dir(&dir).unwrap();
+    let code = xtmd::cli::migrate_rir::run(&args, Some(Box::new(MadeUp { base: base() })), Some(&step(leaves_a_todo)));
+    std::env::set_current_dir(here).unwrap();
+    assert_eq!(code, ExitCode::from(3));
+    assert!(std::fs::read_to_string(dir.join("books.xtmd")).unwrap().contains("// TODO(xtmd migrate): look at first\nlet first"));
+
+    // a file the release before doesn't take: nothing is written, the others neither
+    let dir = scratch("none", &[("xtmd.toml", "xtmd = \"0.3.9\"\n"), ("a.xtmd", "let x: text   = \"a\";\n@@@\n\\{x}\n"), ("b.xtmd", "@@@\n\\{nothing_here}\n")]);
+    assert_eq!(migrate(&dir, &[".", "--yes"]), ExitCode::from(1));
     assert_eq!(std::fs::read_to_string(dir.join("a.xtmd")).unwrap(), "let x: text   = \"a\";\n@@@\n\\{x}\n");
-    // and a reader that isn't one says so
-    let (code, _, err) = xtmd(&["migrate", dir.to_str().unwrap(), "--reader", "/no/such/xtmd", "--yes"]);
-    assert_eq!(code, 1);
-    assert!(err.contains("/no/such/xtmd can't be run"), "{}", err);
+    // and an xtmd built without the front end of the release before says so
+    let args = vec![".".to_string(), "--yes".to_string()];
+    assert_eq!(xtmd::cli::migrate_rir::run(&args, None, Some(&step(rename))), ExitCode::from(1));
+}
+
+#[test]
+fn a_tree_of_any_release_but_the_one_before_or_this_one_is_refused_by_name() {
+    let previous = xtmd::migrate::readers::PREVIOUS;
+    for (release, code, says) in [
+        ("0.3.1", 1, format!("the tree is written for xtmd 0.3.1, and this xtmd ({}) moves only a tree written for {}, the release before it", env!("CARGO_PKG_VERSION"), previous)),
+        ("0.3.0", 1, "tools/migrate/chain.py".to_string()),
+        ("9.0.0", 2, "which is newer than this xtmd".to_string()),
+        ("three", 2, "isn't a release of xtmd".to_string()),
+    ] {
+        let dir = scratch(&format!("release-{}", release), &[("xtmd.toml", &format!("xtmd = \"{}\"\n", release)), ("notes.xtmd", NOTES)]);
+        let (got, _, err) = xtmd(&dir, &["migrate", ".", "--yes"]);
+        assert_eq!(got, code, "{}: {}", release, err);
+        assert!(err.contains(&says), "{}: {}", release, err);
+        assert_eq!(std::fs::read_to_string(dir.join("notes.xtmd")).unwrap(), NOTES);
+    }
 }

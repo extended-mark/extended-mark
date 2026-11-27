@@ -33,28 +33,30 @@ pub(crate) const USAGE: &str = "usage: xtmd migrate [<file|folder>…] [--pack a
   --allow-errors writes a file that doesn't compile afterwards
   --report f     the whole run, as Markdown (f.md) or JSON (f.json)
   --from kit@1   the version the files are written for, where nothing says (xtmd.toml's [uses] does)
-  xtmd.toml's xtmd = \"0.3.x\" says the release the tree is written for (0.3.0 when it says none),
-  and [uses] each pack's version; a run that moves the tree writes both.
-  --reader x     moves the tree by what each release understands of it: x, the xtmd of the release
-                 it is written for (0.4.0 on), reads each file to a resolved IR; this xtmd brings that
-                 to its own version, prints every file again, and compiles them. Each document's
-                 Markdown has to be what x wrote; then every file is written, or none. A step's
-                 question is answered in --answers as [steps] \"id\" = \"answer\"; what no step can move
-                 is left with a TODO above it.
+  xtmd.toml's xtmd = \"…\" says the release the tree is written for, and [uses] each pack's
+  version; a run that moves the tree writes both. This xtmd moves only a tree written for the release
+  right before it (one that says none is taken as that one, and told so); a tree further back is
+  moved by each release in between, in turn (tools/migrate/chain.py), and one of any other release is
+  refused. The release before reads it with its own front end, built into this command; its resolved
+  IR is moved one step, every file printed again, and compiled back to what the step made. A document
+  whose Markdown changed is a warning. A step's question is answered in --answers as
+  [steps] \"id\" = \"answer\"; what no step can move is written with a TODO above it, listed, and the
+  run exits 3. Then every file is written, or none.
   An IR file (xtmd migrate page.ir.json) is brought to the version this xtmd's runtimes read, one way,
   in place; one that can't be keeps its file, and is told what is missing.
   --format json prints a JSON line for each file, note and question, then the summary, and asks
   nothing.
   exit: 0 done, or nothing to do; 1 something is left: a file refused or skipped, a question open,
-        or (with --check) a file that would change; 2 a usage error, or a file that can't be read
+        or (with --check) a file that would change; 2 a usage error, or a file that can't be read;
+        3 written (or, with --dry-run, would be) with TODOs a person must look at
   e.g.  xtmd migrate --dry-run
         xtmd migrate docs --yes
         xtmd migrate docs --yes all --report migration.md";
 
 pub fn migrate_cmd(args: &[String]) -> ExitCode {
-    // by what each release understands: the old one reads, this one prints (cli/migrate_rir.rs)
-    if args.iter().any(|a| a == "--reader" || a.starts_with("--reader=")) {
-        return crate::cli::migrate_rir::run(args);
+    // a tree written for the release before this one, or for another: cli/migrate_rir.rs
+    if let Some(code) = crate::cli::migrate_rir::route(args) {
+        return code;
     }
     let flag = |f: &str| args.iter().any(|a| a == f);
     let (dry, check, diff, dirty_ok) = (flag("--dry-run"), flag("--check"), flag("--diff"), flag("--allow-dirty"));

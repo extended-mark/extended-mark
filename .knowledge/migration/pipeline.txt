@@ -1,15 +1,17 @@
 A TREE MOVED BY WHAT EACH RELEASE UNDERSTANDS  compiler/xtmd/src/migrate/pipeline.rs
-`xtmd migrate <tree> --reader <xtmd of the release it is written for>`. Nothing reads old text anew:
-1. readers/: the old release reads each file, `compile --rir` and `md`: its resolved IR and Markdown.
-   A reader is anything that gives those (trait Reader); 0.3's xtmd has no compile, so its reader, from
-   0.3.2's published crates, is to come (#14715).
-2. rir/: steps from rir N to N+1 over the JSON, by names and types. A step's input fits rir N's schema
-   (kept in schemas/rir-history; src/migrate/rir keeps copies, a test holds them to schemas/) and its
-   output N+1's. It asks what only a person knows (Asked::ask, by an id; answered in --answers as
-   [steps] "id" = "answer") and leaves a TODO above what no answer can move (Asked::todo).
-3. decompile prints every file; this xtmd compiles each document with the packs printed beside it.
-4. Each document's Markdown has to be the old release's: a step that changes what a page says is wrong.
-5. Anything refused or a question open: nothing written. Else every file, written beside and renamed.
-A new rir version: keep the old schema in schemas/rir-history (a folder a version) and in src/migrate/rir,
-write the step, add it to STEPS. compiler/xtmd/tests/migrate_pipeline.rs runs a made-up release, rir 1
-with `words` for `prose`, through all of it.
+`xtmd migrate <tree>`, for a tree written for the release right before this one
+(compiler/xtmd/src/cli/migrate_rir.rs route(): any other release is refused by name; xtmd.toml saying
+none is taken as that one, out loud).
+1. readers/: the release before's front end, built into the command (previous(), never the wasm build),
+   gives each file's resolved IR and each document's Markdown. readers::This reads this release's.
+2. rir/: ONE step (STEP) from that release's rir to this one's, over the JSON, by names and types; it
+   runs even when the rir version stays. Input fits the old schema (schemas/rir-history, copied into
+   src/migrate/rir), output NOW's. It asks (Asked::ask, answered in --answers as [steps] "id" = "x")
+   and leaves a TODO above what no answer can move (Asked::todo).
+3. decompile prints every file; compile_all compiles each back to its resolved IR (and Markdown).
+4. Round trip: pipeline::written(the step's) must equal written(the printed file's): spans, sha256 and
+   expression types aside, every name's target kept. Markdown changed: a warning, never a refusal.
+5. Refused or a question open: nothing written. Else every file, beside then renamed; TODOs: exit 3.
+Until rir::READY, a 0.3.2 tree still takes compiler/xtmd/src/cli/migrate.rs's text steps (releases.rs).
+compiler/xtmd/tests/migrate_pipeline.rs runs a made-up release before, rir 1 with `words` for `prose`;
+compiler/xtmd/tests/migrate_032.rs runs every 0.3.2 file of checks/migrate-0.3 against expected.tsv.

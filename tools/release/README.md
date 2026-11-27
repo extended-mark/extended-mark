@@ -25,12 +25,14 @@ What a release owes the one before it, gone through on the merge request that ra
    `schemas/ir-history/<old>/` and `compiler/xtmd/src/migrate/ir/`, the step in `migrate/ir/`, and the
    table in spec page 6 ("The IR").
 4. **The resolved IR.** A change to what it holds raises its version: the old schema kept in
-   `schemas/rir-history/<old>/` and `compiler/xtmd/src/migrate/rir/`, the step in `STEPS`, its test,
-   and the table in spec page 6 (docs/guides/migration.md says how).
-5. **The language.** Every change to what a file means comes with how what exists moves to it: a rir
-   step, a pack migration, or a release step of `migrate/releases.rs`, each in the notes.
-6. **Read by the release before.** The repository's documents move from the last release: with
-   `<the last release's xtmd>` as the reader, `xtmd migrate <folder> --reader … --dry-run` is ready,
+   `schemas/rir-history/<old>/` and `compiler/xtmd/src/migrate/rir/`, and the table in spec page 6
+   (docs/guides/migration.md says how).
+5. **The step and the front end.** This release's one step from the release before (`STEP`, in
+   `compiler/xtmd/src/migrate/rir/`), with its tests, and the release before's front end in
+   `compiler/xtmd/previous/`, copied from its tag. Every change to what a file means comes with how what
+   exists moves to it: in the step, or in a pack's migration, each in the notes.
+6. **Read by the release before.** The repository's documents move from the last release:
+   `xtmd migrate <folder> --dry-run`, on a copy whose xtmd.toml says the last release, is ready,
    nothing refused and no question open, for each folder of examples/ and apps/ (the playground with
    `--pack examples/graphs`). examples/pack-migration is refused, as it should be: its documents are
    written for kit@1, for `xtmd migrate` to move by the pack's migration.

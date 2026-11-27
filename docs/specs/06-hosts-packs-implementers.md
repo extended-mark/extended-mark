@@ -129,15 +129,16 @@ The compiler writes a build in two forms. The **IR** is what a page runs from: c
 | 1 | xtmd 0.3.0 to 0.3.2 |
 | 2 | xtmd 0.4 |
 
-**A release that changes the language** moves what was written for the release before it by what each release understands of it, never by its text, and for any release, not only the last:
+**A release moves what was written for the release right before it**, and nothing older: a tree written for an earlier release is moved by each release in between, in turn, patch releases too, each by its own `xtmd`. It moves it by what each release understands of it, never by its text:
 
-1. **The old release reads it.** The release a tree is written for is the one that understands it: its `xtmd compile --rir` gives each file's resolved IR, and its `xtmd md` each document's Markdown.
-2. **Steps.** The resolved IR is brought to the version this xtmd writes, one version at a time, from JSON to JSON, by names and types. What a step is given is checked against the schema its version had, which is kept, and what it makes against the next version's.
-3. **What a person decides.** A step asks what only a person can decide, by a question with an id; whoever migrates answers it, or a file does. What no answer can move is left as it was, with a TODO above it.
-4. **Printed and checked.** Every file is written again from the resolved IR, in `xtmd fmt`'s layout with its comments, and compiled. Each document's Markdown must be what the old release wrote: a migration changes how a page is written, never what it says.
-5. **Every file, or none.** A question nothing answers, a file that doesn't compile and a document whose Markdown changed each stop the whole tree, and nothing is written. Otherwise every file is, and the tree's `xtmd.toml` says the new release.
+1. **The release before reads it.** Each release's command line carries the front end of the release before it, and only that one: it gives each file's resolved IR, the snapshot of what is written, and each document's Markdown, as that release understood them. A tree the release before doesn't take as valid is not moved.
+2. **One step.** The resolved IR is moved to this release's by its one step, from JSON to JSON, by names and types. A release whose files need moving has a step even when the resolved IR's shape stays. What the step is given is checked against the schema its version had, which is kept, and what it makes against this version's.
+3. **What a person decides.** The step asks what only a person can decide, by a question with an id; whoever migrates answers it, or a file does. What no answer can move is left as it was, with a TODO above it.
+4. **Printed and checked.** Every file is written again from the resolved IR, in `xtmd fmt`'s layout with its comments, and compiled back to its resolved IR, which must be what the step made: the files written mean what the step decided. Each document's Markdown is compared with the release before's, and a difference is a warning: the Markdown misses what a page does, and a step may change it on purpose.
+5. **Said out loud.** A migration moves what is plain and never promises the result. Every TODO, question and warning is listed, and a run that writes a TODO ends with exit code 3.
+6. **Every file, or none.** A question nothing answers, a file that doesn't compile, and a file that compiles to another resolved IR than the step made each stop the whole tree, and nothing is written. Otherwise every file is, and the tree's `xtmd.toml` says the new release. A tree whose `xtmd.toml` says no release is taken as written for the release before, and told so.
 
-`xtmd migrate <tree> --reader <the old release's xtmd>` does this. A reader is whatever gives a tree's resolved IR and Markdown as its release understood them; a release from 0.4 on is read with its own command, and 0.3's, which has no `compile`, needs one of its own. A release that moves a command or a flag keeps it for that release only, to say where it went, and the next release removes it.
+`xtmd migrate <tree>` does this; `tools/migrate/chain.py` runs the `xtmd` of each release in between. A release that moves a command or a flag keeps it for that release only, to say where it went, and the next release removes it.
 
 ### The IR
 

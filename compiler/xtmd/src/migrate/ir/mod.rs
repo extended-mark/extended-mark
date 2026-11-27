@@ -3,7 +3,7 @@
 //! schema, kept as it was, and what it gives fits the next's. A page a step can't bring keeps its file,
 //! and is told what is missing: it is built again from its source.
 
-pub(crate) mod schema;
+pub mod schema;
 mod v3;
 
 use serde_json::Value;
