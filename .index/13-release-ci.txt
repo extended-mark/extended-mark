@@ -10,6 +10,9 @@ tools/release/
   preflight.mjs       could every registry take this release
   previous.mjs        the release before's front end, from its tag, into compiler/xtmd/previous
   README.md           how a release happens; test/
+tools/migrate/
+  chain.py            a tree moved release by release: each release's xtmd fetched, its hash checked,
+                      run in turn, stopping at exit 3; test/test_chain.py (stand-in releases)
 tools/llm/check.mjs   holds CLAUDE.md, .index/ and .knowledge/ to the repository; test/
 tools/cli-usability/  harness.py, the command tried as a person would
 

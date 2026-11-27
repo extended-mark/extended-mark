@@ -36,10 +36,13 @@ changes, each TODO, each warning, each question, and why anything is refused. A 
 with no answer, writes nothing. `--format json` gives a line for each, then a summary with `ready`,
 `todos` and `warnings`.
 
-**A tree further back.** `tools/migrate/chain.py docs --to 0.6.0` fetches the `xtmd` of each release
-in between and runs each in turn, stopping at the first that leaves something for you, so that you
-settle it in the release it belongs to. A tree whose `xtmd.toml` says no release is taken as written
-for the release before, and you are told so.
+**A tree further back.** `python3 tools/migrate/chain.py docs --to 0.6.0` fetches the `xtmd` of each
+release in between, patch releases too, from its GitHub release (checked against the release's
+`SHA256SUMS`), and runs `xtmd migrate docs --yes` with each in turn. It stops at the first run that
+leaves something for you (exit 3), so that you settle it in the release it belongs to; run it again
+afterwards and it goes on from there. What follows `--` is given to each run, such as
+`-- --answers answers.toml`. A tree whose `xtmd.toml` says no release is taken as written for the
+release before by `xtmd migrate`; chain.py asks you to say which.
 
 **Questions.** A step asks what only you know, by an id. Answer them in a file:
 
