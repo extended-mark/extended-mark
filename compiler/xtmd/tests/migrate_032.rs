@@ -106,7 +106,9 @@ fn every_0_3_2_file_is_migrated_as_expected() {
     assert!(docs >= 120 && units.len() >= 300, "the corpus is short: {} units, {} documents", units.len(), docs);
     let scratch = std::env::temp_dir().join(format!("xtmd-migrate-032-{}", std::process::id()));
     let results: Vec<(String, bool, String)> = std::thread::scope(|s| {
-        let chunks: Vec<&[Unit]> = units.chunks(units.len().div_ceil(4)).collect();
+        // a thread a core: each unit is a run of its own xtmd
+        let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+        let chunks: Vec<&[Unit]> = units.chunks(units.len().div_ceil(threads)).collect();
         let handles: Vec<_> = chunks.into_iter().map(|c| s.spawn(|| c.iter().map(|u| (u.id.clone(), u.valid, migrate(u, &scratch))).collect::<Vec<_>>())).collect();
         handles.into_iter().flat_map(|h| h.join().unwrap()).collect()
     });
