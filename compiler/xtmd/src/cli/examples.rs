@@ -7,7 +7,7 @@ use crate::syntax::ast::{self, DeclKind, Expr, ExprKind, Item, MigrationItem, Mi
 use crate::syntax::printer::print_expr;
 use crate::syntax::{format, parse, Diagnostic, Entry, Span};
 
-use crate::cli::migrate::{packs_of, world_at};
+use crate::cli::migrate::packs_of;
 
 /// The code of an example that fails.
 pub(crate) const EXAMPLE: &str = "pack.migration-example";
@@ -75,7 +75,6 @@ fn held(doc: &str, view: bool) -> String {
 fn holds(base: &crate::check::Checker, file: &str, text: &str, packs: &[Source], m: &ast::MigrationDecl, b: &ast::MigrationBlock, before: &Expr, after: &Expr) -> Result<(), String> {
     let name = m.from.name.name.clone();
     let from: u32 = m.from.version.name.parse().map_err(|_| "the migration's version isn't a number".to_string())?;
-    let to: u32 = m.to.version.name.parse().map_err(|_| "the migration's version isn't a number".to_string())?;
     let me = std::fs::canonicalize(file).ok();
     let mut sources: Vec<Source> = packs.iter().filter(|s| s.path != file && (me.is_none() || std::fs::canonicalize(&s.path).ok() != me)).cloned().collect();
     sources.push(Source { path: file.to_string(), text: text.to_string() });
@@ -87,25 +86,19 @@ fn holds(base: &crate::check::Checker, file: &str, text: &str, packs: &[Source],
     }
     let (doc, want) = (holder(&name, &key, &print_expr(before), view), holder(&name, &key, &print_expr(after), view));
     let path = format!("{}.example.xtmd", file);
-    let (compiled, refs) = crate::check::compile_refs(base, &[world_at(&sources, &pack, from)], &[Source { path: path.clone(), text: doc.clone() }], "doc");
-    if compiled.module.is_none() {
-        let first = compiled.errors().find(|d| d.file == path).map(|d| d.diagnostic.message.clone()).unwrap_or_else(|| "an error in a pack".into());
-        return Err(format!("`before` doesn't compile against {}@{}: {}", name, from, first));
-    }
-    let old: Vec<Source> = pack.surfaces.get(&from).cloned().into_iter().collect();
-    let new: Vec<Source> = match pack.surfaces.get(&to) {
-        Some(s) if to < pack.version => vec![s.clone()],
-        _ => pack.files.clone(),
-    };
-    let label = format!("{}@{}", name, to);
-    let done = crate::cli::migrate_step::Step { text: &doc, doc: &path, refs: &refs, pack: &name, step: m, label: &label, fns: &pack.fns, old: &old, new: &new, prose: true }.run();
+    let (moved, done) = crate::migrate::packs::move_file(base, &sources, &pack, from, &path, &[Source { path: path.clone(), text: doc.clone() }], "doc");
     if let Some(why) = done.refused.first() {
+        if why.starts_with("it doesn't compile against") {
+            return Err(format!("`before` doesn't compile against {}@{}: {}", name, from, why.rsplit(": ").next().unwrap_or(why)));
+        }
         return Err(format!("`before` can't be moved: {}", why.split_once(": ").map_or(why.as_str(), |(_, w)| w)));
     }
-    let moved = crate::cli::migrate_step::apply(&doc, &done.edits);
+    let moved = moved.unwrap_or(doc);
     let canonical = |t: &str| format(t, Entry::Document).unwrap_or_else(|_| t.to_string());
-    if canonical(&moved) != canonical(&want) {
-        return Err(format!("`before` becomes `{}`, not `after`", held(&canonical(&moved), view)));
+    // what the holder holds, its imports aside: a use moved to another pack's widget imports it
+    let (got, want) = (held(&canonical(&moved), view), held(&canonical(&want), view));
+    if got != want {
+        return Err(format!("`before` becomes `{}`, not `after`", got));
     }
     Ok(())
 }

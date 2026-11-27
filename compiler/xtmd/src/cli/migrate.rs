@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use crate::migrate::{pass, release_in, step_packs, uses_after, uses_in, with_release, with_uses, Outcome, Tree, ALLOW_ERRORS, FIRST};
-pub(crate) use crate::migrate::{is_doc, packs_of, release_of, unified, world_at, RELEASE};
+pub(crate) use crate::migrate::{is_doc, packs_of, release_of, unified, RELEASE};
 
 pub(crate) const USAGE: &str = "usage: xtmd migrate [<file|folder>…] [--pack a,b] [--config xtmd.toml] [--from kit@1]
                   [--dry-run | --check | --diff | --stdout] [--yes [all | 1,2,…]] [--answers answers.toml]
@@ -29,8 +29,8 @@ pub(crate) const USAGE: &str = "usage: xtmd migrate [<file|folder>…] [--pack a
   --stdout       one document's result on stdout, written nowhere (what it says goes to stderr)
   --yes          writes, without a terminal; --allow-dirty writes files with uncommitted changes too
   --allow-todos  what a migration can't do is left as it was, with a TODO above it, and written
-                 (even where that code doesn't compile)
-  --allow-errors writes a file that doesn't compile afterwards
+                 (even where that code doesn't compile); the run exits 3, for a person to look
+  --allow-errors writes a file that doesn't compile afterwards, and exits 3 too
   --report f     the whole run, as Markdown (f.md) or JSON (f.json)
   --from kit@1   the version the files are written for, where nothing says (xtmd.toml's [uses] does)
   xtmd.toml's xtmd = \"…\" says the release the tree is written for, and [uses] each pack's
@@ -514,7 +514,8 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
                 say!("{}: now written for xtmd {}.", shown(cfg), RELEASE);
             }
         }
-        // what --allow-todos and --allow-errors let through is written, and said, not a failure
+        // what --allow-todos and --allow-errors let through is written and said, and the run exits 3: a
+        // person must look at it before the tree goes on to the next release
         let (todos_left, errors_left) = to_write.iter().filter(|(p, _, _)| wrote.contains(p)).fold((0, 0), |(t, e), (_, _, o)| (t + o.todos.len(), e + usize::from(!o.errors.is_empty())));
         if todos_left + errors_left > 0 {
             let mut parts = Vec::new();
@@ -528,13 +529,15 @@ pub fn migrate_cmd(args: &[String]) -> ExitCode {
         }
         if need > 0 || wrote.len() < to_write.len() {
             ExitCode::from(1)
+        } else if todos_left + errors_left > 0 {
+            ExitCode::from(crate::cli::migrate_rir::FOR_A_PERSON)
         } else {
             ExitCode::SUCCESS
         }
     };
     // what happened, for CI and tools: JSON lines, and the report
     if json || report.is_some() {
-        let r = Report { results: &results, asked: &asked, wrote: &wrote, skipped: &skipped, from: &from_release, record: config.as_ref().map(|c| (c.as_path(), written_release.as_deref(), record_moves, moved_record, &uses_to)), diff, code: if code == ExitCode::SUCCESS { 0 } else { 1 } };
+        let r = Report { results: &results, asked: &asked, wrote: &wrote, skipped: &skipped, from: &from_release, record: config.as_ref().map(|c| (c.as_path(), written_release.as_deref(), record_moves, moved_record, &uses_to)), diff, code: if code == ExitCode::SUCCESS { 0 } else if code == ExitCode::from(crate::cli::migrate_rir::FOR_A_PERSON) { 3 } else { 1 } };
         if json {
             for line in r.lines() {
                 crate::cli::out::text(&line);

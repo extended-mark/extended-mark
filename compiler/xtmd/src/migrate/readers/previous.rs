@@ -27,7 +27,7 @@ pub struct Previous {
 impl Previous {
     pub fn new() -> Self {
         let core: Vec<old::Source> = crate::previous::core_files::SOURCES.iter().map(|(p, t)| old::Source { path: p.to_string(), text: t.to_string() }).collect();
-        Previous { base: old::compile_core(&core), now: crate::check::compile_core(&crate::cli::core_sources()) }
+        Previous { base: old::compile_core(&core), now: crate::check::compile_core(&crate::live::core()) }
     }
 
     /// Where this release's parser puts the file's comments: what it makes of the file as far as it

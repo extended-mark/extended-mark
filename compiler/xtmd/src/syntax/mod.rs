@@ -11,6 +11,7 @@ pub mod ast;
 pub mod diag;
 pub mod lexer;
 pub mod markdown;
+pub mod names;
 pub mod parser;
 pub mod printer;
 mod prose;

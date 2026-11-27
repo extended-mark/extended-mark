@@ -12,7 +12,7 @@ mod help;
 mod out;
 mod engine;
 pub(crate) use crate::migrate::step as migrate_step;
-mod surface;
+pub mod surface;
 
 use crate::syntax::{entry_for, format, parse, Diagnostic};
 

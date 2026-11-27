@@ -555,7 +555,7 @@ impl Checker {
     /// A fn as the IR has it.
     fn fn_decl(&self, out: &Out, k: usize) -> Option<ir::Decl> {
         let f = &self.fns[k];
-        if f.sig.is_none() || (f.body.is_none() && !f.external) || f.pack.contains('@') {
+        if f.sig.is_none() || (f.body.is_none() && !f.external) || f.pack.contains('@') || f.full.contains("/migration@") {
             return None;
         }
         if f.external && matches!(f.on, Some(Recv::Iface(_))) && f.body.is_none() && self.is_member(k) {

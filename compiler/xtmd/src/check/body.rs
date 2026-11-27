@@ -393,10 +393,14 @@ impl Checker {
         }
         match self.lookup_value(cx.file, &n.name) {
             Some(ValueSym::Let(l)) => {
+                self.note_ref(cx.file, n.span, n.span, crate::check::RefTarget::Let(l));
                 self.warn_deprecated(cx.file, self.lets[l].file, self.lets[l].span, n.span);
                 (ir::Expr::Get(ir::Get::Let(self.lets[l].full.clone())), self.lets[l].ty.clone())
             }
-            Some(ValueSym::Fn(f)) => self.fn_value(f),
+            Some(ValueSym::Fn(f)) => {
+                self.note_ref(cx.file, n.span, n.span, crate::check::RefTarget::Fn(f));
+                self.fn_value(f)
+            }
             Some(ValueSym::Channel(_)) => {
                 self.error(cx.file, codes::UNKNOWN_NAME, n.span, format!("`{}` is an extern channel: read one of its values, `{}.name`", n.name, n.name));
                 (ir::Expr::Num("0".into()), Ty::Err)

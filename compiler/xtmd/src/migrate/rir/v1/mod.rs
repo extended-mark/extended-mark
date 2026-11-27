@@ -15,7 +15,7 @@ mod names;
 mod slots;
 mod texts;
 mod views;
-mod walk;
+pub(crate) mod walk;
 
 pub use format::format;
 

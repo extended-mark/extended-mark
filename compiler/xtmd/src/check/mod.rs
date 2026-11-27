@@ -16,6 +16,7 @@ pub mod proof;
 mod rich;
 pub mod ty;
 mod migrations;
+pub use migrations::in_order;
 pub mod pieces;
 mod rir;
 mod shared;
@@ -394,8 +395,10 @@ pub enum RefTarget {
     /// An input, a slot, an event or a field of the declaration, by its name.
     Member(DefId, String),
     Case(DefId, String),
-    /// A fn called by its name: `slug` in `title.slug()`.
+    /// A fn called by its name, `slug` in `title.slug()`, imported by it or given as a value.
     Fn(usize),
+    /// A `let` read or imported by its name.
+    Let(usize),
 }
 
 #[derive(Clone)]
@@ -431,6 +434,8 @@ pub struct Checker {
     /// Each call made into a node, in which template, and where it is written.
     pub(crate) sites: Vec<SiteRec>,
     pub(crate) slot_finds: Vec<SlotRec>,
+    /// Each migration's own fns: the file, the name, the fn.
+    pub(crate) migration_fns: Vec<(usize, ast::Ident, usize)>,
     /// The document's link reference definitions, by their normalized labels.
     pub prose_links: Vec<(String, String)>,
     pub prose_span: Span,
@@ -488,6 +493,7 @@ impl Checker {
             template_now: String::new(),
             sites: Vec::new(),
             slot_finds: Vec::new(),
+            migration_fns: Vec::new(),
             prose_links: Vec::new(),
             prose_span: Span::default(),
             from: From::default(),
@@ -792,7 +798,35 @@ impl Checker {
             }
             K::Tokens(_) => {}
             // read against the surfaces when the pack is checked, never part of a page
-            K::Migration(_) | K::MigrationFn(_) => {}
+            K::MigrationFn(_) => {}
+            // a migration's own fns are named in its file, and run only when migrating
+            K::Migration(m) => {
+                for item in m.items.iter() {
+                    let ast::MigrationItem::Fn(f) = item else { continue };
+                    if let Some((on, _)) = &f.sig.on {
+                        self.error(file, codes::MIGRATION, on.span.to(f.sig.name.span), format!("a migration's own fn is called by its name: write `fn {}(…)`, with the {} as a parameter", f.sig.name.name, on.name));
+                        continue;
+                    }
+                    let id = self.fns.len();
+                    self.fns.push(FnSym {
+                        full: format!("{}/migration@{}.{}", pack, m.to.version.name, f.sig.name.name),
+                        name: f.sig.name.name.clone(),
+                        pack: pack.to_string(),
+                        file,
+                        span: f.sig.name.span,
+                        on: None,
+                        generics: Vec::new(),
+                        params: Vec::new(),
+                        ret: None,
+                        ret_ir: None,
+                        body: f.body.clone(),
+                        external: false,
+                        widget: None,
+                        sig: Some(f.sig.clone()),
+                    });
+                    self.migration_fns.push((file, f.sig.name.clone(), id));
+                }
+            }
         }
     }
 
@@ -848,6 +882,11 @@ impl Checker {
                         if let Some(TypeSym::Def(d)) = t {
                             self.note_ref(file, one.span, one.span, RefTarget::Decl(d));
                         }
+                        match v {
+                            Some(ValueSym::Fn(f)) => self.note_ref(file, one.span, one.span, RefTarget::Fn(f)),
+                            Some(ValueSym::Let(l)) => self.note_ref(file, one.span, one.span, RefTarget::Let(l)),
+                            _ => {}
+                        }
                         add.push((name, t, v));
                     }
                 }
@@ -872,6 +911,15 @@ impl Checker {
             }
             for (n, v) in &own.values {
                 scope.values.insert(n.clone(), *v);
+            }
+            let of_migrations: Vec<(ast::Ident, usize)> = self.migration_fns.iter().filter(|(f, _, _)| *f == file).map(|(_, n, id)| (n.clone(), *id)).collect();
+            for (n, id) in of_migrations {
+                let own = scope.values.get(&n.name).map_or(false, |x| core_values.get(&n.name) != Some(x));
+                if own {
+                    self.error(file, codes::DUPLICATE, n.span, format!("`{}` is declared twice in this file", n.name));
+                    continue;
+                }
+                scope.values.insert(n.name.clone(), ValueSym::Fn(id));
             }
             self.files[file].scope = scope;
         }
@@ -1357,6 +1405,7 @@ pub fn compile_refs(base: &Checker, packs: &[Vec<Source>], main: &[Source], modu
             RefTarget::Member(d, m) => (c.defs[*d].full.clone(), Some(m.clone()), false),
             RefTarget::Case(d, m) => (c.defs[*d].full.clone(), Some(m.clone()), true),
             RefTarget::Fn(f) => (c.fns[*f].full.clone(), None, false),
+            RefTarget::Let(l) => (c.lets[*l].full.clone(), None, false),
         };
         let found = FoundRef { file, at: r.at, whole: r.whole, decl, member, case };
         if !out.contains(&found) {
@@ -1364,6 +1413,44 @@ pub fn compile_refs(base: &Checker, packs: &[Vec<Source>], main: &[Source], modu
         }
     }
     (compiled, out)
+}
+
+/// As `compile_on`, with the names each of `main`'s files sees, by their full names: `quote` as
+/// `core/quote`.
+pub fn compile_scopes(base: &Checker, packs: &[Vec<Source>], main: &[Source], module: &str) -> (Compiled, HashMap<String, HashMap<String, String>>) {
+    let (compiled, c) = compile_with(base.clone(), packs, main, module);
+    let mut out = HashMap::new();
+    for f in c.files.iter().filter(|f| main.iter().any(|m| m.path == f.path)) {
+        let mut names: HashMap<String, String> = HashMap::new();
+        for (n, v) in &f.scope.values {
+            match v {
+                ValueSym::Fn(x) => names.insert(n.clone(), c.fns[*x].full.clone()),
+                ValueSym::Let(x) => names.insert(n.clone(), c.lets[*x].full.clone()),
+                ValueSym::Channel(x) => names.insert(n.clone(), c.channels[*x].full.clone()),
+            };
+        }
+        for (n, t) in &f.scope.types {
+            if let TypeSym::Def(d) = t {
+                names.insert(n.clone(), c.defs[*d].full.clone());
+            }
+        }
+        out.insert(f.path.clone(), names);
+    }
+    (compiled, out)
+}
+
+/// What the expression at `at` in a pack's file comes to, when it is a constant: what a migration
+/// works out (page 6). `None` when it isn't one, or the file doesn't compile.
+pub fn work_out(base: &Checker, packs: &[Vec<Source>], file: &Source, at: Span) -> Option<crate::eval::Value> {
+    let mut c = base.clone();
+    c.typed = Some(HashMap::new());
+    let (compiled, c) = compile_with(c, packs, std::slice::from_ref(file), "doc");
+    let f = c.files.iter().position(|f| f.path == file.path)?;
+    let (_, x) = c.typed.as_ref()?.get(&(f, at.start, at.end))?.clone();
+    let mut prog = crate::eval::Program::from_module(&compiled.module?);
+    prog.lets.extend(compiled.constants);
+    let mut m = crate::eval::Machine::new(&prog, Box::new(crate::eval::interp::Constants));
+    m.eval(&x).ok()
 }
 
 /// Compiles core, the packs and the document (or a pack) into one IR module.

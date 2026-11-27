@@ -1054,6 +1054,17 @@ impl<'c> Writer<'c> {
                     o.insert("local".into(), json!(n.name));
                 }
             },
+            // a top-level fn given by its name compiles to a lambda that calls it: the IR says which
+            // fn; a widget's own fn stays the name it is in the widget
+            Some(ir::Expr::Fn(l)) => {
+                let called = match l.body.as_slice() {
+                    [ir::Stmt::Return(ir::StmtReturn { value: Some(ir::Expr::Call(c)) })] => Some(c.name.clone()),
+                    [ir::Stmt::Call(c)] => Some(c.name.clone()),
+                    _ => None,
+                };
+                let called = called.filter(|c| c.split_once('/').map_or(false, |(_, n)| !n.contains('.')));
+                o.insert(if called.is_some() { "fn" } else { "local" }.into(), json!(called.unwrap_or_else(|| n.name.clone())));
+            }
             _ => {
                 o.insert("local".into(), json!(n.name));
             }
@@ -1219,6 +1230,7 @@ impl<'c> Writer<'c> {
             RefTarget::Decl(d) => Some(self.c.defs[*d].full.clone()),
             RefTarget::Member(d, m) | RefTarget::Case(d, m) => Some(format!("{}.{}", self.c.defs[*d].full, m)),
             RefTarget::Fn(x) => Some(self.c.fns[*x].full.clone()),
+            RefTarget::Let(x) => Some(self.c.lets[*x].full.clone()),
         }
     }
 

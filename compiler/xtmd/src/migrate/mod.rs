@@ -19,6 +19,7 @@ pub mod rir;
 pub mod releases;
 mod slots;
 mod texts;
+pub mod packs;
 pub mod step;
 
 /// This xtmd's release: what a tree is written for once `xtmd migrate` has moved it.
@@ -265,25 +266,12 @@ pub fn migrate_doc(base: &crate::check::Checker, packs: &[Pack], sources: &[Sour
         }
         o.moved.push(format!("{}@{} → {}@{}", pack.name, written_for, pack.name, pack.version));
         for v in written_for..pack.version {
-            let Some((step, step_src)) = pack.steps.get(&v) else {
+            if !pack.steps.contains_key(&v) {
                 o.refused.push(format!("{} has no migration from {}@{}", pack.name, pack.name, v));
                 return o;
-            };
-            let world = world_at(sources, pack, v);
-            let (compiled, refs) = crate::check::compile_refs(base, &[world], &[Source { path: doc_path.clone(), text: o.text.clone() }], "doc");
-            if compiled.module.is_none() {
-                o.refused.push(format!("it doesn't compile against {}@{}, the version it is written for", pack.name, v));
-                return o;
             }
-            let label = format!("{}@{}", pack.name, v + 1);
-            let current = o.text.clone();
-            let old_world: Vec<Source> = pack.surfaces.get(&v).cloned().into_iter().collect();
-            let new_world: Vec<Source> = match pack.surfaces.get(&(v + 1)) {
-                Some(s) if v + 1 < pack.version => vec![s.clone()],
-                _ => pack.files.clone(),
-            };
-            let done = crate::migrate::step::Step { text: &current, doc: &doc_path, refs: &refs, pack: &pack.name, step, label: &label, fns: &pack.fns, old: &old_world, new: &new_world, prose: true }.run();
-            let _ = step_src;
+            let current = Source { path: doc_path.clone(), text: o.text.clone() };
+            let (text, done) = crate::migrate::packs::move_file(base, sources, pack, v, &doc_path, &[current], "doc");
             o.deletions.extend(done.deletions);
             o.notices.extend(done.notices);
             o.todos.extend(done.todos);
@@ -293,7 +281,9 @@ pub fn migrate_doc(base: &crate::check::Checker, packs: &[Pack], sources: &[Sour
                 return o;
             }
             o.changes += done.changes;
-            o.text = crate::migrate::step::apply(&o.text, &done.edits);
+            if let Some(t) = text {
+                o.text = t;
+            }
         }
     }
     if o.moved.is_empty() {
@@ -353,31 +343,16 @@ pub fn migrate_pack(base: &crate::check::Checker, packs: &[Pack], sources: &[Sou
         }
         moved.push(format!("{}@{} → {}@{}", used.name, from, used.name, used.version));
         for v in from..used.version {
-            let Some((step, _)) = used.steps.get(&v) else {
+            if !used.steps.contains_key(&v) {
                 for o in outcomes.values_mut() {
                     o.refused.push(format!("{} has no migration from {}@{}", used.name, used.name, v));
                 }
                 break;
-            };
-            let own: std::collections::HashSet<&str> = p.files.iter().map(|f| f.path.as_str()).collect();
-            let world: Vec<Source> = world_at(sources, used, v).into_iter().filter(|s| !own.contains(s.path.as_str())).collect();
-            let main: Vec<Source> = texts.iter().map(|(path, t)| Source { path: path.clone(), text: t.clone() }).collect();
-            let (compiled, refs) = crate::check::compile_refs(base, &[world], &main, "main");
-            if compiled.module.is_none() {
-                for o in outcomes.values_mut() {
-                    o.refused.push(format!("{} doesn't compile against {}@{}, the version it uses", p.name, used.name, v));
-                }
-                break;
             }
-            let old_world: Vec<Source> = used.surfaces.get(&v).cloned().into_iter().collect();
-            let new_world: Vec<Source> = match used.surfaces.get(&(v + 1)) {
-                Some(s) if v + 1 < used.version => vec![s.clone()],
-                _ => used.files.clone(),
-            };
-            let label = format!("{}@{}", used.name, v + 1);
+            let main: Vec<Source> = texts.iter().map(|(path, t)| Source { path: path.clone(), text: t.clone() }).collect();
+            let others: Vec<Source> = sources.iter().filter(|s| !main.iter().any(|m| m.path == s.path)).cloned().collect();
             for (path, text) in texts.iter_mut() {
-                let mine: Vec<crate::check::FoundRef> = refs.iter().filter(|r| r.file == *path).cloned().collect();
-                let done = crate::migrate::step::Step { text, doc: path, refs: &mine, pack: &used.name, step, label: &label, fns: &used.fns, old: &old_world, new: &new_world, prose: false }.run();
+                let (moved_text, done) = crate::migrate::packs::move_file(base, &others, used, v, path, &main, "main");
                 let o = outcomes.get_mut(path).unwrap();
                 o.deletions.extend(done.deletions);
                 o.notices.extend(done.notices);
@@ -385,7 +360,9 @@ pub fn migrate_pack(base: &crate::check::Checker, packs: &[Pack], sources: &[Sou
                 o.changed.extend(done.changed);
                 o.refused.extend(done.refused);
                 o.changes += done.changes;
-                *text = crate::migrate::step::apply(text, &done.edits);
+                if let Some(t) = moved_text {
+                    *text = t;
+                }
             }
         }
     }

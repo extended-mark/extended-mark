@@ -51,6 +51,9 @@ pub struct Parser<'a> {
     surface: bool,
     /// Where [`Lexer::name_again`]'s word is a name.
     pub(crate) names: Vec<Span>,
+    /// Whether a migration's statements are being read, where `slot` and `event` name what a
+    /// statement is about: `rename(slot = a, to = b)`.
+    migrating: bool,
 }
 
 struct Frame {
@@ -88,6 +91,7 @@ impl<'a> Parser<'a> {
             has_state: false,
             surface: false,
             names: Vec::new(),
+            migrating: false,
         }
     }
 
@@ -1209,6 +1213,13 @@ impl<'a> Parser<'a> {
 
     /// A block's or a migration fn's statements, after its `{`.
     fn migration_body(&mut self, open: Span) -> R<Body<MigrationStmt>> {
+        let was = std::mem::replace(&mut self.migrating, true);
+        let body = self.migration_items(open);
+        self.migrating = was;
+        body
+    }
+
+    fn migration_items(&mut self, open: Span) -> R<Body<MigrationStmt>> {
         self.body(open, |p| {
             let t = p.peek()?.clone();
             if t.kind == Tok::Kw(Kw::Execute) {
@@ -1959,7 +1970,15 @@ impl<'a> Parser<'a> {
     }
 
     fn arg(&mut self) -> R<Arg> {
-        if self.kind()? == Tok::Name && self.kind_at(1)? == Tok::P(P::Eq) {
+        let k = self.kind()?;
+        let named = k == Tok::Name || self.migrating && matches!(k, Tok::Kw(Kw::Slot) | Tok::Kw(Kw::Event));
+        if named && self.kind_at(1)? == Tok::P(P::Eq) {
+            if self.kind()? != Tok::Name {
+                let t = self.bump()?;
+                self.bump()?;
+                let value = self.expr()?;
+                return Ok(Arg { name: Some(Ident { name: self.text_of(t.span).to_string(), span: t.span }), value });
+            }
             let name = self.ident("an input")?;
             self.bump()?;
             let value = self.expr()?;

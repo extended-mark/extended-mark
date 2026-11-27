@@ -24,6 +24,7 @@ compiler/xtmd/src/syntax/     text to a lossless syntax tree, and back
   markdown.rs         Markdown's blocks (CommonMark, GitHub's tables, tasks, footnotes)
   ast.rs              the tree
   printer.rs          xtmd fmt
+  names.rs            the names an expression reads, replaced, bracketed where they need it
   diag.rs             diagnostics, and the codes the reader reports
   span.rs             byte spans, lines and columns
 
@@ -56,7 +57,10 @@ compiler/xtmd/src/decompile/  a resolved IR printed back as source, in fmt's lay
   ir.rs               an IR read as a resolved IR's file, with what it doesn't keep
 compiler/xtmd/src/live/       the compiler embedded, core compiled once; `Live` follows a text
 compiler/xtmd/src/migrate/    text and IR brought up to a version
-  step.rs             one pack migration applied to one file
+  packs/              a pack's migration applied to a file's resolved IR, then printed in fmt's layout:
+                      mod.rs (the walk, each statement), values.rs (values worked out, or the code
+                      with the use's), ops.rs (statements flattened), api.rs (what a version declares)
+  step.rs             what runs share: an edit of text, a TODO placed, the questions and their answers
   releases.rs         the steps between releases; slots.rs, externs.rs, texts.rs are 0.3 to 0.4's
   ir/                 an earlier IR to the next: mod.rs, v3.rs, schema.rs (also the rir's checker)
   readers/            a tree read by its release: this one's, or previous.rs (the release before's)

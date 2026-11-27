@@ -1312,7 +1312,7 @@ impl<'a> Writer<'a> {
                     self.w(s);
                 } else if let Some(s) = v["state"].as_str() {
                     self.w(if s.is_empty() { "$state".to_string() } else { format!("$state.{}", s) }.as_str());
-                } else if let Some(l) = v["let"].as_str() {
+                } else if let Some(l) = v["let"].as_str().or(v["fn"].as_str()) {
                     self.w(&self.name(l));
                 } else if let Some(x) = v["extern"].as_str() {
                     // a channel's value: `channel.name`

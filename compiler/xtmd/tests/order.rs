@@ -14,8 +14,9 @@ const USES: &[(&str, &[&str])] = &[
     ("check", &["formats", "eval", "syntax"]),
     ("decompile", &["syntax"]),
     ("live", &["formats", "syntax", "lower", "check"]),
-    // a tree is moved by printing its resolved IR again
-    ("migrate", &["formats", "markdown", "syntax", "lower", "check", "decompile"]),
+    // a tree is moved by printing its resolved IR again; a value a migration writes is worked out by
+    // running it
+    ("migrate", &["formats", "eval", "markdown", "syntax", "lower", "check", "decompile", "live"]),
     ("lsp", &["formats", "syntax", "live"]),
     ("cli", &["formats", "markdown", "syntax", "lower", "check", "decompile", "live", "migrate", "lsp"]),
 ];

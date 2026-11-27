@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::syntax::ast::{self, Expr, ExprKind, Item, MigrationItem, MigrationStmt, Stmt};
 use crate::syntax::span::Span;
 
-use crate::check::versions::{breaks, Api, ApiItem, Break};
+use crate::check::versions::{breaks, signature, Api, ApiItem, Break};
 use crate::check::body::{Cx, Local, LocalKind};
 use crate::check::ty::Ty;
 use crate::check::{codes, Checker, DefKind};
@@ -31,7 +31,7 @@ const STATEMENTS: &[(&str, &[&str])] = &[
 const MEMBERS: &[(&str, &str)] = &[("input", "input"), ("slot", "slot"), ("field", "field"), ("event", "event"), ("arg", "arg")];
 
 /// What a block's statements did to one declaration of the older version.
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 struct Fate {
     /// Its name in the newer version; `None` once dropped.
     now: Option<String>,
@@ -41,6 +41,8 @@ struct Fate {
     members: BTreeMap<String, Option<String>>,
     /// Members a statement gives a value to, or says something about, by their newer name.
     given: BTreeSet<String>,
+    /// A fn's arguments at this point, each with its type as shown.
+    args: Vec<(String, String)>,
     /// The widget a `wrap` put the uses inside.
     parent: Option<String>,
     /// What to type-check once every block is read: a value, a condition, an execute.
@@ -115,7 +117,14 @@ impl Checker {
                 continue;
             }
             let old = self.api(&start, pack);
-            let new = self.api(&end, pack);
+            let mut new = self.api(&end, pack);
+            // and what the migration's file imports: a use can become one of another pack's
+            for (name, full) in self.imported_by(*file, pack) {
+                let Some((of, its)) = full.split_once('/') else { continue };
+                if let Some(item) = self.api(of, of).items.remove(its) {
+                    new.items.entry(name).or_insert(item);
+                }
+            }
             self.check_migration(*file, m, *span, &old, &new, &fns, (&start, &end));
         }
         if let (Some(last), false) = (chain_to, found.is_empty()) {
@@ -124,6 +133,16 @@ impl Checker {
                 self.error(*file, codes::MIGRATION, m.to.name.span.to(m.to.version.span), format!("the last migration ends at {}@{}, and the pack is at {}@{}: add `migration {}@{} to {}@{}`", pack, last, pack, version, pack, last, pack, version));
             }
         }
+    }
+
+    /// The other packs' names a file sees through its imports, by their full names.
+    fn imported_by(&self, file: usize, pack: &str) -> Vec<(String, String)> {
+        let scope = &self.files[file].scope;
+        let types = scope.types.iter().filter_map(|(n, t)| match t {
+            crate::check::TypeSym::Def(d) => Some((n.clone(), self.defs[*d].full.clone(), self.defs[*d].pack.clone())),
+            _ => None,
+        });
+        types.filter(|(_, _, p)| p != pack && p != "core").map(|(n, f, _)| (n, f)).collect()
     }
 
     fn check_migration(&mut self, file: usize, m: &ast::MigrationDecl, span: Span, old: &Api, new: &Api, fns: &BTreeMap<String, ast::MigrationFn>, packs: (&str, &str)) {
@@ -146,7 +165,7 @@ impl Checker {
                 self.error(file, codes::MIGRATION, head, format!("`{}` already has a block in this migration: one block per declaration", key));
                 continue;
             }
-            let fate = Fate { now: Some(key.clone()), members: o.members.keys().map(|k| (k.clone(), Some(k.clone()))).collect(), ..Fate::default() };
+            let fate = Fate { now: Some(key.clone()), members: o.members.keys().map(|k| (k.clone(), Some(k.clone()))).collect(), args: o.args.clone(), ..Fate::default() };
             let mut step = Step { file, old, new, item: key.clone(), fate };
             for st in b.body.iter() {
                 self.migration_stmt(&mut step, st, fns, 0);
@@ -166,6 +185,11 @@ impl Checker {
             }
             let mut item = item.clone();
             item.members = item.members.into_iter().filter_map(|(k, v)| f.members.get(&k).cloned().flatten().map(|now| (now, v))).collect();
+            if item.kind == "fn" {
+                let newer = f.now.as_ref().and_then(|n| new.items.get(n));
+                let args = newer.map_or_else(|| f.args.clone(), |n| in_order(&f.args, &n.args));
+                item.whole = Some(signature(&args, &item.ret));
+            }
             moved.items.insert(f.now.clone().unwrap_or_else(|| key.clone()), item);
         }
         let given: BTreeMap<String, &Fate> = fates.values().filter_map(|f| f.now.clone().map(|n| (n, f))).collect();
@@ -300,8 +324,7 @@ impl Checker {
             MigrationStmt::Stmt(Stmt::For(f)) => {
                 let over = subst(&f.over, bound);
                 let ExprKind::List(items) = &over.kind else {
-                    // a loop over something only known when migrating: what it does can't be followed
-                    step.fate.executed = true;
+                    self.error(step.file, codes::MIGRATION, f.over.span, "a migration fn's `for` goes through a list written out where it is called: `into_style(inputs = [color, width])`".to_string());
                     return;
                 };
                 for x in items.iter() {
@@ -316,14 +339,53 @@ impl Checker {
                 let e = subst(e, bound);
                 self.migration_stmt(step, &MigrationStmt::Stmt(Stmt::Expr(e)), fns, depth + 1);
             }
-            MigrationStmt::Execute(_) => step.fate.executed = true,
-            MigrationStmt::Stmt(_) => step.fate.executed = true,
+            // what it does is each use's: its conditions and statements are read, and the block is
+            // taken to account for what they change
+            MigrationStmt::Stmt(Stmt::If(i)) => {
+                let before = step.fate.clone();
+                let mut pending = before.pending.clone();
+                for (c, b) in &i.branches {
+                    let ast::Cond::Expr(c) = c else {
+                        self.error(step.file, codes::MIGRATION, i.branches[0].1.span, "a migration fn's `if` asks a condition over the use; an `opt` is opened in `execute`".to_string());
+                        return;
+                    };
+                    step.fate = before.clone();
+                    pending.push(Pending { names: names_now(&step.fate), member: None, expr: None, when: Some(subst(c, bound)), block: None, now: step.fate.now.clone() });
+                    for s in &b.stmts {
+                        self.bound_stmt(step, &MigrationStmt::Stmt(s.item.clone()), bound, fns, depth);
+                    }
+                    pending.extend(step.fate.pending.drain(before.pending.len()..));
+                }
+                if let Some(b) = &i.otherwise {
+                    step.fate = before.clone();
+                    for s in &b.stmts {
+                        self.bound_stmt(step, &MigrationStmt::Stmt(s.item.clone()), bound, fns, depth);
+                    }
+                    pending.extend(step.fate.pending.drain(before.pending.len()..));
+                }
+                step.fate = before;
+                step.fate.pending = pending;
+                step.fate.executed = true;
+            }
+            MigrationStmt::Execute(b) => {
+                let mut b = b.clone();
+                crate::syntax::names::replace_names_in(&mut b, &mut |n, tight| bound.get(n).map(|v| bracketed(v, tight)));
+                self.migration_stmt(step, &MigrationStmt::Execute(b), fns, depth + 1);
+            }
+            MigrationStmt::Stmt(other) => {
+                let span = stmt_span(other);
+                self.error(step.file, codes::MIGRATION, span, "a migration fn holds statements, `for`, `if`, `execute` and other migration fns".to_string());
+            }
             MigrationStmt::Event { .. } => self.migration_stmt(step, st, fns, depth + 1),
         }
     }
 
     /// One statement, applied to what the block's declaration is at this point.
     fn statement(&mut self, step: &mut Step, op: &str, args: &[(String, Expr)], span: Span) {
+        if let Some((_, a)) = args.iter().find(|(k, _)| k == "arg") {
+            self.arg_statement(step, op, args, a, span);
+            return;
+        }
         let arg = |n: &str| args.iter().find(|(k, _)| k == n).map(|(_, v)| v);
         let member_arg = args.iter().find(|(k, _)| MEMBERS.iter().any(|(m, _)| m == k)).map(|(k, v)| (k.clone(), v.clone()));
         let file = step.file;
@@ -380,6 +442,18 @@ impl Checker {
                         }
                     }
                 }
+            }
+            "drop" if arg("from").is_some() => {
+                let from = arg("from").unwrap();
+                let Some(c) = case_name(from) else {
+                    self.error(file, codes::MIGRATION, from.span, "a case is written in full, as everywhere: `drop(from = state.LATE)`".to_string());
+                    return;
+                };
+                if old_item.as_ref().and_then(|o| o.members.get(&c)).map_or(true, |m| m.kind != "case") {
+                    self.error(file, codes::MIGRATION, from.span, format!("`{}` had no case `{}`", step.item, c));
+                    return;
+                }
+                step.fate.members.insert(c, None);
             }
             "drop" => match &member_arg {
                 Some((kind, m)) => {
@@ -491,6 +565,60 @@ impl Checker {
         }
     }
 
+    /// A statement about one argument of a fn: its calls give it by place.
+    fn arg_statement(&mut self, step: &mut Step, op: &str, args: &[(String, Expr)], named: &Expr, span: Span) {
+        let file = step.file;
+        let Some(old) = step.old.items.get(&step.item).filter(|o| o.kind == "fn") else {
+            self.error(file, codes::MIGRATION, named.span, format!("`{}` isn't a fn, so it has no arguments; a widget's are `input =`, and an event's are in its own block", step.item));
+            return;
+        };
+        let _ = old;
+        let Some(name) = bare(named).map(|n| n.name.clone()) else {
+            self.error(file, codes::MIGRATION, named.span, "a name, written bare: `arg = sep`".to_string());
+            return;
+        };
+        let newer = step.fate.now.as_ref().and_then(|n| step.new.items.get(n)).map(|n| n.args.clone()).unwrap_or_default();
+        let names = |xs: &[(String, String)]| list(&xs.iter().map(|(n, _)| n.clone()).collect::<Vec<_>>());
+        let here = step.fate.args.iter().position(|(n, _)| *n == name);
+        let there = newer.iter().find(|(n, _)| *n == name).cloned();
+        let value = args.iter().find(|(k, _)| k == "value").map(|(_, v)| v.clone());
+        match op {
+            "drop" | "rename" | "set" if here.is_none() => {
+                self.error(file, codes::MIGRATION, named.span, format!("`{}` has no argument `{}` at this point; it has {}", step.item, name, names(&step.fate.args)));
+            }
+            "drop" => {
+                step.fate.args.remove(here.unwrap());
+            }
+            "rename" => match args.iter().find(|(k, _)| k == "to").and_then(|(_, v)| bare(v)) {
+                Some(to) if newer.iter().any(|(n, _)| *n == to.name) => step.fate.args[here.unwrap()].0 = to.name.clone(),
+                Some(to) => self.error(file, codes::MIGRATION, to.span, format!("{}'s `{}` has no argument `{}`; it has {}", label_new(step), step.fate.now.clone().unwrap_or_default(), to.name, names(&newer))),
+                None => self.error(file, codes::MIGRATION, span, "rename needs `to`: the new name, written bare".to_string()),
+            },
+            "add" | "set" => {
+                let Some(there) = there else {
+                    self.error(file, codes::MIGRATION, named.span, format!("{}'s `{}` has no argument `{}`; it has {}", label_new(step), step.fate.now.clone().unwrap_or_default(), name, names(&newer)));
+                    return;
+                };
+                if value.is_none() {
+                    self.error(file, codes::MIGRATION, span, format!("{} needs `value`", op));
+                    return;
+                }
+                match (op, here) {
+                    ("add", Some(_)) => {
+                        self.error(file, codes::MIGRATION, named.span, format!("`{}` was already there: add is for an argument the older version didn't have, and set gives one a value", name));
+                        return;
+                    }
+                    ("add", None) => step.fate.args.push(there),
+                    (_, at) => step.fate.args[at.unwrap()] = there,
+                }
+                let names = step.fate.args.iter().map(|(n, _)| (n.clone(), n.clone())).collect();
+                step.fate.pending.push(Pending { names, member: Some(name), expr: value, when: args.iter().find(|(k, _)| k == "when").map(|(_, v)| v.clone()), block: None, now: step.fate.now.clone() });
+            }
+            "notify" => {}
+            _ => self.error(file, codes::MIGRATION, span, format!("`{}` says nothing about an argument; add, drop, rename, set and notify do", op)),
+        }
+    }
+
     /// The older member a statement names, by the name it has at this point; `None`, reported,
     /// when there is none.
     fn member_named(&mut self, step: &Step, kind: &str, e: &Expr, at: Span) -> Option<String> {
@@ -540,6 +668,9 @@ impl Checker {
             }
         }
         for (key, fate) in fates {
+            if fate.pending.iter().any(|p| p.block.is_none()) {
+                self.type_check_fn(file, key, fate, (start, end), &map);
+            }
             let Some(old) = self.defs.iter().position(|x| x.pack == start && x.name == *key) else { continue };
             let olds: Vec<(String, Ty)> = match &self.defs[old].kind {
                 DefKind::Widget { inputs, slots, events, .. } => inputs
@@ -552,7 +683,13 @@ impl Checker {
                 _ => Vec::new(),
             };
             for p in &fate.pending {
-                let newer = p.now.as_ref().and_then(|n| self.defs.iter().position(|x| x.pack == end && x.name == *n));
+                let newer = p.now.as_ref().and_then(|n| {
+                    let own = self.defs.iter().position(|x| x.pack == end && x.name == *n);
+                    own.or_else(|| match self.lookup_type(file, n) {
+                        Some(crate::check::TypeSym::Def(d)) if self.defs[d].pack != "core" => Some(d),
+                        _ => None,
+                    })
+                });
                 let mut cx = Cx::new(file);
                 cx.push();
                 for (now, older) in &p.names {
@@ -591,6 +728,62 @@ impl Checker {
             }
         }
     }
+}
+
+impl Checker {
+    /// A fn's block, typed: each value as the newer fn's argument, over the older one's.
+    fn type_check_fn(&mut self, file: usize, key: &str, fate: &Fate, (start, end): (&str, &str), map: &std::collections::HashMap<crate::check::DefId, crate::check::DefId>) {
+        let params = |c: &Checker, pack: &str, key: &str| {
+            let (on, name) = key.rsplit_once('.').map_or((None, key), |(o, n)| (Some(o), n));
+            let f = c.fns.iter().find(|f| {
+                let of = f.on.map(|r| match r {
+                    crate::check::Recv::Builtin(b) => b.to_string(),
+                    crate::check::Recv::Def(d) | crate::check::Recv::Iface(d) => c.defs[d].name.clone(),
+                });
+                f.pack == pack && f.name == name && f.sig.is_some() && of.as_deref() == on
+            })?;
+            Some(f.params.iter().filter(|p| !p.is_self).cloned().collect::<Vec<_>>())
+        };
+        let (Some(old), Some(new)) = (params(self, start, key), fate.now.as_ref().and_then(|n| params(self, end, n))) else { return };
+        for p in &fate.pending {
+            let mut cx = Cx::new(file);
+            cx.push();
+            for (now, _) in &p.names {
+                let Some(ty) = old.iter().find(|o| o.name == *now).map(|o| map_ty(&o.ty, map)) else { continue };
+                let known = Some(crate::check::proof::Known::of(&self.ir_ty(&ty)));
+                cx.scopes.last_mut().unwrap().push(Local { name: now.clone(), ty, mutable: false, kind: LocalKind::Plain, known, own_origin: false });
+            }
+            if let (Some(member), Some(e)) = (&p.member, &p.expr) {
+                if let Some(t) = new.iter().find(|n| n.name == *member).cloned() {
+                    let e = decided(e);
+                    let (x, _) = self.expr(&mut cx, &e, Some(&t.ty));
+                    self.want(&cx, &e, &x, &t.ir, format!("`{}`'s value", member));
+                }
+            }
+            if let Some(w) = &p.when {
+                let w = decided(w);
+                let (x, _) = self.expr(&mut cx, &w, Some(&Ty::Bool));
+                let b = self.ir_ty(&Ty::Bool);
+                self.want(&cx, &w, &x, &b, "a condition");
+            }
+        }
+    }
+}
+
+/// A call's arguments as the newer fn takes them: each by its name, and one that has no name there in
+/// the place left over, since a call doesn't write an argument's name.
+pub fn in_order<T: Clone>(args: &[(String, T)], newer: &[(String, T)]) -> Vec<(String, T)> {
+    let mut left: Vec<(String, T)> = args.iter().filter(|(n, _)| !newer.iter().any(|(m, _)| m == n)).cloned().collect();
+    let mut out = Vec::new();
+    for (n, _) in newer {
+        match args.iter().find(|(m, _)| m == n) {
+            Some(a) => out.push(a.clone()),
+            None if !left.is_empty() => out.push(left.remove(0)),
+            None => {}
+        }
+    }
+    out.extend(left);
+    out
 }
 
 /// A type of the older version, its declarations read as the newer ones they became.
@@ -839,36 +1032,15 @@ fn stmt_span(s: &Stmt) -> Span {
 /// An expression with a migration fn's parameters replaced by what the call gave them.
 fn subst(e: &Expr, bound: &BTreeMap<String, Expr>) -> Expr {
     let mut e = e.clone();
-    fn walk(e: &mut Expr, bound: &BTreeMap<String, Expr>) {
-        if let ExprKind::Name(n) = &e.kind {
-            if let Some(v) = bound.get(&n.name) {
-                *e = v.clone();
-                return;
-            }
-        }
-        match &mut e.kind {
-            ExprKind::Call { callee, args } => {
-                walk(callee, bound);
-                for a in args.items.iter_mut() {
-                    walk(&mut a.item.value, bound);
-                }
-            }
-            ExprKind::Field { target, .. } | ExprKind::Paren(target) => walk(target, bound),
-            ExprKind::List(items) => {
-                for x in items.items.iter_mut() {
-                    walk(&mut x.item, bound);
-                }
-            }
-            ExprKind::Unary { operand, .. } => walk(operand, bound),
-            ExprKind::Binary { left, right, .. } => {
-                walk(left, bound);
-                walk(right, bound);
-            }
-            _ => {}
-        }
-    }
-    walk(&mut e, bound);
+    crate::syntax::names::replace_names(&mut e, &mut |n, tight| bound.get(n).map(|v| bracketed(v, tight)));
     e
+}
+
+fn bracketed(v: &Expr, tight: bool) -> Expr {
+    if tight && crate::syntax::names::needs_brackets(v) {
+        return Expr { kind: ExprKind::Paren(Box::new(v.clone())), span: v.span };
+    }
+    v.clone()
 }
 
 #[allow(dead_code)]

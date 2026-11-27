@@ -130,7 +130,7 @@ fn migrate_moves_a_document_to_the_packs_version_and_then_leaves_it_alone() {
     assert_eq!(code, 0, "{}{}", out, err);
     assert_eq!(
         std::fs::read_to_string(docs.join("report.xtmd")).unwrap(),
-        "import kit;\n\n$state {\n    s: state = state.OVERDUE;\n}\n@@@\n# Report\n\n@plot(values = [1, 2], tone = color.OK);\n\n@badge(label = \"Beta\", size = size.S);\n\n@// kit@2 dropped sparkline: use plot\n@// @sparkline(values = [3]);\n\n@stats(items = [stat { title = \"Deploys\", value = \"42\", unit = \"\" }]);\n"
+        "import kit;\n\n$state {\n    s: state = state.OVERDUE;\n}\n@@@\n# Report\n\n@plot(values = [1, 2], tone = color.OK);\n\n@badge(label = \"Beta\", size = size.S);\n@// kit@2 dropped sparkline: use plot\n@// @sparkline(values = [3]);\n@stats(items = [stat { title = \"Deploys\", value = \"42\", unit = \"\" }]);\n"
     );
     assert!(std::fs::read_to_string(dir.join("xtmd.toml")).unwrap().contains("[uses]\nkit = 2\n"));
     assert_eq!(xtmd(&["check", docs.join("report.xtmd").to_str().unwrap()]).0, 0);
@@ -174,7 +174,7 @@ fn migrate_runs_execute_move_wrap_and_migration_fns_over_each_use() {
     assert_eq!(code, 0, "{}{}", out, err);
     assert_eq!(
         std::fs::read_to_string(docs.join("ops.xtmd")).unwrap(),
-        "import kit;\n@@@\n# Ops\n\n@status(label = \"Deploys\", tone = tone.WARN);\n@status(label = \"Builds\");\n\n@callout {\nDeploys pause on Friday.\n}\n\n@holder(title = \"Q3\") {\n@card {\nRevenue grew.\n}\n}\n\n@chart(values = [1, 2], style = chart_style { color = color.OK });\n"
+        "import kit;\n@@@\n# Ops\n\n@status(label = \"Deploys\", tone = tone.WARN);\n\n@status(label = \"Builds\");\n\n@callout {\n    Deploys pause on Friday.\n}\n\n@holder(title = \"Q3\") {\n    @card {\n        Revenue grew.\n    }\n}\n\n@chart(values = [1, 2], style = chart_style { color = color.OK });\n"
     );
 }
 
@@ -269,11 +269,12 @@ fn migrate_numbers_its_questions_and_yes_answers_the_ones_named() {
     // no terminal and no answers: nothing is planned; each question is listed with how to answer it
     let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run"]);
     assert_eq!(code, 1, "{}", out);
-    assert!(out.contains("2 questions no one has answered, so nothing is migrated:\n  1. Make kit@1's badges small?\n     --yes 1, or in --answers: [confirm] \"Make kit@1's badges small?\" = true\n  2. Reset every chart's tone?\n     --yes 2,"), "{}", out);
-    // --yes 2: yes to the second only, and the files are written
-    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "2", "--allow-dirty"]);
+    // numbered as they come up, in the file's order: the chart is above the badge
+    assert!(out.contains("2 questions no one has answered, so nothing is migrated:\n  1. Reset every chart's tone?\n     --yes 1, or in --answers: [confirm] \"Reset every chart's tone?\" = true\n  2. Make kit@1's badges small?\n     --yes 2,"), "{}", out);
+    // --yes 1: yes to the first only, and the files are written
+    let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "1", "--allow-dirty"]);
     assert_eq!(code, 0, "{}{}", out, err);
-    assert!(out.contains("1. Make kit@1's badges small?  no: --yes") && out.contains("2. Reset every chart's tone?  yes: --yes"), "{}", out);
+    assert!(out.contains("1. Reset every chart's tone?  yes: --yes") && out.contains("2. Make kit@1's badges small?  no: --yes"), "{}", out);
     let text = std::fs::read_to_string(docs.join("report.xtmd")).unwrap();
     assert!(text.contains("@plot(values = [1, 2], tone = color.ACCENT);") && text.contains("@badge(label = \"Beta\");"), "{}", text);
     // and a number that isn't one is a usage error, as is --yes= with nothing
@@ -291,9 +292,9 @@ fn migrate_leaves_a_todo_with_todo_and_writes_errors_only_with_allow_errors() {
     assert_eq!(code, 1);
     assert!(out.contains("question") && out.contains("[split]"), "{}", out);
     // --allow-todos leaves both cases as they were, with a TODO; the file doesn't compile at those two
-    // places only, so it is written, the run says what is left, and it has done what was asked
+    // places only, so it is written, the run says what is left, and exits 3: a person must look
     let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty", "--allow-todos"]);
-    assert_eq!(code, 0, "{}{}", out, err);
+    assert_eq!(code, 3, "{}{}", out, err);
     assert!(out.contains("left for a person, each with a TODO above it:") && out.contains("written though it doesn't compile:") && out.contains("at the TODOs"), "{}", out);
     assert!(out.contains("Left for a person, as asked: 2 TODOs, 1 file that doesn't compile"), "{}", out);
     let text = std::fs::read_to_string(&file).unwrap();
@@ -315,7 +316,7 @@ fn migrate_takes_a_prose_calls_block_from_the_parser_fences_and_all() {
     let docs = dir.join("docs");
     let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
     assert_eq!(code, 0, "{}{}", out, err);
-    assert_eq!(std::fs::read_to_string(docs.join("code.xtmd")).unwrap(), "import kit;\n@@@\n# Code\n\n@holder(title = \"Q3\") {\n@card {\n```js\nif (x) {\n}\n```\n}\n}\n\nAfter.\n");
+    assert_eq!(std::fs::read_to_string(docs.join("code.xtmd")).unwrap(), "import kit;\n@@@\n# Code\n\n@holder(title = \"Q3\") {\n    @card {\n        ```js\n        if (x) {\n        }\n        ```\n    }\n}\n\nAfter.\n");
 }
 
 #[test]
@@ -334,12 +335,13 @@ fn migrate_keeps_the_release_a_tree_is_written_for_in_xtmd_toml() {
     let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--check"]);
     assert_eq!(code, 0, "{}", out);
     assert!(out.contains(&format!("written for xtmd {}.", release)), "{}", out);
-    // an older record with nothing else to move: --check fails, and a run writes only the record
+    // a record of a release before the one before this xtmd: refused by name, and nothing is written, as
+    // each release in between moves it in turn (tools/migrate/chain.py)
     std::fs::write(dir.join("xtmd.toml"), toml.replace(&format!("xtmd = \"{}\"", release), "xtmd = \"0.0.1\"")).unwrap();
-    assert_eq!(xtmd(&["migrate", docs.to_str().unwrap(), "--check"]).0, 1);
-    let (code, out, _) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
-    assert_eq!(code, 0, "{}", out);
-    assert!(std::fs::read_to_string(dir.join("xtmd.toml")).unwrap().starts_with(&format!("xtmd = \"{}\"\n", release)));
+    let (code, _, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "--allow-dirty"]);
+    assert_eq!(code, 1, "{}", err);
+    assert!(err.contains("the tree is written for xtmd 0.0.1, and this xtmd") && err.contains("tools/migrate/chain.py"), "{}", err);
+    assert!(std::fs::read_to_string(dir.join("xtmd.toml")).unwrap().contains("xtmd = \"0.0.1\""));
     // a newer release than this xtmd, or no release at all, stops it
     std::fs::write(dir.join("xtmd.toml"), toml.replace(&format!("xtmd = \"{}\"", release), "xtmd = \"9.0.0\"")).unwrap();
     let (code, _, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--dry-run"]);
@@ -514,7 +516,7 @@ fn in_a_terminal_every_question_is_listed_then_asked_in_turn() {
     assert!(out.contains("Nothing written: not every question was answered."), "{}", out);
     assert_eq!(std::fs::read_to_string(dir.join("docs/report.xtmd")).unwrap(), OLD_DOC);
     // an answer that isn't one is asked for again; then the plan, and Continue?
-    let out = run("3\n2\nn\nmaybe\ny\ny\n");
+    let out = run("3\n2\ny\nmaybe\nn\ny\n");
     assert!(out.contains("a number from 1 to 2:") && out.contains("y or n:") && out.contains("Wrote 1 file."), "{}", out);
     let text = std::fs::read_to_string(dir.join("docs/report.xtmd")).unwrap();
     assert!(text.contains("s: state = state.DONE;") && text.contains("@plot(values = [1, 2], tone = color.ACCENT);") && text.contains("@badge(label = \"Beta\");"), "{}", text);
@@ -796,7 +798,7 @@ fn yes_all_answers_every_question_and_a_bare_yes_lists_them() {
     assert_eq!(std::fs::read_to_string(docs.join("report.xtmd")).unwrap(), OLD_DOC);
     let (code, out, err) = xtmd(&["migrate", docs.to_str().unwrap(), "--yes", "all", "--allow-dirty"]);
     assert_eq!(code, 0, "{}{}", out, err);
-    assert!(out.contains("1. Make kit@1's badges small?  yes: --yes all") && out.contains("2. Reset every chart's tone?  yes: --yes all"), "{}", out);
+    assert!(out.contains("1. Reset every chart's tone?  yes: --yes all") && out.contains("2. Make kit@1's badges small?  yes: --yes all"), "{}", out);
     let text = std::fs::read_to_string(docs.join("report.xtmd")).unwrap();
     assert!(text.contains("tone = color.ACCENT") && text.contains("size = size.S"), "{}", text);
 }

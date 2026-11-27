@@ -2840,6 +2840,10 @@
                 "extern": {
                   "$ref": "#/$defs/id"
                 },
+                "fn": {
+                  "$ref": "#/$defs/id",
+                  "description": "A fn given as a value by its name, by its full name: `pad` in `xs.map(pad)`."
+                },
                 "self": {
                   "type": "boolean"
                 },

@@ -14,9 +14,9 @@ widget week() {
 @week;
 
 @note(state = status.OVERDUE) {
-Two days late.
+    Two days late.
 }
 
 @note {
-The build is green.
+    The build is green.
 }

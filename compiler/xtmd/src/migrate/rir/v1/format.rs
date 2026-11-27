@@ -12,7 +12,64 @@ pub fn format(v: &mut Value, asked: &mut crate::migrate::rir::Asked) -> Result<(
         let left = f.as_object_mut().and_then(|o| o.remove("left_out")).unwrap_or(Value::Null);
         file(f, &left, asked);
     }
+    fn_values(v);
     Ok(())
+}
+
+/// A top-level fn given as a value, `xs.map(pad)`: rir 1 reads it as a local, by its name, and rir 2
+/// says which fn it is (`get.fn`), as this release's checker resolves it: the file's own, one it
+/// imports, or core's.
+fn fn_values(v: &mut Value) {
+    let mut fns: Vec<(String, String)> = Vec::new();
+    for f in v["files"].as_array().into_iter().flatten() {
+        for d in f["declarations"].as_array().into_iter().flatten() {
+            let Some(id) = ["fn", "extern_fn"].iter().find_map(|k| d.get(*k)).and_then(|x| x["id"].as_str()) else { continue };
+            if let Some((_, name)) = id.split_once('/').filter(|(_, n)| !n.contains('.')) {
+                fns.push((name.to_string(), id.to_string()));
+            }
+        }
+    }
+    for f in v["files"].as_array_mut().into_iter().flatten() {
+        let own: Vec<String> = f["declarations"].as_array().into_iter().flatten().filter_map(|d| d.as_object()?.values().next()?["id"].as_str()?.split_once('/').map(|(p, _)| p.to_string())).collect();
+        let mut seen: Vec<(String, Option<String>)> = f["imports"].as_array().into_iter().flatten().filter_map(|i| Some((i["pack"].as_str()?.to_string(), i["name"].as_str().map(String::from)))).collect();
+        seen.extend(own.into_iter().map(|p| (p, None)));
+        seen.push(("core".into(), None));
+        let visible = |n: &str| fns.iter().find(|(name, id)| name == n && seen.iter().any(|(p, only)| id.starts_with(&format!("{}/", p)) && only.as_deref().map_or(true, |o| o == n))).map(|(_, id)| id.clone());
+        for key in ["declarations", "prose", "state"] {
+            if let Some(x) = f.get_mut(key) {
+                fn_values_in(x, &visible, &mut Vec::new());
+            }
+        }
+    }
+}
+
+fn fn_values_in(v: &mut Value, visible: &dyn Fn(&str) -> Option<String>, bound: &mut Vec<String>) {
+    match v {
+        Value::Object(o) => {
+            let fn_typed = o.get("type").map_or(false, |t| t["name"] == "fn");
+            if let Some(g) = o.get_mut("get").and_then(Value::as_object_mut) {
+                if let Some(n) = g.get("local").and_then(Value::as_str).map(String::from) {
+                    if fn_typed && !bound.contains(&n) {
+                        if let Some(id) = visible(&n) {
+                            g.remove("local");
+                            g.insert("fn".into(), Value::String(id));
+                        }
+                    }
+                }
+                return;
+            }
+            // a fn's or a lambda's parameters are its own names
+            let params: Vec<String> = o.get("params").and_then(Value::as_array).into_iter().flatten().filter_map(|p| p["name"].as_str().map(String::from)).collect();
+            let k = bound.len();
+            bound.extend(params);
+            for x in o.values_mut() {
+                fn_values_in(x, visible, bound);
+            }
+            bound.truncate(k);
+        }
+        Value::Array(a) => a.iter_mut().for_each(|x| fn_values_in(x, visible, bound)),
+        _ => {}
+    }
 }
 
 fn file(f: &mut Value, left: &Value, asked: &mut crate::migrate::rir::Asked) {

@@ -1,6 +1,6 @@
 MIGRATION
 Three kinds, all from what is understood, never by searching text:
-  packs      kit@1 to kit@2, by the pack's own migration block   compiler/xtmd/src/migrate/step.rs
+  packs      kit@1 to kit@2, by the pack's own migration block   compiler/xtmd/src/migrate/packs
   releases   what a release of xtmd changes in files             compiler/xtmd/src/migrate/releases.rs
   IR         a *.ir.json of an earlier version                   compiler/xtmd/src/migrate/ir
   a tree     from the release before, by what each understands   compiler/xtmd/src/migrate/pipeline.rs

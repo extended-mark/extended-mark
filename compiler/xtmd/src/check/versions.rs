@@ -23,6 +23,9 @@ pub(crate) struct ApiItem {
     pub members: BTreeMap<String, Member>,
     /// What a change to anywhere in it breaks, for a fn, an alias, an interface or a let.
     pub whole: Option<String>,
+    /// A fn's arguments, each with its type as shown, and what it returns.
+    pub args: Vec<(String, String)>,
+    pub ret: String,
 }
 
 #[derive(Clone, Debug)]
@@ -114,7 +117,7 @@ impl Checker {
                 }
                 DefKind::ExternType => ("type", Some("extern".into())),
             };
-            api.items.insert(def.name.clone(), ApiItem { kind, at, members, whole });
+            api.items.insert(def.name.clone(), ApiItem { kind, at, members, whole, args: Vec::new(), ret: String::new() });
         }
         for f in self.fns.iter().filter(|f| f.pack == pack && f.widget.is_none() && f.sig.is_some()) {
             let on = f.on.map(|r| match r {
@@ -125,12 +128,12 @@ impl Checker {
                 Some(o) => format!("{}.{}", o, f.name),
                 None => f.name.clone(),
             };
-            let params = f.params.iter().filter(|p| !p.is_self).map(|p| show_ty(&ty(&p.ir))).collect::<Vec<_>>().join(", ");
+            let args: Vec<(String, String)> = f.params.iter().filter(|p| !p.is_self).map(|p| (p.name.clone(), show_ty(&ty(&p.ir)))).collect();
             let ret = f.ret_ir.as_ref().map(|r| format!(": {}", show_ty(&ty(r)))).unwrap_or_default();
-            api.items.insert(key, ApiItem { kind: "fn", at: Some((f.file, f.span)), members: BTreeMap::new(), whole: Some(format!("({}){}", params, ret)) });
+            api.items.insert(key, ApiItem { kind: "fn", at: Some((f.file, f.span)), members: BTreeMap::new(), whole: Some(signature(&args, &ret)), args, ret });
         }
         for l in self.lets.iter().filter(|l| l.pack == pack) {
-            api.items.insert(l.name.clone(), ApiItem { kind: "let", at: Some((l.file, l.span)), members: BTreeMap::new(), whole: Some(show_ty(&ty(&l.ir))) });
+            api.items.insert(l.name.clone(), ApiItem { kind: "let", at: Some((l.file, l.span)), members: BTreeMap::new(), whole: Some(show_ty(&ty(&l.ir))), args: Vec::new(), ret: String::new() });
         }
         for c in self.channels.iter().filter(|c| c.pack == pack) {
             let mut members = BTreeMap::new();
@@ -141,7 +144,7 @@ impl Checker {
                 let shape = format!("({}){}", ps.iter().map(|p| show_ty(&ty(&p.ir))).collect::<Vec<_>>().join(", "), r.as_ref().map(|r| format!(": {}", show_ty(&ty(r)))).unwrap_or_default());
                 members.insert(n.clone(), Member { kind: "fn", ty: None, default: None, required: false, shape });
             }
-            api.items.insert(c.name.clone(), ApiItem { kind: "extern", at: Some((c.file, Span::default())), members, whole: None });
+            api.items.insert(c.name.clone(), ApiItem { kind: "extern", at: Some((c.file, Span::default())), members, whole: None, args: Vec::new(), ret: String::new() });
         }
         // the cases a pack adds to another pack's token type, such as `color.PRIMARY`
         if let Some(rec) = self.packs.get(pack) {
@@ -152,7 +155,7 @@ impl Checker {
                         if api.items.get(&line.ty.name).map_or(false, |i| i.kind == "token") {
                             continue;
                         }
-                        api.items.insert(format!("{}.{}", line.ty.name, line.case.name), ApiItem { kind: "token case", at: Some((f, line.case.span)), members: BTreeMap::new(), whole: None });
+                        api.items.insert(format!("{}.{}", line.ty.name, line.case.name), ApiItem { kind: "token case", at: Some((f, line.case.span)), members: BTreeMap::new(), whole: None, args: Vec::new(), ret: String::new() });
                     }
                 }
             }
@@ -201,6 +204,11 @@ impl Checker {
             }
         }
     }
+}
+
+/// A fn's arguments and result, as its calls see them: an argument is given by its place.
+pub(crate) fn signature(args: &[(String, String)], ret: &str) -> String {
+    format!("({}){}", args.iter().map(|(_, t)| t.as_str()).collect::<Vec<_>>().join(", "), ret)
 }
 
 /// Every change from `old` to `new` that can break a use of `old`.
