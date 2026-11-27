@@ -12,6 +12,8 @@ use serde_json::Value;
 
 use crate::migrate::ir::schema;
 
+pub mod v1;
+
 /// The resolved IR's version this xtmd prints.
 pub const VERSION: u64 = crate::decompile::RIR_SHAPE;
 

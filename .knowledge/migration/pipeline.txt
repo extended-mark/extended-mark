@@ -12,6 +12,9 @@ none is taken as that one, out loud).
 4. Round trip: pipeline::written(the step's) must equal written(the printed file's): spans, sha256 and
    expression types aside, every name's target kept. Markdown changed: a warning, never a refusal.
 5. Refused or a question open: nothing written. Else every file, beside then renamed; TODOs: exit 3.
+0.3.2's step, compiler/xtmd/src/migrate/rir/v1.rs: format() gives rir 1 rir 2's shape. Comments rir 1
+dropped come as left_out, with `now` (0.4.0's parse of the file), whose comments are taken by span;
+compiler/xtmd/tests/migrate_032_format.rs holds it to what 0.4.0 gives for the same text.
 Until rir::READY, a 0.3.2 tree still takes compiler/xtmd/src/cli/migrate.rs's text steps (releases.rs).
 compiler/xtmd/tests/migrate_pipeline.rs runs a made-up release before, rir 1 with `words` for `prose`;
 compiler/xtmd/tests/migrate_032.rs runs every 0.3.2 file of checks/migrate-0.3 against expected.tsv.

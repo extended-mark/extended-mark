@@ -96,7 +96,7 @@ fn what_rir_1_has_no_place_for_is_given_beside_it_() {
     let left = &file["left_out"];
     assert_eq!(left["front_matter"], "---\ntitle: Notes\n---\n");
     let texts: Vec<&str> = left["comments"].as_array().unwrap().iter().map(|c| c["text"].as_str().unwrap()).collect();
-    for c in ["//@about how many", "// at the end of the view"] {
+    for c in ["//@about how many", "// at the end of the view", "// alone in an empty body"] {
         assert!(texts.contains(&c), "{:?} isn't among {:?}", c, texts);
     }
     // what rir 1 kept isn't given twice
@@ -148,6 +148,21 @@ fn every_comment_of_the_corpus_is_in_rir_1_or_beside_it_() {
             let beside = f["left_out"]["comments"].as_array().unwrap().len();
             if kept + beside != all.len() {
                 lost.push(format!("{}: {}: {} comments, {} in rir 1 and {} beside it", u["id"], path, all.len(), kept, beside));
+            }
+            // and a count that isn't the lexer's: every line of the code (outside a widget's Markdown) that
+            // is a comment alone is among them
+            let code = text.split("\n@@@").next().unwrap();
+            let mut in_markdown = 0usize;
+            for line in code.lines().map(str::trim) {
+                if in_markdown > 0 {
+                    in_markdown = (in_markdown + line.matches('{').count()).saturating_sub(line.matches('}').count());
+                    continue;
+                }
+                if line.starts_with("markdown {") && !line.ends_with('}') {
+                    in_markdown = 1;
+                } else if line.starts_with("//") && !all.iter().any(|(_, _, t)| t == line) {
+                    lost.push(format!("{}: {}: {:?} isn't among its comments", u["id"], path, line));
+                }
             }
         }
     }

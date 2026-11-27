@@ -6,8 +6,9 @@
 //! doc comments, a comment at a body's edge or alone in an empty one. The release before's own reading of
 //! the file has them, so each file's resolved IR is given what it left out, `left_out` (a part rir-1's
 //! schema in src/migrate/rir adds): every comment of the code that isn't among rir 1's, with where it
-//! stands, the front matter's text, and where the release before divided the code from the prose. The
-//! step places each where 0.4.0's parser would. Nothing written in a 0.3 file is lost.
+//! stands, the front matter's text, where the release before divided the code from the prose, and
+//! `now`: what this release's parser makes of the file as far as it can, from which the step takes where
+//! each comment goes, by the spans both give the same text. Nothing written in a 0.3 file is lost.
 
 use std::collections::BTreeMap;
 
@@ -19,12 +20,23 @@ use crate::previous::check as old;
 
 pub struct Previous {
     base: old::Checker,
+    /// This release's, for where its parser puts each comment.
+    now: crate::check::Checker,
 }
 
 impl Previous {
     pub fn new() -> Self {
         let core: Vec<old::Source> = crate::previous::core_files::SOURCES.iter().map(|(p, t)| old::Source { path: p.to_string(), text: t.to_string() }).collect();
-        Previous { base: old::compile_core(&core) }
+        Previous { base: old::compile_core(&core), now: crate::check::compile_core(&crate::cli::core_sources()) }
+    }
+
+    /// Where this release's parser puts the file's comments: what it makes of the file as far as it
+    /// can, even with errors (its language may have changed), or nothing when it can't read it at all.
+    fn comments_now(&self, f: &Source, world: &[Source]) -> Value {
+        let opts = crate::check::RirOptions { core: false, partial: true };
+        let module = if crate::migrate::is_doc(&f.path) { "doc" } else { "main" };
+        let (_, r) = crate::check::compile_rir_with(&self.now, &[world.to_vec()], &[f.clone()], module, opts);
+        r.and_then(|r| r["files"].as_array()?.iter().find(|x| x["path"] == f.path.as_str()).cloned()).unwrap_or(Value::Null)
     }
 }
 
@@ -60,6 +72,9 @@ impl Reader for Previous {
                 if file["path"] == f.path.as_str() && !all.iter().any(|x: &Value| x["path"] == file["path"]) {
                     let mut file = file.clone();
                     file["left_out"] = left_out(&f.path, &f.text, &file);
+                    let mut now_world: Vec<Source> = packs.to_vec();
+                    now_world.extend(own.iter().filter(|p| p.path != f.path).map(|p| (*p).clone()));
+                    file["left_out"]["now"] = self.comments_now(f, &now_world);
                     all.push(file);
                 }
             }
@@ -97,16 +112,45 @@ pub fn comments_of(path: &str, src: &str) -> (Vec<(usize, usize, String)>, Optio
     // the code: after the front matter, up to the divider
     let start = front.map_or(0, |f| f.1);
     let end = divider.map_or(src.len(), |d| d.0);
-    let mut out = Vec::new();
-    let mut lx = lexer::Lexer::new(src, start, end);
-    while let Ok(t) = lx.next() {
-        for tr in &t.trivia {
-            if let lexer::Trivia::Comment(c) = tr {
-                out.push((c.span.start as usize, c.span.end as usize, c.text.clone()));
+    // a widget's `markdown` block is prose, which the lexer doesn't read: the code is lexed around each
+    let mut prose: Vec<(usize, usize)> = Vec::new();
+    fn blocks(v: &Value, out: &mut Vec<(usize, usize)>) {
+        match v {
+            Value::Object(o) => {
+                if o.contains_key("empty") && o.contains_key("prose") {
+                    if let (Some(a), Some(b)) = (o["span"]["start"].as_u64(), o["span"]["end"].as_u64()) {
+                        out.push((a as usize, b as usize));
+                    }
+                }
+                o.values().for_each(|x| blocks(x, out));
             }
+            Value::Array(a) => a.iter().for_each(|x| blocks(x, out)),
+            _ => {}
         }
-        if matches!(t.kind, lexer::Tok::Eof) {
-            break;
+    }
+    if let Some(f) = file {
+        blocks(&serde_json::to_value(f).unwrap_or(Value::Null), &mut prose);
+    }
+    prose.sort();
+    let mut parts = Vec::new();
+    let mut at = start;
+    for (a, b) in prose.into_iter().filter(|(a, b)| *a >= start && *b <= end) {
+        parts.push((at, a));
+        at = b;
+    }
+    parts.push((at, end));
+    let mut out = Vec::new();
+    for (a, b) in parts {
+        let mut lx = lexer::Lexer::new(src, a, b);
+        while let Ok(t) = lx.next() {
+            for tr in &t.trivia {
+                if let lexer::Trivia::Comment(c) = tr {
+                    out.push((c.span.start as usize, c.span.end as usize, c.text.clone()));
+                }
+            }
+            if matches!(t.kind, lexer::Tok::Eof) {
+                break;
+            }
         }
     }
     (out, front, divider)

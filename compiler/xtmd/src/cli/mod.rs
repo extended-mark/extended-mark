@@ -18,7 +18,7 @@ use crate::syntax::{entry_for, format, parse, Diagnostic};
 
 use crate::live::CORE;
 
-fn core_sources() -> Vec<crate::check::Source> {
+pub(crate) fn core_sources() -> Vec<crate::check::Source> {
     CORE.iter().map(|(p, t)| crate::check::Source { path: p.to_string(), text: t.to_string() }).collect()
 }
 
